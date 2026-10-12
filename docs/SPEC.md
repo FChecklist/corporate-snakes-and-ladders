@@ -158,12 +158,12 @@ New for this game: **registration closes before the start** (boards are drawn fr
 
 ## 18. Decisions the owner must make
 1. **Window:** 20 seconds (default) or 15.
-2. **Mode:** build Fate mode, Presence mode, or both (recommended: both).
+2. ~~Mode~~ DECIDED 2026-10-12: build BOTH Fate mode and Presence mode; the organizer picks one when creating the game.
 3. **Milestone line:** default square 75, or another; one milestone or several.
 4. **Finish rule:** exact roll to land on the last square (default) or "reach or pass".
 5. **Board size:** classic 100 squares only, or also 144 and 225 for longer games.
 6. ~~Ties~~ DECIDED 2026-10-12: never shared; always a clear order (section 6).
 7. **Extra prizes:** none, or Biggest climb / Comeback / Never missed.
-8. **Crowd strip:** counts only, or also an anonymous top-10 squares.
+8. ~~Crowd strip~~ DECIDED 2026-10-12: players use **nicknames** (chosen when they join); the top-10 list shows nicknames; the crowd chart shows counts. The organizer sees real names only for prize hand-over.
 9. **Theme:** jungle, Career Ladder, or both.
 10. **Price:** the Tambola ladder (default) or its own.
