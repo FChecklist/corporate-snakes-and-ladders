@@ -1,7 +1,7 @@
 # Gates: Corporate Snakes and Ladders (local build, not deployed)
 
 Format: `ID | true/false | proof | note`. true = a passing test or a direct file check. OWNER = only the owner can do it. Nothing here was run in a browser or on a deployed site (local only, RAM rule).
-Last full local run: 938 tests pass, 2 fail (both in `apps/edge/test/privacy.test.ts`: the report's winner-confirmation text and one exact-deletion-date check, still using Bingo prize names in the fixture).
+Last full local run: 940 tests pass, 0 fail.
 Suites removed because they tested Bingo-only screens or features that do not exist here: `apps/web/test/pages.test.ts` (console and phone page scenarios), `phone-guest`, `houses-pages`, `testmode-banner`, `visits-dom`, the Bingo HTTP crowd harness, and about 45 Bingo-only edge tests (claims, rounds, two cards, late joiners, patterns). The new engine, game-settings, consent, paid-window and crowd tests replace what applies.
 
 ## G. Game life cycle
