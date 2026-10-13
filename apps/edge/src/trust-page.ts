@@ -5,7 +5,7 @@ import { FACTS } from "./ai-facts";
 const ORIGIN = "https://corporate-snakes-and-ladders.pages.dev";
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 export const TRUST_UPDATED = "2026-10-07";
-const TITLE = "Safety, privacy and how it works: 10 facts | Corporate Snakes and Ladders";
+const TITLE = "How it works and what it keeps | Corporate Snakes and Ladders";
 const DESC = "Ten plain facts about Corporate Snakes and Ladders: who runs the game, fair boards, guest data erased within 24 hours, encryption, fair winners, the laws it is designed to follow, the AI assistant and money.";
 
 export function trustHtml(): string {
