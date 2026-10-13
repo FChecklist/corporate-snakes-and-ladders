@@ -85,6 +85,13 @@ describe("the console is closed until the setup is finished", () => {
     expect(await j(await call("GET", "/api/whoami", undefined, h.hostKey))).toEqual({ kind: "host", ready: false });
     expect(await j(await call("GET", "/api/host/setup", undefined, h.hostKey))).toEqual({ needEmail: true, needMobile: false, needAccept: true, emailMasked: "p***@acme.com", mobileMasked: "******0001", ready: false });
   });
+  test("a new Host can read the wording of the Terms box (K5) it has to tick: without it the first-open page could not show the box", async () => {
+    const { master } = await organizer(); const h = await addHost(master, { email: "p@acme.com", mobile: "9876500001" });
+    const r = await call("GET", "/api/consent/K5", undefined, h.hostKey);
+    expect(r.status).toBe(200);
+    const b = await j(r);
+    expect([b.kind, b.boxes.length > 0]).toEqual(["K5", true]);
+  });
   test("the setup routes are for a Host key only: not the Organizer, not an AI key, not a stranger", async () => {
     const { master, ai } = await organizer();
     for (const key of [master, ai, undefined, "cbh_" + "0".repeat(48)]) for (const [m, p] of [["GET", "/api/host/setup"], ["POST", "/api/host/setup/mobile"], ["POST", "/api/host/setup/email"], ["POST", "/api/host/setup/email/verify"]] as const)

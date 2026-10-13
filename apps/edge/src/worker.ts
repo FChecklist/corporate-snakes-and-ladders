@@ -610,7 +610,7 @@ async function route0(req: Request, env: Env, now: number, a: Auth): Promise<Res
   const url = new URL(req.url);
   const p = url.pathname;
   // A Host whose first-open setup is not finished (confirmed e-mail + mobile number) can do nothing but finish it (hostsetup.ts). Public routes stay public.
-  if (a.kind === "host" && !a.viaLink && a.hostReady === false && !(p === "/api/whoami" || p.startsWith("/api/host/setup") || p.startsWith("/api/auth/") || p.startsWith("/api/paylink/") || (p === "/api/notices" && req.method === "GET")))
+  if (a.kind === "host" && !a.viaLink && a.hostReady === false && !(p === "/api/whoami" || p.startsWith("/api/host/setup") || p.startsWith("/api/auth/") || p.startsWith("/api/paylink/") || (req.method === "GET" && p.startsWith("/api/consent/")) || (req.method === "GET" && p.startsWith("/api/consent/")) || (p === "/api/notices" && req.method === "GET")))
     return json({ error: "Please finish your setup first: confirm your e-mail address and add your mobile number.", code: "host-setup" }, 403);
 
   if (req.method === "GET" && p === "/api/z/ai-manifest") return json(AI_MANIFEST);

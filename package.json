@@ -16,7 +16,8 @@
     "zlocal": "bun run apps/edge/src/local.ts",
     "pages:build": "bun run pages/build.mjs",
     "pages:deploy": "bun run pages/build.mjs && cd pages && bunx wrangler@3 pages deploy public --project-name corporate-snakes-and-ladders --branch main --commit-dirty=true",
-    "sim": "bun test tools/sim2/snakes-crowd.test.ts --timeout 900000"
+    "sim": "bun test tools/sim2/snakes-crowd.test.ts --timeout 900000",
+    "sim:ui": "node tools/sim2/scenarios/ui/run.mjs"
   },
   "devDependencies": {
     "@types/bun": "latest",

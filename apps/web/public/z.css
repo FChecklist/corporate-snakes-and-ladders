@@ -210,5 +210,5 @@ input.pfill{color:#8a8f98!important}
 
 /* a small sample board (the "see what guests see" preview) */
 .pvboard{display:grid;grid-template-columns:repeat(10,1fr);gap:1px;background:var(--line);border:1px solid var(--line);border-radius:8px;overflow:hidden;max-width:360px;margin:0 auto}
-.pvboard div{aspect-ratio:1;background:var(--sunk);display:flex;align-items:center;justify-content:center;font:600 clamp(7px,2vw,11px) var(--sans,inherit);color:var(--ink2)}
+.pvboard div{aspect-ratio:1;background:var(--sunk);display:flex;align-items:center;justify-content:center;font:600 12px var(--sans,inherit);color:var(--ink2)}
 .pvboard div.a{background:#DCEAE8}.pvboard div.lb{background:#D3EEDB}.pvboard div.sh{background:#F6D9D9}.pvboard div.end{background:var(--acc)}
