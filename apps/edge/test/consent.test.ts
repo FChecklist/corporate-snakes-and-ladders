@@ -39,7 +39,7 @@ describe("test 5: the box wording is the agreed wording, and the version is one 
       if (!CONSENT_KINDS.includes(k as any)) continue;
       expect(boxesFor(k as any).map((b) => [b.id, b.text])).toEqual(Object.entries(FIX[k]));
     }
-    for (const k of ["K1", "K2", "K3", "K4", "K5", "K6", "K9"]) expect(CONSENT_KINDS).toContain(k);
+    for (const k of ["K1", "K2", "K3", "K4", "K5", "K6", "K9"]) expect(CONSENT_KINDS.map(String)).toContain(k);
     expect(JSON.parse(readFileSync(new URL("../src/consent-text.json", import.meta.url), "utf8"))).toEqual(FIX);
   });
   test("a page reads the wording and version from the server (GET /api/consent/<point>) and they are the same", async () => {
