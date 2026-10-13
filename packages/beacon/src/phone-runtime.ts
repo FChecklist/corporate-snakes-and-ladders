@@ -104,6 +104,7 @@ export class PhoneRuntime {
   private thrownSet = new Set<string>(); private thrownUpto = -1; private lastThrowPoll = -Infinity;
   private pingedTurns = new Set<number>();
   private prizesEnded = false;
+  private standKey = ""; private stand: { top: RuntimeView["top"]; crowd: RuntimeView["crowd"]; team: RuntimeView["team"]; table: RuntimeView["table"]; myRank: number | null; turnsPlayed: number; ended: boolean } | null = null;
 
   constructor(readonly eid: string, readonly deps: PhoneDeps) {
     this.store = new RoundStore(deps.beacon, deps.verify);
@@ -460,20 +461,26 @@ export class PhoneRuntime {
     const now = this.nowRound, st = this.tracker?.state;
     const g = this.game, seat = this.seat;
     const run = this.mine, board = this.myBoard;
-    let top: RuntimeView["top"] = [], crowd: RuntimeView["crowd"] = null, team: RuntimeView["team"] = null, table: RuntimeView["table"] = null, myRank: number | null = null, turnsPlayed = this.betas.length, ended = false;
-    if (g?.kind === "race") {
-      const s = g.st; turnsPlayed = s.turnsPlayed; ended = s.ended;
-      top = rankPlayers(s, 10);
-      const c = crowdOf(s); crowd = { players: c.players, bands: c.bands, finished: c.finished, ahead: seat ? c.aheadOf(seat) : 0 };
-      if (seat) { const all = rankPlayers(s, s.runs.length); myRank = all.find((r) => r.seat === seat)?.rank ?? null; }
-      if (s.cfg.teams) { const rows = teamTable(s.cfg, s, teamsOf(s.cfg, s.b0)); const mine = seat ? teamsOf(s.cfg, s.b0)[seat - 1] ?? null : null; team = { rows, mine }; }
-    } else if (g?.kind === "table") {
-      const s = g.st; turnsPlayed = s.throws; ended = s.ended;
-      const rk = rankTable(s); top = rk.slice(0, 10).map((r) => ({ rank: r.rank, seat: r.seat, finishedTurn: r.finishedAtThrow, square: r.square, ladders: s.runs[r.seat - 1]!.ladders, missed: s.runs[r.seat - 1]!.missed, note: "" }));
-      myRank = seat ? rk.find((r) => r.seat === seat)?.rank ?? null : null;
-      table = { order: s.order, whoseTurn: s.whoseTurn, squares: s.runs.map((r) => ({ seat: r.seat, square: squareOf(r) })) };
-      crowd = { players: s.runs.length, bands: new Array(10).fill(0).map((_, i) => s.runs.filter((r) => Math.min(9, Math.floor((squareOf(r) - 1) / (s.board.size / 10))) === i).length), finished: s.finishedOrder.length, ahead: 0 };
+    // the standings are worked out once per game state (a new throw, a new seat list), not once per screen refresh
+    if (this.standKey !== this.gameKey + "|" + (g ? "g" : "-") + this.betas.length + "|" + (seat ?? 0)) {
+      let top: RuntimeView["top"] = [], crowd: RuntimeView["crowd"] = null, team: RuntimeView["team"] = null, table: RuntimeView["table"] = null, myRank: number | null = null, turnsPlayed = this.betas.length, ended = false;
+      if (g?.kind === "race") {
+        const s = g.st; turnsPlayed = s.turnsPlayed; ended = s.ended;
+        top = rankPlayers(s, 10);
+        const c = crowdOf(s); crowd = { players: c.players, bands: c.bands, finished: c.finished, ahead: seat ? c.aheadOf(seat) : 0 };
+        if (seat) { const all = rankPlayers(s, s.runs.length); myRank = all.find((r) => r.seat === seat)?.rank ?? null; }
+        if (s.cfg.teams) { const rows = teamTable(s.cfg, s, teamsOf(s.cfg, s.b0)); const mine = seat ? teamsOf(s.cfg, s.b0)[seat - 1] ?? null : null; team = { rows, mine }; }
+      } else if (g?.kind === "table") {
+        const s = g.st; turnsPlayed = s.throws; ended = s.ended;
+        const rk = rankTable(s); top = rk.slice(0, 10).map((r) => ({ rank: r.rank, seat: r.seat, finishedTurn: r.finishedAtThrow, square: r.square, ladders: s.runs[r.seat - 1]!.ladders, missed: s.runs[r.seat - 1]!.missed, note: "" }));
+        myRank = seat ? rk.find((r) => r.seat === seat)?.rank ?? null : null;
+        table = { order: s.order, whoseTurn: s.whoseTurn, squares: s.runs.map((r) => ({ seat: r.seat, square: squareOf(r) })) };
+        crowd = { players: s.runs.length, bands: new Array(10).fill(0).map((_, i) => s.runs.filter((r) => Math.min(9, Math.floor((squareOf(r) - 1) / (s.board.size / 10))) === i).length), finished: s.finishedOrder.length, ahead: 0 };
+      }
+
+      this.stand = { top, crowd, team, table, myRank, turnsPlayed, ended }; this.standKey = this.gameKey + "|" + (g ? "g" : "-") + this.betas.length + "|" + (seat ?? 0);
     }
+    const { top, crowd, team, table, myRank, turnsPlayed, ended } = this.stand!;
     const turn = this.currentTurn();
     const nextTurnInSec = turn.state === "wait" ? turn.secondsLeft : null;
     return {
