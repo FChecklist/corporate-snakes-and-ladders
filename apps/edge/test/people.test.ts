@@ -1,3 +1,4 @@
+import { withDevice, TICKS } from "./device";
 // Phase 2: people, links and joining (docs/ROLES_AND_CONSOLE_SPEC_3.md, apps/edge/src/people.ts).
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { handle, type Env } from "../src/worker";
@@ -14,7 +15,7 @@ const DURING = roundMs(START) + 20 * 60_000; // twenty minutes into the game
 let env: PayEnv; let raw: ReturnType<typeof makeD1>["raw"]; let ipN = 0;
 const realFetch = globalThis.fetch;
 const call = (method: string, path: string, body?: unknown, key?: string, now = T, extra: Record<string, string> = {}) =>
-  handle(new Request("http://x" + path, { method, headers: { "content-type": "application/json", ...(key ? { "x-organizer": key } : {}), ...extra }, body: body === undefined ? undefined : JSON.stringify(body) }), env as Env, now);
+  handle(new Request("http://x" + path, { method, headers: { "content-type": "application/json", ...(key ? { "x-organizer": key } : {}), ...extra }, body: withDevice(method, path, body) }), env as Env, now);
 const j = async (r: Response) => (await r.json()) as any;
 const mob = (i: number) => "9" + String(100000000 + i); // 9100000001 ...
 const dev = (i: number) => (String(i).padStart(2, "0") + "b".repeat(32)).slice(0, 32);

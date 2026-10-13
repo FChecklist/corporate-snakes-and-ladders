@@ -1,3 +1,4 @@
+import { withDevice, TICKS } from "./device";
 // Phase 4: "Continue with Google" (docs/ROLES_AND_CONSOLE_SPEC_4.md section C item 1, docs/GOOGLE_SIGNIN_SETUP.md). Google is replaced by a fake signing key (google-fake.ts): no test calls Google.
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { handle, type Env } from "../src/worker";
@@ -10,7 +11,7 @@ const T = Date.UTC(2026, 9, 8, 10, 0, 0);
 let env: PayEnv; let raw: ReturnType<typeof makeD1>["raw"]; let idp: Idp; let ip = 0;
 const realFetch = globalThis.fetch; let googleCalls = 0;
 const call = (method: string, path: string, body?: unknown, key?: string, now = T, ipAddr = "8.8.8.8") =>
-  handle(new Request("http://x" + path, { method, headers: { "content-type": "application/json", "cf-connecting-ip": ipAddr, ...(key ? { "x-organizer": key } : {}) }, body: body === undefined ? undefined : JSON.stringify(body) }), env as Env, now);
+  handle(new Request("http://x" + path, { method, headers: { "content-type": "application/json", "cf-connecting-ip": ipAddr, ...(key ? { "x-organizer": key } : {}) }, body: withDevice(method, path, body) }), env as Env, now);
 const j = async (r: Response) => (await r.json()) as any;
 const google = (credential: string, intent = "signup", extra: Record<string, unknown> = {}, ipAddr = "8.8.8.8") => call("POST", "/api/auth/google", { credential, intent, ...extra }, undefined, T, ipAddr);
 const mailsTo = (to: string) => raw.prepare("SELECT subject, body FROM outbox WHERE to_addr=? ORDER BY id").all(to) as { subject: string; body: string }[];

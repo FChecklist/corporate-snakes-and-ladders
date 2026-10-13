@@ -1,3 +1,4 @@
+import { withDevice, TICKS } from "./device";
 // Joining with a name only (the default for the common link): a guest is known by their name, their phone by its own random id.
 // A mobile number is only asked for when the organizer switches that on (join: "phone"), and a personal link or a typed number still work as before.
 import { beforeEach, describe, expect, test } from "bun:test";
@@ -11,7 +12,7 @@ const roundAt = (ms: number) => Math.floor((ms / 1000 - GEN) / 3) + 1;
 const START = roundAt(T) + 1200;
 let env: Env; let raw: ReturnType<typeof makeD1>["raw"]; let n = 0;
 const call = (method: string, path: string, body?: unknown, headers: Record<string, string> = {}, now = T) =>
-  handle(new Request("http://x" + path, { method, headers: { "content-type": "application/json", ...headers }, body: body === undefined ? undefined : JSON.stringify(body) }), env, now);
+  handle(new Request("http://x" + path, { method, headers: { "content-type": "application/json", ...headers }, body: withDevice(method, path, body) }), env, now);
 const j = async (r: Response) => (await r.json()) as any;
 const dev = (i: number) => String(i).padStart(2, "0").repeat(16); // 32 hex characters
 async function game(id: string, over: Record<string, unknown> = {}) {

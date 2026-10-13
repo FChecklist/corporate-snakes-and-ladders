@@ -1,3 +1,4 @@
+import { withDevice, TICKS } from "./device";
 // Phase 3: a pay link anyone can open (docs/ROLES_AND_CONSOLE_SPEC_4.md section B, spec 2 item 13, apps/edge/src/paylink.ts).
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { createHmac } from "node:crypto";
@@ -11,7 +12,7 @@ const START = Math.floor(((T + 3 * H) / 1000 - 1692803367) / 3) + 1; // the game
 let env: PayEnv; let raw: ReturnType<typeof makeD1>["raw"]; let orders: any[]; let payments: Record<string, any>; let ipN = 0;
 const realFetch = globalThis.fetch;
 const call = (method: string, path: string, body?: unknown, key?: string, now = T, ip = "2.2.2.2") =>
-  handle(new Request("http://x" + path, { method, headers: { "content-type": "application/json", "cf-connecting-ip": ip, ...(key ? { "x-organizer": key } : {}) }, body: body === undefined ? undefined : JSON.stringify(body) }), env as Env, now);
+  handle(new Request("http://x" + path, { method, headers: { "content-type": "application/json", "cf-connecting-ip": ip, ...(key ? { "x-organizer": key } : {}) }, body: withDevice(method, path, body) }), env as Env, now);
 const j = async (r: Response) => (await r.json()) as any;
 const tokenOf = (url: string) => new URL(url).searchParams.get("t")!;
 const sign = (orderId: string, id: string) => createHmac("sha256", "sek").update(`${orderId}|${id}`).digest("hex");

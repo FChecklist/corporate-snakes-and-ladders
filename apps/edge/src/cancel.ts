@@ -12,8 +12,9 @@ import type { D1 } from "./worker";
 
 export { teamEmails };
 const r2 = (x: number) => Math.round(x * 100) / 100;
-/** Owner order 2026-10-09: a PAID game that was cancelled can be moved to a new date for 30 days after the cancel. After that only the credit (365 days from the payment) remains. */
-export const RESCHEDULE_WINDOW_MS = 30 * 86_400_000;
+/** A paid game can be moved to any date within 365 days from the date of payment; a cancelled paid game can be moved back for as long as its payment is still alive as credit (the credit lapses 365 days after the payment). */
+export const PAID_WINDOW_MS = 365 * 86_400_000;
+export const RESCHEDULE_WINDOW_MS = PAID_WINDOW_MS;
 export const rescheduleUntilMs = (cancelledMs: number): number => cancelledMs + RESCHEDULE_WINDOW_MS;
 const GENESIS = 1692803367;
 const roundMs = (r: number) => (GENESIS + (r - 1) * 3) * 1000;
@@ -56,11 +57,11 @@ export async function cancelPreview(env: PayEnv, e: any, now: number): Promise<{
   if (paid && roundMs(e.start_round) <= now) return { canCancel: false, reason: "The start time has passed and this game is paid, so it cannot be cancelled now. Please use End the game instead.", paid, credit: null };
   if (e.unplayed_ms) return { canCancel: false, reason: "This game did not start and is closed. You can create a new game like this one.", paid, credit: null };
   const c = await creditIfCancelled(env.DB, e.id); // a paid game: what was paid. Any game: credit that had been applied to it comes back
-  return { canCancel: true, paid, credit: c ? { amountInr: c.amountInr, expiresMs: c.expiresMs } : null, ...(paid ? { rescheduleDays: 30 } : {}) };
+  return { canCancel: true, paid, credit: c ? { amountInr: c.amountInr, expiresMs: c.expiresMs } : null, ...(paid ? { rescheduleDays: 365 } : {}) };
 }
 
 /**
- * Can a cancelled PAID game still be moved to a new date? Three things must hold: (1) 30 days have not passed since the cancel; (2) the credit that the cancel made from this game's payments has not been
+ * Can a cancelled PAID game still be moved to a new date? Three things must hold: (1) the 365 days from the payment have not passed; (2) the credit that the cancel made from this game's payments has not been
  * used for another game (the money is then no longer here to move back); (3) every part of that money is still alive (not past day 365 after its payment). The latest allowed start is just before the first lapse,
  * so a moved game is always played inside the 365 days. Returns the reason in plain words, or the latest allowed start.
  */
@@ -69,7 +70,7 @@ async function reopenBlocker(db: D1, e: any, now: number): Promise<{ reason?: st
   const none = { maxStartMs: 0, made: [] as CreditRow[], restored: [] as RestoredUse[] };
   if (!e.cancelled_ms) return { ...none, reason: "This game is not cancelled." };
   if (e.pack === 0) return { ...none, reason: "Nothing was paid for this game, so there is nothing to move. You can create a new game like this one." };
-  if (now >= rescheduleUntilMs(e.cancelled_ms)) return { ...none, reason: `This game can no longer be moved: it was cancelled more than 30 days ago (the last day was ${creditLastDay(rescheduleUntilMs(e.cancelled_ms))}). Your payment stays as credit for a new game.` };
+  if (now >= rescheduleUntilMs(e.cancelled_ms)) return { ...none, reason: `This game can no longer be moved: the 365 days from the payment have passed. Your payment stays as credit until it lapses.` };
   const made = (await db.prepare("SELECT * FROM credit WHERE eid=? AND kind='cancel' AND status<>'revived' ORDER BY created_ms, id").bind(e.id).all<CreditRow>()).results ?? [];
   const restored = (await db.prepare("SELECT cu.id AS id, cu.credit_id AS credit_id, cu.amount_inr AS amount_inr, c.expires_ms AS exp FROM credit_use cu JOIN credit c ON c.id=cu.credit_id WHERE cu.eid=? AND cu.status='restored'").bind(e.id).all<RestoredUse>()).results ?? [];
   for (const c of made) {
@@ -95,7 +96,7 @@ export async function reopenGame(env: PayEnv, e: any, startRound: unknown, now: 
   if (typeof startRound !== "number" || !Number.isInteger(startRound) || startRound < 1) return fail(400, "Pick the new start date and time.", "start");
   const startMs = roundMs(startRound);
   if (startMs <= now) return fail(400, "Pick a start time in the future.", "start");
-  if (startMs > now + maxAheadMs) return fail(400, "A game can be set at most 30 days ahead.", "too-far");
+  if (startMs > now + maxAheadMs) return fail(400, maxAheadMs > 31 * 86_400_000 ? "A paid game can be moved to any date within 365 days of the payment." : "A game can be set at most 30 days ahead.", "too-far");
   if (startMs > rb.maxStartMs) return fail(400, `Pick a date on or before ${creditLastDay(rb.maxStartMs + 1)}: the money for this game must be used within 365 days of the payment.`, "after-credit-end");
   const undo: (() => Promise<unknown>)[] = [];
   const rollback = async () => { for (const u of undo.reverse()) { try { await u(); } catch { /* best effort: every step above is guarded, so money is never half moved */ } } };

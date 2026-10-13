@@ -93,7 +93,7 @@ describe("the brand through the API", () => {
     expect(list.brand.hasLogo).toBe(true); expect(JSON.stringify(list)).not.toContain("base64");
   });
   test("a game can be created with a brand, and the brand can be removed again", async () => {
-    const st = await j(await handle(new Request("http://x/api/start", { method: "POST", headers: { "content-type": "application/json", "cf-connecting-ip": "5.5.9.9" }, body: JSON.stringify({ email: "c@acme.com" }) }), env as Env, T));
+    const st = await j(await handle(new Request("http://x/api/start", { method: "POST", headers: { "content-type": "application/json", "cf-connecting-ip": "5.5.9.9" }, body: JSON.stringify({ consent: TICKS, email: "c@acme.com" }) }), env as Env, T));
     expect((await call("POST", "/api/z", { id: "BRAND-2", startRound: START, callSeconds: 20, cap: 100, brand: { name: "Zed", color: C0, logo: webp() } }, st.token)).status).toBe(200);
     await call("POST", "/api/z/BRAND-2/publish", { email: "boss@acme.com", phone: "98765 43210" }, st.token);
     expect((await j(await call("GET", "/api/z/BRAND-2/info"))).brand.name).toBe("Zed");

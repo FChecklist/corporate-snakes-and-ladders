@@ -1,3 +1,4 @@
+import { withDevice, TICKS } from "./device";
 // Phase 4: the Host first open (docs/ROLES_AND_CONSOLE_SPEC_4.md section C item 2, apps/edge/src/hostsetup.ts).
 // A Host is added with a name and AT LEAST ONE of e-mail or mobile. The personal link is a one-time entry that lasts 7 days. The console works only after the Host has a
 // confirmed e-mail (a 6-digit code, or Google) AND a mobile number. Later devices sign in by e-mail code or Google. These tests use the strict rule (no test shortcut).
@@ -13,7 +14,7 @@ const T = Date.UTC(2026, 9, 8, 10, 0, 0), DAY = 86_400_000;
 const FAR_START = Math.floor(((T + 2 * 86_400_000) / 1000 - 1692803367) / 3) + 1; // a game two days ahead (a game time can be at most 30 days ahead)
 let env: PayEnv; let raw: ReturnType<typeof makeD1>["raw"]; let idp: Idp; let ip = 0;
 const call = (method: string, path: string, body?: unknown, key?: string, now = T) =>
-  handle(new Request("http://x" + path, { method, headers: { "content-type": "application/json", "cf-connecting-ip": "4.4.4.4", ...(key ? { "x-organizer": key } : {}) }, body: body === undefined ? undefined : JSON.stringify(body) }), env as Env, now);
+  handle(new Request("http://x" + path, { method, headers: { "content-type": "application/json", "cf-connecting-ip": "4.4.4.4", ...(key ? { "x-organizer": key } : {}) }, body: withDevice(method, path, body) }), env as Env, now);
 const j = async (r: Response) => (await r.json()) as any;
 const mailsTo = (to: string) => raw.prepare("SELECT subject, body FROM outbox WHERE to_addr=? ORDER BY id").all(to) as { subject: string; body: string }[];
 const one = (sql: string, ...v: unknown[]) => raw.prepare(sql).get(...(v as any[])) as any;

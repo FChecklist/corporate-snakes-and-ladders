@@ -1,3 +1,4 @@
+import { withDevice, TICKS } from "./device";
 // TEST / LIVE mode (src/mode.ts, test-data.ts, migration 0013). Plain words: docs/TEST_AND_LIVE_MODE.md.
 import { beforeEach, describe, expect, test } from "bun:test";
 import { handle, type Env } from "../src/worker";
@@ -10,7 +11,7 @@ const T = Date.UTC(2026, 9, 6, 10, 0, 0);
 const UA = "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/126.0 Mobile Safari/537.36";
 let env: PayEnv; let raw: ReturnType<typeof makeD1>["raw"];
 const call = (method: string, path: string, body?: unknown, headers: Record<string, string> = {}, now = T) =>
-  handle(new Request("http://x" + path, { method, headers: { "content-type": "application/json", ...headers }, body: body === undefined ? undefined : JSON.stringify(body) }), env as Env, now);
+  handle(new Request("http://x" + path, { method, headers: { "content-type": "application/json", ...headers }, body: withDevice(method, path, body) }), env as Env, now);
 const j = async (r: Response) => (await r.json()) as any;
 const q = (sql: string, ...a: any[]) => raw.prepare(sql).all(...a) as any[];
 const one = (sql: string, ...a: any[]) => raw.prepare(sql).get(...a) as any;

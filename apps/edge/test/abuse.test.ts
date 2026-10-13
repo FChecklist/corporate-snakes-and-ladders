@@ -1,3 +1,4 @@
+import { withDevice, TICKS } from "./device";
 // G-15: a script cannot burn the shared daily write budget by joining; a friendly "busy" answer; invited-number rules stay.
 import { beforeEach, describe, expect, test } from "bun:test";
 import { handle, type Env } from "../src/worker";
@@ -7,7 +8,7 @@ import { makeD1 } from "./d1-sqlite";
 const T = Date.UTC(2026, 9, 1, 10, 0, 0);
 let env: PayEnv; let raw: ReturnType<typeof makeD1>["raw"];
 const call = (method: string, path: string, body?: unknown, headers: Record<string, string> = {}, now = T) =>
-  handle(new Request("http://x" + path, { method, headers: { "content-type": "application/json", ...headers }, body: body === undefined ? undefined : JSON.stringify(body) }), env as Env, now);
+  handle(new Request("http://x" + path, { method, headers: { "content-type": "application/json", ...headers }, body: withDevice(method, path, body) }), env as Env, now);
 const j = async (r: Response) => (await r.json()) as any;
 const roundAt = (ms: number) => Math.floor((ms / 1000 - 1692803367) / 3) + 1;
 const dev = (i: number) => String(i).padStart(32, "0");

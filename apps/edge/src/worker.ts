@@ -183,6 +183,15 @@ const GAPS = [15, 20, 25, 30];
 const GAP_MSG = "The turn window can be 15, 20, 25 or 30 seconds.";
 /** A game time can be set at most 30 days ahead (the server enforces it for the console, the API and an AI alike). */
 const TOO_FAR = "A game can be set at most 30 days ahead. Please pick a day within the next 30 days.";
+const PAID_TOO_FAR = "A paid game can be moved to any date within 365 days of the payment. Please pick an earlier day.";
+/** How far ahead a game time may be set: 30 days for a game nobody has paid for; for a PAID game up to 365 days from the date of payment. */
+async function maxAheadFor(env: Env, e: any, now: number): Promise<number> {
+  if (!e || !e.pack) return MAX_AHEAD_MS;
+  let paid: number | null = null;
+  try { paid = (await env.DB.prepare("SELECT MIN(paid_ms) AS p FROM payment WHERE eid=? AND status='paid'").bind(e.id).first<{ p: number | null }>())?.p ?? null; } catch { /* fall through */ }
+  if (paid === null) { try { paid = (await env.DB.prepare("SELECT MIN(created_ms) AS p FROM entitlement WHERE eid=?").bind(e.id).first<{ p: number | null }>())?.p ?? null; } catch { /* fall through */ } }
+  return Math.max(MAX_AHEAD_MS, (paid ?? now) + 365 * 86_400_000 - now);
+}
 /** Settings and game creation may carry a brand logo (at most 30 KB decoded, about 40 KB as text). */
 const BRAND_BODY_MAX = 60_000;
 const ID = /^[A-Za-z0-9_-]{4,40}$/;
@@ -1271,11 +1280,11 @@ Did not ask for this? Ignore this e-mail.`, now, { secret: true });
     const out = await cancelGame(env as PayEnv, e, now, a.plat ? "platform" : a.kind!);
     return json(out.body, out.status);
   }
-  if (action === "reopen" && req.method === "POST") { // a cancelled PAID game moved to a new date within 30 days of the cancel (cancel.ts): Organizer and Host only, never an AI key or a Co-host
+  if (action === "reopen" && req.method === "POST") { // a cancelled PAID game moved to a new date within 365 days of the payment (cancel.ts): Organizer and Host only, never an AI key or a Co-host
     if (!can(a, e, true)) return deny(a);
     const rb = await body(req, 512);
     if (!(await spend(env, now, 14))) return BUSY();
-    const out = await reopenGame(env as PayEnv, e, rb?.startRound, now, a.plat ? "platform" : a.kind!, MAX_AHEAD_MS);
+    const out = await reopenGame(env as PayEnv, e, rb?.startRound, now, a.plat ? "platform" : a.kind!, await maxAheadFor(env, e, now));
     return json(out.body, out.status);
   }
   if (action === "clone" && req.method === "POST") { // "Create a new game like this one": Organizer and Host (equal rights), never an AI key or a Co-host (clone.ts)
@@ -1675,7 +1684,7 @@ Did not ask for this? Ignore this e-mail.`, now, { secret: true });
     if (Number.isInteger(next.call_seconds) && !GAPS.includes(next.call_seconds)) return json({ error: GAP_MSG }, 400);
     if (!Number.isInteger(next.start_round) || !Number.isInteger(next.call_seconds) || !Number.isInteger(next.cap) || next.cap < 1 || next.cap > 100000) return json({ error: "Check the details." }, 400);
     if (roundMs(next.start_round) <= now) return json({ error: "Pick a start time in the future." }, 400);
-    if (next.start_round !== e.start_round && roundMs(next.start_round) > now + MAX_AHEAD_MS) return json({ error: TOO_FAR, code: "too-far" }, 400);
+    if (next.start_round !== e.start_round) { const mx = await maxAheadFor(env, e, now); if (roundMs(next.start_round) > now + mx) return json({ error: e.pack ? PAID_TOO_FAR : TOO_FAR, code: "too-far" }, 400); }
     const have = await env.DB.prepare("SELECT COUNT(*) AS c FROM participant WHERE eid=?").bind(eid).first<{ c: number }>();
     if (!a.plat && e.pack !== 0 && next.cap > (e.pack ?? e.cap)) return json({ error: `Your pack allows up to ${e.pack ?? e.cap} participants. Buy a bigger pack to raise the limit.` }, 402);
     if (next.cap < (have?.c ?? 0)) return json({ error: "The limit cannot be lower than the people already on the list." }, 409);
