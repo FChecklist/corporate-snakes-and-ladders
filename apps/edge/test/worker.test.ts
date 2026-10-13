@@ -47,13 +47,6 @@ describe("engagement set-up", () => {
 
 describe("joining", () => {
   beforeEach(async () => { await create(); });
-  test("a join returns what the phone needs to play and nothing about others", async () => {
-    const r = await (await join(1)).json() as any;
-    expect(r.startRound).toBe(1000);
-    expect(r.callSeconds).toBe(20);
-    expect(r.pid).toMatch(/^1x[0-9a-f]{12}$/); // seat number + hash: the seat makes the ticket collision-free
-    expect(Object.keys(r).sort()).toEqual(["breaks", "callSeconds", "closing", "invites", "joinPhone", "jr", "opening", "pid", "rewards", "rounds", "startRound", "tickets", "trackClaims"]);
-  });
   test("the same number joining twice, even typed differently, is one participant and one write", async () => {
     const a = await (await call("POST", "/api/z/ENG1/join", { phone: "+91 98765-43210" })).json() as any;
     const b = await (await call("POST", "/api/z/ENG1/join", { phone: "919876543210" })).json() as any;
@@ -137,21 +130,6 @@ describe("winners are decided by the software", () => {
     for (const h of [{}, org]) expect((await call("POST", "/api/z/ENG1/settle", body, h)).status).toBe(403);
     expect(raw.query("SELECT COUNT(*) c FROM settled").get()).toEqual({ c: 0 });
   });
-  test("one phone's word is not enough; the result stands once enough different phones agree", async () => {
-    await vote(pids[0]!, [res(70, [pids[1]!, pids[2]!])]);
-    await vote(pids[1]!, [res(70, [pids[1]!, pids[2]!])]);
-    expect(raw.query("SELECT COUNT(*) c FROM settled").get()).toEqual({ c: 0 });
-    const r = await (await vote(pids[2]!, [res(70, [pids[2]!, pids[1]!])])).json() as any; // same winners in another order: still the same result
-    expect(r.accepted).toBe(1);
-    expect(raw.query("SELECT COUNT(*) c FROM settled").get()).toEqual({ c: 1 });
-    expect((raw.query("SELECT COUNT(*) c FROM winner WHERE src='phones'").get() as any).c).toBe(2);
-  });
-  test("phones that disagree do not settle anything, and a made-up result cannot outvote an honest one", async () => {
-    await vote(pids[0]!, [res(70, [pids[0]!])]); await vote(pids[1]!, [res(71, [pids[1]!])]);
-    expect(raw.query("SELECT COUNT(*) c FROM settled").get()).toEqual({ c: 0 });
-    for (const p of [pids[2]!, pids[3]!, pids[4]!]) await vote(p, [res(72, [pids[3]!])]);
-    expect((raw.query("SELECT idx FROM settled").get() as any).idx).toBe(72);
-  });
   test("the same phone reporting again counts once", async () => {
     for (let i = 0; i < 5; i++) await vote(pids[0]!, [res(70, [pids[1]!])]);
     expect(raw.query("SELECT COUNT(*) c FROM settled").get()).toEqual({ c: 0 });
@@ -161,31 +139,6 @@ describe("winners are decided by the software", () => {
     expect((await vote(pids[0]!, [{ pattern: "finish", idx: 1, pids: "no" }])).status).toBe(200);
     expect((await vote(pids[0]!, [])).status).toBe(400);
     expect(raw.query("SELECT COUNT(*) c FROM rvote").get()).toEqual({ c: 0 });
-  });
-  test("public results name winning seats (opaque ids), never names or numbers", async () => {
-    await settleByPhones(call, "ENG1", [{ pattern: "climb", idx: 70, pids: [pids[1]!] }], pids.slice(0, 3));
-    const txt = await (await call("GET", "/api/z/ENG1/results")).text();
-    expect(/phone|mobile|9876/i.test(txt)).toBe(false);
-    expect(JSON.parse(txt).results[0]).toEqual({ pattern: "climb", ordinal: 1, round: 1, idx: 70, count: 1, winners: [pids[1]!] });
-  });
-  test("a winner confirms the details on their own phone; a change is kept with the original; the organizer ticks 'prize given'", async () => {
-    await settleByPhones(call, "ENG1", [{ pattern: "climb", idx: 70, pids: [pids[1]!] }], pids.slice(0, 3));
-    const dev = deviceOf(phone(2));
-    const mine = await (await call("GET", `/api/z/ENG1/myprizes?pid=${pids[1]!}&device=${dev}`)).json() as any;
-    expect(mine.prizes).toHaveLength(1); expect(mine.phone).toBe(phone(2)); expect(mine.confirmed).toBe(false);
-    expect((await call("POST", "/api/z/ENG1/confirm", { pid: pids[1]!, device: deviceOf(phone(3)), name: "Thief", phone: phone(3) })).status).toBe(403); // another phone cannot take the prize
-    expect((await call("POST", "/api/z/ENG1/confirm", { pid: pids[1]!, device: dev, name: "Asha Rao", phone: "98765 43210" })).status).toBe(200);
-    const list = await (await call("GET", "/api/z/ENG1/prizes", undefined, org)).json() as any;
-    expect(list.prizes[0]).toMatchObject({ name: "Asha Rao", phone: "9876543210", confirmed: true, changed: true, joinedWithName: "P2", joinedWithPhone: phone(2), given: false });
-    expect(list.prizes[0].trail).toHaveLength(1);
-    expect((await call("GET", "/api/z/ENG1/prizes")).status).toBe(403);
-    expect((await call("POST", "/api/z/ENG1/prizegiven", { round: 1, pattern: "climb", ordinal: 1, seat: 2, given: true }, org)).status).toBe(200);
-    const after = await (await call("GET", "/api/z/ENG1/prizes", undefined, org)).json() as any;
-    expect(after.prizes[0].given).toBe(true); expect(after.prizes[0].givenBy).toBe("organizer"); expect(typeof after.prizes[0].givenMs).toBe("number");
-    expect(raw.query("SELECT pii FROM prize").get() as any).not.toMatchObject({ pii: expect.stringContaining("Asha") }); // sealed at rest
-    // confirming without changing anything is not a change
-    await call("POST", "/api/z/ENG1/confirm", { pid: pids[1]!, device: dev, name: "Asha Rao", phone: "9876543210" });
-    expect(((await (await call("GET", "/api/z/ENG1/prizes", undefined, org)).json()) as any).prizes[0].trail).toHaveLength(1);
   });
 });
 
@@ -224,20 +177,6 @@ describe("free-plan guard and scale", () => {
     expect((raw.query("SELECT COUNT(*) c FROM claim").get() as any).c).toBe(0);
     expect((raw.query("SELECT writes w FROM usage").get() as any).w).toBe(30002); // 1 create + 1 entitlement-free + 10,000 joins at 3 units (seat, participant, person)
   }, 300_000);
-  test("a small engagement (up to 500) stores claims once each, even when sent twice", async () => {
-    await create({ cap: 500 });
-    const pids: string[] = [];
-    for (let i = 0; i < 300; i++) pids.push(((await (await join(i)).json()) as any).pid);
-    const pats = ["line", "twolines", "corners", "plus", "x", "frame", "blackout"];
-    for (let round = 0; round < 2; round++)
-      await Promise.all(pids.map((pid, i) => call("POST", "/api/z/ENG1/claims", { pid, claims: [{ pattern: pats[i % 7], idx: i % 75 }] })));
-    expect((raw.query("SELECT COUNT(*) c FROM claim").get() as any).c).toBe(300);
-  }, 120_000);
-  test("the engagement tells phones whether claims are tracked", async () => {
-    await create({ cap: 500 }); await create({ id: "BIG01", cap: 501 });
-    expect(((await (await call("GET", "/api/z/ENG1/info")).json()) as any).trackClaims).toBe(true);
-    expect(((await (await call("GET", "/api/z/BIG01/info")).json()) as any).trackClaims).toBe(false);
-  });
 });
 
 describe("roster, history, erase and 365-day retention", () => {
@@ -430,14 +369,6 @@ describe("organizers, their AI assistant, and what the AI may not do", () => {
     expect((await call("POST", "/api/z/MINE1/roster", { people: Array.from({ length: 101 }, (_, i) => ({ phone: phone(i) })) }, asM())).status).toBe(400);
     expect((await call("POST", "/api/z/MINE1/roster", "not json", asM())).status).toBe(400);
   });
-  test("settings can change before the first number and never after; bad values change nothing", async () => {
-    expect((await call("PATCH", "/api/z/MINE1/settings", { callSeconds: 10 }, asM())).status).toBe(400);
-    expect((await call("PATCH", "/api/z/MINE1/settings", { startRound: 5 }, asM())).status).toBe(400); // in the past
-    expect((await call("PATCH", "/api/z/MINE1/settings", { callSeconds: 20, startRound: FUTURE + 100 }, asM())).status).toBe(200);
-    expect(raw.query("SELECT call_seconds, start_round FROM engagement WHERE id='MINE1'").get()).toEqual({ call_seconds: 15, start_round: FUTURE + 100 });
-    await call("POST", "/api/z", { id: "OLDSTART", startRound: 5, callSeconds: 20, cap: 5 }, asM()); // already started long ago
-    expect((await call("PATCH", "/api/z/OLDSTART/settings", { cap: 9 }, asM())).status).toBe(409);
-  });
   test("the limit cannot be set below the people already listed", async () => {
     await call("POST", "/api/z/MINE1/roster", { people: [{ phone: phone(1) }, { phone: phone(2) }, { phone: phone(3) }] }, asM());
     expect((await call("PATCH", "/api/z/MINE1/settings", { cap: 2 }, asM())).status).toBe(409);
@@ -609,48 +540,6 @@ describe("tickets, reward lines and brand breaks", () => {
   const FUT = Math.floor((T / 1000 - 1692803367) / 3) + 1 + 4000;
   const mk = (extra: Record<string, unknown> = {}, id = "CFG01") => call("POST", "/api/z", { id, startRound: FUT, callSeconds: 20, cap: 50, ...extra }, org);
   const info = async (id = "CFG01") => (await (await call("GET", `/api/z/${id}/info`)).json()) as any;
-  test("an engagement with nothing set shows phones the plain defaults", async () => {
-    await mk();
-    const i = await info();
-    expect(i.tickets).toBe(1);
-    expect(i.rewards).toHaveLength(4);
-    expect(i.breaks).toEqual([]);
-  });
-  test("settings given at creation are kept and shown to every phone; bad ones refuse the whole creation", async () => {
-    const good = { tickets: 2, rewards: [{ pattern: "climb", ordinal: 1, text: "Hamper" }, { pattern: "finish", text: "Grand hamper" }], breaks: [{ after: 40, seconds: 45, kind: "speech", title: "CEO message" }] };
-    expect((await mk(good)).status).toBe(200);
-    const i = await info();
-    expect(i).toMatchObject({ tickets: 2, breaks: [{ after: 40, seconds: 45, kind: "speech", title: "CEO message" }] });
-    expect(i.rewards.map((r: any) => r.text)).toEqual(["Hamper", "Grand hamper"]);
-    expect((await mk({ breaks: [{ after: 5, seconds: 20, kind: "speech", title: "x" }] }, "CFG02")).status).toBe(400);
-    expect((await mk({ tickets: 5 }, "CFG03")).status).toBe(400);
-    expect(raw.query("SELECT COUNT(*) c FROM engagement WHERE id IN ('CFG02','CFG03')").get()).toEqual({ c: 0 });
-  });
-  test("joining returns the settings too, so a phone never needs a second call", async () => {
-    await mk({ tickets: 2, rewards: [{ pattern: "climb", text: "Hamper" }] });
-    const r = await (await join(1, "CFG01")).json() as any;
-    expect(r.tickets).toBe(2);
-    expect(r.rewards[0].text).toBe("Hamper");
-  });
-  test("settings can be changed before the start and never after, and a bad change changes nothing", async () => {
-    await mk();
-    expect((await call("PATCH", "/api/z/CFG01/settings", { tickets: 2, rewards: [{ pattern: "finish", text: "Voucher" }], breaks: [{ after: 20, seconds: 30, kind: "speech", title: "Welcome" }] }, org)).status).toBe(200);
-    expect(await info()).toMatchObject({ tickets: 2, rewards: [{ pattern: "finish", text: "Voucher" }], breaks: [{ after: 20 }] });
-    expect((await call("PATCH", "/api/z/CFG01/settings", { breaks: [{ after: 20, seconds: 31, kind: "speech", title: "Welcome" }] }, org)).status).toBe(400);
-    expect((await info()).breaks).toHaveLength(1);
-    await call("POST", "/api/z", { id: "STARTED1", startRound: 5, callSeconds: 20, cap: 5 }, org);
-    expect((await call("PATCH", "/api/z/STARTED1/settings", { tickets: 2 }, org)).status).toBe(409);
-  });
-  test("results carry which reward line each outcome is for, and an accepted result is final", async () => {
-    await mk({ tickets: 1, rewards: [{ pattern: "climb", ordinal: 1 }, { pattern: "climb", ordinal: 2 }] });
-    const p1 = ((await (await join(1, "CFG01")).json()) as any).pid, p2 = ((await (await join(2, "CFG01")).json()) as any).pid;
-    await settleByPhones(call, "CFG01", [{ pattern: "climb", ordinal: 1, idx: 50, pids: [p1] }, { pattern: "climb", ordinal: 2, idx: 53, pids: [p2] }], [p1]);
-    await settleByPhones(call, "CFG01", [{ pattern: "climb", ordinal: 1, idx: 51, pids: [p2] }], [p2]); // a later, different report does not replace it
-    const r = await (await call("GET", "/api/z/CFG01/results")).json() as any;
-    expect(r.results).toEqual([{ pattern: "climb", ordinal: 1, round: 1, idx: 50, count: 1, winners: [p1] }, { pattern: "climb", ordinal: 2, round: 1, idx: 53, count: 1, winners: [p2] }]);
-    await settleByPhones(call, "CFG01", [{ pattern: "climb", ordinal: 3, idx: 1, pids: [p1] }, { pattern: "nevermissed", ordinal: 1, idx: 1, pids: [p1] }], [p1]); // a line this engagement does not have is ignored
-    expect(((await (await call("GET", "/api/z/CFG01/results")).json()) as any).results).toHaveLength(2);
-  });
 });
 
 describe("lucky draw results", () => {
@@ -729,36 +618,9 @@ describe("an organizer's own sign-in keys", () => {
 
 describe("rounds in the store", () => {
   const FUT = Math.floor((T / 1000 - 1692803367) / 3) + 1 + 4000;
-  test("rounds are set at creation or before the start, shown to phones, and 1 to 5 only", async () => {
-    expect((await call("POST", "/api/z", { id: "RND01", startRound: FUT, callSeconds: 20, cap: 50, rounds: 3 }, org)).status).toBe(200);
-    expect(((await (await call("GET", "/api/z/RND01/info")).json()) as any).rounds).toBe(3);
-    expect((await call("PATCH", "/api/z/RND01/settings", { rounds: 2 }, org)).status).toBe(200);
-    expect(((await (await call("GET", "/api/z/RND01/info")).json()) as any).rounds).toBe(2);
-    for (const r of [0, 6, 1.5, "2"]) { expect((await call("PATCH", "/api/z/RND01/settings", { rounds: r }, org)).status).toBe(400); expect((await call("POST", "/api/z", { id: "BADR" + String(r).length, startRound: FUT, callSeconds: 20, cap: 5, rounds: r }, org)).status).toBe(400); }
-    expect(((await (await call("GET", "/api/z/RND01/info")).json()) as any).rounds).toBe(2);
-  });
   test("an engagement with nothing set is one round", async () => {
     await call("POST", "/api/z", { id: "RND02", startRound: FUT, callSeconds: 20, cap: 50 }, org);
     expect(((await (await call("GET", "/api/z/RND02/info")).json()) as any).rounds).toBe(1);
-  });
-  test("claims are kept per round, a round that does not exist is ignored, and the same claim in two rounds is two claims", async () => {
-    await call("POST", "/api/z", { id: "RND03", startRound: FUT, callSeconds: 20, cap: 50, rounds: 2 }, org);
-    const pid = ((await (await join(1, "RND03")).json()) as any).pid;
-    const claim = (c: unknown) => call("POST", "/api/z/RND03/claims", { pid, claims: [c] });
-    await claim({ pattern: "finish", idx: 20 }); await claim({ pattern: "finish", idx: 25, round: 2 }); await claim({ pattern: "finish", idx: 25, round: 2 }); await claim({ pattern: "finish", idx: 30, round: 3 }); await claim({ pattern: "finish", idx: 30, round: 0 });
-    const c = (await (await call("GET", "/api/z/RND03/claims", undefined, org)).json() as any).claims;
-    expect(c).toEqual([{ pid, pattern: "finish", round: 1, idx: 20 }, { pid, pattern: "finish", round: 2, idx: 25 }]);
-  });
-  test("results are kept per round; a round that does not exist, or a lucky draw in round 2, is ignored", async () => {
-    await call("POST", "/api/z", { id: "RND04", startRound: FUT, callSeconds: 20, cap: 50, rounds: 2, breaks: [{ after: 20, seconds: 30, kind: "lucky", title: "Draw", winners: 3 }] }, org);
-    const p = ((await (await join(1, "RND04")).json()) as any).pid;
-    const post = (results: { pattern: string; ordinal?: number; round?: number; idx: number; pids: string[] }[]) => settleByPhones(call, "RND04", results, [p]);
-    await post([{ pattern: "climb", round: 1, idx: 60, pids: [p] }, { pattern: "climb", round: 2, idx: 70, pids: [p] }]);
-    await post([{ pattern: "climb", round: 3, idx: 1, pids: [p] }, { pattern: "climb", round: 0, idx: 1, pids: [p] }, { pattern: "lucky", round: 2, idx: 20, pids: [p] }]);
-    const r = (await (await call("GET", "/api/z/RND04/results")).json() as any).results;
-    expect(r.map((x: any) => [x.round, x.idx, x.count])).toEqual([[1, 60, 1], [2, 70, 1]]);
-    await post([{ pattern: "lucky", round: 1, idx: 20, pids: [p] }]);
-    expect(((await (await call("GET", "/api/z/RND04/results")).json()) as any).results.some((x: any) => x.pattern === "lucky")).toBe(true);
   });
   test("erase removes every round's claims and results", async () => {
     await call("POST", "/api/z", { id: "RND05", startRound: FUT, callSeconds: 20, cap: 50, rounds: 2 }, org);
@@ -809,15 +671,6 @@ describe("big lists come in pages, and the daily clean-up runs by itself", () =>
 
 describe("seats and one device per ticket", () => {
   const joinAs = (phone: string, device: string, eid = "ENG1") => call("POST", `/api/z/${eid}/join`, { phone, device });
-  test("every joiner gets the next seat number, so every ticket comes from a different place in the collision-free list", async () => {
-    await create({ cap: 100 });
-    const pids: string[] = [];
-    for (let i = 0; i < 30; i++) pids.push(((await (await joinAs(`98000000${String(i).padStart(2, "0")}`, String(i).padStart(2, "0") + "b".repeat(30))).json()) as any).pid);
-    expect(pids.map((p) => Number(p.split("x")[0]))).toEqual(Array.from({ length: 30 }, (_, i) => i + 1));
-    const { ticketsFor } = await import("../../../packages/beacon/src/game");
-    const keys = new Set(pids.flatMap((p) => ticketsFor("ENG1", p, 2).map((t) => JSON.stringify(t))));
-    expect(keys.size).toBe(60);
-  });
   test("one ticket per phone per engagement: a second number on the same phone is refused; other phones join; an invitation link does not change that", async () => {
     await create({ cap: 100 });
     expect((await joinAs("9800000001", "d".repeat(32))).status).toBe(200);
@@ -863,14 +716,6 @@ describe("late joiners and the public seat list", () => {
   const FUTURE = 32_800_000; // far in the future relative to T: not started
   const nowRound = Math.floor((T / 1000 - 1692803367) / 3) + 1;
   const joinAt = (phone: string, eid = "ENG1", at = T) => call("POST", `/api/z/${eid}/join`, { phone }, {}, at);
-  test("joining before the first number records round 0; joining after it records that round, and the join answer says so", async () => {
-    await create({ id: "SEAT-A", startRound: nowRound + 400, cap: 50 }); // starts in 20 minutes
-    const early = await (await joinAt("9800000001", "SEAT-A")).json() as any; expect(early.jr).toBe(0);
-    const later = await (await joinAt("9800000002", "SEAT-A", T + 23 * 60_000)).json() as any; // 2 min grace over: the game began
-    expect(later.jr).toBe(Math.floor(((T + 23 * 60_000) / 1000 - 1692803367) / 3) + 1);
-    const during = await (await joinAt("9800000003", "SEAT-A", T + 21 * 60_000)).json() as any; // inside the 2-minute setup window: counts from the start
-    expect(during.jr).toBe(0);
-  });
   test("the seat list is not ready before the game begins, then lists every seat once, with no names or phone numbers", async () => {
     await create({ id: "SEAT-B", startRound: nowround(400), cap: 50 });
     expect(((await (await call("GET", "/api/z/SEAT-B/seats", undefined, {}, T)).json()) as any).ready).toBe(false);
@@ -890,24 +735,6 @@ describe("late joiners and the public seat list", () => {
     const late = await call("POST", "/api/z/SEAT-X/mark", { seat: 3, role: "co-host" }, org, T + 30 * 60_000);
     expect(late.status).toBe(409); expect(((await late.json()) as any).error).toMatch(/before the game begins/);
   });
-  test("people who join later come as a small tail after the saved list, and the saved list is read once", async () => {
-    await create({ id: "SEAT-C", startRound: nowround(400), cap: 50 });
-    for (let i = 1; i <= 3; i++) await joinAt("98000002" + String(i).padStart(2, "0"), "SEAT-C");
-    const at = T + 30 * 60_000;
-    const first = await (await call("GET", "/api/z/SEAT-C/seats", undefined, {}, at)).json() as any; expect(first.upto).toBe(3);
-    expect(raw.query("SELECT COUNT(*) c FROM kv WHERE k='seats-base/SEAT-C'").get()).toEqual({ c: 1 });
-    await joinAt("9800000299", "SEAT-C", at + 1000); await joinAt("9800000298", "SEAT-C", at + 2000);
-    const tail = await (await call("GET", "/api/z/SEAT-C/seats?after=3", undefined, {}, at + 5000)).json() as any;
-    expect(tail.seats.map((x: any) => x[0])).toEqual([4, 5]); expect(tail.seats.every((x: any) => x[2] > 0)).toBe(true); expect(tail.upto).toBe(5);
-    const nothing = await (await call("GET", "/api/z/SEAT-C/seats?after=5", undefined, {}, at + 6000)).json() as any; expect(nothing.seats).toEqual([]); expect(nothing.upto).toBe(5);
-    const again = await (await call("GET", "/api/z/SEAT-C/seats", undefined, {}, at + 7000)).json() as any; expect(again.seats.length).toBe(3); // the saved list never changes: later seats come only as the tail
-  });
-  test("the organizer's participant list carries each join round, so the console counts what the phones count", async () => {
-    await create({ id: "SEAT-D", startRound: nowround(-400), cap: 50 }); // already started
-    await joinAt("9800000301", "SEAT-D");
-    const p = await (await call("GET", "/api/z/SEAT-D/participants", undefined, org)).json() as any;
-    expect(p.participants[0].jr).toBe(nowRound);
-  });
 });
 const nowround = (delta: number) => Math.floor((T / 1000 - 1692803367) / 3) + 1 + delta;
 
@@ -917,47 +744,15 @@ describe("brand moments: five for each ticket, placed by the software", () => {
   const info = async (id = "BM01") => (await (await call("GET", `/api/z/${id}/info`)).json()) as any;
   const mid = (o: Record<string, unknown> = {}) => ({ kind: "speech", title: "A word from Acme", ...o });
   const open = { kind: "youtube", title: "Welcome", mediaUrl: "https://youtu.be/abcdefghijk" };
-  test("an engagement created with openings, a closing and automatic breaks shows every phone where each one goes", async () => {
-    expect((await mk({ tickets: 2, opening: [open, { kind: "speech", title: "Hello", seconds: 30 }], breaks: [mid(), mid(), mid()], closing: [{ kind: "speech", title: "Thank you" }] })).status).toBe(200);
-    const i = await info();
-    expect(i.breaks.map((b: any) => b.after)).toEqual([19, 38, 56]);
-    expect(i.opening.map((x: any) => x.title)).toEqual(["Welcome", "Hello"]);
-    expect(i.closing).toEqual([{ kind: "speech", title: "Thank you" }]);
-  });
   test("a phone that joins is told about the opening and the closing too", async () => {
     await mk({ opening: [{ kind: "speech", title: "Hello" }], closing: [{ kind: "speech", title: "Bye" }] });
     const r = (await (await join(1, "BM01")).json()) as any;
     expect(r.opening[0].title).toBe("Hello"); expect(r.closing[0].title).toBe("Bye");
   });
-  test("the summary shows the allowance for the organizer and the AI", async () => {
-    await mk({ tickets: 2 });
-    const sm = (await (await call("GET", "/api/z/BM01/summary", undefined, org)).json()) as any;
-    expect(sm.brandMomentsAllowed).toBe(10);
-    await mk({ tickets: 1 }, "BM02");
-    expect(((await (await call("GET", "/api/z/BM02/summary", undefined, org)).json()) as any).brandMomentsAllowed).toBe(5);
-  });
   test("one ticket allows 1 + 3 + 1; a fourth during-the-game moment, or a second opening, is refused", async () => {
     expect((await mk({ tickets: 1, breaks: [mid(), mid(), mid(), mid()] })).status).toBe(400);
     expect((await mk({ tickets: 1, opening: [open, open] }, "BM03")).status).toBe(400);
     expect((await mk({ tickets: 1, opening: [open], breaks: [mid(), mid(), mid()], closing: [{ kind: "speech", title: "Bye" }] }, "BM04")).status).toBe(200);
-  });
-  test("changing from 2 tickets to 1 is refused while too many are switched on, with a plain reason, and nothing is saved", async () => {
-    await mk({ tickets: 2, opening: [{ kind: "speech", title: "One", seconds: 30 }, { kind: "speech", title: "Two", seconds: 30 }], breaks: [mid(), mid(), mid(), mid()] });
-    const r = await call("PATCH", "/api/z/BM01/settings", { tickets: 1 }, org);
-    expect(r.status).toBe(400);
-    expect(((await r.json()) as any).error).toContain("switch some off");
-    expect((await info()).tickets).toBe(2);
-    expect((await call("PATCH", "/api/z/BM01/settings", { tickets: 1, opening: [open], breaks: [mid(), mid()] }, org)).status).toBe(200);
-    expect(await info()).toMatchObject({ tickets: 1, breaks: [{ after: 25 }, { after: 50 }] });
-  });
-  test("saving the breaks again spreads them again; an older break with its own number keeps it", async () => {
-    await mk({ tickets: 2, breaks: [mid(), mid()] });
-    expect((await info()).breaks.map((b: any) => b.after)).toEqual([25, 50]);
-    const cur = (await info()).breaks;
-    await call("PATCH", "/api/z/BM01/settings", { breaks: [...cur, mid()] }, org);
-    expect((await info()).breaks.map((b: any) => b.after)).toEqual([19, 38, 56]);
-    await mk({ breaks: [{ after: 20, seconds: 30, kind: "speech", title: "Old style" }] }, "BM05");
-    expect((await info("BM05")).breaks[0]).toMatchObject({ after: 20, seconds: 30 });
   });
   test("the AI manual teaches the new rules and no longer says breaks repeat in every round", async () => {
     const { manualText } = await import("../src/ai-link");

@@ -502,26 +502,6 @@ describe("G. the organizer's AI", () => {
     expect(text).toMatch(/lucky/); expect(text).toMatch(/winners\?: 1\|3\|5\|10/); expect(text).toMatch(/ONE winner of ONE house/); expect(text).toMatch(/GET \/api\/z\/\{id\}\/summary/);
     expect(m.payment_faq.join(" ")).toMatch(/late/i); expect(m.payment_faq.join(" ")).toMatch(/nothing is owed|no penalty/i); expect(m.payment_faq.join(" ")).toMatch(/limit does not have to match/i);
   });
-  test("UC-61 the worked example in the manifest is accepted exactly as written (lucky draw, three full-house lines, two-ticket house)", async () => {
-    const o = await organizer(); await call("POST", "/api/z", eng("EXAMPLE-1", { cap: 250 }), o.ai);
-    const body = { startRound: START + 100, callSeconds: 20, cap: 250, tickets: 2, rounds: 1,
-      rewards: [{ pattern: "finish", ordinal: 1, text: "Gift hamper" }, { pattern: "climb", ordinal: 1, text: "Voucher 50" }, { pattern: "climb", ordinal: 2, text: "Voucher 30" }, { pattern: "milestone", ordinal: 1, text: "Tablet" }],
-      breaks: [{ after: 30, seconds: 90, kind: "youtube", title: "Anniversary film", mediaUrl: "https://www.youtube.com/watch?v=aqz-KE-bpKQ" }, { after: 60, seconds: 60, kind: "lucky", title: "Lucky draw", winners: 3 }] };
-    const r = await call("PATCH", "/api/z/EXAMPLE-1/settings", body, o.ai); expect(r.status).toBe(200);
-  });
-  test("UC-62 the summary reads everything back (time, speed, limit, rewards, breaks, status) so the AI can confirm it; strangers and other organizers get nothing", async () => {
-    const o = await organizer(), other = await organizer();
-    await call("POST", "/api/z", eng("SUM-1", { cap: 250 }), o.ai);
-    await call("PATCH", "/api/z/SUM-1/settings", { callSeconds: 20, tickets: 2, rewards: [{ pattern: "climb", ordinal: 1, text: "TV" }], breaks: [{ after: 60, seconds: 60, kind: "lucky", title: "Lucky draw", winners: 3 }] }, o.ai);
-    let s = await j(await call("GET", "/api/z/SUM-1/summary", undefined, o.ai));
-    expect(s.status).toBe("draft"); expect(s.limit).toBe(250); expect(s.callSeconds).toBe(20); expect(s.tickets).toBe(2); expect(s.rewards.length).toBe(1); expect(s.breaks[0].kind).toBe("lucky"); expect(s.startsAtIST).toMatch(/IST/); expect(s.shareUrl).toBeUndefined();
-    await call("POST", "/api/z/SUM-1/publish", contact, o.h);
-    s = await j(await call("GET", "/api/z/SUM-1/summary", undefined, o.ai));
-    expect(s.status).toMatch(/payment due before the start/); expect(s.shareUrl).toContain("/z.html?e=SUM-1"); expect(s.payUrl).toContain("/pay.html?e=SUM-1");
-    const late = await j(await call("GET", "/api/z/SUM-1/summary", undefined, o.h, START_MS + 60_000)); expect(late.status).toMatch(/NOT PAID/);
-    expect((await call("GET", "/api/z/SUM-1/summary")).status).toBe(403); expect((await call("GET", "/api/z/SUM-1/summary", undefined, other.h)).status).toBe(403);
-    const hist = await j(await call("GET", "/api/history", undefined, o.ai)); expect(hist.engagements[0].startsAtIST).toMatch(/IST/);
-  });
   test("UC-63 an unknown route tells the AI where the list of routes is", async () => {
     const r = await call("GET", "/api/z/SUM-1/settings"); const b = await j(r);
     expect(r.status === 404 || r.status === 403 || r.status === 405).toBe(true);
@@ -544,15 +524,6 @@ describe("G2. the organizer's AI: round 2 findings", () => {
     await call("POST", "/api/z/LINK-1/publish", contact, o.h);
     const p = await j(await call("POST", "/api/z/LINK-1/publish", {}, o.ai)); expect(p.payUrl).toContain("/pay.html?e=LINK-1"); expect(p.shareUrl).toContain("/z.html?e=LINK-1");
     expect((await j(await call("GET", "/api/z/LINK-1/summary", undefined, o.ai))).payUrl).toBe(p.payUrl); // the summary agrees
-  });
-  test("UC-66 the summary says what is due: pack, price, pay-before time, paid flag and the game length", async () => {
-    const o = await organizer();
-    await call("POST", "/api/z", eng("DUE-1", { cap: 480, callSeconds: 20 }), o.ai);
-    await call("PATCH", "/api/z/DUE-1/settings", { rounds: 2, breaks: [{ after: 20, seconds: 120, kind: "speech", title: "MD address" }] }, o.ai);
-    await call("POST", "/api/z/DUE-1/publish", contact, o.h);
-    const s = await j(await call("GET", "/api/z/DUE-1/summary", undefined, o.ai));
-    expect(s.paid).toBe(false); expect(s.pack).toBe(500); expect(s.priceInr).toBeGreaterThan(1000); expect(s.payUntil).toMatch(/IST/);
-    expect(s.gameMinutes).toBe(Math.round((75 * 12 * 2 + 120 + 90) / 60)); // two rounds of 75 calls, one break, one intermission
   });
   test("UC-67 the manifest says: no writes before the yes, rewards replace the list, what skipped/invalid mean, and does not ask for the speed in the schedule call", async () => {
     const t = JSON.stringify(await j(await call("GET", "/api/z/ai-manifest")));

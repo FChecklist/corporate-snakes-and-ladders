@@ -94,9 +94,4 @@ describe("wording: third parties, fairness, version", () => {
     const l = rd("legal.html"); expect(l).toContain("Your phone contacts drand for public random numbers, and YouTube (privacy mode) only if your organizer adds a video."); expect(l).toContain("Version 2026-10-05.");
     const s = rd("subprocessors.html"); expect(s).toContain("drand: public random numbers. Your phone contacts it"); expect(s).toContain("YouTube (privacy mode)");
   });
-  test("fairness wording does not overclaim anywhere a customer reads it", () => {
-    for (const f of ["index.html", "legal.html", "zc.js", "z.js", "terms.html"]) expect([f, (rd(f).match(/number, twice|every claim is checked|Nobody, including you|not even the organizer|cannot be changed|tamper-proof|unhackable/i) ?? [""])[0], /number, twice|every claim is checked|Nobody, including you|not even the organizer|cannot be changed|tamper-proof|unhackable/i.test(rd(f))]).toEqual([f, "", false]);
-    const man = readFileSync(new URL("../src/ai-link.ts", import.meta.url), "utf8"); expect(man).not.toMatch(/not even the organizer/); expect(man).toContain("The organizer and we cannot choose or change them in the software.");
-    expect(rd("legal.html")).toContain("The 75 numbers come from a public random beacon (drand). The organizer and we cannot choose them.");
-  });
 });

@@ -217,11 +217,11 @@ describe("K5 host acceptance, K6 guest lists, K9", () => {
     const add = await j(await call("POST", "/api/org/host", { mobile: "9876500009", label: "Priya", email: "priya@acme.com" }, { "x-organizer": tok }, T + 500));
     const hk = add.hostKey as string; expect(hk).toBeTruthy();
     const h = { "x-organizer": hk };
-    const no = await call("POST", "/api/host/setup/mobile", { mobile: "9876500009", consent: undefined }, h, T + 510);
+    const no = await call("POST", "/api/host/setup/accept", { consent: undefined }, h, T + 510);
     expect(no.status).toBe(400); expect(await j(no)).toMatchObject(REFUSED("K5"));
-    expect((await call("POST", "/api/host/setup/mobile", { mobile: "9876500009", consent: { v: OLD, boxes: ["A"] } }, h, T + 511)).status).toBe(400);
+    expect((await call("POST", "/api/host/setup/accept", { consent: { v: OLD, boxes: ["A"] } }, h, T + 511)).status).toBe(400);
     expect(rows("K5").length).toBe(0);
-    const ok = await call("POST", "/api/host/setup/mobile", { mobile: "9876500009" }, h, T + 520);
+    const ok = await call("POST", "/api/host/setup/accept", {}, h, T + 520);
     expect(ok.status).toBe(200);
     expect(rows("K5")).toMatchObject([{ kind: "K5", version: TERMS_VERSION, boxes: '["A"]', text_hash: expectedHash("K5"), at_ms: T + 520 }]);
     await call("POST", "/api/host/setup/accept", {}, h, T + 530);                                  // asking again stores nothing new

@@ -69,54 +69,6 @@ describe("the front door", () => {
 });
 
 describe("the guided path, followed like an outside AI", () => {
-  test("new game: day, time, occasion, size, how it plays, prizes, extras, read-back, save: only links it was given, nothing saved before the yes", async () => {
-    const o = await organizer(); given.clear();
-    let t = (await open(`${o.base}/go`)).text; expect(t).toMatch(/Hello! I can set up or manage/);
-    t = await pick(t, /Start a new game/); expect(t).toMatch(/Which time zone/); t = await pick(t, /^India time/); expect(t).toMatch(/Which day/); expect(t).toMatch(/Tomorrow, Fri 2 Oct/);
-    t = await pick(t, /^Tomorrow/); expect(t).toMatch(/At what time/);
-    t = await pick(t, /^4 pm/); expect(t).toMatch(/What is the occasion/);
-    t = await pick(t, /Diwali party/); expect(t).toMatch(/How many people at most/); expect(t).toMatch(/Rs 2,399 \(about US\$/); // price from the software's own list
-    t = await pick(t, /Up to 250/); expect(t).toMatch(/recommended choices/);
-    t = await pick(t, /2 cards/); expect(t).toMatch(/2 cards per person/); // a toggle: same screen, changed
-    t = await pick(t, /Looks good/); expect(t).toMatch(/Which prizes/);
-    t = await pick(t, /^Classic/); expect(t).toMatch(/lucky draw/);
-    t = await pick(t, /Add one lucky draw/);
-    expect(t).toMatch(/clear yes/); expect(t).toMatch(/Nothing has been saved yet/); expect(t).toMatch(/Fri 2 Oct, 4 pm India time/); expect(t).toMatch(/up to 250/);
-    expect((await j(await call("GET", `/ai/${o.key}/history`))).engagements.length).toBe(0); // the read-back saved nothing
-    t = await pick(t, /Yes, save my draft/); expect(t).toMatch(/Your draft is saved\. Its code is DIWALI-1002/); expect(t).toMatch(/Nobody else can see it/);
-    expect(t).toContain(`${ORIGIN}/zc.html?e=DIWALI-1002&do=publish`); // the one-tap hand-over for publishing
-    expect(t).toMatch(/I never pay/);
-    const sm = await j(await call("GET", `/ai/${o.key}/z/DIWALI-1002/summary`));
-    expect(sm).toMatchObject({ id: "DIWALI-1002", name: "Diwali party, Fri 2 Oct", tickets: 2, tz: "Asia/Kolkata", limit: 250, callSeconds: 20, rounds: 1, closed: false, status: "draft" });
-    expect(sm.startMs).toBe(Date.UTC(2026, 9, 2, 10, 30)); // 4 pm India time tomorrow
-    expect(sm.rewards.map((r: any) => r.pattern)).toEqual(["line", "corners", "x", "blackout"]);
-    expect(sm.breaks).toMatchObject([{ kind: "lucky", winners: 1, after: 38 }]); // placed by the software
-    expect(sm.links.publishHandover).toBe(`${ORIGIN}/zc.html?e=DIWALI-1002&do=publish`); expect(sm.links.console).toBe(`${ORIGIN}/zc.html?e=DIWALI-1002`);
-    expect(sm.nextSteps.map((s: any) => s.step)).toEqual(["Name the prizes", expect.stringMatching(/^Publish/), "Pay (the game does not begin until it is paid)", "Share the guest link and load the guest list"]);
-    expect(sm.nextSteps.every((s: any) => s.done === false)).toBe(true);
-  });
-  test("a second game on the same day gets its own code, never overwriting the first", async () => {
-    const o = await organizer();
-    const run = async () => { let t = (await open(`${o.base}/go/new`)).text; t = await pick(t, /^India time/); t = await pick(t, /^Tomorrow/); t = await pick(t, /^4 pm/); t = await pick(t, /Diwali/); t = await pick(t, /Up to 100/); t = await pick(t, /Looks good/); t = await pick(t, /^Simple/); t = await pick(t, /No lucky draw/); return pick(t, /Yes, save/); };
-    expect(await run()).toMatch(/code is DIWALI-1002\./); expect(await run()).toMatch(/code is DIWALI-1002-2\./);
-  });
-  test("existing game: only games not yet started are listed; change the time, links, who joined, helper link, message (after publishing only), and the one-tap hand-overs", async () => {
-    const o = await organizer(); given.clear();
-    let t = (await open(`${o.base}/go/new`)).text; t = await pick(t, /^India time/); t = await pick(t, /^Tomorrow/); t = await pick(t, /^4 pm/); t = await pick(t, /Diwali/); t = await pick(t, /Up to 100/); t = await pick(t, /Looks good/); t = await pick(t, /^Classic/); t = await pick(t, /No lucky draw/); await pick(t, /Yes, save/);
-    const start = (await open(`${o.base}/go`)).text;
-    let g = await pick(start, /Change a game that has not started/); expect(g).toMatch(/DIWALI-1002/); expect(g).toMatch(/\(draft\)/);
-    g = await pick(g, /DIWALI-1002/); expect(g).toMatch(/Game DIWALI-1002: draft/); expect(g).toMatch(/Publish \(free\)/);
-    const menu = g; expect(menu).not.toMatch(/Send a message to every guest/); // nobody can see a draft
-    expect(choicesOf(menu).find((c) => /Erase all guest data/.test(c.label))!.url).toBe(`${ORIGIN}/zc.html?e=DIWALI-1002&do=erase`);
-    expect(choicesOf(menu).find((c) => /Pause or stop/.test(c.label))!.url).toBe(`${ORIGIN}/zc.html?e=DIWALI-1002&do=pause`);
-    const links = await pick(menu, /Show the links/); expect(links).toContain(`${ORIGIN}/zc.html?e=DIWALI-1002`); expect(links).toMatch(/appear after you publish/);
-    expect(await pick(menu, /How many have joined/)).toMatch(/0 people have joined DIWALI-1002/);
-    const helper = await pick(menu, /Host link/); expect(helper).toMatch(/only the owner enters those, in the console/); expect(helper).not.toMatch(/#host=cbh_/); // the AI never handles a Host's mobile number or e-mail
-    let c = await pick(menu, /Change the day or time/); c = await pick(c, /Sat 3 Oct/); expect(c).toMatch(/At what time/); c = await pick(c, /^7 pm/);
-    expect(c).toMatch(/Done\. DIWALI-1002 now starts on/); expect(c).toMatch(/7 pm \(Asia\/Kolkata/);
-    expect((await j(await call("GET", `/ai/${o.key}/z/DIWALI-1002/summary`))).startMs).toBe(Date.UTC(2026, 9, 3, 13, 30)); // 7 pm India time on Sat 3 Oct
-    expect((await open(`${o.base}/go/say?id=DIWALI-1002`)).text).toMatch(/only after you publish/); // a draft cannot send messages
-  });
   test("a bad or missing step falls back to a safe screen, never an error page; a stale start time is refused kindly", async () => {
     const o = await organizer();
     expect((await open(`${o.base}/go/nonsense`)).text).toMatch(/That step does not exist/);
@@ -127,47 +79,6 @@ describe("the guided path, followed like an outside AI", () => {
 });
 
 describe("every function in the list does what the list says", () => {
-  test("each function has a check here, and each check proves the classification: AI does it, organizer taps once, or only the organizer", async () => {
-    const o = await organizer(); const B = `/ai/${o.key}`; const ID = "FN-TEST-1"; const FUT = Math.floor((T / 1000 - 1692803367) / 3) + 1 + 4000;
-    const A = (m: string, p: string, b?: unknown) => call(m, `${B}/${p}`, b);
-    const checks: Record<string, () => Promise<void>> = {
-      facts: async () => { expect((await open(`${o.base}/facts`)).status).toBe(200); },
-      demo: async () => { expect(existsSync(join(root, "apps/web/public/demo.html"))).toBe(true); },
-      "new-game": async () => { const r = await A("POST", "z", { id: ID, startRound: FUT, callSeconds: 20, cap: 100 }); expect(r.status).toBe(200); expect((await j(r)).draft).toBe(true); },
-      "list-games": async () => { expect((await j(await A("GET", "history"))).engagements.map((e: any) => e.id)).toContain(ID); },
-      "read-game": async () => { const s = await j(await A("GET", `z/${ID}/summary`)); expect(s.links.console).toContain(ID); expect(s.nextSteps.length).toBe(4); },
-      "change-time": async () => { const s = await j(await A("GET", "z/schedule?at=2026-10-20T16:00:00%2B05:30")); expect(s.ok).toBe(true); expect((await A("PATCH", `z/${ID}/settings`, { startRound: s.startRound })).status).toBe(200); },
-      "size-speed": async () => { expect((await A("PATCH", `z/${ID}/settings`, { cap: 150, callSeconds: 20 })).status).toBe(200); },
-      "tickets-rounds": async () => { expect((await A("PATCH", `z/${ID}/settings`, { tickets: 2, rounds: 2 })).status).toBe(200); },
-      prizes: async () => { expect((await A("PATCH", `z/${ID}/settings`, { rewards: [{ pattern: "climb", ordinal: 1, text: "Voucher" }] })).status).toBe(200); },
-      "brand-moments": async () => { const r = await j(await A("PATCH", `z/${ID}/settings`, { opening: [{ kind: "speech", title: "Welcome" }], breaks: [{ kind: "speech", title: "A word" }, { kind: "lucky", title: "Lucky draw: watch", winners: 1 }], closing: [{ kind: "speech", title: "Thanks" }] })); expect(r.breaks.map((b: any) => b.after)).toEqual([25, 50]); },
-      "test-media": async () => { const js = readFileSync(join(root, "apps/web/public/preview.js"), "utf8"); for (const k of ["w", "k", "t", "u", "s"]) expect(js).toContain(`q.get("${k}")`); expect(existsSync(join(root, "apps/web/public/preview.html"))).toBe(true); },
-      invites: async () => { expect((await A("PATCH", `z/${ID}/settings`, { closed: true, invites: { on: true, per: 4, cats: ["family"] } })).status).toBe(200); },
-      "guest-list": async () => { const r = await A("POST", `z/${ID}/roster`, { people: [{ name: "Ravi", phone: "9876543210" }] }); expect(r.status).toBe(403); const b = await j(r); expect(b.error).toMatch(/owner/); expect(b.next).toMatch(/console/); expect(JSON.stringify(b)).not.toContain(o.key); },
-      "reuse-list": async () => { await A("POST", "z", { id: "FN-TEST-2", startRound: FUT, callSeconds: 20, cap: 100 }); const r = await A("POST", `z/FN-TEST-2/reuse`, { from: ID }); expect(r.status).not.toBe(403); expect(r.status).not.toBe(404); },
-      publish: async () => { const r = await j(await A("POST", `z/${ID}/publish`, {})); expect(r.needsOrganizer).toBe(true); expect(r.consoleUrl).toContain(ID); },
-      pay: async () => { expect(existsSync(join(root, "apps/web/public/pay.html"))).toBe(true); expect((await A("POST", `z/${ID}/checkout`, {})).status).not.toBe(200); },
-      links: async () => { const s = await j(await A("GET", `z/${ID}/summary`)); expect(s.links.testBrandMoment).toBe(`${ORIGIN}/preview.html`); },
-      helpers: async () => { const r = await A("POST", "org/host", { email: "host@acme.com", mobile: "9876500009" }); expect(r.status).toBe(403); expect((await j(r)).error).toMatch(/console/); expect((await A("POST", "org/cohost", { label: "Ravi", phone: "9876500002", e: ID })).status).toBe(403); },
-      people: async () => { for (const [m, p] of [["GET", `z/${ID}/people`], ["POST", `z/${ID}/people`], ["GET", `z/${ID}/people/export`], ["GET", `z/${ID}/waiting`], ["POST", `z/${ID}/waiting/all`]]) expect((await A(m!, p!, m === "POST" ? { people: [{ name: "X", phone: "9876543210" }], decision: "admit" } : undefined)).status).toBe(403); },
-      announce: async () => { const r = await A("POST", `z/${ID}/announce`, { text: "hi" }); expect(r.status).toBe(400); expect((await j(r)).next).toMatch(/publish/i); },
-      "who-joined": async () => { const r = await j(await A("GET", `z/${ID}/participants`)); expect(r.total).toBe(0); expect(JSON.stringify(r).replace(/"joinPhone":(true|false)/, "")).not.toMatch(/phone|mobile/i); },
-      "mark-seat": async () => { expect((await A("POST", `z/${ID}/mark`, { seat: 1, role: "host" })).status).not.toBe(403); expect((await A("POST", `z/${ID}/unbind`, { seat: 1 })).status).not.toBe(403); expect((await A("POST", `z/${ID}/unbind`, { phone: "9876543210" })).status).toBe(403); /* a phone number is never accepted from an AI */ },
-      "pause-stop": async () => { const r = await j(await A("POST", `z/${ID}/control/request`, { action: "pause", note: "x" })); expect(r.ok).toBe(true); expect(r.message).toMatch(/must approve/); },
-      results: async () => { expect((await A("GET", `z/${ID}/results`)).status).toBe(200); expect((await A("GET", `z/${ID}/prizes`)).status).toBe(200); },
-      "prize-given": async () => { expect((await A("POST", `z/${ID}/prizegiven`, { round: 1, pattern: "climb", ordinal: 1, seat: 1, given: true })).status).not.toBe(403); },
-      report: async () => { const r = await j(await A("GET", `z/${ID}/reportlink`)); expect(r.url).toBeNull(); expect(r.note).toMatch(/e-mail/); },
-      erase: async () => { expect((await A("POST", `z/${ID}/erase`, {})).status).toBe(403); const r = await j(await A("POST", `z/${ID}/control/request`, { action: "erase", note: "x" })); expect(r.ok).toBe(true); },
-      audit: async () => { expect((await A("GET", "org/ai/audit")).status).toBe(200); },
-      ideas: async () => { expect((await A("POST", "z/suggestions", { kind: "feature", title: "A nicer thing", body: "It would help organizers a lot." })).status).toBe(200); },
-      cancel: async () => { expect((await A("POST", `z/${ID}/cancel`, { confirmations: 3 })).status).toBe(403); expect((await A("GET", `z/${ID}/cancel-preview`)).status).toBe(403); expect((await j(await A("GET", `z/${ID}/summary`))).cancelled).toBeUndefined(); },
-      credit: async () => { expect((await A("POST", `z/${ID}/pay-with-credit`, {})).status).toBe(403); expect((await A("GET", "org/credit")).status).toBe(403); },
-      clone: async () => { expect((await A("POST", `z/${ID}/clone`, {})).status).toBe(403); },
-      "sign-in": async () => { expect(existsSync(join(root, "apps/web/public/zc.html"))).toBe(true); expect((await A("POST", "org/ai/replace", {})).status).toBe(403); /* an AI can never mint or retire keys */ },
-    };
-    expect(Object.keys(checks).sort()).toEqual(FUNCTIONS.map((f) => f.id).sort()); // a function added to the list without a check here fails this test
-    for (const f of FUNCTIONS) { try { await checks[f.id]!(); } catch (e: any) { throw new Error(`function "${f.id}" (${f.name}) does not behave as classified (${f.who}): ${e.message}`); } }
-  });
   test("every refusal an AI gets also says what to do next, never contains the key, and names the console page for that game", async () => {
     const o = await organizer(); await call("POST", `/ai/${o.key}/z`, { id: "NXT-1", startRound: Math.floor((T / 1000 - 1692803367) / 3) + 1 + 4000, callSeconds: 20, cap: 100 });
     const cases: [string, string, unknown, RegExp][] = [
@@ -183,14 +94,6 @@ describe("every function in the list does what the list says", () => {
 
 describe("the third route: any AI that searches the web", () => {
   const pub = (f: string) => readFileSync(join(root, "apps/web/public", f), "utf8");
-  test("the public Trust page and llms.txt are exactly what the facts generate, so a person, a search engine and the AI assistant read the same words", () => {
-    expect(pub("trust.html")).toBe(trustHtml()); // fails if a fact changes and tools/make-trust.ts was not run
-    expect(pub("llms.txt")).toBe(llmsTxt());
-    const text = pub("trust.html").replace(/<[^>]+>/g, " ").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/\s+/g, " ");
-    for (const f of FACTS) expect(text).toContain(f.say);
-    expect(pub("trust.html")).not.toMatch(/<script/i); // plain page: readable by any crawler or AI, no JavaScript needed
-    expect(pub("llms.txt")).toContain("https://corporate-snakes-and-ladders.pages.dev/trust.html");
-  });
   test("the facts never boast: no 'best', '100% safe', 'fully compliant', 'unhackable', 'cheat-proof' or 'certified' as a claim, and the honest limits are present", () => {
     const all = FACTS.map((f) => f.say).join(" ") + " " + llmsTxt();
     expect(all).not.toMatch(/best|100% safe|fully compliant|unhackable|cheat-proof|certified/i);

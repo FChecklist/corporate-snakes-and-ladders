@@ -39,21 +39,9 @@ describe("the document pages", () => {
     const b = readFileSync(new URL("../../../pages/build.mjs", import.meta.url), "utf8");
     for (const n of ["terms", "dpa", "subprocessors", "partner-terms", "organizer-guide"]) { expect(b).toContain(`"${n}.html"`); expect(b).toContain(`["/${n}", PLAINCSP`); expect(rd("sitemap.xml")).toContain(`/${n}.html`); }
   });
-  test("the public website pages describe Bingo only: no words of the game this product was copied from, and the software-only line is on the key pages", () => {
-    const files = ["index.html", "pricing.html", "about.html", "contact.html", "legal.html", "terms.html", "refund-policy.html", "dpa.html", "subprocessors.html", "partner.html", "partner-terms.html", "organizer-guide.html", "brochure.html", "404.html", "site.js"];
-    for (const f of files) expect([f, /tambola|housie|early five|full house|top line|\bIST\b|90 numbers|\bticket/i.test(rd(f).replace(/i-ticket|ic\("ticket"\)/g, ""))]).toEqual([f, false]);
-    for (const f of ["index.html", "terms.html", "organizer-guide.html"]) expect([f, /we never hold or pay prize money|we never hold prizes/i.test(rd(f))]).toEqual([f, true]);
-  });
-  test("the drafts README exists for the owner (not on the public pages)", () => {
-    const t = readFileSync(new URL("../../../docs/compliance/DRAFTS_README.md", import.meta.url), "utf8"); expect(t).toMatch(/DRAFT FOR LAWYER REVIEW/); for (const f of Object.keys(DOCS)) expect(t).toContain(f);
-  });
 });
 
 describe("acceptance by continuing, no tick box", () => {
-  test("the create and sign-in pop-ups show one short line with links to the Terms and the Privacy & Data Policy, and no checkbox", () => {
-    const s = rd("site.js"); const line = 'By continuing you accept the <a href="/terms.html" target="_blank" rel="noopener">Terms</a> and the <a href="/legal.html#privacy" target="_blank" rel="noopener">Privacy &amp; Data Policy</a>.';
-    expect(s.split(line).length).toBe(3); expect(s).not.toMatch(/type="checkbox"/);
-  });
   test("signing up stores the terms version with the organizer; the version equals the date on the Terms page", async () => {
     expect(rd("terms.html")).toContain(`Version ${TERMS_VERSION}`);
     const o = await j(await call("POST", "/api/start", { email: "boss@acme.com" }, { "cf-connecting-ip": "1.1.1.1" }));

@@ -83,7 +83,7 @@ describe("the console is closed until the setup is finished", () => {
       expect([m + p, r.status, (await j(r)).code]).toEqual([m + p, 403, "host-setup"]);
     }
     expect(await j(await call("GET", "/api/whoami", undefined, h.hostKey))).toEqual({ kind: "host", ready: false });
-    expect(await j(await call("GET", "/api/host/setup", undefined, h.hostKey))).toEqual({ needEmail: true, needMobile: false, emailMasked: "p***@acme.com", mobileMasked: "******0001", ready: false });
+    expect(await j(await call("GET", "/api/host/setup", undefined, h.hostKey))).toEqual({ needEmail: true, needMobile: false, needAccept: true, emailMasked: "p***@acme.com", mobileMasked: "******0001", ready: false });
   });
   test("the setup routes are for a Host key only: not the Organizer, not an AI key, not a stranger", async () => {
     const { master, ai } = await organizer();

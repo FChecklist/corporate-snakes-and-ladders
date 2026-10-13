@@ -67,14 +67,14 @@ const eng = (eid = "CAN-1") => raw.prepare("SELECT * FROM engagement WHERE id=?"
 const creditsOf = (eid: string) => raw.prepare("SELECT * FROM credit WHERE eid=? ORDER BY created_ms, id").all(eid) as any[];
 
 // Owner order 2026-10-09: a cancelled PAID game can be moved to a new date for 30 days after the cancel; its payment stays with the game. Money is never returned; unused credit lapses 365 days after the payment.
-describe("reopen: a cancelled paid game moved to a new date within 30 days", () => {
+describe("reopen: a cancelled paid game moved to a new date within 365 days", () => {
   test("paid game cancelled -> moved: the game is live again, its payment stays, the credit the cancel made is taken out of the account", async () => {
     const t = await team(); await paidGame(t);
     expect((await j(await cancelIt(t.master))).ok).toBe(true);
     const paid = paymentRow().amount;
     expect((await j(await call("GET", "/api/org/credit", undefined, t.master))).activeTotalInr).toBe(paid);
     const pv = await j(await call("GET", "/api/z/CAN-1/cancel-preview", undefined, t.master, T + DAY));
-    expect(pv.canReschedule).toBe(true); expect(pv.rescheduleUntilMs).toBe(T + 30 * DAY); expect(pv.paid).toBe(true);
+    expect(pv.canReschedule).toBe(true); expect(pv.rescheduleUntilMs).toBe(T + 365 * DAY); expect(pv.paid).toBe(true);
     const newStart = T + 10 * DAY, r = await reopen(t.master, newStart, "CAN-1", T + DAY);
     expect(r.status).toBe(200); const rb = await j(r); expect(rb.reopened).toBe(true);
     const e = eng(); expect(e.cancelled_ms).toBeNull(); expect(e.start_round).toBe(roundAt(newStart)); expect(e.pack).toBeGreaterThan(0);
@@ -87,18 +87,18 @@ describe("reopen: a cancelled paid game moved to a new date within 30 days", () 
     const jn = await join("9811100001"); expect(jn.status).toBe(200); // guests can join the moved game again
     expect(outbox().some((m) => m.subject.startsWith("Your game is back on"))).toBe(true);
   });
-  test("the cancel mail tells the owner about the 30 days", async () => {
+  test("the cancel mail tells the owner until when the game can be moved", async () => {
     const t = await team(); await paidGame(t); await cancelIt(t.master);
     const m = outbox().find((x) => x.subject.startsWith("Game cancelled"))!;
     expect(m.body).toContain("move this game to a new date until"); expect(m.body).toContain("If you use the credit for another game first");
   });
-  test("after 30 days the game can no longer be moved, but the credit is still there for a new game", async () => {
+  test("after 365 days the game can no longer be moved, but the credit is still there for a new game", async () => {
     const t = await team(); await paidGame(t); await cancelIt(t.master);
-    const late = T + 30 * DAY + 1000;
+    const late = T + 365 * DAY + 1000;
     const r = await reopen(t.master, late + 5 * DAY, "CAN-1", late); expect(r.status).toBe(409); expect((await j(r)).code).toBe("window-closed");
     expect(eng().cancelled_ms).not.toBeNull();
     const cr = await j(await call("GET", "/api/org/credit", undefined, t.master, late)); expect(cr.activeTotalInr).toBe(paymentRow().amount);
-    const inside = T + 30 * DAY - 1000; // one second inside the window is still allowed
+    const inside = T + 365 * DAY - 1000; // one second inside the window is still allowed
     const ok = await reopen(t.master, inside + 5 * DAY, "CAN-1", inside); expect(ok.status).toBe(200);
   });
   test("an unpaid cancelled game cannot be moved (nothing was paid); a game that is not cancelled cannot be reopened", async () => {
@@ -115,7 +115,7 @@ describe("reopen: a cancelled paid game moved to a new date within 30 days", () 
   });
   test("a bad date is refused and nothing changes: past, too far ahead, not a number", async () => {
     const t = await team(); await paidGame(t); await cancelIt(t.master);
-    for (const ms of [T - DAY, T + 31 * DAY]) { const r = await reopen(t.master, ms); expect(r.status).toBe(400); }
+    for (const ms of [T - DAY, T + 400 * DAY]) { const r = await reopen(t.master, ms); expect(r.status).toBe(400); }
     expect((await call("POST", "/api/z/CAN-1/reopen", { startRound: "soon" }, t.master)).status).toBe(400);
     expect(eng().cancelled_ms).not.toBeNull(); expect(creditsOf("CAN-1")[0].status).toBe("active");
   });
@@ -152,12 +152,12 @@ describe("reopen: a cancelled paid game moved to a new date within 30 days", () 
     expect(raw.prepare("SELECT status FROM credit_use WHERE eid='CAN-2'").all()).toEqual([{ status: "applied" }]);
     const r1 = await reopen(t.master, T + 6 * DAY, "CAN-1", T + 3000); expect(r1.status).toBe(409); // CAN-1's money is on CAN-2 now
   });
-  test("moved, then cancelled a second time: the payment makes credit again, with a new 30 days", async () => {
+  test("moved, then cancelled a second time: the payment makes credit again, with a new 365 days", async () => {
     const t = await team(); await paidGame(t); await cancelIt(t.master);
     expect((await reopen(t.master, T + 5 * DAY, "CAN-1", T + DAY)).status).toBe(200);
     const second = T + 2 * DAY;
     const c2 = await j(await cancelIt(t.master, second)); expect(c2.ok).toBe(true); expect(c2.credit.amountInr).toBe(paymentRow().amount);
-    expect(c2.rescheduleUntilMs).toBe(second + 30 * DAY);
+    expect(c2.rescheduleUntilMs).toBe(second + 365 * DAY);
     const cr = await j(await call("GET", "/api/org/credit", undefined, t.master, second)); expect(cr.activeTotalInr).toBe(paymentRow().amount); // once, never twice
     expect((await reopen(t.master, second + 35 * DAY, "CAN-1", second + 29 * DAY)).status).toBe(200);
   });
