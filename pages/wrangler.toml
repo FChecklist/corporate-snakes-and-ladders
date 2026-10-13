@@ -8,7 +8,7 @@ compatibility_flags = ["nodejs_compat"]   # billing uses node:crypto HMAC
 [[d1_databases]]
 binding = "DB"
 database_name = "corporate-snakes-and-ladders"
-database_id = "REPLACE_ME"
+database_id = "3ed0dc2c-c3ab-489c-9e99-71c3644ff30a"
 
 [vars]
 DAILY_WRITE_BUDGET = "80000"
