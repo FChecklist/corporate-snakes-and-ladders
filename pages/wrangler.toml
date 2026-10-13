@@ -1,0 +1,19 @@
+# Corporate Snakes and Ladders on Cloudflare Pages + Functions + D1: free plan only, no custom domain (https://corporate-snakes-and-ladders.pages.dev).
+# Deploy with:  bun run pages:deploy   (see README.md in this folder). Secrets are NOT in this file.
+name = "corporate-snakes-and-ladders"
+pages_build_output_dir = "public"
+compatibility_date = "2026-09-01"
+compatibility_flags = ["nodejs_compat"]   # billing uses node:crypto HMAC
+
+[[d1_databases]]
+binding = "DB"
+database_name = "corporate-snakes-and-ladders"
+database_id = "REPLACE_ME"
+
+[vars]
+DAILY_WRITE_BUDGET = "80000"
+PUBLIC_ORIGIN = "https://corporate-snakes-and-ladders.pages.dev"
+PAY_HOP_URL = "https://itservices-rajat-agarwal.pages.dev/payframe/"   # Option 1: the Razorpay window runs on the website registered with Razorpay
+MAIL_FROM = "Corporate Snakes and Ladders <snakes@veridian-aios.com>"
+OWNER_EMAIL = "rajatsiroffice@gmail.com"
+COMPANY_JSON = '{"email":"rajatsiroffice@gmail.com","phone":"(+91) 96503 97480","sacDescription":"Software solutions and products"}'

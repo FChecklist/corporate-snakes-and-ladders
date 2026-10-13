@@ -9,8 +9,8 @@ export const WINDOWS = [15, 20, 25, 30] as const;
 export const DEFAULT_WINDOW = 20;
 /** About 5 seconds after the window closes the dice shows and the pawns move: the reveal. */
 export const REVEAL_ROUNDS = 2;
-/** Turn 0 opens this many rounds (30 seconds) after B0, so every phone has the time to make its board. */
-export const LEAD_ROUNDS = 10;
+/** Turn 0 opens this many rounds (about 2 minutes) after B0, so every phone has the time to make its board and openings can play. B0 itself is one round after the start time, so the first turn is GRACE_ROUNDS (40) after it. */
+export const LEAD_ROUNDS = 39;
 
 /** Rounds from the opening of a turn to the round whose value is b_t: the first round published after the window closed. */
 export const betaOffset = (windowSec: number): number => Math.floor(windowSec / ROUND_SEC) + 1;

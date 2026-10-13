@@ -96,8 +96,8 @@ export function expectedTurns(b: Pick<Board, "size" | "snakes" | "ladders">, fin
   const idx = (i: number, j: number) => i * (n + 1) + j;
   for (let s = 1; s <= n; s++) {
     const i = s - 1;
-    A[idx(i, i)] += 1; A[idx(i, n)] = 1;
-    for (let r = 1; r <= 6; r++) { const t = nextOf(b, s, r, finish); if (t < b.size) A[idx(i, t - 1)] -= 1 / 6; }
+    A[idx(i, i)] = (A[idx(i, i)] ?? 0) + 1; A[idx(i, n)] = 1;
+    for (let r = 1; r <= 6; r++) { const t = nextOf(b, s, r, finish); if (t < b.size) A[idx(i, t - 1)] = (A[idx(i, t - 1)] ?? 0) - 1 / 6; }
   }
   for (let c = 0; c < n; c++) { // Gaussian elimination, partial pivoting
     let p = c, best = Math.abs(A[idx(c, c)]!);

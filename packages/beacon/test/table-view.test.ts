@@ -125,11 +125,11 @@ describe("spectator and presence", () => {
 });
 
 describe("schedule", () => {
-  test("R40 B0 is the first value published AFTER registration closed; turn 0 opens 30 s later", () => {
+  test("R40 B0 is the first value published AFTER registration closed; turn 0 opens about 2 minutes later", () => {
     const t0 = Date.UTC(2026, 9, 20, 10, 0, 0), b0r = b0RoundFor(t0);
     expect(roundTimeMs(b0r)).toBeGreaterThan(t0); expect(roundTimeMs(b0r - 1)).toBeLessThanOrEqual(t0);
     expect(firstTurnRound(b0r)).toBe(b0r + LEAD_ROUNDS);
-    expect(roundTimeMs(firstTurnRound(b0r)) - roundTimeMs(b0r)).toBe(30_000);
+    expect(roundTimeMs(firstTurnRound(b0r)) - roundTimeMs(b0r)).toBe(117_000); expect(firstTurnRound(b0r) - (QUICKNET ? b0RoundFor(t0) : 0)).toBe(39);
   });
 
   test("R40 b_t is the first round published after the window closed, for every window length", () => {
