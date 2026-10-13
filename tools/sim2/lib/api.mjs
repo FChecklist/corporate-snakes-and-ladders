@@ -53,7 +53,7 @@ export class Organizer {
   async createGame(o = {}) {
     const id = o.id ?? "SIM" + randomBytes(4).toString("hex").toUpperCase();
     const startRound = o.startRound ?? (await startRoundIn(o.leadMs ?? 2 * 3_600_000));
-    const body = { id, startRound, callSeconds: 6, cap: 100, ...o.cfg };
+    const body = { id, startRound, callSeconds: 20, cap: 100, ...o.cfg };
     const r = await this.api("POST", "/api/z", body); must(r, "create " + id);
     return { id, startRound, startMs: roundTimeMs(startRound), res: r.body };
   }

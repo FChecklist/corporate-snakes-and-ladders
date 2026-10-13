@@ -23,9 +23,44 @@
   const call = async (method, path, body) => {
     const r = await fetch(BASE + path, { method, headers: { "content-type": "application/json", "x-organizer": secret }, body: body === undefined ? undefined : JSON.stringify(body) });
     const j = await r.json().catch(() => ({}));
-    if (!r.ok) throw Object.assign(new Error(j.error || "http " + r.status), { code: j.code, status: r.status, needPack: j.needPack, payments: j.payments });
+    if (!r.ok) throw Object.assign(new Error(j.error || "http " + r.status), { code: j.code, status: r.status, needPack: j.needPack, payments: j.payments, consent: j.consent });
     return j;
   };
+  // ---------- terms and consent boxes (K1 publish, K5 Host first open, K6 guest lists) ----------
+  // The wording and the Terms version come from the server (CBConsent.load, consent.js). Boxes are never pre-ticked; the button stays disabled until every box is ticked;
+  // the tick state lives here, because the page repaints. A refusal "consent-required" / "terms-changed" brings fresh boxes (unticked).
+  const CONS = {}; // kind -> { info, state, err, loading }
+  const consOf = (kind) => CONS[kind] || (CONS[kind] = { info: null, state: {}, err: "", loading: false });
+  const consReady = (kind) => { const c = CONS[kind]; return !!(c && c.info && window.CBConsent && window.CBConsent.ready(c.info, c.state)); };
+  const consPayload = (kind) => { const c = CONS[kind]; return c && c.info && window.CBConsent ? window.CBConsent.payload(c.info, c.state) : null; };
+  const consOff = (kind) => (consReady(kind) ? "" : ' disabled aria-disabled="true"');
+  /** The boxes for `kind`, with `btnSel` (a CSS selector) naming the button(s) that stay disabled until every box is ticked. Loads the wording the first time it is drawn. */
+  function consHtml(kind, btnSel) {
+    const c = consOf(kind);
+    if (!window.CBConsent) return `<p class="zc-small zc-warnt" role="status">The terms could not be shown. Please reload this page.</p>`;
+    if (!c.info && !c.loading && !c.err) {
+      c.loading = true;
+      window.CBConsent.load(kind, (p) => call("GET", p)).then((i) => { c.info = i; }, () => { c.err = "The terms could not be loaded. Please reload this page and try again."; }).then(() => { c.loading = false; redraw(); });
+    }
+    if (!c.info) return `<p class="zc-small" role="status">${esc(c.err || "Loading the terms…")}</p>`;
+    return `<div class="zc-box zc-consent" data-consent="${esc(kind)}" data-btnsel="${esc(btnSel)}">${window.CBConsent.html(c.info, c.state)}</div>`;
+  }
+  /** After a refused request: when the server says the boxes are missing or the Terms changed, draw its fresh boxes (unticked). Returns true when it did. */
+  function consFail(kind, e) {
+    if (!e || (e.code !== "consent-required" && e.code !== "terms-changed")) return false;
+    const c = consOf(kind); c.info = e.consent && Array.isArray(e.consent.boxes) ? e.consent : c.info; c.state = {}; c.err = ""; return true;
+  }
+  /** Wires the boxes of the page just drawn: ticking updates the state and enables the button(s). */
+  function bindConsent() {
+    $app.querySelectorAll("[data-consent]").forEach((el) => {
+      const kind = el.dataset.consent, c = CONS[kind]; if (!c || !c.info || !window.CBConsent) return;
+      const btns = () => Array.from(document.querySelectorAll(el.dataset.btnsel || "#none"));
+      window.CBConsent.bind(el, c.info, c.state, null);
+      const sync = () => { const ok = window.CBConsent.ready(c.info, c.state); btns().forEach((b) => { if (/^(BUTTON|INPUT|TEXTAREA|SELECT)$/.test(b.tagName)) b.disabled = !ok; else { b.inert = !ok; b.style.opacity = ok ? "" : "0.45"; } b.setAttribute("aria-disabled", ok ? "false" : "true"); }); }; // a non-button (Google's own button holder) is made inert instead
+      el.querySelectorAll("input.cbc-tick").forEach((i) => i.addEventListener("change", sync));
+      sync();
+    });
+  }
   const S = { kind: "", annNote: "", aiMsg: ss.get("cbz-aimsg") || "", contact: { email: ss.get("cbz-email") || "", phone: ss.get("cbz-phone") || "" }, info: null, people: [], claims: [], control: null, results: [], store: null, log: [], note: "", history: null, busy: false,
     open: 0, sheet: false, q: -1, f: null, sum: null, team: null, teamNote: "", teamLinks: {}, teamWa: {}, myId: "", coh: null, cohErr: "", done: {}, mode: "type", recent: [], acct: false, hostN: 0 };
   const role = () => (S.kind === "cohost" ? "cohost" : S.kind === "host" ? "host" : /^(partner|refer|sales)/.test(S.kind) ? "partner" : "organizer");
@@ -98,14 +133,17 @@
   const TIMES = [["09:00", "9 am"], ["10:00", "10 am"], ["12:00", "12 pm"], ["13:00", "1 pm"], ["15:00", "3 pm"], ["16:00", "4 pm"], ["18:00", "6 pm"], ["19:00", "7 pm"], ["other", "Other time"]];
   const HS = HOUSES.map((h) => [h.id, h.label, h.how, h.max]); // [id, label, how to win, most winners]
   const maxOf = (k) => (HS.find((h) => h[0] === k) || [0, 0, 0, 5])[3];
-  const BUNDLES = { Classic: { line: 1, corners: 1, x: 1, blackout: 1 }, Simple: { line: 1, blackout: 1 }, Rich: { line: 3, corners: 1, x: 1, frame: 1, stamp: 1, blackout: 2 } };
-  // [key, label, currency prefix, what to ask]. "Decide later" saves an empty prize; "No prize" saves the words No prize, so the card shows them.
+  const BUNDLES = { Classic: { milestone: 1, finish: 3 }, Simple: { finish: 1 }, Rich: { milestone: 1, finish: 5, climb: 1, comeback: 1 } };
+  /** A prize that needs a game setting: the team prize belongs to a team race, the never-missed prize to "players throw" play. */
+  const houseOk = (f, k) => (k === "team" ? f.gm === "team" : k === "nevermissed" ? f.pl === "presence" : true);
+  const DEFAULT_PRIZE_HOUSE = HOUSES.some((h) => h.id === "finish") ? "finish" : (HOUSES[0] || { id: "finish" }).id;
+  // [key, label, currency prefix, what to ask]. "Decide later" saves an empty prize; "No prize" saves the words No prize, so the board shows them.
   const PT = [["voucher", "Gift card", "", "Amount, for example $25 or Rs 1000"], ["hamper", "Gift hamper", "", "What is in it? (optional)"], ["phone", "Smartphone", "", "Which one? (optional)"], ["watch", "Smart watch", "", "Which one? (optional)"], ["earbuds", "Earbuds or headphones", "", "Which one? (optional)"], ["tablet", "Tablet or laptop", "", "Which one? (optional)"], ["holiday", "Holiday or weekend stay", "", "Where?"], ["dinner", "Restaurant gift card", "", "Amount, for example $50"], ["movie", "Movie tickets", "", "How many tickets?"], ["dayoff", "Extra day off", "", ""], ["other", "Something else", "", "Type the prize"], ["later", "I will decide later", "", ""], ["none", "No prize", "", ""]];
   const KINDS = [["msg", "Type a message"], ["yt", "YouTube link"], ["vid", "Paste video file link"], ["aud", "Paste audio file link"]];
   const SERVER_KIND = { msg: "speech", yt: "youtube", vid: "file", aud: "file", slides: "slides" };
   const DEFAULT_TITLE = "A message from your organizer";
   const ptOf = (k) => PT.find((p) => p[0] === k);
-  /** The words a prize choice becomes on the card. */
+  /** The words a prize choice becomes for the guests. */
   function prizeText(pt, pd) {
     const p = ptOf(pt), d = String(pd || "").trim();
     if (!p || pt === "later") return "";
@@ -150,18 +188,20 @@
 
   /** Builds the form from what the server holds. */
   function formFromServer() {
-    const c = S.cfg || ZG.defaultCfg(), t = c.tickets === 2 ? 2 : 1, inf = S.info || {};
+    const c = S.cfg || ZG.defaultCfg(), inf = S.info || {}, bd = c.board || {};
     const blank = S.cloneNew === eid && S.cloneDated !== eid; // a game made like another: the date and time are picked again
     const start = inf.startMs ? new Date(inf.startMs + tzOffsetMs(inf.startMs)) : new Date(Date.now() + 86400000 + tzOffsetMs(Date.now() + 86400000));
     const date = istDateStr(start), time = pad2(start.getUTCHours()) + ":" + pad2(start.getUTCMinutes());
     const nm = (c.name || "").trim();
     const f = { occ: nm ? (OCC.includes(nm) && nm !== "Other" ? nm : "Other") : "Team event", oname: nm && !OCC.includes(nm) ? nm : "", day: blank ? "" : dayOpts().some((d) => d[0] === date) ? date : "other", dayo: blank ? "" : date, time: blank ? "" : TIMES.some((x) => x[0] === time) ? time : "other", timeo: blank ? "" : time,
-      cap: String(inf.cap || 250), tix: String(t), mk: c.mark === "tap" ? "tap" : "auto", gj: c.join === "phone" ? "phone" : "name", spd: String(inf.callSeconds || 9), rnd: String(c.rounds || 1), who: whoNow(),
+      cap: String(inf.cap || 250), tix: "1", gj: c.join === "phone" ? "phone" : "name", spd: String(inf.callSeconds || 20), who: whoNow(),
+      gm: c.mode === "team" || c.mode === "table" ? c.mode : "race", tm: String(c.teams || 4), pl: c.play === "presence" ? "presence" : "fate", bs: String(bd.size || 100), sn: String(bd.snakes || 9), ld: String(bd.ladders || 9), fin: bd.finish === "pass" ? "pass" : "exact",
+      ms: (Array.isArray(c.milestones) && c.milestones.length ? c.milestones : [75]).join(", "), tc: String(c.turnCap || 60), ep: String(c.endPrizes || 5), ex: !!c.exclusive, th: c.theme === "career" ? "career" : "jungle",
       inv: !!(c.invites && c.invites.on), per: String((c.invites && c.invites.per) || 4), cats: ((c.invites && c.invites.cats) || ["family", "colleagues"]).slice(), bundle: "", hs: {}, ph: "" };
     for (const [k] of HS) f.hs[k] = { on: false, n: 1, pt: "later", pd: "", orig: [] };
     for (const l of c.rewards || []) { const k = l.pattern, h = f.hs[k]; if (!h) continue; h.on = true; h.n = Math.max(h.n, l.ordinal); h.orig[l.ordinal - 1] = l.text || ""; }
     for (const [k] of HS) { const h = f.hs[k]; if (h.on) { const a = prizeFrom(h.orig[0]); h.pt = a.pt; h.pd = a.pd; h.same = h.orig.every((x) => (x || "") === (h.orig[0] || "")); h.diff = !h.same; if (h.diff) h.per = Array.from({ length: h.n }, (_, i) => prizeFrom(h.orig[i])); } }
-    f.ph = (HS.find(([k]) => f.hs[k].on) || ["blackout"])[0];
+    f.ph = (HS.find(([k]) => f.hs[k].on) || [DEFAULT_PRIZE_HOUSE])[0];
     const pad = (arr, n) => { const o = arr.slice(0, n); while (o.length < n) o.push({ k: "msg", v: "", t: "", s: "" }); return o; };
     const lk = (c.breaks || []).filter((b) => b.kind === "lucky"), mk = (c.breaks || []).filter((b) => b.kind !== "lucky");
     f.brand = Object.assign({ name: "", color: "", logo: "" }, inf.brand || (S.sum && S.sum.brand) || {}); f.opN = (c.opening || []).length; f.op = pad((c.opening || []).map(momentFrom), 2);
@@ -199,7 +239,7 @@
     let h = `<div class="zc-chips" role="group" aria-label="What is the prize?">${PT.map((x) => chip(ptPath, x[0], x[1])).join("")}</div>`;
     if (p && p[3]) h += `<div class="zc-inline">${p[2] ? `<span>${p[2]}</span>` : ""}<label class="zc-sr" for="${fid(pdPath)}">${esc(p[3])}</label>${inp(pdPath, { ph: p[3], max: 70 })}</div>`;
     if (pt === "later") h += small("Fine. We will remind you before you publish.");
-    if (pt === "none") h += small("The card shows \"No prize\". The winner is still announced.");
+    if (pt === "none") h += small("Guests see \"No prize\". The winner is still announced.");
     return h;
   }
 
@@ -214,12 +254,42 @@
       + (f.day === "other" ? `<div class="zc-gap">${lbl("f-dayo", "Pick the date")}${inp("dayo", { type: "date", attrs: `min="${min}" max="${max}"` })}</div>` : "")
       + grp("time", "What time does it start?", TIMES)
       + (f.time === "other" ? `<div class="zc-gap">${lbl("f-timeo", "Pick the time")}${inp("timeo", { type: "time", attrs: 'step="300"' })}</div>` : "")
-      + small("Guests can join before. The first number comes 2 minutes after the start.") + save(1);
+      + small("Guests can join before. The first turn opens 2 minutes after the start.") + save(1);
   }
 
   // ---------- step 2: how it plays ----------
-  // the gap between two numbers: 9 or 12 seconds (an older game that uses 6 or 15 keeps its own value so it never disappears)
-  const spdOpts = (cur) => { const o = [["9", "9 seconds"], ["12", "12 seconds"]]; const c = String(cur || ""); if (c && c !== "9" && c !== "12") { o.push([c, c + " seconds"]); o.sort((a, b) => Number(a[0]) - Number(b[0])); } return o; };
+  // the turn window (the time to throw): 15, 20, 25 or 30 seconds (an older game that uses another value keeps its own so it never disappears)
+  const spdOpts = (cur) => { const o = [["15", "15 seconds"], ["20", "20 seconds"], ["25", "25 seconds"], ["30", "30 seconds"]]; const c = String(cur || ""); if (c && !o.some((x) => x[0] === c)) { o.push([c, c + " seconds"]); o.sort((a, b) => Number(a[0]) - Number(b[0])); } return o; };
+  const nums = (a, b) => Array.from({ length: b - a + 1 }, (_, i) => [String(a + i), String(a + i)]);
+  /** The game settings (game type, throws, board, milestones, turn limit, one prize per person, look). Shared by step 2 and the Quick setup form. */
+  function gameBlock() {
+    const f = S.f;
+    let h = `<span class="zc-lbl zc-sec zc-sub">The game</span>`
+      + grp("gm", "Game type", [["race", "Race: everyone has their own board"], ["team", "Team race"], ["table", "Table: 2 to 20 players share one board"]]);
+    if (f.gm === "team") h += grp("tm", "How many teams?", nums(2, 10)) + small("Players are dealt into teams by chance. A team finishes when all its players are home.");
+    else if (f.gm === "table") h += small("Players take turns on one shared board. The first players home win. Best for 2 to 20 people.");
+    else h += small("Every player moves a pawn on their own board. The first players home win.");
+    h += grp("pl", "Throws", [["fate", "Automatic: every throw happens by itself"], ["presence", "Players throw: a player who does not throw in the window misses the turn"]])
+      + grp("bs", "Board size", [["100", "100 squares"], ["144", "144 squares (longer)"], ["225", "225 squares (longest)"]])
+      + grp("sn", "Snakes", nums(6, 12)) + grp("ld", "Ladders", nums(6, 12))
+      + grp("fin", "How a player finishes", [["exact", "Exact throw to land on the last square"], ["pass", "Reach or pass the last square"]])
+      + `${lbl("f-ms", "Milestone squares (1 to 3, separated by commas)")}${inp("ms", { max: 24, ph: "75", attrs: 'inputmode="numeric" autocomplete="off"' })}` + small("The first player on or past a milestone square wins the milestone prize. Each milestone prize needs its own square.")
+      + `${lbl("f-tc", "Turn limit (10 to 150 turns)")}${inp("tc", { type: "number", ph: "60", attrs: 'inputmode="numeric" min="10" max="150" step="1"' })}` + small("The game ends at the turn limit even if nobody is home. Then the players are ranked by square.")
+      + grp("ep", "The game ends when this many players are home", nums(1, 5))
+      + `<div class="zc-chips zc-gap">${bchip("ex", "One prize per person")}</div>` + small("When it is on, nobody wins two prizes.")
+      + grp("th", "Look of the board", [["jungle", "Jungle"], ["career", "Career ladder"]]);
+    return h;
+  }
+  /** The game settings of the form, as the server wants them. Throws an Error with a plain sentence when something is out of range. */
+  function gameOutOf(f) {
+    const size = Number(f.bs) || 100, snakes = Number(f.sn) || 9, ladders = Number(f.ld) || 9;
+    const ms = String(f.ms == null ? "" : f.ms).split(/[\s,;]+/).filter(Boolean).map(Number);
+    if (ms.length < 1 || ms.length > 3 || ms.some((m) => !Number.isInteger(m) || m < 2 || m >= size) || new Set(ms).size !== ms.length) throw new Error(`Milestone squares: give 1 to 3 different squares from 2 to ${size - 1}, for example 75.`);
+    const tc = Number(f.tc); if (!Number.isInteger(tc) || tc < 10 || tc > 150) throw new Error("The turn limit is a number from 10 to 150.");
+    const tm = Number(f.tm); if (f.gm === "team" && (!Number.isInteger(tm) || tm < 2 || tm > 10)) throw new Error("A team race has 2 to 10 teams.");
+    return { mode: f.gm === "team" || f.gm === "table" ? f.gm : "race", play: f.pl === "presence" ? "presence" : "fate", board: { size, snakes, ladders, finish: f.fin === "pass" ? "pass" : "exact" },
+      milestones: ms.sort((a, b) => a - b), turnCap: tc, endPrizes: Number(f.ep) || 5, exclusive: !!f.ex, teams: f.gm === "team" ? tm : null, theme: f.th === "career" ? "career" : "jungle" };
+  }
   const capOptions = () => {
     const packs = (S.packs || []).map((k) => ({ n: k.upTo, price: k.inr })), cur = Number(S.f.cap);
     const list = packs.length ? packs : [100, 250, 500, 1000].map((n) => ({ n, price: 0 }));
@@ -233,15 +303,12 @@
     const caps = capOptions().map((p) => `<button type="button" class="zc-chip${String(f.cap) === String(p.n) ? " on" : ""}" data-ck="cap" data-v="${p.n}" aria-pressed="${String(f.cap) === String(p.n)}"><span>Up to ${p.n} people</span></button>`).join("");
     const own = `<div class="zc-gap">${lbl("f-cap", "Or type your own number of players")}${inp("cap", { type: "number", ph: "For example 180", attrs: 'inputmode="numeric" min="1" max="10000" step="1"' })}</div>`;
     return `<span class="zc-lbl zc-sec zc-sub">How many players</span><span class="zc-lbl" id="gl-cap">How many people at most?</span><div class="zc-chips" role="group" aria-labelledby="gl-cap">${caps}</div>` + own + small("Invited guests count too. The price is shown when you pay.")
-      + `<span class="zc-lbl zc-sec zc-sub">How the game runs</span>` + grp("tix", "Cards for each person (participant)", [["1", "1 card"], ["2", "2 cards (more chances)"]])
-      + grp("mk", "How the card marks the numbers", [["auto", "Automatically (squares light up)"], ["tap", "Tap to daub (guests tap the squares)"]])
-      + small("Both play the same. Tap to daub is only the feeling of dabbing a card: the software always works out the winners, so a missed tap never loses a prize.")
-      + grp("spd", "Duration (gap) between two numbers", spdOpts(f.spd))
-      + grp("rnd", "How many rounds (games in a row)?", [1, 2, 3, 4, 5].map((n) => [String(n), String(n)]))
-      + small("One round is one full game of up to 75 numbers (it ends sooner when every prize is awarded). With 2 rounds, guests play two games one after the other, each with new cards and new numbers. Brand moments and lucky draws run in round 1 only.")
+      + `<span class="zc-lbl zc-sec zc-sub">How the game runs</span>` + grp("spd", "Turn window (time to throw)", spdOpts(f.spd))
+      + small("Every turn lasts this long. In \"Players throw\" play, a player must throw inside the window. In automatic play the throw happens by itself when the window closes.")
+      + gameBlock()
       + `<span class="zc-lbl zc-sec zc-sub">Who can join</span>` + grp("who", "Who can join?", [["list", "Only people on a list"], ["anyone", "Anyone with the link"]])
       + grp("gj", "What do guests type to join?", [["name", "Just their name (best for teams)"], ["phone", "Name and mobile number"]])
-      + small(f.gj === "phone" ? "Guests also give a mobile number. Use this when you load a list of mobile numbers and send personal links." : "Guests type only their name. The common link works in Slack, Teams or Zoom chat. Personal links from a list still work.")
+      + small(f.gj === "phone" ? "Guests also give a mobile number. Use this when you load a list of mobile numbers and send personal links." : "Guests type only a nickname. The common link works in Slack, Teams or Zoom chat. Personal links from a list still work.")
       + small(f.who === "list" ? "Only people you have added can join straight away. Anyone else who clicks your link has to wait until you or a Host says yes." : "Anyone who clicks your link joins straight away. You can change this until the game starts.")
       + `<span class="zc-lbl zc-sec zc-sub">Guests bringing their own people</span><span class="zc-lbl">Can guests bring their own people?</span><div class="zc-chips">${bchip("inv", "Yes, each guest can invite a few of their own family or colleagues")}</div>`
       + small("Each guest sends the invites on WhatsApp. The people they invite can play, but cannot invite anyone else.")
@@ -254,7 +321,7 @@
   /** Make sure the per-winner prizes list has one entry for each winner (new ones start as a copy of the first). */
   function perFill(h) { h.per = h.per || []; const n = Number(h.n) || 1; while (h.per.length < n) h.per.push({ pt: h.pt, pd: h.pd }); return h.per; }
   function houseBox([k, name, how, max0]) {
-    const f = S.f, h = f.hs[k], act = f.ph === k && h.on, max = Math.max(Number(max0) || 1, Number(h.n) || 1);
+    const f = S.f, h = f.hs[k], act = f.ph === k && h.on, max = k === "milestone" ? Math.max(1, Math.min(Number(max0) || 1, String(f.ms || "").split(/[\s,;]+/).filter(Boolean).length || 1)) : Math.max(Number(max0) || 1, Number(h.n) || 1);
     const sumry = `${h.n} winner${Number(h.n) === 1 ? "" : "s"} · ${esc(h.diff ? "a prize for each" : ptext(h.pt, h.pd))}`;
     let body = "";
     if (act) {
@@ -269,23 +336,24 @@
     if (!S.f) return small("Loading…");
     if (lockedGame()) return lockedNote() + readBack();
     return grp("bundle", "Start from", ["Classic", "Simple", "Rich", "Choose myself"].map((b) => [b, b]))
-      + `<span class="zc-lbl">Tick the prizes. Each one says how to win.</span>` + HS.map(houseBox).join("")
+      + `<span class="zc-lbl">Tick the prizes. Each one says how to win.</span>` + HS.filter(([k]) => houseOk(S.f, k)).map(houseBox).join("")
+      + small("Some prizes need a setting from step 2: the team prize needs a team race, and \"Never missed\" needs \"Players throw\" play.")
       + small("You give the prizes. We provide the software.") + save(3);
   }
 
-  // ---------- brand strip on the guest's card (Phase 3): company name, accent colour, a small logo ----------
+  // ---------- brand strip on the guest's board (Phase 3): company name, accent colour, a small logo ----------
   const BRAND_COLORS = [["#0B3D91", "Navy"], ["#1B7F5C", "Green"], ["#B3261E", "Red"], ["#6A1B9A", "Purple"], ["#C26A00", "Saffron"], ["#00798C", "Teal"], ["#37474F", "Charcoal"], ["#AD1457", "Pink"]]; // the eight colours the server accepts
   const previewUrl = () => "/preview.html#w=card&e=" + encodeURIComponent(eid);
-  const previewButton = () => (canRun() && eid ? `<div class="zc-chips zc-gap"><a class="zc-chip" id="seeguests" href="${esc(previewUrl())}" target="_blank" rel="noopener">See what guests see</a></div>${small("A sample card, marked PREVIEW. Nothing is sent to anyone.")}` : "");
+  const previewButton = () => (canRun() && eid ? `<div class="zc-chips zc-gap"><a class="zc-chip" id="seeguests" href="${esc(previewUrl())}" target="_blank" rel="noopener">See what guests see</a></div>${small("A sample board, marked PREVIEW. Nothing is sent to anyone.")}` : "");
   function brandBox() {
     const b = S.f.brand;
-    return `<div class="zc-block" id="brandbox"><h3>Your brand on the card</h3>${small("Shown at the top of every guest's card. All of it is optional.")}${lbl("f-brand-name", "Company name")}${inp("brand.name", { max: 40, ph: "Company name" })}
+    return `<div class="zc-block" id="brandbox"><h3>Your brand on the board</h3>${small("Shown at the top of every guest's board. All of it is optional.")}${lbl("f-brand-name", "Company name")}${inp("brand.name", { max: 40, ph: "Company name" })}
       <span class="zc-lbl" id="gl-brandcolor">Accent colour</span><div class="zc-chips" role="group" aria-labelledby="gl-brandcolor">${BRAND_COLORS.map(([v, l]) => `<button type="button" class="zc-chip${b.color === v ? " on" : ""}" data-ck="brand.color" data-v="${v}" aria-pressed="${b.color === v}"><span class="zc-sw" style="background:${v}" aria-hidden="true"></span>${l}</button>`).join("")}</div>
       ${lbl("brandlogo", "Small logo (optional)")}<input id="brandlogo" class="zc-in" type="file" accept="image/png,image/jpeg,image/webp">${small(LOGO_RULES)}${b.logo ? `<div class="zc-logo"><img src="${esc(b.logo)}" alt="Your logo" width="48" height="48"><button type="button" class="zc-mini zc-danger" id="logorm">Remove logo</button></div>` : ""}${S.logoNote ? `<p class="zc-small zc-warnt" id="logonote" role="status">${esc(S.logoNote)}</p>` : small("We make it small for you, under 30 KB.")}
       ${previewButton()}</div>`;
   }
   // The logo rules (the same numbers as packages/beacon/src/config.ts, which the server enforces)
-  const LOGO_RULES = "PNG, JPEG or WebP, up to 5 MB, at least 64 x 64 pixels, square or wide (at most 4 times wider than tall). Best: a square 256 x 256 picture with a white or see-through background. We shrink it to fit (30 KB, 192 pixels) and show it 30 pixels high on every card, in the browser and in the installed app.";
+  const LOGO_RULES = "PNG, JPEG or WebP, up to 5 MB, at least 64 x 64 pixels, square or wide (at most 4 times wider than tall). Best: a square 256 x 256 picture with a white or see-through background. We shrink it to fit (30 KB, 192 pixels) and show it 30 pixels high on every board, in the browser and in the installed app.";
   /** Shrinks the chosen picture in the browser to a PNG or JPEG data URL of at most 30 KB. Nothing is sent anywhere else. */
   async function fitLogo(file) {
     // read as a data: URL (the page's security policy allows data: images, not blob: ones)
@@ -329,19 +397,19 @@
       : `<div class="zc-inline"><label class="zc-sr" for="${fid(p + ".v")}">${m.k === "yt" ? "The YouTube link" : m.k === "aud" ? "The audio file link" : m.k === "slides" ? "The slides link" : "The video file link"}</label>${inp(p + ".v", { ph: m.k === "yt" ? "Paste the YouTube link" : m.k === "aud" ? "Paste the audio file link" : "Paste the video file link", max: 300 })}<button type="button" class="zc-mini" data-test="${p}">Test it</button></div>
          <p class="zc-small" data-lk="${p}">${noteHtml(p)}</p>${lbl(fid(p + ".t"), "Title guests see")}${inp(p + ".t", { ph: "Title", max: 80 })}`;
     const secs = g === "cl" ? "" : `${lbl(fid(p + ".s"), "How long (seconds, optional)")}${inp(p + ".s", { type: "number", attrs: `min="15" max="${g === "op" ? 120 : 600}" step="3"`, ph: "60" })}`;
-    return `<div class="zc-box"><b class="zc-bt">${esc(title)}</b>${grp(p + ".k", "What is it?", kinds)}${inputs}${secs}${m.after ? small("Set earlier to play after number " + m.after + ".") : ""}</div>`;
+    return `<div class="zc-box"><b class="zc-bt">${esc(title)}</b>${grp(p + ".k", "What is it?", kinds)}${inputs}${secs}${m.after ? small("Set earlier to play after turn " + m.after + ".") : ""}</div>`;
   }
   const countChips = (path, max) => grp(path, "How many?", Array.from({ length: max + 1 }, (_, n) => [String(n), String(n)]));
   function stepBrand() {
     if (!S.f) return small("Loading…");
     if (lockedGame()) return lockedNote() + readBack();
-    const f = S.f, t = Number(f.tix) || 1, lim = maxFor(t), u = usedMoments();
+    const f = S.f, t = 1, lim = maxFor(t), u = usedMoments();
     const N = (k) => Math.min(Number(f[k]) || 0, lim[{ opN: "op", midN: "mid", clN: "cl" }[k]]);
-    let h = brandBox() + `<p class="zc-small">5 moments for each card. You have ${t} card${t === 1 ? "" : "s"} per person. Used: <b id="bmcount">${u} of ${5 * t}</b>.</p>`;
+    let h = brandBox() + `<p class="zc-small">You can use 5 brand moments. Used: <b id="bmcount">${u} of ${5 * t}</b>.</p>`;
     if (u > 5 * t) h += `<p class="zc-small zc-badt">That is more than the allowance. Switch some off.</p>`;
-    h += `<span class="zc-lbl zc-sec">Before the game starts</span>` + small("Plays while guests wait for the first number.") + countChips("opN", lim.op);
+    h += `<span class="zc-lbl zc-sec">Before the game starts</span>` + small("Plays while guests wait for the first turn.") + countChips("opN", lim.op);
     for (let i = 0; i < N("opN"); i++) h += momentBox("op", i, "Moment " + (i + 1));
-    h += `<span class="zc-lbl zc-sec">During the game (placed evenly)</span>` + small("The numbers pause while it is shown.") + countChips("midN", lim.mid);
+    h += `<span class="zc-lbl zc-sec">During the game (placed evenly)</span>` + small("The turns pause while it is shown.") + countChips("midN", lim.mid);
     for (let i = 0; i < N("midN"); i++) h += momentBox("mid", i, "Moment " + (i + 1));
     f.lucky.forEach((l, i) => { h += `<div class="zc-box"><div class="zc-split"><b class="zc-bt">Lucky draw${f.lucky.length > 1 ? " " + (i + 1) : ""}</b><button type="button" class="zc-mini" data-luckydel="${i}" aria-label="Remove lucky draw ${i + 1}">Remove</button></div>${grp(`lucky.${i}.win`, "How many winners?", [["1", "1"], ["3", "3"], ["5", "5"], ["10", "10"]])}${grp(`lucky.${i}.style`, "How should it look?", [["draw", "A draw"], ["scratch", "A scratch card"]])}<span class="zc-lbl">What is the prize?</span>${prizePick(`lucky.${i}.pt`, `lucky.${i}.pd`)}</div>`; });
     h += `<div class="zc-chips zc-gap"><button type="button" class="zc-chip" data-luckyadd="1">Add a lucky draw</button></div>`;
@@ -355,9 +423,10 @@
     const f = S.f, c = S.cfg, inf = S.info; if (!f || !c || !inf) return "";
     const name = c.name || (f.occ === "Other" ? f.oname || "Your game" : f.occ);
     const prizes = (c.rewards || []).length, wait = (c.rewards || []).filter((r) => !r.text).length;
-    const t = c.tickets, used = (c.opening || []).length + (c.breaks || []).length + (c.closing || []).length;
+    const t = 1, used = (c.opening || []).length + (c.breaks || []).length + (c.closing || []).length;
     const blankDate = S.cloneNew === eid && S.cloneDated !== eid;
-    const rows = [["Game", blankDate ? `${name}, date and time still to pick` : `${name}, ${when(inf.startMs)}`, 1], ["People and play", `Up to ${inf.cap}, ${t} card${t === 1 ? "" : "s"}, a number every ${inf.callSeconds} seconds, ${whoNow() === "anyone" ? "anyone with the link" : "only people on a list"}`, 2], ["Prizes", `${prizes} prize${prizes === 1 ? "" : "s"}${wait ? ` (${wait} to decide)` : ""}`, 3], ["Brand moments", `${used} of ${5 * t}`, 4]];
+    const bd = c.board || {}, kind = c.mode === "team" ? `team race, ${c.teams || "?"} teams` : c.mode === "table" ? "table game" : "race";
+    const rows = [["Game", blankDate ? `${name}, date and time still to pick` : `${name}, ${when(inf.startMs)}`, 1], ["People and play", `Up to ${inf.cap}, ${kind}, ${bd.size || 100} squares, ${c.play === "presence" ? "players throw" : "automatic throws"}, ${inf.callSeconds} seconds a turn, ${whoNow() === "anyone" ? "anyone with the link" : "only people on a list"}`, 2], ["Prizes", `${prizes} prize${prizes === 1 ? "" : "s"}${wait ? ` (${wait} to decide)` : ""}`, 3], ["Brand moments", `${used} of ${5 * t}`, 4]];
     return rows.map((r) => `<div class="zc-rowl"><span><span class="zc-small zc-nomargin">${r[0]}</span><br>${esc(r[1])}</span>${lockedGame() ? "" : `<button type="button" class="zc-mini" data-open="${r[2]}" aria-label="Change ${esc(r[0])}">Change</button>`}</div>`).join("")
       + (wait ? `<p class="zc-small zc-warnt">${wait} prize${wait === 1 ? " says" : "s say"} "decide later". You can still publish.</p>` : "");
   }
@@ -419,7 +488,7 @@
     if (/^91\d{10}$/.test(d)) return /^91[6-9]\d{9}$/.test(d) ? d : null;
     return /^[1-9]\d{10,14}$/.test(d) ? d : null;
   }
-  /** A short number is a card number (a guest who joined with a name has no mobile number); a long one is a mobile number. */
+  /** A short number is a player number (a guest who joined with a nickname has no mobile number); a long one is a mobile number. */
   const whoBody = (v) => { const d = String(v || "").replace(/\D/g, ""); return d.length > 0 && d.length <= 6 && !/^\+/.test(String(v).trim()) ? { seat: Number(d) } : { phone: v }; };
   function cleanBatch(rows) {
     const seen = new Set(), good = [], wrong = []; let dups = 0;
@@ -461,10 +530,11 @@
   async function addPeople(raw, keep) {
     const P = S.pp;
     if (!raw.length) { P.sum = "Add a name and a number first."; return redraw(); }
+    const consent = consPayload("K6"); if (!consent) { P.sum = "Please tick the box above first."; return redraw(); } // K6: never sent without the tick
     const { good, dups, wrong } = cleanBatch(raw); let added = good.length, serverDup = 0, got = 0, counted = false; const bad = wrong.slice();
     try {
       for (let i = 0; i < good.length; i += 200) {
-        const r = await call("POST", `/api/z/${eid}/people`, { people: good.slice(i, i + 200).map((p) => ({ name: p.name, phone: "+" + p.phone })) });
+        const r = await call("POST", `/api/z/${eid}/people`, { people: good.slice(i, i + 200).map((p) => ({ name: p.name, phone: "+" + p.phone })), consent });
         serverDup += Number(r.duplicates) || 0; if (typeof r.added === "number") { got += r.added; counted = true; }
         for (const x of r.invalid || []) { const q = parseList(String(typeof x === "string" ? x : x.raw || ""))[0] || { name: "", phone: "" }; bad.push({ name: q.name, raw: q.phone, why: typeof x === "string" ? "" : x.why || "" }); }
       }
@@ -472,7 +542,7 @@
       const d = dups + serverDup;
       P.sum = `${added} good, ${d === 1 ? "1 duplicate" : d + " duplicates"} removed, ${bad.length === 1 ? "1 looks wrong" : bad.length + " look wrong"}`;
       P.wrong = keep ? P.wrong.concat(bad) : bad;
-    } catch (e) { P.sum = friendly(e); }
+    } catch (e) { P.sum = consFail("K6", e) ? "Please read and tick the box again, then add them." : friendly(e); }
     await loadPeople(); redraw();
   }
   function removeBox(p) {
@@ -502,17 +572,19 @@
     const modes = (canContacts() ? [["contacts", "From my contacts"]] : []).concat([["type", "Add a name and number"], ["paste", "Paste from Excel"], ["file", "Upload a CSV"]]);
     const m = modes.some((x) => x[0] === S.mode) ? S.mode : "type";
     const chips = modes.map(([k, l]) => `<button type="button" class="zc-chip${m === k ? " on" : ""}" data-mode="${k}" aria-pressed="${m === k}">${l}</button>`).join("");
-    const form = m === "contacts" ? `<div class="zc-inline"><button type="button" class="zc-btn zc-btn-s" id="gcontacts">Pick from my contacts</button></div>`
-      : m === "type" ? `<div class="zc-inline"><label class="zc-sr" for="gname">Name</label><input id="gname" class="zc-in" placeholder="Name" autocomplete="off"><label class="zc-sr" for="gphone">Mobile number</label><input id="gphone" class="zc-in" inputmode="tel" placeholder="415 555 0132" autocomplete="off"><button type="button" class="zc-btn zc-btn-s" id="gadd">Add</button></div>`
-      : m === "paste" ? `${lbl("rosterTxt", "Paste one person per line: name, mobile number")}<textarea id="rosterTxt" class="zc-in zc-ta" rows="5" placeholder="Asha, 415 555 0132" autocomplete="off"></textarea><div class="zc-foot"><button type="button" class="zc-btn zc-btn-s" id="rosterGo">Add them</button></div>`
-      : `${lbl("gfile", "Choose a CSV file: name, then mobile number")}<input id="gfile" class="zc-in" type="file" accept=".csv,.txt,.tsv,text/csv,text/plain">${small("In Excel, choose Save as CSV first.")}`;
+    const off = consOff("K6"); // K6: the Add / Upload buttons stay disabled until the box is ticked
+    const form = m === "contacts" ? `<div class="zc-inline"><button type="button" class="zc-btn zc-btn-s" id="gcontacts"${off}>Pick from my contacts</button></div>`
+      : m === "type" ? `<div class="zc-inline"><label class="zc-sr" for="gname">Name</label><input id="gname" class="zc-in" placeholder="Name" autocomplete="off"><label class="zc-sr" for="gphone">Mobile number</label><input id="gphone" class="zc-in" inputmode="tel" placeholder="415 555 0132" autocomplete="off"><button type="button" class="zc-btn zc-btn-s" id="gadd"${off}>Add</button></div>`
+      : m === "paste" ? `${lbl("rosterTxt", "Paste one person per line: name, mobile number")}<textarea id="rosterTxt" class="zc-in zc-ta" rows="5" placeholder="Asha, 415 555 0132" autocomplete="off"></textarea><div class="zc-foot"><button type="button" class="zc-btn zc-btn-s" id="rosterGo"${off}>Add them</button></div>`
+      : `${lbl("gfile", "Choose a CSV file: name, then mobile number")}<input id="gfile" class="zc-in" type="file" accept=".csv,.txt,.tsv,text/csv,text/plain"${off}>${small("In Excel, choose Save as CSV first.")}`;
+    const k6 = consHtml("K6", "#gcontacts, #gadd, #rosterGo, #gfile, [data-fix]");
     const ccRow = `<span class="zc-lbl">Numbers typed without a country code are from</span><div class="zc-chips" role="group" aria-label="Country of numbers typed without a country code">${[["91", "India (+91)"], ["1", "United States (+1)"]].map(([v, l]) => `<button type="button" class="zc-chip${CC.v === v ? " on" : ""}" data-cc="${v}" aria-pressed="${CC.v === v}">${l}</button>`).join("")}</div>`;
-    return `<div class="zc-chips" role="group" aria-label="How to add people">${chips}</div>${ccRow}${form}${small("Invite only people who would like to play. Guests who join the common link with just a name do not need to be listed.")}`;
+    return `<div class="zc-chips" role="group" aria-label="How to add people">${chips}</div>${ccRow}${k6}${form}${small("Invite only people who would like to play. Guests who join the common link with just a name do not need to be listed.")}`;
   }
-  const guestTools = () => (!canRun() ? "" : `<h4>A guest's own data</h4>${small("A player asks to see or delete their data? Enter their mobile number, or their card number if they joined with a name. Only you can do this.")}<div class="zc-inline"><label class="zc-sr" for="pdph">Their mobile number or card number</label><input id="pdph" class="zc-in" inputmode="tel" autocomplete="off" placeholder="415 555 0132"><button type="button" class="zc-mini" id="pdsee">Show what we hold</button><button type="button" class="zc-mini zc-danger" id="pddel">Delete their data</button></div>
-      <h4>Change of phone</h4>${small("A card plays on one phone only. If someone lost or changed their phone, enter their mobile number (or their card number): the next phone they join with keeps their card.")}<div class="zc-inline"><label class="zc-sr" for="ubph">Their mobile number or card number</label><input id="ubph" class="zc-in" inputmode="tel" autocomplete="off" placeholder="415 555 0132"><button type="button" class="zc-mini" id="unbind">Let them move to a new phone</button></div>`);
+  const guestTools = () => (!canRun() ? "" : `<h4>A guest's own data</h4>${small("A player asks to see or delete their data? Enter their mobile number, or their player number if they joined with a nickname. Only you can do this.")}<div class="zc-inline"><label class="zc-sr" for="pdph">Their mobile number or player number</label><input id="pdph" class="zc-in" inputmode="tel" autocomplete="off" placeholder="415 555 0132"><button type="button" class="zc-mini" id="pdsee">Show what we hold</button><button type="button" class="zc-mini zc-danger" id="pddel">Delete their data</button></div>
+      <h4>Change of phone</h4>${small("A pawn plays on one phone only. If someone lost or changed their phone, enter their mobile number (or their player number): the next phone they join with keeps their pawn.")}<div class="zc-inline"><label class="zc-sr" for="ubph">Their mobile number or player number</label><input id="ubph" class="zc-in" inputmode="tel" autocomplete="off" placeholder="415 555 0132"><button type="button" class="zc-mini" id="unbind">Let them move to a new phone</button></div>`);
   function peopleBlock() {
-    if (S.shield) return `<div class="zc-block" id="shieldnote"><h3>Guest names and numbers are hidden</h3>${small("AI helper mode is on, so this page does not show or take any guest's name or mobile number: the people list, looking up a guest, moving a card to a new phone and the report. Switch off \"My AI works in my web browser\" (in the AI Assistant box) to use them yourself.")}</div>`;
+    if (S.shield) return `<div class="zc-block" id="shieldnote"><h3>Guest names and numbers are hidden</h3>${small("AI helper mode is on, so this page does not show or take any guest's name or mobile number: the people list, looking up a guest, moving a pawn to a new phone and the report. Switch off \"My AI works in my web browser\" (in the AI Assistant box) to use them yourself.")}</div>`;
     const P = S.pp, list = P.list;
     let h = `<div class="zc-block" id="mypeople"><h3>My people</h3>`;
     if (list === null) return h + (P.err ? `<p class="zc-small zc-warnt" id="ppnote" role="status">${esc(P.err)}</p>` : small("Loading…")) + `<p class="zc-small" id="emailrule2">${EMAIL_RULE}</p>${guestTools()}</div>`;
@@ -603,7 +675,7 @@
     let h = `<span class="zc-lbl">Check your game</span>` + readBack();
     if (S.draft) {
       h += `<div class="zc-block"><h3>Publish (free)</h3>${small("Set it up first (by hand or with your AI). Participants cannot see or join a draft. Publishing is free: you confirm your details, get your link and send it to everyone. You pay before the start time, and it begins the moment you have.")}`
-        + (S.pubOpen ? `${lbl("pubEmail", "Your e-mail (for the invoice)")}<input id="pubEmail" class="zc-in" type="email" value="${S.shield ? "" : esc(S.contact.email)}" autocomplete="email">${lbl("pubPhone", "Your mobile number")}<input id="pubPhone" class="zc-in" type="tel" value="${S.shield ? "" : esc(S.contact.phone)}" autocomplete="tel" placeholder="415 555 0132"><div class="zc-foot"><button class="zc-btn" type="button" id="pubgo">Confirm and publish</button> <button class="zc-btn zc-btn-alt" type="button" id="pubcancel">Back</button></div>`
+        + (S.pubOpen ? `${lbl("pubEmail", "Your e-mail (for the invoice)")}<input id="pubEmail" class="zc-in" type="email" value="${S.shield ? "" : esc(S.contact.email)}" autocomplete="email">${lbl("pubPhone", "Your mobile number")}<input id="pubPhone" class="zc-in" type="tel" value="${S.shield ? "" : esc(S.contact.phone)}" autocomplete="tel" placeholder="415 555 0132">${consHtml("K1", "#pubgo")}<div class="zc-foot"><button class="zc-btn" type="button" id="pubgo"${consOff("K1")}>Confirm and publish</button> <button class="zc-btn zc-btn-alt" type="button" id="pubcancel">Back</button></div>`
           : `<div class="zc-foot"><button class="zc-btn" type="button" id="publishopen">Publish my game, free</button></div>`)
         + (S.pubNote ? `<p class="zc-small"><b>${esc(S.pubNote)}</b></p>` : "") + `</div>`;
     } else {
@@ -639,7 +711,7 @@
   /** "Create a new game like this one": the panel (one place at the top) and what it does. */
   function clonePanel() {
     const K = S.clone; if (!K) return "";
-    return `<div class="zc-alert" id="clonepanel" role="group" aria-label="Create a new game like this one"><h3>Create a new game like this one</h3>${small("The settings, prizes and brand are copied. The date, the payment, the guests and the Co-hosts are not.")}${K.hasPeople ? `<label class="zc-check" for="clonepeople"><input type="checkbox" id="clonepeople"${K.withPeople ? " checked" : ""}> Also bring my people list from the old game</label>` : small("The old guest list has been erased, so add your people again.")}${K.err ? `<p class="zc-small zc-warnt" role="status">${esc(K.err)}</p>` : ""}<div class="zc-chips zc-gap"><button type="button" class="zc-btn zc-btn-s" id="clonego"${K.busy ? " disabled" : ""}>Create the new game</button><button type="button" class="zc-btn zc-btn-s zc-btn-alt" id="cloneno">Not now</button></div></div>`;
+    return `<div class="zc-alert" id="clonepanel" role="group" aria-label="Create a new game like this one"><h3>Create a new game like this one</h3>${small("The settings, prizes and brand are copied. The date, the payment, the guests and the Co-hosts are not.")}${K.hasPeople ? `<label class="zc-check" for="clonepeople"><input type="checkbox" id="clonepeople"${K.withPeople ? " checked" : ""}> Also bring my people list from the old game</label>${K.withPeople ? consHtml("K6", "#clonego") : ""}` : small("The old guest list has been erased, so add your people again.")}${K.err ? `<p class="zc-small zc-warnt" role="status">${esc(K.err)}</p>` : ""}<div class="zc-chips zc-gap"><button type="button" class="zc-btn zc-btn-s" id="clonego"${K.busy || (K.hasPeople && K.withPeople && !consReady("K6")) ? " disabled" : ""}>Create the new game</button><button type="button" class="zc-btn zc-btn-s zc-btn-alt" id="cloneno">Not now</button></div></div>`;
   }
   const hasOldPeople = () => !(S.life && S.life.purged) && (((S.people || []).length > 0) || ((S.pp.list || []).length > 0));
   /** Step 8: the only place a price is shown (and the Co-host's own Payment step, and the pay pages). */
@@ -664,20 +736,19 @@
       ${lbl("annText", "Or write your own")}<textarea id="annText" class="zc-in zc-ta" rows="2" maxlength="160" placeholder="Write a short message"></textarea>
       <div class="zc-foot"><button class="zc-btn zc-btn-s" type="button" id="annSend"${avail ? "" : " disabled"}>Send to everyone</button> <button class="zc-btn zc-btn-s zc-btn-alt" type="button" id="annClear"${avail ? "" : " disabled"}>Clear message</button></div>${S.annNote ? `<p class="zc-small"><b>${esc(S.annNote)}</b></p>` : ""}</div>`;
   }
-  const lineLabel = (s) => { const lines = (S.cfg && S.cfg.rewards || []).filter((l) => l.pattern === s.pattern), line = lines.find((l) => l.ordinal === s.ordinal); return ((S.cfg && S.cfg.rounds > 1) ? "Round " + (s.round || 1) + " · " : "") + (lines.length > 1 ? ["", "1st", "2nd", "3rd"][s.ordinal] || s.ordinal + "th" : "") + (lines.length > 1 ? " " : "") + NAMES[s.pattern] + (line && line.text ? " (" + line.text + ")" : ""); };
+  const lineLabel = (s) => { const lines = (S.cfg && S.cfg.rewards || []).filter((l) => l.pattern === s.pattern), line = lines.find((l) => l.ordinal === s.ordinal); return (lines.length > 1 ? ["", "1st", "2nd", "3rd"][s.ordinal] || s.ordinal + "th" : "") + (lines.length > 1 ? " " : "") + NAMES[s.pattern] + (line && line.text ? " (" + line.text + ")" : ""); };
   const PNAME = NAMES;
   const prizeName = (p) => { const l = (S.cfg && S.cfg.rewards || []).find((x) => x.pattern === p.pattern && x.ordinal === p.ordinal); return p.pattern === "lucky" ? "Lucky draw " + p.ordinal : (PNAME[p.pattern] || p.pattern) + (p.ordinal > 1 ? " (" + p.ordinal + ")" : "") + (l && l.text ? " · " + l.text : ""); };
   function prizeBlock() {
     const P = S.prizes || [];
     if (!S.started || S.draft) return "";
-    const rows = P.map((p, i) => `<div class="zc-rowl zc-top"><span><b>${S.shield ? "Card " + esc(String(p.seat)) : esc(p.name || "Participant")}</b>${S.shield ? "" : " &middot; " + esc(p.phone || "")}<br><small class="zc-small zc-nomargin">${esc(prizeName(p))}${p.round > 1 ? " · round " + p.round : ""}${p.confirmed ? " · confirmed by the winner " + esc(dmy(p.confirmedMs)) : " · not confirmed by the winner yet"}</small>${p.changed && !S.shield ? `<br><small class="zc-badt"><b>Changed after the game.</b> Joined as ${esc(p.joinedWithName || "?")} · ${esc(p.joinedWithPhone || "?")}${(p.trail || []).map((t) => "; on " + esc(dmy(t.at)) + " changed to " + esc(t.name) + " · " + esc(t.phone)).join("")}</small>` : ""}</span>
+    const rows = P.map((p, i) => `<div class="zc-rowl zc-top"><span><b>${S.shield ? "Player " + esc(String(p.seat)) : esc(p.name || "Participant")}</b>${S.shield ? "" : " &middot; " + esc(p.phone || "")}<br><small class="zc-small zc-nomargin">${esc(prizeName(p))}${p.confirmed ? " · confirmed by the winner " + esc(dmy(p.confirmedMs)) : " · not confirmed by the winner yet"}</small>${p.changed && !S.shield ? `<br><small class="zc-badt"><b>Changed after the game.</b> Joined as ${esc(p.joinedWithName || "?")} · ${esc(p.joinedWithPhone || "?")}${(p.trail || []).map((t) => "; on " + esc(dmy(t.at)) + " changed to " + esc(t.name) + " · " + esc(t.phone)).join("")}</small>` : ""}</span>
       <label class="zc-check"><input type="checkbox" data-given="${i}" ${p.given ? "checked" : ""}> Prize given${p.given ? " " + esc(dmy(p.givenMs)) + (p.givenBy ? " by " + esc(p.givenBy) : "") : ""}</label></div>`).join("");
-    const rankHtml = (() => { // BG-19: 1st, 2nd, 3rd ... and the top 10, in prize order, then call number, then fate; a tie decided by fate is explained
-      const sett = (S.settledPreview || []).filter((x) => x.pids && x.pids.length).map((x) => ({ pattern: x.pattern, ordinal: x.ordinal, idx: x.idx, pids: x.pids.slice(0, 1), round: 1, tied: x.tied }));
+    const rankHtml = (() => { // the confirmed prizes in prize order (there are no ties: the next measure, then fate, always decides)
+      const sett = (S.settledPreview || []).filter((x) => x.pids && x.pids.length);
       if (!sett.length || !S.cfg) return "";
-      const rows = ZG.rankWinners(ZG.roundEid(eid, 1), S.cfg, sett, 10);
-      const who = (r) => { const w = P.find((q) => q.pattern === r.pattern && q.ordinal === r.ordinal && (q.round || 1) === 1); return w ? (S.shield ? "Card " + esc(String(w.seat)) : esc(w.name || "Participant")) : "Card " + esc(String((/^(\d+)x/.exec(r.pid) || [0, "?"])[1])); };
-      return `<h4>Ranking: top winners</h4><ol class="zc-rank" id="rankList">${rows.map((r) => `<li><b>${esc(ZG.rankName(r.rank))}</b> ${esc(NAMES[r.pattern] || r.pattern)}${r.text ? " (" + esc(r.text) + ")" : ""}: ${who(r)}${r.note ? `<br><small class="zc-small zc-nomargin">${esc(r.note)}</small>` : ""}</li>`).join("")}</ol>`;
+      const who = (r) => { const w = P.find((q) => q.pattern === r.pattern && q.ordinal === r.ordinal && (q.round || 1) === 1); return w ? (S.shield ? "Player " + esc(String(w.seat)) : esc(w.name || "Participant")) : "A player"; };
+      return `<h4>Winners so far</h4><ol class="zc-rank" id="rankList">${sett.map((r) => `<li><b>${esc(lineLabel(r))}</b>: ${who(r)}</li>`).join("")}</ol>`;
     })();
     return `<div class="zc-block"><h3>Prizes handed over</h3>${rankHtml}${rows || small("No winner is confirmed yet.")}${small("After the game each winner confirms their name and mobile number on their own phone. Anything they change is shown here together with what they joined with. Tick \"Prize given\" when you hand the prize over: the date is kept. The winners record and your details as Organizer and Host are kept for 365 days. Co-host details are erased with the guests.")}</div>`;
   }
@@ -687,9 +758,9 @@
     const byCat = {}; for (const p of ps) if (p.inv && p.cat) byCat[p.cat] = (byCat[p.cat] || 0) + 1;
     const label = (id) => ((ZG.INVITE_CATEGORIES || []).find((k) => k.id === id) || { label: id }).label;
     const cats = Object.entries(byCat).sort((a, b) => b[1] - a[1]).map(([k, n]) => `<div class="zc-rowl"><span>${esc(label(k))}</span><b>${n}</b></div>`).join("");
-    return `<div class="zc-block"><h3>The game has begun</h3><div class="zc-stats"><div><div class="zc-stat">${ps.length}</div><div class="zc-small zc-nomargin">people in the game</div></div><div><div class="zc-stat">${late}</div><div class="zc-small zc-nomargin">joined after the first number</div></div><div><div class="zc-stat">${viaInv}</div><div class="zc-small zc-nomargin">came through an invitation</div></div><div><div class="zc-stat">${S.settledPreview.length}</div><div class="zc-small zc-nomargin">prizes won so far</div></div></div>
+    return `<div class="zc-block"><h3>The game has begun</h3><div class="zc-stats"><div><div class="zc-stat">${ps.length}</div><div class="zc-small zc-nomargin">people in the game</div></div><div><div class="zc-stat">${late}</div><div class="zc-small zc-nomargin">joined after the first turn</div></div><div><div class="zc-stat">${viaInv}</div><div class="zc-small zc-nomargin">came through an invitation</div></div><div><div class="zc-stat">${S.settledPreview.length}</div><div class="zc-small zc-nomargin">prizes won so far</div></div></div>
       ${cats ? `<h4>Invitations by kind of guest</h4>${cats}` : ""}${roles ? small(roles + " Organizer / Host / Co-host " + (roles === 1 ? "seat" : "seats") + " playing along.") : ""}
-      ${small("When the game ends we e-mail you the complete report as a PDF: when it started, how many people at each stage, every prize and winner, who invited whom, all statistics, and every name and mobile number.")}</div>`;
+      ${small("When the game ends we e-mail you the complete report as a PDF: when it started, how many players at each stage, every prize and winner, who invited whom, all statistics, and every name and mobile number.")}</div>`;
   }
   function luckyBlock() {
     const L = (S.cfg && S.cfg.breaks || []).filter((b) => b.kind === "lucky");
@@ -698,10 +769,10 @@
       ${small("The software picks the winners from everyone who joined, using public random numbers. You and we cannot choose them. A winner is confirmed when several phones agree.")}</div>`;
   }
   function rewardsBlock() {
-    const bad = S.checked ? S.checked.bad.length : 0;
-    return `<div class="zc-block"><h3>Rewards, from the public number log</h3>${S.settledPreview.length ? S.settledPreview.map((s) => rowl(`${esc(lineLabel(s))} · call ${s.idx + 1}`, `<b>${s.pids.length} participant${s.pids.length === 1 ? "" : "s"}${s.names ? " · " + esc(s.names) : ""}</b>`)).join("") : small("No pattern is complete yet.")}
-      ${small(`Claims received: ${S.claims.length}. ${bad ? `<b>${bad} not valid</b> (they do not match the public log and are ignored).` : "All claims so far match the public log."}`)}
-      ${small(`Numbers come from a public random beacon. Winners are confirmed when several phones agree. You and we cannot choose or change them in the software. Confirmed so far: ${(S.published || []).filter((r) => r.pattern !== "lucky").length}.`)}
+    const presence = S.cfg && S.cfg.play === "presence";
+    return `<div class="zc-block"><h3>Prizes won, from the public throws</h3>${S.settledPreview.length ? S.settledPreview.map((s) => rowl(`${esc(lineLabel(s))} · turn ${Number(s.idx) + 1}`, `<b>${s.pids.length} player${s.pids.length === 1 ? "" : "s"}${s.names ? " · " + esc(s.names) : ""}</b>`)).join("") : small("No prize has been won yet.")}
+      ${presence ? small(`Throws received: ${S.claims.length}. A throw counts only if it reached us from the right phone inside its turn window.`) : ""}
+      ${small(`Every throw comes from a public random beacon. Winners are confirmed when several phones agree. You and we cannot choose or change them in the software. Confirmed so far: ${(S.published || []).filter((r) => r.pattern !== "lucky").length}.`)}
       <button type="button" class="zc-mini" id="csv"${S.settledPreview.length && !S.shield ? "" : " disabled"}>Download report</button></div>`;
   }
   function stepDay() {
@@ -750,12 +821,12 @@
     ["What if nobody pays?", "The game does not begin. Nothing is charged. Once one payment is made, the game is on."],
     ["Can I change things later?", "Yes, until the game starts. Open the step and change it."],
     ["How do I add a video?", "Open Brand moments and paste the link. Tap Test it to see what guests see."],
-    ["What do guests see?", "A card on their phone. No app to install."],
+    ["What do guests see?", "A board on their phone. No app to install."],
     ["Is my guests' data safe?", "It is encrypted. Names and numbers are erased within 24 hours after the game."],
     ["What is a lucky draw?", "A draw during the game. The software picks the winners from everyone playing."],
     ["How do I stop the game?", "Open Game day and tap Pause or End. Organizer and Hosts can do this."],
     ["Who can do what?", "The Organizer can do everything, including the account (keys, e-mail, AI link). A Host can do everything in the game except the account and adding Hosts. A Co-host invites people and can pay. Open step 5 to see it."],
-    ["What is the big screen link?", "A page for a projector or TV. It shows numbers and winners only, never a guest's name or number. Copy it in step 6 and open it on the laptop connected to the screen."],
+    ["What is the big screen link?", "A page for a projector or TV. It shows the board and winners only, never a guest's name or number. Copy it in step 6 and open it on the laptop connected to the screen."],
     ["Can I get a refund?", "We do not give refunds. If you cancel a paid game before it starts, your payment stays in the Organizer's account as credit for the next game, for 365 days. Unused credit lapses at the end of day 365."],
     ["Who do I contact?", "Write to our Grievance Officer. We reply within 30 days."],
   ];
@@ -796,19 +867,19 @@
   function sum(n) {
     if (role() === "cohost") { const c = S.coh; if (!c) return ""; return [c.startMs ? when(c.startMs) : "", `${Number(c.brought) || 0} ${Number(c.brought) === 1 ? "person" : "people"} brought`, payState().paid ? "Paid" : "Payment pending for this game"][n - 1] || ""; }
     const c = S.cfg, inf = S.info; if (!c || !inf) return "";
-    const t = c.tickets, used = (c.opening || []).length + (c.breaks || []).length + (c.closing || []).length, T = S.team;
-    return [`${c.name || "Your game"}, ${when(inf.startMs)}`, `Up to ${inf.cap}, ${t} card${t === 1 ? "" : "s"}, ${inf.callSeconds} seconds`, `${(c.rewards || []).length} prizes`, `${used} of ${5 * t} moments`,
+    const t = 1, used = (c.opening || []).length + (c.breaks || []).length + (c.closing || []).length, T = S.team;
+    return [`${c.name || "Your game"}, ${when(inf.startMs)}`, `Up to ${inf.cap}, ${c.mode === "team" ? "team race" : c.mode === "table" ? "table game" : "race"}, ${inf.callSeconds} seconds a turn`, `${(c.rewards || []).length} prizes`, `${used} of ${5 * t} moments`,
       T ? `${pl((T.hosts || []).length, "Host", "Hosts")}, ${pl((T.cohosts || []).length, "Co-host", "Co-hosts")}` : "", S.draft ? "Guest link ready after publishing" : "Guest link ready", S.draft ? "Not published yet" : "Published", S.draft ? "Publish first" : isCancelled() ? "Cancelled" : payState().paid ? "Paid. The game is on" : payState().confirming ? "Confirming your payment..." : "Payment pending", S.started ? "The game is on" : "Opens when the game starts", "Your report, then erasing data"][n - 1] || "";
   }
   // "About this step": a short, always-visible write-up under each talking line (docs/ROLES_AND_CONSOLE_SPEC_4.md, A). At most 5 short lines each.
   const ABOUT = {
-    1: ["This is the basics. Pick the occasion, the day and the time.", "Times are in your own time zone, as your device shows it.", "Guests can join before the start. The first number comes 2 minutes after the start.", "You can change all this until the game starts."],
-    2: ["Pick the biggest crowd you expect. Or type your own number. You see the price when you pay.", "Who can join: \"Only people on a list\" keeps it private, and people not on a list wait for you to let them in.", "\"Anyone with the link\" lets people in at once.", "Cards, marking, speed and rounds can stay as they are. Guests type just their name to join.", "Each guest can invite family or colleagues if you switch it on."],
-    3: ["Tick the prizes you will give: Line, Four Corners, X, Blackout and more. Pick what each one is.", "\"I will decide later\" is fine. You can still publish and choose before the game starts.", "\"No prize\" shows on the card as \"No prize\".", "You give the prizes. We provide the software.", "The software picks the winners. Nobody can change them, not even us."],
-    4: ["Show your message, video or audio in the game.", "You get 5 moments for each card: before the game, during it and at the end. A lucky draw is also a moment.", "Press \"Test it\" before you publish.", "Use a YouTube link, or a direct link to a video or audio file.", "Add your company name, a colour and a small logo for the top of the card. The logo also sits in the FREE square. Press \"See what guests see\" to check it."],
+    1: ["This is the basics. Pick the occasion, the day and the time.", "Times are in your own time zone, as your device shows it.", "Guests can join before the start. The first turn opens 2 minutes after the start.", "You can change all this until the game starts."],
+    2: ["Pick the biggest crowd you expect. Or type your own number. You see the price when you pay.", "Who can join: \"Only people on a list\" keeps it private, and people not on a list wait for you to let them in.", "\"Anyone with the link\" lets people in at once.", "Game type: a race (everyone has their own board), a team race, or a table (2 to 20 players share one board). The turn window and the board can stay as they are. Guests type just a nickname to join.", "Each guest can invite family or colleagues if you switch it on."],
+    3: ["Tick the prizes you will give: Milestone, Reach the end, Biggest climb and more. Pick what each one is.", "\"I will decide later\" is fine. You can still publish and choose before the game starts.", "\"No prize\" shows to guests as \"No prize\".", "You give the prizes. We provide the software.", "The software picks the winners. Nobody can change them, not even us."],
+    4: ["Show your message, video or audio in the game.", "You get 5 moments: before the game, during it and at the end. A lucky draw is also a moment.", "Press \"Test it\" before you publish.", "Use a YouTube link, or a direct link to a video or audio file.", "Add your company name, a colour and a small logo for the top of the board. Press \"See what guests see\" to check it."],
     5: ["A Host runs the game with you. A Host needs a name, a mobile number and an e-mail.", "A Co-host invites people and can pay. A Co-host needs a name and a mobile number only.", "Guests need a name only (a mobile number too if you chose that).", "Send each private link to one person only.", "Each Co-host can add up to 100 people unless you change it below."],
-    6: ["Add your people here, one by one, from your phone contacts (where your phone allows it), by pasting from Excel or by uploading a CSV.", "Each person gets their own link to send by WhatsApp or e-mail. Or share the one common link in Slack, Teams, Zoom chat or any group.", "With \"Only people on a list\", people who are not on your list wait under \"Waiting to come in\". You can let them in one by one or press \"Approve all\".", "The big screen link is for the laptop connected to the room screen or shared in your video call. It shows the call board and winners only."],
-    7: ["Look through your game and change what you need.", "Publishing is free. Guests can join after you publish.", "You can cancel before the start time. We do not give refunds: a paid game becomes credit for your next game for 365 days. Or change the date instead.", "Press \"See what guests see\" to look at a sample card."],
+    6: ["Add your people here, one by one, from your phone contacts (where your phone allows it), by pasting from Excel or by uploading a CSV.", "Each person gets their own link to send by WhatsApp or e-mail. Or share the one common link in Slack, Teams, Zoom chat or any group.", "With \"Only people on a list\", people who are not on your list wait under \"Waiting to come in\". You can let them in one by one or press \"Approve all\".", "The big screen link is for the laptop connected to the room screen or shared in your video call. It shows the board and winners only."],
+    7: ["Look through your game and change what you need.", "Publishing is free. Guests can join after you publish.", "You can cancel before the start time. We do not give refunds: a paid game becomes credit for your next game for 365 days. Or change the date instead.", "Press \"See what guests see\" to look at a sample board."],
     8: ["Pay once, before the start time. You see the price here.", "The Organizer, a Host or a Co-host can pay.", "Paid late? The game starts 2 minutes after your payment is confirmed.", "A paid game cannot be cancelled after the start time. Before it, your payment stays as credit for 365 days.", "\"Copy payment link\" makes a link anyone can open to pay for this game."],
     9: ["Run the game from here. Pause, resume or end it.", "Send a message to every phone.", "Tick a prize when you hand it over.", "Only the Organizer and Host can remove a person during the game."],
     10: ["A few minutes after the game, a report link is e-mailed to the Organizer.", "Guest names and numbers are erased within 24 hours.", "We keep the winners and the Organizer's and Hosts' details for 365 days.", "You can erase guest data earlier."],
@@ -878,7 +949,7 @@
     if (canRun()) {
       if (S.locked && !S.draft) h += payDueCard();
       if ((S.reqs || []).length) h += `<div class="zc-alert"><h3>Your AI assistant is asking</h3>${S.reqs.map((r) => rowl(esc(r.action) + (r.note ? " · " + esc(r.note) : ""))).join("")}<div class="zc-chips"><button type="button" class="zc-btn zc-btn-s${S.reqs[0].action === "erase" ? " zc-btn-bad" : ""}" id="reqok">${S.reqs[0].action === "erase" ? "Confirm: delete all participant data" : "Approve (" + esc(S.reqs[0].action) + ")"}</button><button type="button" class="zc-btn zc-btn-s zc-btn-alt" id="reqno">Dismiss</button></div></div>`;
-      if (!S.draft && S.cfg) h += `<div class="zc-live" id="zclive"><b>${S.people.length}</b> ${S.people.length === 1 ? "person" : "people"} · numbers called <b>${S.log.length} / 75</b>${S.cfg.rounds > 1 ? ` · round ${S.round} of ${S.cfg.rounds}` : ""}</div>`;
+      if (!S.draft && S.cfg) h += `<div class="zc-live" id="zclive"><b>${S.people.length}</b> ${S.people.length === 1 ? "person" : "people"} · turns played <b>${S.turns || 0} / ${S.cfg.turnCap || 60}</b></div>`;
     }
     return h;
   }
@@ -914,30 +985,30 @@
   // ---------- home (no game open yet) ----------
   function homeView() {
     const h = S.history, last = h && h.engagements[0];
-    const bar = last ? `<div class="zc-lastbar"><span>Your last game was on <b>${fmtDay(last.created_ms)}</b> · ${last.participants} participants</span><span><button type="button" class="zc-mini" data-reuse="${esc(last.id)}">Reuse the data</button> <button type="button" class="zc-mini" data-hist="1">History</button></span></div>` : "";
+    const bar = last ? `<div class="zc-lastbar"><span>Your last game was on <b>${fmtDay(last.created_ms)}</b> · ${last.participants} participants</span><span><button type="button" class="zc-mini" data-reuse="${esc(last.id)}"${consOff("K6")}>Reuse the data</button> <button type="button" class="zc-mini" data-hist="1">History</button></span></div>${consHtml("K6", "[data-reuse]")}` : ""; // K6: reusing an earlier guest list needs the box ticked
     const main0 = clonePanel();
-    const hist = S.showHist && h ? `<div class="zc-block"><h3>History · kept ${h.retentionDays} days</h3>${h.engagements.map((e) => `<div class="zc-rowl"><span>${esc(e.id)} · ${fmtDay(e.created_ms)} · ${e.participants} people${e.draft ? " · draft" : ""}</span><span><button type="button" class="zc-mini" data-open-game="${esc(e.id)}">Open</button> <button type="button" class="zc-mini" data-reuse="${esc(e.id)}">Reuse</button> <button type="button" class="zc-mini" data-clonebtn="1" data-from="${esc(e.id)}" data-people="${e.participants > 0 && !e.erased ? 1 : 0}">Create a new game like this one</button></span></div>`).join("")}</div>` : "";
+    const hist = S.showHist && h ? `<div class="zc-block"><h3>History · kept ${h.retentionDays} days</h3>${h.engagements.map((e) => `<div class="zc-rowl"><span>${esc(e.id)} · ${fmtDay(e.created_ms)} · ${e.participants} people${e.draft ? " · draft" : ""}</span><span><button type="button" class="zc-mini" data-open-game="${esc(e.id)}">Open</button> <button type="button" class="zc-mini" data-reuse="${esc(e.id)}"${consOff("K6")}>Reuse</button> <button type="button" class="zc-mini" data-clonebtn="1" data-from="${esc(e.id)}" data-people="${e.participants > 0 && !e.erased ? 1 : 0}">Create a new game like this one</button></span></div>`).join("")}</div>` : "";
     const main = `${S.note ? `<div class="zc-toast" role="status">${esc(S.note)}</div>` : ""}${main0}<div class="zc-small zc-rolenote">${esc(ROLE_NOTE.organizer)}</div>
-      <div class="zc-block"><h3>Start a new game</h3>${small("You build it first, at no cost. You pay only when you publish. The first number is called two minutes after the start time.")}<div class="zc-chips"><button type="button" class="zc-btn zc-btn-s" id="mk">Start a new game</button><a class="zc-chip" href="/zc.html?quick=1">Quick setup form</a></div></div>${bar}${hist}${acctHtml()}`;
+      <div class="zc-block"><h3>Start a new game</h3>${small("You build it first, at no cost. You pay only when you publish. The first turn opens two minutes after the start time.")}<div class="zc-chips"><button type="button" class="zc-btn zc-btn-s" id="mk">Start a new game</button><a class="zc-chip" href="/zc.html?quick=1">Quick setup form</a></div></div>${bar}${hist}${acctHtml()}`;
     return frame(`<div class="zc-body"><div class="zc-main">${main}</div></div>`, false);
   }
   // ---------- Quick setup: the first three steps as one form, with a real date and time picker (the AI route and the browser-AI route use it) ----------
   function quickDefault() {
     const t = new Date(istNow().getTime() + 86400000);
-    const f = { occ: "Team event", oname: "", day: "other", dayo: istDateStr(t), time: "other", timeo: "16:00", cap: "250", tix: "1", mk: "auto", gj: "name", spd: "9", rnd: "1", join: "list", inv: false, per: "4", cats: ["family", "colleagues"], bundle: "Classic", hs: {}, ph: "" };
+    const f = { occ: "Team event", oname: "", day: "other", dayo: istDateStr(t), time: "other", timeo: "16:00", cap: "250", tix: "1", gj: "name", spd: "20", join: "list", gm: "race", tm: "4", pl: "fate", bs: "100", sn: "9", ld: "9", fin: "exact", ms: "75", tc: "60", ep: "5", ex: false, th: "jungle", inv: false, per: "4", cats: ["family", "colleagues"], bundle: "Classic", hs: {}, ph: "" };
     for (const [k] of HS) f.hs[k] = { on: false, n: 1, pt: "later", pd: "", orig: [] };
     applyBundleTo(f, "Classic");
     return f;
   }
-  function applyBundleTo(f, b) { const set = BUNDLES[b]; if (!set) return; for (const [k] of HS) { const h = f.hs[k]; h.on = !!set[k]; if (set[k]) h.n = set[k]; } f.ph = (HS.find(([k]) => f.hs[k].on) || ["blackout"])[0]; }
+  function applyBundleTo(f, b) { const set = BUNDLES[b]; if (!set) return; for (const [k] of HS) { const h = f.hs[k]; h.on = !!set[k]; if (set[k]) h.n = set[k]; } f.ph = (HS.find(([k]) => f.hs[k].on) || [DEFAULT_PRIZE_HOUSE])[0]; }
   function quickView() {
     const f = S.f;
     const caps = capOptions().map((p) => `<button type="button" class="zc-chip${String(f.cap) === String(p.n) ? " on" : ""}" data-ck="cap" data-v="${p.n}" aria-pressed="${String(f.cap) === String(p.n)}"><span>Up to ${p.n} people</span></button>`).join("");
-    const houses = HS.map(([k, n, how, mx]) => `<div class="zc-box"><label class="zc-check" for="qk-h-${k}"><input type="checkbox" id="qk-h-${k}" data-hc="${k}" ${f.hs[k].on ? "checked" : ""}> ${n}</label><p class="zc-small zc-how">${esc(how || "")}</p>${mx > 1 ? grp(`hs.${k}.n`, "Winners", Array.from({ length: mx }, (_, i) => [String(i + 1), String(i + 1)])) : ""}${lbl("qk-t-" + k, "What is the prize? (up to 80 characters; you can fill this in later)")}<input id="qk-t-${k}" class="zc-in" data-qkprize="${k}" maxlength="80" value="${esc(f.hs[k].pt === "later" ? "" : prizeText(f.hs[k].pt, f.hs[k].pd))}"></div>`).join("");
+    const houses = HS.filter(([k]) => houseOk(f, k)).map(([k, n, how, mx]) => `<div class="zc-box"><label class="zc-check" for="qk-h-${k}"><input type="checkbox" id="qk-h-${k}" data-hc="${k}" ${f.hs[k].on ? "checked" : ""}> ${n}</label><p class="zc-small zc-how">${esc(how || "")}</p>${mx > 1 ? grp(`hs.${k}.n`, "Winners", Array.from({ length: mx }, (_, i) => [String(i + 1), String(i + 1)])) : ""}${lbl("qk-t-" + k, "What is the prize? (up to 80 characters; you can fill this in later)")}<input id="qk-t-${k}" class="zc-in" data-qkprize="${k}" maxlength="80" value="${esc(f.hs[k].pt === "later" ? "" : prizeText(f.hs[k].pt, f.hs[k].pd))}"></div>`).join("");
     const main = `<div class="zc-block"><h3>1. Which game?</h3>${lbl("qk-name", "Name of the game (optional)")}<input id="qk-name" class="zc-in" data-fi="oname" maxlength="60" placeholder="Team event" value="${esc(f.oname)}">
         ${grp("occ", "Occasion", OCC.map((o) => [o, o]))}${lbl("qk-date", `Day (your time, ${tzName()})`)}<input id="qk-date" class="zc-in" type="date" data-fi="dayo" value="${esc(f.dayo)}" min="${istDateStr(istNow())}">${lbl("qk-time", `Start time (your time, ${tzName()})`)}<input id="qk-time" class="zc-in" type="time" data-fi="timeo" step="300" value="${esc(f.timeo)}">
-        ${small("Guests can join before. The first number is called 2 minutes after the start time. Choose a time at least 2 hours ahead.")}</div>
-      <div class="zc-block"><h3>2. How will it play?</h3><span class="zc-lbl" id="gl-cap">How many people at most? (people invited by your guests count too)</span><div role="group" aria-labelledby="gl-cap">${caps}</div>${grp("tix", "Cards for each person (participant)", [["1", "1 card"], ["2", "2 cards (more chances)"]])}${grp("mk", "How the card marks the numbers", [["auto", "Automatically"], ["tap", "Tap to daub"]])}${grp("spd", "Duration (gap) between two numbers", spdOpts(f.spd))}${grp("rnd", "Rounds", [1, 2, 3, 4, 5].map((n) => [String(n), String(n)]))}${grp("join", "Who can join?", [["list", "Only people on a list"], ["anyone", "Anyone with the link"]])}<div class="zc-chips zc-gap">${bchip("inv", "Let each guest invite up to 4 family or colleagues")}</div></div>
+        ${small("Guests can join before. The first turn opens 2 minutes after the start time. Choose a time at least 2 hours ahead.")}</div>
+      <div class="zc-block"><h3>2. How will it play?</h3><span class="zc-lbl" id="gl-cap">How many people at most? (people invited by your guests count too)</span><div role="group" aria-labelledby="gl-cap">${caps}</div>${grp("spd", "Turn window (time to throw)", spdOpts(f.spd))}${gameBlock()}${grp("join", "Who can join?", [["list", "Only people on a list"], ["anyone", "Anyone with the link"]])}<div class="zc-chips zc-gap">${bchip("inv", "Let each guest invite up to 4 family or colleagues")}</div></div>
       <div class="zc-block"><h3>3. Prizes</h3>${grp("bundle", "Start from", ["Classic", "Simple", "Rich"].map((b) => [b, b]))}${houses}${small("You give the prizes; we only provide the software. Videos, messages and a lucky draw are added on the next page.")}</div>
       <div class="zc-block"><h3>4. Check and save</h3><div id="qk-summary" class="zc-small" aria-live="polite"></div><div id="qk-err" class="zc-toast zc-badt" role="alert" style="display:none"></div><div class="zc-foot"><button class="zc-btn" id="qk-save" type="button">Yes, save my draft</button></div>${small("Nothing is charged. Nobody else can see a draft. Next you publish it (free) and pay before the start time.")}</div>`;
     return frame(`<div class="zc-body"><div class="zc-main">${main}</div></div>`, false);
@@ -945,9 +1016,10 @@
   function quickRead() {
     const f = S.f, [y, mo, d] = (f.dayo || "").split("-").map(Number), [h, mi] = (f.timeo || "16:00").split(":").map(Number);
     const startMs = localToUtc(y, mo, d, h, mi), rewards = [];
-    for (const [k] of HS) { const hh = f.hs[k]; if (!hh.on) continue; const t = prizeText(hh.pt, hh.pd).slice(0, 80); for (let o = 1; o <= (Number(hh.n) || 1); o++) rewards.push({ pattern: k, ordinal: o, text: t }); }
+    const game = gameOutOf(f);
+    for (const [k] of HS) { const hh = f.hs[k]; if (!hh.on || !houseOk(f, k)) continue; const t = prizeText(hh.pt, hh.pd).slice(0, 80), cnt = k === "milestone" ? Math.min(Number(hh.n) || 1, game.milestones.length) : Number(hh.n) || 1; for (let o = 1; o <= cnt; o++) rewards.push({ pattern: k, ordinal: o, text: t }); }
     const name = (f.oname || "").trim() || (f.occ !== "Other" ? f.occ : "");
-    return { name, occ: f.occ === "Other" ? "EVENT" : f.occ.toUpperCase().replace(/[^A-Z0-9]+/g, "-"), startMs, cap: Number(f.cap), tickets: Number(f.tix) || 1, mark: f.mk === "tap" ? "tap" : "auto", join: f.gj === "phone" ? "phone" : "name", tz: TZ, speed: Number(f.spd), rounds: Number(f.rnd), who: f.join === "anyone" ? "anyone" : "list", invite: !!f.inv, rewards };
+    return { name, occ: f.occ === "Other" ? "EVENT" : f.occ.toUpperCase().replace(/[^A-Z0-9]+/g, "-"), startMs, cap: Number(f.cap), join: f.gj === "phone" ? "phone" : "name", tz: TZ, speed: Number(f.spd), who: f.join === "anyone" ? "anyone" : "list", invite: !!f.inv, game: gameOutOf(f), rewards };
   }
 
   // ---------- Phase 4: "Continue with Google" and the Host's Finish setup (docs/ROLES_AND_CONSOLE_SPEC_4.md, C) ----------
@@ -963,24 +1035,28 @@
   }
   async function googleDone(resp, intent) {
     try {
-      const r = await call("POST", "/api/auth/google", { credential: resp && resp.credential, intent, ...(intent === "host" ? { hostKey: secret } : {}) });
+      const consent = consPayload("K2"); if (!consent) { S.loginMsg = "Please tick the box first, then continue with Google."; S.setupMsg = S.loginMsg; return redraw(); } // K2: never sent without the tick
+      const r = await call("POST", "/api/auth/google", { credential: resp && resp.credential, intent, consent, ...(intent === "host" ? { hostKey: secret } : {}) });
       const k = r.token || r.key || r.organizerKey || r.hostKey; if (k) { secret = k; ss.set("cbz-org", k); }
       S.loginMsg = ""; S.setupMsg = ""; S.setup = null; bootstrap();
-    } catch (e) { S.loginMsg = e.message; S.setupMsg = e.message; redraw(); }
+    } catch (e) { S.loginMsg = consFail("K2", e) ? "Please read and tick the box again, then continue with Google." : e.message; S.setupMsg = S.loginMsg; redraw(); }
   }
-  const googleBlock = () => (S.gcid ? `<div class="zc-block zc-gblock"><div id="gbtn" aria-label="Continue with Google"></div></div>` : "");
+  // K2: the sign-in boxes go with Google's button, which stays inert until they are ticked
+  const googleBlock = () => (S.gcid ? `<div class="zc-block zc-gblock">${consHtml("K2", "#gbtn")}<div id="gbtn" aria-label="Continue with Google"${consReady("K2") ? "" : ' inert style="opacity:.45"'}></div></div>` : "");
   function setupView() {
-    const T = S.setup || {}, m = S.setupMsg;
-    const email = T.needEmail ? `<h4>1. Your e-mail</h4>${small(T.emailMasked ? "Use the e-mail your Organizer gave us: " + esc(T.emailMasked) + "." : "Type your e-mail.")}${googleBlock()}
+    const T = S.setup || {}, m = S.setupMsg; let num = 0;
+    const email = T.needEmail ? `<h4>${++num}. Your e-mail</h4>${small(T.emailMasked ? "Use the e-mail your Organizer gave us: " + esc(T.emailMasked) + "." : "Type your e-mail.")}${googleBlock()}
         ${S.setupSent ? `${lbl("setupcode", "The 6-digit code we sent you")}<input id="setupcode" class="zc-in" inputmode="numeric" maxlength="6" autocomplete="one-time-code" placeholder="123456"><div class="zc-foot"><button type="button" class="zc-btn zc-btn-s" id="setupverify">Check the code</button></div>`
           : `${lbl("setupemail", "Your e-mail")}<input id="setupemail" class="zc-in" type="email" autocomplete="email" placeholder="you@company.com"><div class="zc-foot"><button type="button" class="zc-btn zc-btn-s" id="setupsend">Send me a code</button></div>`}`
       : `<p class="zc-small">Your e-mail is checked${T.emailMasked ? ": " + esc(T.emailMasked) : ""}.</p>`;
-    const mobile = T.needMobile ? `<h4>${T.needEmail ? "2" : "1"}. Your mobile number</h4>${small("Typed once. We do not send a code to it.")}${lbl("setupmobile", "Your mobile number")}<input id="setupmobile" class="zc-in" inputmode="tel" autocomplete="tel" placeholder="415 555 0132"><div class="zc-foot"><button type="button" class="zc-btn zc-btn-s" id="setupmobilego">Save my number</button></div>` : "";
-    return `<div class="zc-frame zc-login"><header class="zc-bar"><span class="zc-brand"><img src="/icon-192.png" alt="" width="22" height="22"> <b>Corporate Snakes and Ladders</b></span><span class="zc-pill zc-pill-role">Host</span></header><div class="zc-main"><div class="zc-block" id="finishsetup"><h3>Finish setup</h3>${small("Two quick things, then your game opens. This link works once.")}${m ? `<div class="zc-toast" role="status">${esc(m)}</div>` : ""}${email}${mobile}</div></div></div>`;
+    const mobile = T.needMobile ? `<h4>${++num}. Your mobile number</h4>${small("Typed once. We do not send a code to it.")}${lbl("setupmobile", "Your mobile number")}<input id="setupmobile" class="zc-in" inputmode="tel" autocomplete="tel" placeholder="415 555 0132"><div class="zc-foot"><button type="button" class="zc-btn zc-btn-s" id="setupmobilego">Save my number</button></div>` : "";
+    // K5: the Host accepts the Terms once, on first open. Until then the Host is not ready, the same as with a missing e-mail or mobile number.
+    const accept = T.needAccept ? `<h4>${++num}. The Terms</h4>${consHtml("K5", "#setupacceptgo")}<div class="zc-foot"><button type="button" class="zc-btn zc-btn-s" id="setupacceptgo"${consOff("K5")}>Accept and continue</button></div>` : "";
+    return `<div class="zc-frame zc-login"><header class="zc-bar"><span class="zc-brand"><img src="/icon-192.png" alt="" width="22" height="22"> <b>Corporate Snakes and Ladders</b></span><span class="zc-pill zc-pill-role">Host</span></header><div class="zc-main"><div class="zc-block" id="finishsetup"><h3>Finish setup</h3>${small(num > 1 ? "A few quick things, then your game opens. This link works once." : "One quick thing, then your game opens. This link works once.")}${m ? `<div class="zc-toast" role="status">${esc(m)}</div>` : ""}${email}${mobile}${accept}</div></div></div>`;
   }
   async function setupStep(path, body, okSent) {
-    try { const r = await call("POST", path, body); if (r && r.token) { secret = r.token; ss.set("cbz-org", secret); } /* the e-mail is confirmed: this device gets its own key */ S.setupMsg = ""; if (okSent) S.setupSent = true; S.setup = await call("GET", "/api/host/setup"); if (S.setup && S.setup.ready !== false) { S.setup = null; S.setupSent = false; return bootstrap(); } }
-    catch (e) { S.setupMsg = friendly(e); }
+    try { const r = await call("POST", path, body); if (r && r.token) { secret = r.token; ss.set("cbz-org", secret); } /* the e-mail is confirmed: this device gets its own key */ S.setupMsg = ""; if (okSent) S.setupSent = true; S.setup = await call("GET", "/api/host/setup"); if (S.setup && S.setup.ready !== false && !S.setup.needAccept) { S.setup = null; S.setupSent = false; return bootstrap(); } }
+    catch (e) { S.setupMsg = /\/accept$/.test(path) && consFail("K5", e) ? "Please read and tick the box again, then press the button." : friendly(e); }
     redraw();
   }
   // ---------- what the console loads ----------
@@ -998,14 +1074,14 @@
       const x = S.luckyRand && S.luckyRand[round] ? S.luckyRand[round] : await ZG.fetchRound(round);
       if (!x) { out.push(null); continue; }
       (S.luckyRand = S.luckyRand || {})[round] = x;
-      const winners = ZG.luckyWinners(eid, L[i].after, x.randomness, S.people.filter((p) => !(p.jr > 0) || ZG.countFromOf(p.jr) <= round).map((p) => p.pid), L[i].winners || 3); // only people whose numbers counted by then
+      const winners = ZG.luckyWinners(eid, L[i].after, x.randomness, S.people.map((p) => p.pid), L[i].winners || 3); // everyone who joined: sign-up closes at the start
       out.push({ winners, published: (S.published || []).some((r) => r.pattern === "lucky" && r.ordinal === i + 1) });
     }
     return out;
   }
   S.pp = { list: null, err: "", limit: 0, common: "", me: null, waiting: null, approved: [], decided: [], confirm: "", sent: {}, sentFor: "", sum: "", wrong: [] };
   S.shield = ss.get("cbz-shield") === "1"; S.acctOpen = null; S.mkrole = "organizer"; S.screen = "";
-  const GROUPS = { 1: ["occ", "oname", "day", "dayo", "time", "timeo"], 2: ["cap", "tix", "spd", "rnd", "who", "inv", "per", "cats"], 3: ["hs", "ph", "bundle"], 4: ["opN", "op", "midN", "mid", "clN", "cl", "lucky", "brand"] };
+  const GROUPS = { 1: ["occ", "oname", "day", "dayo", "time", "timeo"], 2: ["cap", "tix", "spd", "who", "gj", "inv", "per", "cats", "gm", "tm", "pl", "bs", "sn", "ld", "fin", "ms", "tc", "ep", "ex", "th"], 3: ["hs", "ph", "bundle"], 4: ["opN", "op", "midN", "mid", "clN", "cl", "lucky", "brand"] };
   /** Brings the form in line with what the server holds, step by step, but never over a step the person has started changing (an AI may be changing the draft at the same time). */
   function syncForm() {
     const fresh = formFromServer();
@@ -1049,7 +1125,8 @@
       if (ACT === "publish" && S.draft && !S.actOpened) { S.pubOpen = true; S.actOpened = true; } // the AI's hand-over link: the publish card is open and waiting for the organizer's own tap
       let pr = await call("GET", `/api/z/${eid}/participants`); S.people = pr.participants; S.closed = pr.closed; S.whoCanJoin = pr.whoCanJoin || S.whoCanJoin;
       while (S.people.length < pr.total) { const more = await call("GET", `/api/z/${eid}/participants?offset=${S.people.length}`); if (!more.participants.length) break; S.people.push(...more.participants); } // a long list arrives in pages
-      S.cfg = { name: pr.name, tickets: pr.tickets, rewards: pr.rewards, breaks: pr.breaks, opening: pr.opening || [], closing: pr.closing || [], rounds: pr.rounds || 1, invites: pr.invites };
+      S.cfg = { name: pr.name, tickets: 1, rewards: pr.rewards, breaks: pr.breaks, opening: pr.opening || [], closing: pr.closing || [], rounds: 1, invites: pr.invites,
+        mode: pr.mode, play: pr.play, board: pr.board, milestones: pr.milestones, turnCap: pr.turnCap, endPrizes: pr.endPrizes, exclusive: pr.exclusive, teams: pr.teams, theme: pr.theme }; // the game settings come back from the server exactly as saved
       try { S.sum = await call("GET", `/api/z/${eid}/summary`); } catch { S.sum = S.sum || null; }
       if (canRun() && Number(S.sum && S.sum.credit) > 0) { try { S.creditInfo = await call("GET", "/api/org/credit"); } catch { S.creditInfo = null; } } else S.creditInfo = null;
       try { S.claims = (await call("GET", `/api/z/${eid}/claims`)).claims; } catch (e) { if (isOrg()) throw e; S.claims = []; }
@@ -1061,29 +1138,15 @@
       let st = null;
       if (cf) { st = ZG.resolveControl(ZG.cfgOf(cf), cf.messages); S.st = st; S.control = { pausedNow: now !== null && st.intervals.some((i) => now >= i.start && now < i.end) }; } else S.st = null;
       const stride = S.info.callSeconds / 3;
-      const schedOf = (r) => Array.from({ length: 75 }, (_, k) => ZG.callRoundR(st, S.info.startRound + ZG.GRACE_ROUNDS, stride, S.cfg.breaks, r, k));
       S.started = now !== null && now >= S.info.startRound + ZG.GRACE_ROUNDS;
       try { S.published = (await fetch(BASE + `/api/z/${eid}/results`).then((r) => r.json())).results || []; } catch { S.published = S.published || []; }
-      if (!S.store) S.store = new ZG.RoundStore({});
-      S.logs = {}; let budget = 60; // catch up quickly when the console is opened late
-      for (let r = 1; r <= S.cfg.rounds; r++) {
-        const sched = schedOf(r);
-        const upto = sched.filter((x) => x !== null && now !== null && !S.locked && x <= now); // held for non-payment: nothing is shown to anyone, the organizer included
-        const need = upto.filter((x) => !S.store.rounds.has(x)).slice(0, budget); budget -= need.length;
-        await Promise.all(need.map((x, i) => (now - x <= 2 ? S.store.fetchLive(x, i) : S.store.fetchBackfill(x, i))));
-        S.logs[r] = ZG.logFrom(ZG.roundEid(eid, r), sched.filter((x) => x !== null), S.store, upto.length);
-      }
-      S.store.verifySome(3);
-      S.round = Math.max(1, ...Object.keys(S.logs).filter((r) => S.logs[r].length > 0).map(Number));
-      S.log = S.logs[S.round] || [];
-      const pids = S.people.map((p) => p.pid);
-      const cfOf = new Map(S.people.filter((p) => p.jr > 0).map((p) => [p.pid, ZG.countFromOf(p.jr)])); // people who joined after the first number count from 90 s after joining
-      const callRoundsOf = {}; for (let r = 1; r <= S.cfg.rounds; r++) callRoundsOf[r] = schedOf(r).filter((x) => x !== null);
-      const late = { countFrom: cfOf, callRounds: callRoundsOf };
-      S.checked = ZG.checkClaims(eid, S.claims.map((c) => ({ pid: c.pid, pattern: c.pattern, idx: c.idx, round: c.round })), S.logs, S.cfg, late);
+      // Turns so far: how many turn windows have opened (the first turn opens GRACE_ROUNDS after the start). Held for non-payment: nothing is shown to anyone, the organizer included.
+      const turnCap = Number(S.cfg.turnCap) || ZG.DEFAULT_TURN_CAP || 60; let turns = 0;
+      if (S.started && !S.locked && now !== null) for (let k = 0; k < turnCap; k++) { const x = ZG.callRoundR(st, S.info.startRound + ZG.GRACE_ROUNDS, stride, S.cfg.breaks, 1, k); if (x !== null && x <= now) turns++; else break; }
+      S.turns = turns; S.round = 1;
+      // The winners are decided by the software (the phones agree on them, the server keeps what they agree on): this page lists the confirmed ones. Prizes with more than one winner on the same turn are listed together.
       const nm = S.nameCache || (S.nameCache = new Map()); // names are sealed on our side: the console asks for the few it shows (winners), 50 at a time
-      const settled = [];
-      for (let r = 1; r <= S.cfg.rounds; r++) if (S.logs[r].length) settled.push(...ZG.settleAll(eid, pids, S.logs[r], S.cfg, r, { countFrom: cfOf, callRounds: callRoundsOf[r] }));
+      const settled = (S.published || []).filter((x) => x.pattern !== "lucky").map((x) => ({ pattern: x.pattern, ordinal: x.ordinal, round: x.round || 1, idx: x.idx, pids: Array.isArray(x.winners) ? x.winners : [] }));
       await namesFor([...new Set(settled.filter((x) => x.pids.length <= 3).flatMap((x) => x.pids))]);
       S.settledPreview = settled.map((x) => ({ ...x, names: x.pids.length <= 3 && !S.shield ? x.pids.map((p) => nm.get(p) || "Participant").join(", ") : "" }));
       S.lucky = await computeLucky(now);
@@ -1101,7 +1164,7 @@
   function view() {
     if (!secret) return loginView(S.loginMsg || "");
     if (S.deadLink && /^cb[hc]_/.test(secret)) return deadLinkView(); // a Host or Co-host key (cbh_ / cbc_) that the server no longer accepts
-    if (role() === "host" && S.setup && S.setup.ready === false) return setupView();
+    if (role() === "host" && S.setup && (S.setup.ready === false || S.setup.needAccept)) return setupView();
     const r = role();
     if (r === "partner") return partnerView();
     if (!eid) { if (S.screen === "quick" && canRun()) return quickView(); return r === "organizer" ? homeView() : waitLinkView(); }
@@ -1139,11 +1202,12 @@
     const [y, mo, d] = date.split("-").map(Number), [h, mi] = time.split(":").map(Number);
     return localToUtc(y, mo, d, h, mi);
   }
-  function rewardsOut(f) {
-    const rewards = [];
+  function rewardsOut(f, game) {
+    const rewards = [], msN = game ? game.milestones.length : String(f.ms || "").split(/[\s,;]+/).filter(Boolean).length || 1;
     for (const [k] of HS) {
-      const h = f.hs[k]; if (!h.on) continue;
-      for (let o = 1; o <= (Number(h.n) || 1); o++) rewards.push({ pattern: k, scope: "ticket", ordinal: o, text: h.diff && Number(h.n) > 1 ? prizeText(perFill(h)[o - 1].pt, perFill(h)[o - 1].pd) : !h.dirty && h.orig[o - 1] !== undefined ? h.orig[o - 1] : prizeText(h.pt, h.pd) });
+      const h = f.hs[k]; if (!h.on || !houseOk(f, k)) continue;
+      const count = k === "milestone" ? Math.min(Number(h.n) || 1, msN) : Number(h.n) || 1; // each milestone prize has its own square
+      for (let o = 1; o <= count; o++) rewards.push({ pattern: k, scope: "ticket", ordinal: o, text: h.diff && Number(h.n) > 1 ? prizeText(perFill(h)[o - 1].pt, perFill(h)[o - 1].pd) : !h.dirty && h.orig[o - 1] !== undefined ? h.orig[o - 1] : prizeText(h.pt, h.pd) });
     }
     return rewards;
   }
@@ -1159,11 +1223,14 @@
       const f = S.f;
       if (role() === "cohost") { markDone(n); return advance(n); }
       if (n === 1) { const name = f.occ === "Other" ? (f.oname || "").trim() : f.occ, ms = startOf(f); if (!(ms > Date.now())) throw new Error(MSG_PAST); if (ms > Date.now() + 30 * 86400000) throw new Error("A game can start at most 30 days from today. Please pick a closer date."); await call("PATCH", `/api/z/${eid}/settings`, { name, startRound: ZG.roundAt(ms), tz: TZ }); }
-      else if (n === 2) { { const c = Number(f.cap); if (!Number.isInteger(c) || c < 1) throw new Error("Please give the number of players, for example 180."); if (c > 10000) throw new Error("For more than 10,000 players, please write to us and we will arrange it."); } if (f.inv && !f.cats.length) throw new Error("Pick at least one kind of guest."); await call("PATCH", `/api/z/${eid}/settings`, { cap: Number(f.cap), callSeconds: Number(f.spd), tickets: Number(f.tix), mark: f.mk === "tap" ? "tap" : "auto", join: f.gj === "phone" ? "phone" : "name", rounds: Number(f.rnd), whoCanJoin: f.who === "anyone" ? "anyone" : "list", invites: { on: !!f.inv, per: Number(f.per) || 4, cats: f.cats } }); }
-      else if (n === 3) { const rewards = rewardsOut(f); if (!rewards.length) throw new Error("Tick at least one prize."); await call("PATCH", `/api/z/${eid}/settings`, { tickets: Number(f.tix), rewards }); }
+      else if (n === 2) { { const c = Number(f.cap); if (!Number.isInteger(c) || c < 1) throw new Error("Please give the number of players, for example 180."); if (c > 10000) throw new Error("For more than 10,000 players, please write to us and we will arrange it."); } if (f.inv && !f.cats.length) throw new Error("Pick at least one kind of guest."); const game = gameOutOf(f), saved = (S.cfg && S.cfg.rewards) || [];
+        // a saved prize that no longer fits the new game (a team prize in a race, a never-missed prize in automatic play, a milestone prize without its square) is dropped with it
+        const stale = saved.some((l) => (l.pattern === "team" && game.mode !== "team") || (l.pattern === "nevermissed" && game.play !== "presence") || (l.pattern === "milestone" && l.ordinal > game.milestones.length));
+        await call("PATCH", `/api/z/${eid}/settings`, { cap: Number(f.cap), callSeconds: Number(f.spd), join: f.gj === "phone" ? "phone" : "name", whoCanJoin: f.who === "anyone" ? "anyone" : "list", invites: { on: !!f.inv, per: Number(f.per) || 4, cats: f.cats }, ...game, ...(stale ? { rewards: rewardsOut(f, game) } : {}) }); }
+      else if (n === 3) { const rewards = rewardsOut(f); if (!rewards.length) throw new Error("Tick at least one prize."); await call("PATCH", `/api/z/${eid}/settings`, { rewards }); }
       else if (n === 4) {
         const bn = (f.brand.name || "").trim(), bc = f.brand.color || "", bl = f.brand.logo || "", brandChanged = JSON.stringify(f.brand) !== JSON.stringify((S.fBase || {}).brand);
-        if (brandChanged && (bn || bc || bl) && !bn) throw new Error("Add your company name for the top of the card, or clear the colour and logo.");
+        if (brandChanged && (bn || bc || bl) && !bn) throw new Error("Add your company name for the top of the board, or clear the colour and logo.");
         if (brandChanged && (bn || bl) && !bc) throw new Error("Pick an accent colour for your company strip.");
         await call("PATCH", `/api/z/${eid}/settings`, { ...momentsOut(f), ...(brandChanged ? { brand: bn ? { name: bn, color: bc, ...(bl ? { logo: bl } : {}) } : {} } : {}) });
       }
@@ -1175,7 +1242,7 @@
 
   // ---------- quick setup: make the draft ----------
   async function makeDraft(r, id, hasName) {
-    const res = await call("POST", "/api/z", { id, ...(r.name ? { name: r.name } : {}), startRound: ZG.roundAt(r.startMs), callSeconds: r.speed, cap: r.cap, tickets: r.tickets, mark: r.mark, join: r.join, tz: r.tz, rounds: r.rounds, rewards: r.rewards, whoCanJoin: r.who });
+    const res = await call("POST", "/api/z", { id, ...(r.name ? { name: r.name } : {}), startRound: ZG.roundAt(r.startMs), callSeconds: r.speed, cap: r.cap, join: r.join, tz: r.tz, rewards: r.rewards, whoCanJoin: r.who, ...(r.game || {}) });
     return res;
   }
   async function afterCreate(id, r) {
@@ -1187,7 +1254,7 @@
   function quickSummary() {
     const el = document.getElementById("qk-summary"); if (!el) return;
     try { const r = quickRead(); const when2 = new Date(r.startMs + tzOffsetMs(r.startMs)).toISOString(), ok = r.startMs > Date.now();
-      el.textContent = `${r.name || "Your game"}: ${when2.slice(0, 10)} at ${when2.slice(11, 16)} (${tzName()} time)${ok ? "" : " (that time has passed: choose a later one)"}; up to ${r.cap} people; ${r.tickets} card${r.tickets === 1 ? "" : "s"} each, a number every ${r.speed} seconds, ${r.rounds} round${r.rounds === 1 ? "" : "s"}; ${r.who === "list" ? "only people on a list" : "anyone with the link"}; ${r.rewards.length} prize${r.rewards.length === 1 ? "" : "s"}.`; } catch { el.textContent = ""; }
+      el.textContent = `${r.name || "Your game"}: ${when2.slice(0, 10)} at ${when2.slice(11, 16)} (${tzName()} time)${ok ? "" : " (that time has passed: choose a later one)"}; up to ${r.cap} people; ${r.game.mode === "team" ? "team race" : r.game.mode === "table" ? "table game" : "race"} on ${r.game.board.size} squares, ${r.speed} seconds a turn; ${r.who === "list" ? "only people on a list" : "anyone with the link"}; ${r.rewards.length} prize${r.rewards.length === 1 ? "" : "s"}.`; } catch { el.textContent = ""; }
   }
   async function quickSave() {
     const err = document.getElementById("qk-err"); err.style.display = "none";
@@ -1221,7 +1288,7 @@
     if (/^hs\.[a-z0-9]+\.(pd|per\.\d+\.pd)$/.test(path)) S.f.hs[path.split(".")[1]].dirty = true;
     const lk = document.querySelector(`[data-lk="${path.replace(/\.(v|t|s)$/, "")}"]`);
     if (lk && /\.v$/.test(path)) lk.innerHTML = noteHtml(path.replace(/\.v$/, ""));
-    const bm = document.getElementById("bmcount"); if (bm && S.f) bm.textContent = `${usedMoments()} of ${5 * (Number(S.f.tix) || 1)}`;
+    const bm = document.getElementById("bmcount"); if (bm && S.f) bm.textContent = `${usedMoments()} of 5`;
     if (document.getElementById("qk-summary")) quickSummary();
   }
   function chipClick(b) {
@@ -1235,6 +1302,7 @@
     const $ = (id) => document.getElementById(id);
     const all = (sel, fn) => $app.querySelectorAll(sel).forEach(fn);
     const noteAndDraw = (t) => { S.note = t; redraw(); };
+    bindConsent();
     if ($("shield")) $("shield").onchange = () => { S.shield = $("shield").checked; ss.set("cbz-shield", S.shield ? "1" : "0"); S.nameCache = null; lastHtml = ""; if (!eid) return redraw(); if (role() === "cohost") return redraw(); refreshEng(); };
     if ($("goLogin")) $("goLogin").onclick = () => { try { sessionStorage.setItem("cbz-next", location.pathname + location.search); } catch {} };
     if ($("in")) $("in").onclick = () => { secret = $("sec").value.trim(); ss.set("cbz-org", secret); S.loginMsg = ""; bootstrap(); };
@@ -1272,9 +1340,10 @@
     if ($("pubEmail")) $("pubEmail").oninput = (e) => { S.contact.email = e.target.value; };
     if ($("pubPhone")) $("pubPhone").oninput = (e) => { S.contact.phone = e.target.value; };
     if ($("pubgo")) $("pubgo").onclick = async () => {
+      const consent = consPayload("K1"); if (!consent) { S.pubNote = "Please tick both boxes first."; return redraw(); } // never sent without both ticks
       $("pubgo").disabled = true;
-      try { await call("POST", `/api/z/${eid}/publish`, { email: S.contact.email.trim(), phone: S.contact.phone }); ss.set("cbz-email", S.contact.email.trim()); ss.set("cbz-phone", S.contact.phone); S.pubOpen = false; S.note = "Published. Send the link in step 6 to your participants. Then pay in step 8 before the start time, or the game will not begin."; }
-      catch (e) { ss.set("cbz-email", S.contact.email.trim()); ss.set("cbz-phone", S.contact.phone); S.pubNote = e.message + (e.needPack ? " (a pack for up to " + e.needPack + " participants)" : ""); }
+      try { await call("POST", `/api/z/${eid}/publish`, { email: S.contact.email.trim(), phone: S.contact.phone, consent }); ss.set("cbz-email", S.contact.email.trim()); ss.set("cbz-phone", S.contact.phone); S.pubOpen = false; S.pubNote = ""; S.note = "Published. Send the link in step 6 to your participants. Then pay in step 8 before the start time, or the game will not begin."; }
+      catch (e) { ss.set("cbz-email", S.contact.email.trim()); ss.set("cbz-phone", S.contact.phone); S.pubNote = consFail("K1", e) ? "Please read and tick the boxes again, then press the button." : e.message + (e.needPack ? " (a pack for up to " + e.needPack + " participants)" : ""); }
       refreshEng();
     };
     // cancel the game
@@ -1415,9 +1484,9 @@
       catch (e) { mineErr(e); }
       redraw();
     };
-    if ($("pdsee")) $("pdsee").onclick = async () => { try { const r = await call("POST", `/api/z/${eid}/person`, whoBody($("pdph").value)); S.note = `Card ${r.seat}${r.name ? ", " + r.name : ""}${r.role ? ", " + r.role : ""}. We hold only their name and number.`; } catch (e) { S.note = e.message; } refreshEng(); };
+    if ($("pdsee")) $("pdsee").onclick = async () => { try { const r = await call("POST", `/api/z/${eid}/person`, whoBody($("pdph").value)); S.note = `Player ${r.seat}${r.name ? ", " + r.name : ""}${r.role ? ", " + r.role : ""}. We hold only their name and number.`; } catch (e) { S.note = e.message; } refreshEng(); };
     if ($("pddel")) $("pddel").onclick = async () => { if (!confirm("Delete this player's name and number now? This cannot be undone.")) return; try { await call("POST", `/api/z/${eid}/forget`, { phone: $("pdph").value }); S.note = "Done. Their data is deleted."; } catch (e) { S.note = e.message; } refreshEng(); };
-    if ($("unbind")) $("unbind").onclick = async () => { try { await call("POST", `/api/z/${eid}/unbind`, whoBody($("ubph").value)); S.note = "Done. The next phone they join with keeps their card."; } catch (e) { S.note = e.message; } refreshEng(); };
+    if ($("unbind")) $("unbind").onclick = async () => { try { await call("POST", `/api/z/${eid}/unbind`, whoBody($("ubph").value)); S.note = "Done. The next phone they join with keeps their pawn."; } catch (e) { S.note = e.message; } refreshEng(); };
     // game day
     all("[data-chip]", (b) => (b.onclick = () => { const t = $("annText"); if (t) { t.value = b.dataset.chip; t.focus(); } }));
     if ($("annSend")) $("annSend").onclick = async () => {
@@ -1439,7 +1508,7 @@
     }));
     if ($("csv")) $("csv").onclick = async () => {
       await namesFor([...new Set(S.settledPreview.flatMap((x) => x.pids))]); const nm = S.nameCache;
-      const rows = [["Reward", "Call number", "Participant"]];
+      const rows = [["Prize", "Turn", "Player"]];
       for (const s of S.settledPreview) for (const p of s.pids) rows.push([lineLabel(s), s.idx + 1, nm.get(p) || p]);
       const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([rows.map((r) => r.map((x) => '"' + String(x).replace(/"/g, '""') + '"').join(",")).join("\n")], { type: "text/csv" })); a.download = eid + "-rewards.csv"; a.click();
     };
@@ -1466,14 +1535,16 @@
     if ($("clonepeople")) $("clonepeople").onchange = () => { S.clone.withPeople = $("clonepeople").checked; redraw(); };
     if ($("cloneno")) $("cloneno").onclick = () => { S.clone = null; redraw(); };
     if ($("clonego")) $("clonego").onclick = async () => {
-      const K = S.clone; K.busy = true; K.err = ""; redraw();
+      const K = S.clone, consent = K.hasPeople && K.withPeople ? consPayload("K6") : null; // K6: a guest list is only brought along once the box is ticked
+      if (K.hasPeople && K.withPeople && !consent) { K.err = "Please tick the box first."; return redraw(); }
+      K.busy = true; K.err = ""; redraw();
       try {
-        const r = await call("POST", `/api/z/${K.from}/clone`, { ...(K.hasPeople && K.withPeople ? { withPeople: true } : {}) });
+        const r = await call("POST", `/api/z/${K.from}/clone`, { ...(K.hasPeople && K.withPeople ? { withPeople: true, consent } : {}) });
         eid = r.id; history.replaceState(null, "", "?e=" + encodeURIComponent(r.id) + (BASE ? "&api=" + encodeURIComponent(BASE) : ""));
         S.store = null; S.f = null; S.fFor = ""; S.openInit = ""; S.cfg = null; S.info = null; S.sum = null; S.life = null; S.people = []; S.pp.list = null; S.pp.sentFor = ""; S.cancel = null; S.cancelDone = false; S.creditMsg = ""; S.screen = "eng";
         S.clone = null; S.cloneNew = r.id; S.cloneDated = ""; S.note = "Your new game is ready to check. Pick the date and time, then publish.";
         refreshTeam(); refreshEng();
-      } catch (e) { K.busy = false; K.err = e.status === 404 ? "This is not switched on yet. Please try again a little later." : friendly(e); redraw(); }
+      } catch (e) { K.busy = false; K.err = consFail("K6", e) ? "Please read and tick the box again, then create the game." : e.status === 404 ? "This is not switched on yet. Please try again a little later." : friendly(e); redraw(); }
     };
     if ($("usecredit")) $("usecredit").onclick = async () => {
       S.creditErr = ""; $("usecredit").disabled = true;
@@ -1483,15 +1554,16 @@
     };
     all("[data-open-game]", (b) => (b.onclick = () => { eid = b.dataset.openGame; S.store = null; S.f = null; S.fFor = ""; S.openInit = ""; S.cfg = null; S.info = null; refreshTeam(); refreshEng(); }));
     all("[data-reuse]", (b) => (b.onclick = async () => {
+      const consent = consPayload("K6"); if (!consent) return noteAndDraw("Please tick the box first."); // K6: checked before the new game is made
       try { // a new game that starts with the earlier roster already on it
         const now = await latestRound(); const id = randId();
         const old = S.history.engagements.find((e) => e.id === b.dataset.reuse);
         await call("POST", "/api/z", { id, startRound: now + 20 * 20, callSeconds: old.call_seconds, cap: Math.max(old.participants + 50, 500) });
-        const r = await call("POST", `/api/z/${id}/reuse`, { from: b.dataset.reuse });
+        const r = await call("POST", `/api/z/${id}/reuse`, { from: b.dataset.reuse, consent });
         await TBControl.ensureKey(id, { token: secret, base: BASE, prefix: "/api/z" });
         eid = id; history.replaceState(null, "", "?e=" + id); S.store = null; S.f = null; S.fFor = ""; S.openInit = ""; S.cfg = null; S.info = null; S.screen = "eng";
         S.note = `Created with ${r.copied} participants from the earlier game. It starts in 20 minutes; participants use the new link.`; refreshEng();
-      } catch (e) { noteAndDraw(e.message); }
+      } catch (e) { noteAndDraw(consFail("K6", e) ? "Please read and tick the box again, then press Reuse." : e.message); }
     }));
     all("[data-retirekey]", (b) => (b.onclick = async () => { if (!confirm("Retire this key? It will stop working at once.")) return; try { await call("POST", "/api/org/keys/revoke", { id: b.dataset.retirekey }); S.note = "Key retired."; } catch (e) { S.note = e.message; } eid ? loadAccount() : refreshHome(); }));
     if ($("aiaudit")) $("aiaudit").onclick = async () => { try { S.aiTrail = (await call("GET", "/api/org/ai/audit")).trail || []; } catch (e) { S.note = e.message; } redraw(); };
@@ -1516,6 +1588,7 @@
     if ($("setupsend")) $("setupsend").onclick = () => { const v = $("setupemail").value.trim(); if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) { S.setupMsg = "Please type your e-mail."; return redraw(); } setupStep("/api/host/setup/email", { email: v }, true); };
     if ($("setupverify")) $("setupverify").onclick = () => { const v = $("setupcode").value.trim(); if (!/^\d{6}$/.test(v)) { S.setupMsg = "The code has 6 digits."; return redraw(); } setupStep("/api/host/setup/email/verify", { code: v }); };
     if ($("setupmobilego")) $("setupmobilego").onclick = () => { const v = $("setupmobile").value.trim(); if (!cleanPhone(v)) { S.setupMsg = "Please check your mobile number."; return redraw(); } setupStep("/api/host/setup/mobile", { mobile: v }); };
+    if ($("setupacceptgo")) $("setupacceptgo").onclick = () => { const consent = consPayload("K5"); if (!consent) { S.setupMsg = "Please tick the box first."; return redraw(); } setupStep("/api/host/setup/accept", { consent }); };
     if ($("gbtn")) mountGoogle(secret ? "host" : "signin");
   }
 
@@ -1528,7 +1601,7 @@
     loadPacks(); loadAuthConfig();
     if (!secret) return redraw();
     const r = role();
-    if (r === "host") { try { S.setup = await call("GET", "/api/host/setup"); } catch { S.setup = null; } if (S.setup && S.setup.ready === false) return redraw(); } // an older server has no Finish setup: the Host goes straight in
+    if (r === "host") { try { S.setup = await call("GET", "/api/host/setup"); } catch { S.setup = null; } if (S.setup && (S.setup.ready === false || S.setup.needAccept)) return redraw(); } // an older server has no Finish setup: the Host goes straight in
     if (r === "partner") return redraw();
     if (r === "cohost") { if (eid) return refreshCohost(); return redraw(); }
     if (r === "host" && !eid) { try { S.history = await call("GET", "/api/history"); } catch { S.history = null; } const gs = (S.history && S.history.engagements) || []; if (gs.length === 1) { eid = gs[0].id; refreshTeam(); return refreshEng(); } return redraw(); } // a Host with one game goes straight in; with several they pick

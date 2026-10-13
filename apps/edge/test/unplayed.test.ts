@@ -45,7 +45,7 @@ const GAME_START = T + 3 * H;
 /** Organizer + Host (own e-mail) + a Co-host; a PUBLISHED but unpaid game UNP-1 for 300 people starting at GAME_START. */
 const team = async (publish = true) => {
   const master = await start("boss@acme.com"); const ai = lastAi;
-  expect((await call("POST", "/api/z", { id: "UNP-1", startRound: roundAt(GAME_START), callSeconds: 9, cap: 300 }, master)).status).toBe(200);
+  expect((await call("POST", "/api/z", { id: "UNP-1", startRound: roundAt(GAME_START), callSeconds: 20, cap: 300 }, master)).status).toBe(200);
   const host = (await j(await call("POST", "/api/org/host", { mobile: "9876500009", label: "Priya", email: "priya@acme.com" }, master))).hostKey as string;
   const cohost = (await j(await call("POST", "/api/org/cohost", { label: "Ravi", phone: "98765 00001", e: "UNP-1" }, master))).cohostKey as string;
   if (publish) expect((await call("POST", "/api/z/UNP-1/publish", PUB, master)).status).toBe(200);
@@ -274,7 +274,7 @@ describe("the settings of a game that did not start stay 30 days", () => {
 });
 
 describe("a game time is at most 30 days ahead", () => {
-  const body = (ms: number, extra: object = {}) => ({ id: "FAR-1", startRound: roundAt(ms), callSeconds: 9, cap: 100, ...extra });
+  const body = (ms: number, extra: object = {}) => ({ id: "FAR-1", startRound: roundAt(ms), callSeconds: 20, cap: 100, ...extra });
   test("create: 30 days is fine, a minute more is refused with a friendly message (console, API and AI key alike)", async () => {
     const master = await start("boss@acme.com"); const ai = lastAi;
     const okAt = T + MAX_AHEAD_MS - 10_000;

@@ -169,3 +169,5 @@ body{overflow-x:hidden}
 /* contrast: amber text on light backgrounds must reach 4.5:1 (#8A5F00 on white is about 5.9:1); on the dark teal band use the bright yellow */
 :root{--accd:#8A5F00}
 .aihost .eyebrow{color:var(--acc)}
+
+.tw{overflow-x:auto;margin:14px 0}.tw table{border-collapse:collapse;width:100%;font-size:.92rem}.tw th,.tw td{border:1px solid #d9d4c6;padding:8px 10px;text-align:left;vertical-align:top}.legalpage h2{margin-top:1.6em}

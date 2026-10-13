@@ -17,7 +17,7 @@ const dev = (i: number) => String(i).padStart(2, "0").repeat(16); // 32 hex char
 async function game(id: string, over: Record<string, unknown> = {}) {
   const r = await j(await call("POST", "/api/start", { email: `o${++n}@acme.com` }, { "cf-connecting-ip": `10.0.0.${n}` }));
   const h = { "x-organizer": r.token as string };
-  expect((await call("POST", "/api/z", { id, startRound: START, callSeconds: 6, cap: 100, ...over }, h)).status).toBe(200);
+  expect((await call("POST", "/api/z", { id, startRound: START, callSeconds: 20, cap: 100, ...over }, h)).status).toBe(200);
   expect((await call("POST", `/api/z/${id}/publish`, { email: "boss@acme.com", phone: "98765 43210" }, h)).status).toBe(200);
   return h;
 }
@@ -68,7 +68,7 @@ describe("joining with a name only", () => {
     const list = await j(await call("GET", "/api/z/NAME-6/waiting", undefined, h)); expect(JSON.stringify(list)).toContain("Maya");
   });
   test("a winner may leave the mobile number empty when confirming prize details", async () => {
-    await game("NAME-7", { rewards: [{ pattern: "line", ordinal: 1, text: "Mug" }] });
+    await game("NAME-7", { rewards: [{ pattern: "finish", ordinal: 1, text: "Mug" }] });
     const a = await j(await call("POST", "/api/z/NAME-7/join", { name: "Maya", device: dev(1) }));
     raw.prepare("INSERT INTO prize(eid,round,pattern,ordinal,seat,pii,orig,trail,confirmed_ms) VALUES('NAME-7',1,'line',1,1,(SELECT pii FROM participant WHERE pid=?),(SELECT pii FROM participant WHERE pid=?),NULL,NULL)").run(a.pid, a.pid);
     const ok = await call("POST", "/api/z/NAME-7/confirm", { pid: a.pid, device: dev(1), name: "Maya Lopez" }); expect(ok.status).toBe(200);

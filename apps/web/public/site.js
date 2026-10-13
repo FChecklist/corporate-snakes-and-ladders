@@ -51,7 +51,26 @@
   const focusFirst = (id) => setTimeout(() => { const el = $(id); if (el) el.focus(); }, 60);
   // "Continue with Google": shown above the e-mail way only when the server has a Google client id (google.js); the e-mail code stays the other way
   const gBox = `<div id="gWrap" class="gwrap" hidden></div><p id="gOr" class="gor" hidden>or</p>`;
-  const mountGoogle = (intent) => { const w = $("gWrap"); if (!w || !TB.google) return; TB.google.mount(w, { intent, onDone: TB.google.finish, onError: (m) => { const f = $("fErr"); if (f) f.innerHTML = err(m); } }).then((shown) => { const o = $("gOr"); if (o && shown) o.hidden = false; }).catch(() => {}); };
+  // K2 (sign-in / sign-up boxes): the wording comes from the server (consent.js). Never pre-ticked; the submit, verify and Google buttons stay off until every box is ticked; the tick is kept here because sheets are redrawn.
+  const K2 = { info: null, state: {}, err: "", redraw: null };
+  const k2Payload = () => (K2.info && window.CBConsent ? CBConsent.payload(K2.info, K2.state) : null);
+  const k2Fresh = (c) => { if (c && Array.isArray(c.boxes)) K2.info = c; Object.keys(K2.state).forEach((k) => delete K2.state[k]); if (K2.redraw) K2.redraw(); }; // the server wants the boxes again (or the Terms changed): unticked
+  /** Draws the K2 boxes into #k2box and keeps the buttons (by id) off until every box is ticked. Call it right after the sheet is drawn, before the Google button is mounted. */
+  function k2Mount(btnIds) {
+    const box = $("k2box"); if (!box) return;
+    if (!window.CBConsent) { box.innerHTML = `<p class="small muted" role="status">The terms could not be shown. Please reload this page.</p>`; return; }
+    const gate = () => { const ok = !!K2.info && CBConsent.ready(K2.info, K2.state); btnIds.map($).filter(Boolean).forEach((b) => { b.disabled = !ok; b.setAttribute("aria-disabled", ok ? "false" : "true"); }); if (TB.google && TB.google.setEnabled) TB.google.setEnabled(ok); };
+    const draw = () => {
+      if (!document.body.contains(box)) return;
+      box.innerHTML = K2.info ? CBConsent.html(K2.info, K2.state) : `<p class="small muted" role="status">${esc(K2.err || "Loading the terms…")}</p>`;
+      if (K2.info) { CBConsent.bind(box, K2.info, K2.state, null); box.querySelectorAll("input.cbc-tick").forEach((i) => i.addEventListener("change", gate)); }
+      gate();
+    };
+    K2.redraw = draw; draw();
+    if (!K2.info) CBConsent.load("K2", (p) => TB.api("GET", p)).then((i) => { K2.info = i; K2.err = ""; }, () => { K2.err = "The terms could not be loaded. Please reload this page and try again."; }).then(draw);
+  }
+  const k2Box = `<div id="k2box"></div>`;
+  const mountGoogle = (intent) => { const w = $("gWrap"); if (!w || !TB.google) return; TB.google.mount(w, { intent, consent: k2Payload, onConsent: k2Fresh, onDone: TB.google.finish, onError: (m) => { const f = $("fErr"); if (f) f.innerHTML = err(m); } }).then((shown) => { const o = $("gOr"); if (o && shown) o.hidden = false; }).catch(() => {}); };
   function busy(btn, on, label) { btn.disabled = on; if (label) btn.dataset.l = btn.dataset.l || btn.innerHTML; btn.innerHTML = on ? label : btn.dataset.l || btn.innerHTML; }
 
   // ---------- checkout ----------
@@ -109,22 +128,23 @@
       <div class="sheethead"><span class="rolepill">For the organizer or host</span><span class="sbrand" role="img" aria-label="Corporate Snakes and Ladders"><span class="mark"><svg class="ic" aria-hidden="true"><use href="#i-ticket"/></svg></span><span class="word">Corporate Snakes and Ladders<i>.</i></span></span></div>
       <div class="eyebrow ofeye">Build it and publish it free.</div><h2 id="ofTitle">Create your game</h2>
       <ul class="bgrid"><li><span class="bico">${ic("play")}</span><span>Add a message, video or lucky draw between turns</span></li><li><span class="bico">${ic("trophy")}</span><span>Pick your gifts: a milestone gift and 1st to 5th place</span></li><li><span class="bico">${ic("users")}</span><span>A closed-group Snakes and Ladders for your company</span></li><li><span class="bico">${ic("ticket")}</span><span>Every board is different, and equally hard</span></li><li><span class="bico">${ic("phone")}</span><span>Each guest gets their own board on their phone</span></li><li><span class="bico">${ic("star")}</span><span>A free AI assistant sets it up for you</span></li><li><span class="bico">${ic("gift")}</span><span>Players never pay. You provide the gifts</span></li><li><span class="bico">${ic("trash")}</span><span>Guest nicknames are erased within 24 hours of the game ending</span></li><li><span class="bico">${ic("shield")}</span><span>Designed to follow DPDP Act, GDPR and CCPA</span></li></ul>
-      ${gBox}<form id="frForm" novalidate><label class="lb" for="fMail">Your email</label><input class="inp big" id="fMail" type="email" inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" placeholder="you@example.com" aria-describedby="fErr"><div id="fErr" role="alert"></div>
-      <button class="btn block big" style="margin-top:14px" type="submit" id="frGo">Create my game ${ic("arrow")}</button></form>
+      ${k2Box}${gBox}<form id="frForm" novalidate><label class="lb" for="fMail">Your email</label><input class="inp big" id="fMail" type="email" inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" placeholder="you@example.com" aria-describedby="fErr"><div id="fErr" role="alert"></div>
+      <button class="btn block big" style="margin-top:14px" type="submit" id="frGo" disabled aria-disabled="true">Create my game ${ic("arrow")}</button></form>
       <p class="trust">${ic("shield")}Free to build and publish. No password.</p>
-      <p class="proto">Your console opens at once. We use your email for your invoice and to sign you in later.</p><p class="proto"><a href="/demo.html">Want to see it first? Try the free 70-second demo.</a></p>
-      <p class="spriv accept">By continuing you accept the <a href="/terms.html" target="_blank" rel="noopener">Terms</a> and the <a href="/legal.html#privacy" target="_blank" rel="noopener">Privacy &amp; Data Policy</a>.</p></div>`);
+      <p class="proto">Your console opens at once. We use your email for your invoice and to sign you in later.</p><p class="proto"><a href="/demo.html">Want to see it first? Try the free 70-second demo.</a></p></div>`);
     $("frForm").addEventListener("submit", async (e) => {
       e.preventDefault(); const m = $("fMail").value.trim().toLowerCase();
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(m)) return setErr("Please enter a valid work email.");
+      const consent = k2Payload(); if (!consent) return setErr("Please tick the box first.");
       const b = $("frGo"); b.disabled = true; setErr("");
       try {
-        const r = await TB.api("POST", "/api/start", { email: m });
+        const r = await TB.api("POST", "/api/start", { email: m, consent });
         if (r.exists) { TB.toast("You already have an account, so we are emailing you a code to confirm it is you"); return askCode(m, b); }
         try { sessionStorage.setItem("cbz-org", r.token); sessionStorage.setItem("cbz-aimsg", r.aiMessage); sessionStorage.setItem("cbz-email", m); } catch {}
         location.href = "/zc.html";
-      } catch (x) { b.disabled = false; setErr(x.message); }
+      } catch (x) { if (x.code === "consent-required" || x.code === "terms-changed") { k2Fresh(x.consent); setErr("Please read and tick the box again, then press the button."); return; } b.disabled = false; setErr(x.message); }
     });
+    k2Mount(["frGo"]);
     mountGoogle("signup");
     if (matchMedia("(min-width:700px)").matches) focusFirst("fMail"); else { const sh = document.getElementById("sheet"); if (sh) { sh.setAttribute("tabindex", "-1"); sh.focus({ preventScroll: true }); sh.scrollTop = 0; } } // on a phone the top of the pop-up stays in view; the keypad opens when the field is tapped
   }
@@ -157,10 +177,10 @@
   // ---------- login ----------
   function openLogin(email) {
     TB.sheet(`${xbtn}<div class="eyebrow">Organizer login</div><h2>Sign in with your work email</h2><p class="muted small">Players never log in here. They join with your link. We email you a 6-digit code: no password.</p>
-      ${gBox}<form id="lgForm" novalidate><label class="lb" for="lMail">Work email</label><input class="inp" id="lMail" type="email" autocomplete="email" placeholder="you@company.com" value="${esc(email || "")}"><div id="fErr"></div>
-      <button class="btn block" style="margin-top:14px" type="submit" id="lgGo">Email me a code ${ic("arrow")}</button></form>
-      <p class="spriv accept">By continuing you accept the <a href="/terms.html" target="_blank" rel="noopener">Terms</a> and the <a href="/legal.html#privacy" target="_blank" rel="noopener">Privacy &amp; Data Policy</a>.</p>`);
-    $("lgForm").addEventListener("submit", (e) => { e.preventDefault(); const m = $("lMail").value.trim().toLowerCase(); if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(m)) return setErr("Please enter a valid work email."); askCode(m, $("lgGo")); });
+      ${k2Box}${gBox}<form id="lgForm" novalidate><label class="lb" for="lMail">Work email</label><input class="inp" id="lMail" type="email" autocomplete="email" placeholder="you@company.com" value="${esc(email || "")}"><div id="fErr"></div>
+      <button class="btn block" style="margin-top:14px" type="submit" id="lgGo" disabled aria-disabled="true">Email me a code ${ic("arrow")}</button></form>`);
+    $("lgForm").addEventListener("submit", (e) => { e.preventDefault(); const m = $("lMail").value.trim().toLowerCase(); if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(m)) return setErr("Please enter a valid work email."); if (!k2Payload()) return setErr("Please tick the box first."); askCode(m, $("lgGo")); });
+    k2Mount(["lgGo"]);
     mountGoogle("signin"); focusFirst("lMail");
   }
   async function askCode(email, btn) {
@@ -176,18 +196,20 @@
       <p class="sheetbody">We emailed <b class="sendto">${esc(email)}</b>. Tap a button in the email, or type the 6-digit passcode here. It works for 10 minutes. Check spam too.</p>
       ${devCode ? `<div class="note info devcode" role="note"><span>Local test mode: your passcode is <b>${esc(devCode)}</b></span><button type="button" class="btn sm" id="useCode">Use this passcode</button></div>` : ""}
       <form id="cdForm" novalidate><label class="lb" for="lCode">6-digit passcode</label><input class="inp mono codein" id="lCode" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code" maxlength="6" placeholder="••••••" aria-describedby="fErr cdHelp" autocapitalize="off" spellcheck="false"><div id="fErr" role="alert"></div>
-      <button class="btn block big" style="margin-top:14px" type="submit" id="cdGo">Sign in</button></form>
+      ${k2Box}<button class="btn block big" style="margin-top:14px" type="submit" id="cdGo" disabled aria-disabled="true">Sign in</button></form>
       <button class="btn line block big" style="margin-top:8px" type="button" id="resend">Send me a new code</button>
       <p class="sheethelp" id="cdHelp" role="status" aria-live="polite">Not there yet? Check spam, or send a new code.</p>`);
     const verify = async () => {
       const code = $("lCode").value.replace(/\D/g, "");
       if (code.length !== 6) return setErr("Enter the 6-digit passcode.");
+      const consent = k2Payload(); if (!consent) return setErr("Please tick the box first.");
       const b = $("cdGo"); b.disabled = true; setErr("");
       try {
-        const r = await TB.api("POST", "/api/auth/verify", { email, code });
+        const r = await TB.api("POST", "/api/auth/verify", { email, code, consent });
         try { sessionStorage.setItem("cbz-org", r.token); } catch {} let nx = "/zc.html"; try { const n = sessionStorage.getItem("cbz-next"); if (n && /^\/(zc|pay)(\.html)?(\?e=[A-Za-z0-9_-]{4,40})?$/.test(n)) nx = n; sessionStorage.removeItem("cbz-next"); } catch {} location.href = nx;
-      } catch (e) { b.disabled = false; setErr(e.message); }
+      } catch (e) { if (e.code === "consent-required" || e.code === "terms-changed") { k2Fresh(e.consent); setErr("Please read and tick the box again, then press Sign in. Your code is still good."); return; } b.disabled = false; setErr(e.message); } // the e-mail code stays valid
     };
+    k2Mount(["cdGo"]);
     $("cdForm").addEventListener("submit", (e) => { e.preventDefault(); verify(); });
     $("resend").addEventListener("click", async () => { await askCode(email, $("resend")); TB.toast("A new code was sent"); });
     const u = $("useCode"); if (u) u.addEventListener("click", () => { $("lCode").value = devCode; verify(); });

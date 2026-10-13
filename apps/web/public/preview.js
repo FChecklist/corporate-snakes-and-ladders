@@ -4,8 +4,17 @@
 (function () {
   "use strict";
   const $app = document.getElementById("app");
-  const SAMPLE_CARD = [[7, 18, 34, 52, 66], [3, 25, 41, 47, 70], [12, 29, null, 59, 73], [14, 21, 38, 46, 62], [9, 27, 43, 55, 68]];
-  const cardGrid = (label) => `<div class="zticket" role="group" aria-label="${label}">${["B", "I", "N", "G", "O"].map((l, c) => `<div class="h l${c}" aria-hidden="true">${l}</div>`).join("")}${SAMPLE_CARD.flat().map((n) => n === null ? `<div class="m free"><span>FREE</span></div>` : `<div class="c">${n}</div>`).join("")}</div>`;
+  // A small sample board (10 x 10, square 1 at the bottom left, rows zig-zag): numbers and colours only, no ladders or snakes are drawn.
+  const SAMPLE = { ladders: { 4: 25, 21: 42, 51: 72 }, snakes: { 47: 19, 64: 36, 93: 68 } };
+  const cardGrid = (label) => {
+    let cells = "";
+    for (let r = 9; r >= 0; r--) for (let c = 0; c < 10; c++) {
+      const s = r * 10 + (r % 2 === 0 ? c : 9 - c) + 1;
+      const cls = [(c + r) % 2 ? "a" : "", SAMPLE.ladders[s] ? "lb" : "", SAMPLE.snakes[s] ? "sh" : "", s === 100 ? "end" : ""].filter(Boolean).join(" ");
+      cells += `<div class="${cls}">${s}</div>`;
+    }
+    return `<div class="pvboard" role="group" aria-label="${label}">${cells}</div>`;
+  };
   const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const q = new URLSearchParams(location.hash.replace(/^#/, ""));
   if (q.get("w") === "card") { ticketPreview(); return; }
@@ -59,7 +68,7 @@
   addEventListener("resize", placeMedia);
 
   const kind = mediaKind(b);
-  const sampleCard = `<div class="zcard"><h2>Your card (sample)</h2>${cardGrid("Sample card")}</div>`;
+  const sampleCard = `<div class="zcard"><h2>Your board (sample)</h2>${cardGrid("Sample board")}</div>`;
   const what = b.kind === "speech" ? "Please listen to the host." : b.kind === "slides" ? "Please look at the screen." : "";
   const heading = when === "break" ? "A short break" : when === "opening" ? "A message from your organizer" : "Thank you from your organizer";
   const verdict = !b.mediaUrl ? "No link: guests see your message only." : kind ? "This link plays inside the game." : "<b>This link will NOT play inside the game.</b> It opens in a new tab and takes the guest out of the game. Use a YouTube link, or a direct link to a video (.mp4) or audio (.mp3) file.";
@@ -68,8 +77,8 @@
   function paint(secondsLeft) {
     const over = secondsLeft !== null && secondsLeft <= 0;
     const act = b.mediaUrl && !over ? (kind ? `<div id="mslot" class="zmslot"></div><a class="zsmall" target="_blank" rel="noopener noreferrer" href="${esc(b.mediaUrl)}">Trouble playing? Open it in a new tab</a>` : `<a class="zbtn s" style="display:inline-flex;align-items:center;text-decoration:none;margin-top:10px" target="_blank" rel="noopener noreferrer" href="${esc(b.mediaUrl)}">${b.kind === "youtube" ? "Watch the video" : "Open"}</a>`) : "";
-    const tail = when === "break" ? ` The numbers continue in ${Math.max(0, secondsLeft)}s.` : when === "opening" ? " The game starts in a moment." : "";
-    const card = over ? `<div class="zcard zbreak" role="status"><h2>${when === "break" ? "The break is over" : "The opening is over"}</h2><div class="zsmall" style="margin:0">The message and the video have gone, and ${when === "break" ? "the numbers carry on" : "the first number comes next"}. This is what your guests see: their card is right there again.</div><button class="zbtn s" id="again" type="button" style="margin-top:10px">Play it again</button></div>`
+    const tail = when === "break" ? ` The game continues in ${Math.max(0, secondsLeft)}s.` : when === "opening" ? " The game starts in a moment." : "";
+    const card = over ? `<div class="zcard zbreak" role="status"><h2>${when === "break" ? "The break is over" : "The opening is over"}</h2><div class="zsmall" style="margin:0">The message and the video have gone, and ${when === "break" ? "the game carries on" : "the first turn comes next"}. This is what your guests see: their board is right there again.</div><button class="zbtn s" id="again" type="button" style="margin-top:10px">Play it again</button></div>`
       : `<div class="zcard zbreak" role="status"><h2>${heading}</h2><div style="font:700 20px var(--sans,inherit);margin:2px 0 4px">${esc(b.title)}</div><div class="zsmall" style="margin:0">${what}${tail}</div>${act}</div>`;
     $app.innerHTML = `<div class="zhead"><b>Corporate Snakes and Ladders</b></div>
       <div class="zbanner info" role="note"><b>Test only.</b> No game is running. It shows what a guest's phone shows during your ${when === "break" ? "break" : when}.</div>
@@ -83,15 +92,15 @@
     clearInterval(timer); mediaHost.textContent = ""; delete mediaHost.dataset.k;
     if (when === "closing") { paint(null); return; } // a closing has no countdown: it stays on the final screen
     endsAt = Date.now() + b.seconds * 1000; paint(b.seconds);
-    timer = setInterval(() => { const left = Math.round((endsAt - Date.now()) / 1000); const el = document.querySelector(".zbreak .zsmall"); if (left <= 0) { clearInterval(timer); paint(0); } else if (el && when === "break") el.textContent = `${what} The numbers continue in ${left}s.`.trim(); }, 1000);
+    timer = setInterval(() => { const left = Math.round((endsAt - Date.now()) / 1000); const el = document.querySelector(".zbreak .zsmall"); if (left <= 0) { clearInterval(timer); paint(0); } else if (el && when === "break") el.textContent = `${what} The game continues in ${left}s.`.trim(); }, 1000);
   }
   run();
   // ---------- "See what guests see": a sample card, marked PREVIEW. #w=card&e=<game id> reads the game's PUBLIC settings (a read only, with the signed-in tab's own key when there is one);
   // without a game it uses the sample values in the address: n=<company name> c=<#colour> p=<prize|prize> b=<break title> l=<lucky draw title>. Nothing here ever writes anything. ----------
   function ticketPreview() {
     // names and "how to win" copied from PRIZE_HOUSES in packages/beacon/src/config.ts (a test keeps them identical)
-    const NAMES = {"line":"Line","twolines":"Two Lines","corners":"Four Corners","plus":"Plus","x":"X","frame":"Frame","stamp":"Postage Stamp","letterL":"Letter L","letterT":"Letter T","blackout":"Blackout"};
-    const HOW = {"line":"Mark any one row, column or diagonal. FREE counts.","twolines":"Mark any two different lines.","corners":"Mark the four corner squares.","plus":"Mark the whole middle row and the whole middle column.","x":"Mark both diagonals.","frame":"Mark the whole outer border.","stamp":"Mark a 2 x 2 block in any corner.","letterL":"Mark the whole B column and the bottom row.","letterT":"Mark the whole top row and the whole N column.","blackout":"Mark every square on your card. FREE counts."};
+    const NAMES = {"milestone":"Milestone","finish":"Reach the end","team":"Team win","climb":"Biggest climb","comeback":"Comeback","nevermissed":"Never missed"};
+    const HOW = {"milestone":"The first player on or past the milestone square. Up to 3 milestone squares.","finish":"Land exactly on the last square. The first five players home win 1st to 5th.","team":"Team race only. The best three teams win 1st to 3rd.","climb":"The player who took the biggest single ladder.","comeback":"The biggest fall down a snake that the player then made up.","nevermissed":"Presence mode only. A player who threw in every turn, picked by fate."};
     const lin = (h) => { const c = parseInt(h, 16) / 255; return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); };
     const cleanBrand = (b) => {
       if (!b || typeof b !== "object") return null;
@@ -113,18 +122,18 @@
     });
     function draw(d, note) {
       const brand = cleanBrand(d.brand);
-      const rewards = d.rewards && d.rewards.length ? d.rewards : [{ pattern: "line", ordinal: 1, text: "" }, { pattern: "corners", ordinal: 1, text: "" }, { pattern: "blackout", ordinal: 1, text: "" }];
+      const rewards = d.rewards && d.rewards.length ? d.rewards : [{ pattern: "milestone", ordinal: 1, text: "" }, { pattern: "finish", ordinal: 1, text: "" }, { pattern: "finish", ordinal: 2, text: "" }];
       const prizeLi = rewards.map((r) => { const nm = r.pattern ? (NAMES[r.pattern] || r.pattern) : ""; const t = r.text ? String(r.text) : ""; return `<li>${esc((r.ordinal > 1 ? r.ordinal + "nd " : "") + nm)}${nm && t ? ": " : ""}${t ? "<b>" + esc(t) + "</b>" : ""}${HOW[r.pattern] ? `<br><small class="zsmall">${esc(HOW[r.pattern])}</small>` : ""}</li>`; }).join("");
       const brk = (d.breaks || []).find((x) => x && x.kind !== "lucky");
       const lucky = (d.breaks || []).find((x) => x && x.kind === "lucky");
       const luckyTitle = lucky ? lucky.title : d.lucky || "Lucky draw prize";
       const luckyN = lucky && lucky.winners ? lucky.winners : 3;
       $app.innerHTML = `<div class="zhead"><b>Corporate Snakes and Ladders</b></div>
-        <div class="zbanner info" role="note"><b>PREVIEW.</b> This is a sample card, not a real one. Nothing is saved, nobody is told, and no game is running.${note ? " " + esc(note) : ""}</div>
+        <div class="zbanner info" role="note"><b>PREVIEW.</b> This is a sample board, not a real one. Nothing is saved, nobody is told, and no game is running.${note ? " " + esc(note) : ""}</div>
         ${brand ? `<div class="zbrand" id="pvbrand">${brand.logo ? `<img class="zblogo" alt="" src="${esc(brand.logo)}">` : ""}${brand.name ? `<b>${esc(brand.name)}</b>` : ""}</div><div class="zpow">Powered by Corporate Snakes and Ladders</div>` : `<div class="zbrand" id="pvbrand0">CORPORATE SNAKES AND LADDERS</div><div class="zsmall" style="margin:4px 0 0">No company name or logo is set yet, so guests see our name. Set yours in the Brand step to see it here.</div>`}
-        <div class="zcard"><h2>Your card <span class="zdemotag">PREVIEW</span></h2>${cardGrid("Sample card")}${brand && brand.logo ? `<p class="zsmall" style="margin:8px 0 0">Your logo sits in the FREE square.</p>` : ""}</div>
+        <div class="zcard"><h2>Your board <span class="zdemotag">PREVIEW</span></h2>${cardGrid("Sample board")}</div>
         <div class="zcard"><h2>What you can win</h2><ul class="zlist">${prizeLi}</ul></div>
-        <div class="zcard zbreak"><h2>A short break</h2><div style="font:700 20px var(--sans,inherit);margin:2px 0 4px">${esc(brk ? brk.title : "A message from your organizer")}</div><div class="zsmall" style="margin:0">Please listen to the host. The numbers continue in ${esc(String(brk && brk.seconds ? brk.seconds : 60))}s.</div></div>
+        <div class="zcard zbreak"><h2>A short break</h2><div style="font:700 20px var(--sans,inherit);margin:2px 0 4px">${esc(brk ? brk.title : "A message from your organizer")}</div><div class="zsmall" style="margin:0">Please listen to the host. The game continues in ${esc(String(brk && brk.seconds ? brk.seconds : 60))}s.</div></div>
         <div class="zcard"><h2>Lucky draw</h2><div class="zrow"><span>${esc(luckyTitle)}<br><small class="zsmall" style="margin:0">${luckyN} ${luckyN === 1 ? "person is" : "people are"} picked at random</small></span><i>at the end of the break</i></div></div>`;
       const b0 = document.getElementById("pvbrand0"); if (b0) { b0.style.background = "#0B5D5B"; b0.style.color = "#ffffff"; }
       const b = document.getElementById("pvbrand"); if (b && brand) { b.style.background = brand.color; b.style.color = brand.fg; }

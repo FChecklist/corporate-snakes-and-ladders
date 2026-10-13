@@ -8,7 +8,7 @@
 // Names and numbers are sealed at rest (pii.ts) and never reach an AI key (every route here refuses an AI, and anything arriving through an AI work link).
 // The Worker (worker.ts) owns routing, `join` and `settings`; this file owns the schema, the cleaning of numbers and the people / waiting / me routes.
 import { openPii, openText, sealPii, sealText } from "./pii";
-import { checkConsent, consentInfo, recordConsent } from "./consent";
+import { checkConsent, recordConsent, refusalBody } from "./consent";
 import type { D1, Env } from "./worker";
 
 /** 0016_people.sql: who invited whom, the personal links, the waiting room, and the flag that stops a removed person's phone without touching the public seat list. */
@@ -267,7 +267,7 @@ async function listPeople(c: Ctx, who: Caller): Promise<Response> {
 async function addPeople(c: Ctx, who: Caller, b: any): Promise<Response> {
   if (!b || !Array.isArray(b.people) || b.people.length < 1) return c.json({ error: "Send at least one person: {people:[{name, phone}]}." }, 400);
   if (b.people.length > MAX_ADD_BATCH) return c.json({ error: `Send up to ${MAX_ADD_BATCH} people at a time; the console sends a bigger list in several parts.`, code: "too-many" }, 413);
-  { const k = checkConsent("K6", b.consent); if (!k.ok) return c.json({ error: k.error, code: k.code, consent: consentInfo("K6") }, k.status); } // K6: "I am allowed to use these names and numbers" must be ticked before any list is stored
+  { const k = checkConsent("K6", b.consent); if (!k.ok) return c.json(refusalBody("K6", k), k.status); } // K6: "I am allowed to use these names and numbers" must be ticked before any list is stored
   await recordConsent(c.env.DB, "K6", who.id, c.eid, c.now);
   if (c.now >= await c.endBound()) return c.json({ error: "The game has ended, so no one can be added." }, 409);
   const invalid: { raw: string; why: string }[] = []; let duplicates = 0;

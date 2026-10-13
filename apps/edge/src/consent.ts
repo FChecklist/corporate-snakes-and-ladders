@@ -1,76 +1,64 @@
-// Terms and consent boxes (owner order 2026-10-13; wording and places: LEGAL_NOTE_AND_TERMS_CORPORATE_GAMES_DRAFT_2026-10-13.md, Part D).
-// Rules for every box: never pre-ticked; the button stays disabled until ticked; THE SERVER refuses the request without the tick and without the current
-// Terms version; each tick is stored (who, which game, version, the wording shown, time); when the Terms version changes the box is asked again.
-// This replaces "accepted by continuing" (organizer_terms, kept only as a trail) for the actions below.
+// Terms checkboxes. Every point where a person accepts the Terms has its own box wording (consent-text.json), one version string (TERMS_VERSION in brand.ts)
+// and one rule: never pre-ticked; the action button stays disabled until every box is ticked; THE SERVER refuses the request without the tick and without the
+// current version; each acceptance is stored (consent_log) and asked again when the version changes.
 import { TERMS_VERSION } from "./brand";
+import TEXT from "./consent-text.json";
 import type { D1 } from "./worker";
 
-export type ConsentKind = "K1" | "K2" | "K3" | "K4" | "K5" | "K6";
+export type ConsentKind = "K1" | "K2" | "K3" | "K4" | "K5" | "K6" | "K9";
 export interface Box { id: "A" | "B"; text: string }
 
-/** Part D, exact wording. `%V` is replaced by the Terms version. Do not edit without the owner (a test compares these strings with the legal note). */
-const WORDING: Record<ConsentKind, { where: string; who: string; boxes: { id: "A" | "B"; text: string }[] }> = {
-  K1: { where: "Publish a Game", who: "organizer", boxes: [
-    { id: "A", text: "I have read and agree to the Terms & Conditions, the Privacy Policy and the Refund Policy (version %V)." },
-    { id: "B", text: "I confirm: players pay nothing to play. I provide and hand over any prize. This game is allowed in my State. I am allowed to invite these guests." } ] },
-  K2: { where: "First sign-in / account creation", who: "organizer", boxes: [{ id: "A", text: "I have read and agree to the Terms & Conditions and the Privacy Policy." }] },
-  K3: { where: "Before paying", who: "organizer", boxes: [{ id: "A", text: "I agree to the Terms and the Refund Policy. I understand there is no refund; my payment stays as credit." }] },
-  K4: { where: "Join a Game", who: "participant", boxes: [
-    { id: "A", text: "I agree that my name and mobile number are used for this game only and deleted within 24 hours after it ends. I know who invited me is recorded until then." },
-    { id: "B", text: "I am 18 or older, or I am on a parent's or guardian's device with their permission." } ] },
-  K5: { where: "Accept a Host / Co-host role", who: "host", boxes: [{ id: "A", text: "I will not charge any player. I will hand over prizes as the organizer decides. I follow the Terms." }] },
-  K6: { where: "Upload or type the guest list", who: "organizer", boxes: [{ id: "A", text: "I am allowed to use these names and numbers for this game. The people have been told." }] },
-};
-export const CONSENT_KINDS = Object.keys(WORDING) as ConsentKind[];
-export const isKind = (k: unknown): k is ConsentKind => typeof k === "string" && k in WORDING;
+const WORDING = TEXT as unknown as Record<string, Record<"A" | "B", string | undefined>>;
+export const CONSENT_KINDS: ConsentKind[] = ["K1", "K2", "K3", "K4", "K5", "K6", "K9"];
+export const isKind = (k: unknown): k is ConsentKind => typeof k === "string" && (CONSENT_KINDS as string[]).includes(k);
 
-/** The boxes of one place, with the current Terms version in the wording. */
-export const boxesFor = (kind: ConsentKind): Box[] => WORDING[kind].boxes.map((b) => ({ id: b.id, text: b.text.replace("%V", TERMS_VERSION) }));
-/** What a page needs to draw the boxes (served at GET /api/consent/<kind>). */
-export const consentInfo = (kind: ConsentKind) => ({ kind, where: WORDING[kind].where, version: TERMS_VERSION, boxes: boxesFor(kind), termsUrl: "/terms.html", privacyUrl: "/legal.html#privacy", refundUrl: "/refund-policy.html" });
+/** The boxes of one point, in order, with their exact wording. */
+export const boxesFor = (kind: ConsentKind): Box[] => (["A", "B"] as const).filter((id) => typeof WORDING[kind]?.[id] === "string").map((id) => ({ id, text: WORDING[kind]![id]! }));
+/** What a page needs to draw the boxes (GET /api/consent/<kind>). */
+export const consentInfo = (kind: ConsentKind) => ({ kind, version: TERMS_VERSION, boxes: boxesFor(kind), termsUrl: "/terms.html", privacyUrl: "/legal.html#privacy", refundUrl: "/refund-policy.html" });
 
 export const CONSENT_SCHEMA: string[] = [
-  // one row per ticked box: who ticked (an organizer id, a host id or a player id), the game, the Terms version, the exact wording shown, and when
-  `CREATE TABLE IF NOT EXISTS consent (id INTEGER PRIMARY KEY AUTOINCREMENT, kind TEXT NOT NULL, box TEXT NOT NULL, who TEXT NOT NULL, eid TEXT, version TEXT NOT NULL, wording TEXT NOT NULL, at_ms INTEGER NOT NULL)`,
-  `CREATE INDEX IF NOT EXISTS consent_who ON consent (kind, who, version)`,
-  `CREATE INDEX IF NOT EXISTS consent_eid ON consent (eid)`,
+  // one row per acceptance: who (an organizer id, a host id or a player id), the point, the game, the Terms version, the boxes ticked and a hash of the exact wording shown. No address, no device, no phone number.
+  `CREATE TABLE IF NOT EXISTS consent_log (id TEXT PRIMARY KEY, subject TEXT NOT NULL, kind TEXT NOT NULL, ref TEXT, version TEXT NOT NULL, boxes TEXT NOT NULL, text_hash TEXT NOT NULL, at_ms INTEGER NOT NULL)`,
+  `CREATE INDEX IF NOT EXISTS consent_log_who ON consent_log (kind, subject, version)`,
+  `CREATE INDEX IF NOT EXISTS consent_log_ref ON consent_log (ref)`,
 ];
 
-export type ConsentRefusal = { ok: false; status: number; code: "consent-required" | "terms-changed"; error: string };
+export type ConsentRefusal = { ok: false; status: 400; code: "consent-required"; error: string; kind: ConsentKind; version: string };
+/** The body of a refusal: the page redraws the boxes (unticked) from `consent`. */
+export const refusalBody = (kind: ConsentKind, r: ConsentRefusal) => ({ error: r.error, code: r.code, kind, version: TERMS_VERSION, consent: consentInfo(kind) });
+
 /**
- * Checks what the page sent as `consent: { version, boxes: ["A","B"] }`. Every box of the place must be listed and the version must be the current one.
+ * Checks what the page sent: `consent: { v, boxes: ["A","B"] }`. Every box of the point must be listed and `v` must be the current version.
  * Anything else (nothing sent, one box missing, an old version) is refused, so a script that skips the page cannot get round it.
  */
 export function checkConsent(kind: ConsentKind, input: unknown): { ok: true } | ConsentRefusal {
-  const need = boxesFor(kind);
-  const c = input as { version?: unknown; boxes?: unknown } | null | undefined;
-  if (!c || typeof c !== "object") return { ok: false, status: 400, code: "consent-required", error: "Please tick the box to continue." };
-  if (c.version !== TERMS_VERSION) return { ok: false, status: 409, code: "terms-changed", error: "Our Terms have changed. Please read them and tick the box again." };
+  const refuse: ConsentRefusal = { ok: false, status: 400, code: "consent-required", error: "Please tick the box to continue.", kind, version: TERMS_VERSION };
+  const c = input as { v?: unknown; boxes?: unknown } | null | undefined;
+  if (!c || typeof c !== "object" || c.v !== TERMS_VERSION) return refuse;
   const got = Array.isArray(c.boxes) ? c.boxes : [];
-  if (!need.every((b) => got.includes(b.id))) return { ok: false, status: 400, code: "consent-required", error: need.length > 1 ? "Please tick both boxes to continue." : "Please tick the box to continue." };
-  return { ok: true };
+  return boxesFor(kind).every((b) => got.includes(b.id)) ? { ok: true } : refuse;
 }
 
-/** Stores every box ticked, with the wording shown. Safe to repeat: the same person, place, game and version are stored once. */
-export async function recordConsent(db: D1, kind: ConsentKind, who: string, eid: string | null, now: number): Promise<void> {
-  for (const b of boxesFor(kind)) {
-    const had = await db.prepare("SELECT 1 AS x FROM consent WHERE kind=? AND box=? AND who=? AND version=? AND COALESCE(eid,'')=?").bind(kind, b.id, who, TERMS_VERSION, eid ?? "").first();
-    if (had) continue;
-    await db.prepare("INSERT INTO consent(kind,box,who,eid,version,wording,at_ms) VALUES(?,?,?,?,?,?,?)").bind(kind, b.id, who, eid, TERMS_VERSION, b.text, now).run();
-  }
+const hex = (b: ArrayBuffer) => Array.from(new Uint8Array(b), (x) => x.toString(16).padStart(2, "0")).join("");
+/** sha256 of the exact wording of the boxes of a point (what the person saw). */
+export const textHash = async (kind: ConsentKind): Promise<string> => hex(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(boxesFor(kind).map((b) => `${b.id}: ${b.text}`).join("\n"))));
+const rid = () => Array.from(crypto.getRandomValues(new Uint8Array(12)), (x) => x.toString(16).padStart(2, "0")).join("");
+
+/** Stores one acceptance. Safe to repeat: the same subject, point, game and version are stored once. */
+export async function recordConsent(db: D1, kind: ConsentKind, subject: string, ref: string | null, now: number): Promise<void> {
+  const had = await db.prepare("SELECT 1 AS x FROM consent_log WHERE kind=? AND subject=? AND version=? AND COALESCE(ref,'')=?").bind(kind, subject, TERMS_VERSION, ref ?? "").first();
+  if (had) return;
+  await db.prepare("INSERT INTO consent_log(id,subject,kind,ref,version,boxes,text_hash,at_ms) VALUES(?,?,?,?,?,?,?,?)").bind(rid(), subject, kind, ref, TERMS_VERSION, JSON.stringify(boxesFor(kind).map((b) => b.id)), await textHash(kind), now).run();
 }
-/** True when this person already ticked every box of the place for the CURRENT Terms version (per game when `eid` is given). */
-export async function hasConsent(db: D1, kind: ConsentKind, who: string, eid: string | null = null): Promise<boolean> {
-  const need = boxesFor(kind);
-  for (const b of need) {
-    const r = eid === null
-      ? await db.prepare("SELECT 1 AS x FROM consent WHERE kind=? AND box=? AND who=? AND version=?").bind(kind, b.id, who, TERMS_VERSION).first()
-      : await db.prepare("SELECT 1 AS x FROM consent WHERE kind=? AND box=? AND who=? AND version=? AND eid=?").bind(kind, b.id, who, TERMS_VERSION, eid).first();
-    if (!r) return false;
-  }
-  return true;
+/** True when this person already accepted this point under the CURRENT version (for that game when `ref` is given). */
+export async function hasConsent(db: D1, kind: ConsentKind, subject: string, ref: string | null = null): Promise<boolean> {
+  const r = ref === null
+    ? await db.prepare("SELECT 1 AS x FROM consent_log WHERE kind=? AND subject=? AND version=?").bind(kind, subject, TERMS_VERSION).first()
+    : await db.prepare("SELECT 1 AS x FROM consent_log WHERE kind=? AND subject=? AND version=? AND ref=?").bind(kind, subject, TERMS_VERSION, ref).first();
+  return !!r;
 }
-/** A player's ticks are personal data of the game: erased with it (24 hours after the end). The organizer's ticks are kept as proof of acceptance. */
+/** A player's acceptance is erased with the game's other personal data (the 24-hour job). Organizers' rows stay with the account. */
 export async function eraseParticipantConsent(db: D1, eid: string): Promise<void> {
-  await db.prepare("DELETE FROM consent WHERE eid=? AND kind='K4'").bind(eid).run();
+  await db.prepare("DELETE FROM consent_log WHERE ref=? AND kind='K4'").bind(eid).run();
 }

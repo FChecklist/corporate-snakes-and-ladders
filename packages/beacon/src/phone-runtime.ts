@@ -155,9 +155,9 @@ export class PhoneRuntime {
   }
 
   /** Joins with a nickname (and a mobile number if the organizer asked for one). The same number again returns the same player. */
-  async join(phone: string, name?: string, invite?: { from?: number; cat?: string }): Promise<boolean> {
+  async join(phone: string, name?: string, invite?: { from?: number; cat?: string }, consent?: unknown): Promise<boolean> {
     try {
-      const r = await this.deps.api("POST", `/api/z/${this.eid}/join`, { phone, name, device: this.device(), ...(invite && Number.isInteger(invite.from) ? { from: invite.from, cat: invite.cat } : {}) });
+      const r = await this.deps.api("POST", `/api/z/${this.eid}/join`, { phone, name, device: this.device(), ...(invite && Number.isInteger(invite.from) ? { from: invite.from, cat: invite.cat } : {}), ...(consent ? { consent } : {}) });
       this.scheduledRound = r.startRound; this.startRound = r.startRound + GRACE_ROUNDS; this.callSeconds = r.callSeconds;
       if (r.rewards !== undefined || r.breaks !== undefined || r.board !== undefined || r.mode !== undefined) this.readCfg(r);
       this.deps.store.set(this.key("pid"), r.pid);

@@ -11,7 +11,7 @@ let env: PayEnv; let raw: ReturnType<typeof makeD1>["raw"];
 const call = (method: string, path: string, body?: unknown, headers: Record<string, string> = {}, now = T) =>
   handle(new Request("http://x" + path, { method, headers: { "content-type": "application/json", ...headers }, body: withDevice(method, path, body) }), env as Env, now);
 const roundAt = (ms: number) => Math.floor((ms / 1000 - 1692803367) / 3) + 1;
-const eng = (id: string) => ({ id, startRound: roundAt(T) + 1200, callSeconds: 6, cap: 100 });
+const eng = (id: string) => ({ id, startRound: roundAt(T) + 1200, callSeconds: 20, cap: 100 });
 const j = async (r: Response) => (await r.json()) as any;
 const PLAT = { "x-organizer": "plat" };
 const IP = "203.0.113.77", UA = "Mozilla/5.0 (Windows NT 10.0) Chrome/120.0 Safari/537.36";

@@ -37,7 +37,7 @@
     catch (e) { const err = new Error("Cannot reach the server. Check your internet and try again."); err.status = 0; throw err; }
     let data = null;
     try { data = await res.json(); } catch {}
-    if (!res.ok) { const err = new Error((data && data.error) || "Something went wrong. Please try again."); err.status = res.status; throw err; }
+    if (!res.ok) { const err = new Error((data && data.error) || "Something went wrong. Please try again."); err.status = res.status; if (data && data.code) err.code = data.code; if (data && data.consent) err.consent = data.consent; throw err; } // code + consent: "consent-required" / "terms-changed" bring fresh boxes (consent.js)
     return data;
   };
 
@@ -150,7 +150,7 @@
     };
     window.addEventListener("message", onMsg); document.body.appendChild(wrap);
   });
-  // The payment screens always show who owns the software and who is paid (owner order 2026-10-11): big brand, small descriptor, owner line.
+  // The payment screens always show who owns the software and who is paid : big brand, small descriptor, owner line.
   TB.payBrand = () => `<div class="pbrand"><div class="pb-name">CORPORATE SNAKES AND LADDERS</div><div class="pb-sub">(close group bingo software)</div><div class="pb-pay"><b>&#128274; Safe and secure payment through RAZORPAY</b><span>An RBI-regulated payment gateway trusted by businesses across the World.<br>Your card, UPI or bank details go to Razorpay payment gateway only: we never see or store them.<br>All data handled as required by India's DPDP Act, US Privacy Laws, EU GDPR.</span></div><div class="pb-own"><i>Software owned and made by</i><b>IT SERVICES BY RAJAT AGARWAL</b><em>Your payment is made to IT Services by Rajat Agarwal</em></div></div>`;
   // After a payment: which game, who was paid, and the two reference numbers the organizer can quote.
   TB.payReceipt = (d, gameId) => { const e = TB.esc, g = gameId || d.eid; return `<div class="prcpt"><b>Payment confirmed</b><p>${g ? `For game ID <b class="mono">${e(g)}</b>, you` : "You"} have made the payment to <b>IT Services by Rajat Agarwal</b> through Razorpay.</p><p>Your Razorpay transaction ID is <b class="mono">${e(d.razorpayPaymentId || "being confirmed, see your e-mail")}</b>.<br>Your Corporate Snakes and Ladders payment confirmation ID is <b class="mono">${e(d.orderId || "")}</b>.</p></div>`; };

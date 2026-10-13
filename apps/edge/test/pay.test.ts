@@ -184,8 +184,8 @@ describe("what a purchase lets you do", () => {
   test("no purchase, no engagement; one purchase, one engagement of up to the pack; a second needs a second purchase", async () => {
     const first = await purchase();
     const K = { "x-organizer": first.organizerKey };
-    const mk = (id: string, cap: number) => call("POST", "/api/z", { id, startRound: FUT, callSeconds: 9, cap }, K);
-    expect((await call("POST", "/api/z", { id: "NOPE1", startRound: FUT, callSeconds: 9, cap: 10 }, { "x-organizer": "cbk_none" })).status).toBe(403);
+    const mk = (id: string, cap: number) => call("POST", "/api/z", { id, startRound: FUT, callSeconds: 20, cap }, K);
+    expect((await call("POST", "/api/z", { id: "NOPE1", startRound: FUT, callSeconds: 20, cap: 10 }, { "x-organizer": "cbk_none" })).status).toBe(403);
     expect((await mk("TOOBIG", 501)).status).toBe(200); // pack is 500: it can be built, as a draft, but not published with this pack
     expect(((await (await call("POST", "/api/z/TOOBIG/publish", { email: "b@acme.com", phone: "9876543210" }, K)).json()) as any).paid).toBe(false); // published, but not covered by this pack: it must still be paid for
     expect((await mk("FIRST1", 400)).status).toBe(200);
@@ -198,7 +198,7 @@ describe("what a purchase lets you do", () => {
   });
   test("the limit can be raised only up to what was paid for", async () => {
     const first = await purchase(); const K = { "x-organizer": first.organizerKey };
-    await call("POST", "/api/z", { id: "LIM1", startRound: FUT, callSeconds: 9, cap: 100 }, K);
+    await call("POST", "/api/z", { id: "LIM1", startRound: FUT, callSeconds: 20, cap: 100 }, K);
     expect((await call("PATCH", "/api/z/LIM1/settings", { cap: 500 }, K)).status).toBe(200);
     const r = await call("PATCH", "/api/z/LIM1/settings", { cap: 501 }, K);
     expect(r.status).toBe(402);
@@ -212,16 +212,16 @@ describe("what a purchase lets you do", () => {
     expect(raw.query("SELECT COUNT(*) c FROM organizer_key WHERE kind='master'").get()).toEqual({ c: 1 });
     expect(raw.query("SELECT COUNT(*) c FROM entitlement").get()).toEqual({ c: 2 });
     const K = { "x-organizer": first.organizerKey };
-    expect((await call("POST", "/api/z", { id: "BIGONE", startRound: FUT, callSeconds: 9, cap: 900 }, K)).status).toBe(200); // picks the 1000 pack
+    expect((await call("POST", "/api/z", { id: "BIGONE", startRound: FUT, callSeconds: 20, cap: 900 }, K)).status).toBe(200); // picks the 1000 pack
   });
   test("another e-mail is another organizer with their own key and nothing shared", async () => {
     const a = await purchase(); const b = await purchase({ email: "other@corp.com" });
     expect(b.organizerKey).not.toBe(a.organizerKey);
-    await call("POST", "/api/z", { id: "AAA11", startRound: FUT, callSeconds: 9, cap: 10 }, { "x-organizer": a.organizerKey });
+    await call("POST", "/api/z", { id: "AAA11", startRound: FUT, callSeconds: 20, cap: 10 }, { "x-organizer": a.organizerKey });
     expect((await call("GET", "/api/z/AAA11/participants", undefined, { "x-organizer": b.organizerKey })).status).toBe(403);
   });
   test("the platform can still create engagements with no purchase", async () => {
-    expect((await call("POST", "/api/z", { id: "FREE1", startRound: FUT, callSeconds: 9, cap: 99 }, { "x-organizer": "plat" })).status).toBe(200);
+    expect((await call("POST", "/api/z", { id: "FREE1", startRound: FUT, callSeconds: 20, cap: 99 }, { "x-organizer": "plat" })).status).toBe(200);
   });
 });
 
@@ -396,7 +396,7 @@ describe("paying to publish a draft", () => {
   const pay = (key: string, eid: string, extra: Record<string, unknown> = {}) => call("POST", "/api/checkout", { eid, org: "Acme Ltd", email: "boss@acme.com", country: "IN", taxId: "", currency: "INR", ...extra }, { "x-organizer": key });
   test("the payment is bound to the signed-in organizer and publishes their draft", async () => {
     const key = await start("boss@acme.com", "1.1.1.1");
-    await call("POST", "/api/z", { id: "PAYD-1", startRound: FAR_START, callSeconds: 9, cap: 300 }, { "x-organizer": key });
+    await call("POST", "/api/z", { id: "PAYD-1", startRound: FAR_START, callSeconds: 20, cap: 300 }, { "x-organizer": key });
     expect((await call("POST", "/api/z/PAYD-1/join", { phone: "9876543210" })).status).toBe(403); // a draft: closed to participants
     const c = await (await pay(key, "PAYD-1", { pack: 100000 })).json() as any; // the client's pack is ignored: the draft decides
     expect(c.mode).toBe("razorpay"); expect(rz.orders[0].amount).toBe(1 * rz.orders[0].amount); expect(c.razorpay.notes.participants).toBe("500"); expect(c.razorpay.description).toBe("(close group bingo software) | owned and made by IT Services by Rajat Agarwal");
@@ -408,7 +408,7 @@ describe("paying to publish a draft", () => {
   });
   test("nobody can pay for, or publish, someone else's draft; a published one is not paid for twice", async () => {
     const a = await start("a@acme.com", "1.1.1.1"), b = await start("b@other.com", "2.2.2.2");
-    await call("POST", "/api/z", { id: "PAYD-2", startRound: FAR_START, callSeconds: 9, cap: 100 }, { "x-organizer": a });
+    await call("POST", "/api/z", { id: "PAYD-2", startRound: FAR_START, callSeconds: 20, cap: 100 }, { "x-organizer": a });
     expect((await pay(b, "PAYD-2")).status).toBe(404);
     expect((await pay("cbk_bogus", "PAYD-2")).status).toBe(403);
     const c = await (await pay(a, "PAYD-2")).json() as any; await complete(c.paymentId, c.razorpay.orderId, "pay_2");
@@ -416,7 +416,7 @@ describe("paying to publish a draft", () => {
   });
   test("a draft that is too big for any pack needs a custom arrangement", async () => {
     const key = await start("big@acme.com", "3.3.3.3");
-    await call("POST", "/api/z", { id: "PAYD-3", startRound: FAR_START, callSeconds: 9, cap: 100000 }, { "x-organizer": key });
+    await call("POST", "/api/z", { id: "PAYD-3", startRound: FAR_START, callSeconds: 20, cap: 100000 }, { "x-organizer": key });
     expect((await pay(key, "PAYD-3")).status).toBe(400);
   });
 });

@@ -16,7 +16,7 @@ import { zoneTime, tzOfRow } from "./tz";
 import { GRACE_ROUNDS, HOUSE_ORDER, gameFields, gameOut, isTimeZone, PRIZE_HOUSES, brandMomentsFor, defaultCfg, validateCfg, type EngagementCfg } from "../../../packages/beacon/src/config";
 import { openPii, openText, sealPii, sealText } from "./pii";
 import { TERMS_VERSION } from "./brand";
-import { CONSENT_SCHEMA, checkConsent, consentInfo, hasConsent, isKind, recordConsent, type ConsentKind } from "./consent";
+import { CONSENT_SCHEMA, checkConsent, consentInfo, hasConsent, isKind, recordConsent, refusalBody, type ConsentKind, type ConsentRefusal } from "./consent";
 import { LINK_MAIL_TTL_MS, aiLinkMail, coHostLinkMail, hostLinkMail, newUseAlertMail, signInMail } from "./mails";
 import { cancelGame, cancelPreview, reopenGame, teamEmails } from "./cancel";
 import { LEGAL_SCHEMA } from "./legal";
@@ -163,7 +163,7 @@ export const SCHEMA: string[] = [
   ...LEGAL_SCHEMA,
   // one clear payment ledger for every product and website, plus the webhook log (0020_payment_ledger.sql)
   ...LEDGER_SCHEMA,
-  // every ticked Terms / consent box (consent.ts)
+  // every acceptance of the Terms (consent.ts)
   ...CONSENT_SCHEMA,
 ];
 
@@ -450,7 +450,7 @@ async function createOrganizer(env: Env, req: Request, email: string, now: numbe
     return { ok: true, token, aiKey, aiMessage: startMsg, org };
 }
 /** The answer when a consent box was not ticked (or the Terms changed): the page draws the boxes from `consent`. */
-const consentRefusal = (kind: ConsentKind, r: { status: number; code: string; error: string }) => json({ error: r.error, code: r.code, consent: consentInfo(kind) }, r.status);
+const consentRefusal = (kind: ConsentKind, r: ConsentRefusal) => json(refusalBody(kind, r), r.status);
 /** K2: an organizer must have ticked the Terms + Privacy box for the CURRENT version. If they have not, the request must carry the tick (and it is stored). Returns a refusal, or null when allowed. */
 async function gateK2(env: Env, org: string, input: unknown, now: number): Promise<Response | null> {
   if (await hasConsent(env.DB, "K2", org)) return null;
@@ -605,7 +605,7 @@ async function route0(req: Request, env: Env, now: number, a: Auth): Promise<Res
     return json({ error: "Please finish your setup first: confirm your e-mail address and add your mobile number.", code: "host-setup" }, 403);
 
   if (req.method === "GET" && p === "/api/z/ai-manifest") return json(AI_MANIFEST);
-  { const cm = p.match(/^\/api\/consent\/(K[1-6])$/); if (cm && req.method === "GET" && isKind(cm[1])) return json(consentInfo(cm[1])); } // the boxes a page must show (exact wording, current version)
+  { const cm = p.match(/^\/api\/consent\/(K[1-9])$/); if (cm && req.method === "GET" && isKind(cm[1])) return json(consentInfo(cm[1])); } // the boxes a page must show (exact wording, current version)
   { const mr = await modeRoute(req, env as any, now, a.plat && req.headers.get("x-cb-link") !== "1", (n) => purgeTestData(env, n)); if (mr) return mr; } // TEST/LIVE switch, allow-list, purge (mode.ts): owner only, except the public read of the word TEST or LIVE
   if (p === "/api/v/b") return beaconRoute(req, env as VisitEnv, now, (n) => spend(env, now, n)); // public-page visit tracking (visits.ts); never the live game
   { // OWNER ONLY (platform key, never through an AI work link): visitor-journey reports. Every read is written to the access log; anybody else gets the same 404 as an unknown address.
@@ -703,6 +703,7 @@ Did not ask for this? Ignore this e-mail.`, now, { secret: true });
       const row = await identityRow(env.DB, ha.hid!), onFile = row?.email_sealed ? await openText(env as any, row.email_sealed) : null;
       if (onFile && onFile.toLowerCase() !== email) return json({ error: `This link is for ${maskEmail(onFile)}`, code: "email-mismatch" }, 403);
       if (!(await spend(env, now, 3))) return BUSY();
+      if (checkConsent("K5", b?.consent).ok) await recordConsent(env.DB, "K5", ha.hid!, null, now); // K5 sent with the Google step
       const done = await confirmHostEmail(env, ha.hid!, ha.org, email, newHostKey(), now);
       return json({ ok: true, token: done.token, kind: "host", ready: done.ready, needMobile: done.needMobile });
     }

@@ -20,7 +20,7 @@ async function org(email = "boss@acme.com", ip = "1.1.1.1") {
   return { h: { "x-organizer": x.token as string }, token: x.token as string, ai: x.aiKey as string };
 }
 async function game(o: { h: Record<string, string> }, id: string, startOffset = 1200) {
-  await call("POST", "/api/z", { id, startRound: roundAt(T) + startOffset, callSeconds: 6, cap: 100 }, o.h);
+  await call("POST", "/api/z", { id, startRound: roundAt(T) + startOffset, callSeconds: 20, cap: 100 }, o.h);
   await call("POST", `/api/z/${id}/publish`, { email: "boss@acme.com", phone: "98765 43210" }, o.h);
 }
 

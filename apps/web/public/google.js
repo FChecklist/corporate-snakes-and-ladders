@@ -26,10 +26,14 @@
       document.head.appendChild(s);
     });
   }
+  // K2: Google's own button cannot be greyed out, so the box that holds it is made inert (no mouse, no keyboard) until the K2 boxes are ticked; the callback also refuses to send without a tick.
+  const boxes = []; let enabled = true;
+  const paint = (box) => { box.inert = !enabled; box.style.opacity = enabled ? "" : "0.45"; box.style.pointerEvents = enabled ? "" : "none"; box.setAttribute("aria-disabled", enabled ? "false" : "true"); };
+  function setEnabled(on) { enabled = !!on; boxes.forEach(paint); }
   const note = (el, text) => { el.innerHTML = ""; const p = document.createElement("p"); p.className = "zsmall ggnote"; p.setAttribute("role", "status"); p.textContent = text; el.appendChild(p); el.hidden = false; };
   /**
    * Puts the Google button into `el` when Google sign-in is switched on; leaves `el` empty and hidden when it is not.
-   * opt: { intent: "signup"|"signin"|"host", hostKey?, onDone(result), onError(message) }. Resolves true when the button (or the calm line) was shown.
+   * opt: { intent: "signup"|"signin"|"host", hostKey?, onDone(result), onError(message), consent?(): the K2 payload or null, onConsent?(info): the server asked for fresh boxes }. Resolves true when the button (or the calm line) was shown.
    */
   async function mount(el, opt) {
     if (!el) return false;
@@ -45,15 +49,18 @@
         callback: async (resp) => {
           const credential = resp && resp.credential;
           if (!credential) return;
+          const consent = opt.consent ? opt.consent() : undefined;
+          if (opt.consent && !consent) { opt.onError && opt.onError("Please tick the box first, then continue with Google."); return; }
           try {
-            const r = await fetch("/api/auth/google", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ credential, intent: opt.intent || "signin", ...(opt.hostKey ? { hostKey: opt.hostKey } : {}) }) });
+            const r = await fetch("/api/auth/google", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ credential, intent: opt.intent || "signin", ...(opt.hostKey ? { hostKey: opt.hostKey } : {}), ...(consent ? { consent } : {}) }) });
             const j = await r.json().catch(() => ({}));
+            if (!r.ok && (j.code === "consent-required" || j.code === "terms-changed") && opt.onConsent) { opt.onConsent(j.consent); throw new Error("Please read and tick the box again, then continue with Google."); }
             if (!r.ok) throw new Error(j.error || "Google sign-in did not work. Please try again, or use an e-mail code.");
             opt.onDone && opt.onDone(j);
           } catch (e) { opt.onError && opt.onError(e && e.message ? e.message : "Google sign-in did not work. Please try again, or use an e-mail code."); }
         },
       });
-      const box = document.createElement("div"); el.appendChild(box);
+      const box = document.createElement("div"); el.appendChild(box); if (opt.consent) { boxes.push(box); paint(box); }
       window.google.accounts.id.renderButton(box, { type: "standard", theme: "outline", size: "large", text: "continue_with", shape: "rectangular", logo_alignment: "left", width: Math.max(200, Math.min(320, (el.clientWidth || 300))) });
     } catch { note(el, LINE); }
     return true;
@@ -64,5 +71,5 @@
     let nx = "/zc.html"; try { const n = sessionStorage.getItem("cbz-next"); if (n && /^\/(zc|pay)(\.html)?(\?e=[A-Za-z0-9_-]{4,40})?$/.test(n)) nx = n; sessionStorage.removeItem("cbz-next"); } catch {}
     location.href = nx;
   }
-  TB.google = { config, mount, finish, LINE };
+  TB.google = { config, mount, finish, LINE, setEnabled };
 })();

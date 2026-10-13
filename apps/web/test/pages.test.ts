@@ -23,7 +23,7 @@ async function organizer(extra: Record<string, string> = {}) {
   return { ...w, token: s.token as string, aiKey: s.aiKey as string, aiMessage: s.aiMessage as string };
 }
 type O = Awaited<ReturnType<typeof organizer>>;
-const make = async (o: O, id: string, over: Record<string, unknown> = {}) => o.api("POST", "/api/z", { id, startRound: START, callSeconds: 9, cap: 100, ...over }, o.aiKey);
+const make = async (o: O, id: string, over: Record<string, unknown> = {}) => o.api("POST", "/api/z", { id, startRound: START, callSeconds: 20, cap: 100, ...over }, o.aiKey);
 const publish = (o: O, id: string) => o.api("POST", `/api/z/${id}/publish`, { email: "boss@acme.com", phone: "98765 43210" }, o.token);
 const regKey = (o: O, id: string) => o.api("PUT", `/api/z/${id}/control/key`, { publicKey: publicKeyFromSecret("11".repeat(32)) }, o.token);
 async function page(o: O, url: string, html: string, scripts: string[], session: Record<string, string> = {}, extra: Partial<Parameters<typeof openPage>[1]> = {}) {
@@ -409,7 +409,7 @@ describe("console (organizer page)", () => {
     p.click('[data-ck="per"][data-v="2"]'); p.click('[data-ck="cats"][data-v="friends"]'); p.click('[data-ck="cats"][data-v="family"]');
     p.click('[data-save="2"]'); await p.waitFor((x) => /Saved\./.test(x));
     const sm = await o.json(await o.api("GET", "/api/z/UI-PLAY/summary", undefined, o.aiKey));
-    expect(sm).toMatchObject({ tickets: 2, callSeconds: 12, rounds: 3, invites: { on: true, per: 2, cats: ["colleagues", "friends"] } });
+    expect(sm).toMatchObject({ tickets: 2, callSeconds: 20, rounds: 3, invites: { on: true, per: 2, cats: ["colleagues", "friends"] } });
     expect(sm.whoCanJoin).toBe("anyone"); expect(pw.st.patches.some((b: any) => b.whoCanJoin === "anyone")).toBe(true); // the console sends the new game setting
     expect(p.errors).toEqual([]);
   });
@@ -1063,7 +1063,7 @@ describe("the console for an AI that works in the browser", () => {
     const hist = await o.json(await o.api("GET", "/api/history", undefined, o.aiKey)); expect(hist.engagements.length).toBe(1);
     const id = hist.engagements[0].id; expect(id).toMatch(/^DIWALI-PARTY-\d{4}$/);
     const sm = await o.json(await o.api("GET", `/api/z/${id}/summary`, undefined, o.aiKey));
-    expect(sm).toMatchObject({ name: "Diwali party", limit: 500, tickets: 2, callSeconds: 12, rounds: 1, status: "draft" });
+    expect(sm).toMatchObject({ name: "Diwali party", limit: 500, tickets: 2, callSeconds: 20, rounds: 1, status: "draft" });
     expect(sm.startMs).toBe(Date.parse(d + "T18:30:00+05:30")); // exactly the picked day and time in India time
     expect(sm.rewards.filter((r: any) => r.pattern === "blackout").map((r: any) => r.text)).toEqual(["Voucher 5000", "Voucher 5000"]); expect(sm.invites).toMatchObject({ on: true, per: 4 });
     expect(sections(p)).toHaveLength(10); // it opened the game, ready for videos and messages

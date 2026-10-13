@@ -60,14 +60,14 @@ describe("acceptance by continuing, no tick box", () => {
     const r = rows(); expect(r.length).toBe(1); expect(r[0]).toMatchObject({ version: TERMS_VERSION, via: "start", at_ms: T });
     const org = (raw.prepare("SELECT org FROM organizer_key WHERE kind='master'").get() as any).org; expect(r[0]!.org).toBe(org);
     const start = Math.floor((T / 1000 - 1692803367) / 3) + 1200;
-    await call("POST", "/api/z", { id: "TERMS-1", startRound: start, callSeconds: 6, cap: 100 }, { "x-organizer": o.token }, T + 5000);
+    await call("POST", "/api/z", { id: "TERMS-1", startRound: start, callSeconds: 20, cap: 100 }, { "x-organizer": o.token }, T + 5000);
     expect(rows().map((x) => x.via).sort()).toEqual(["start"]); // same organizer, same version: one row, kept from the first time
-    await call("POST", "/api/z", { id: "TERMS-2", startRound: start, callSeconds: 6, cap: 100 }, { "x-organizer": o.token }, T + 9000);
+    await call("POST", "/api/z", { id: "TERMS-2", startRound: start, callSeconds: 20, cap: 100 }, { "x-organizer": o.token }, T + 9000);
     expect(rows().length).toBe(1);
   });
   test("a platform-made organizer has no acceptance until they continue (create engagement records it)", async () => {
     const mk = await j(await call("POST", "/api/org", {}, { "x-organizer": "plat" })); expect(rows().length).toBe(0);
-    await call("POST", "/api/z", { id: "TERMS-3", startRound: Math.floor((T / 1000 - 1692803367) / 3) + 1200, callSeconds: 6, cap: 100 }, { "x-organizer": mk.organizerKey }, T + 100);
+    await call("POST", "/api/z", { id: "TERMS-3", startRound: Math.floor((T / 1000 - 1692803367) / 3) + 1200, callSeconds: 20, cap: 100 }, { "x-organizer": mk.organizerKey }, T + 100);
     expect(rows().map((x) => [x.via, x.at_ms])).toEqual([["engagement", T + 100]]);
   });
   test("signing in by code or by the e-mailed link records the version for that organizer", async () => {

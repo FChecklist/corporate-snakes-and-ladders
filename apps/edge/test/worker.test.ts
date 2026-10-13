@@ -12,7 +12,7 @@ const FAR_START = Math.floor(((T + 2 * 86_400_000) / 1000 - 1692803367) / 3) + 1
 const call = (method: string, path: string, body?: unknown, headers: Record<string, string> = {}, now = T) =>
   handle(new Request("http://x" + path, { method, headers: { "content-type": "application/json", ...headers }, body: withDevice(method, path, body) }), env, now);
 const org = { "x-organizer": SECRET };
-const create = (over: Record<string, unknown> = {}) => call("POST", "/api/z", { id: "ENG1", startRound: 1000, callSeconds: 6, cap: 400, ...over }, org);
+const create = (over: Record<string, unknown> = {}) => call("POST", "/api/z", { id: "ENG1", startRound: FAR_START, callSeconds: 20, cap: 400, ...over }, org);
 const phone = (i: number) => "9" + String(100000000 + i);
 const join = (i: number, eid = "ENG1", now = T) => call("POST", `/api/z/${eid}/join`, { phone: phone(i), name: "P" + i }, {}, now);
 
@@ -24,16 +24,16 @@ beforeEach(() => {
 
 describe("engagement set-up", () => {
   test("only the organizer can create one", async () => {
-    expect((await call("POST", "/api/z", { id: "ENG1", startRound: 1, callSeconds: 6, cap: 10 })).status).toBe(403);
-    expect((await call("POST", "/api/z", { id: "ENG1", startRound: 1, callSeconds: 6, cap: 10 }, { "x-organizer": "wrong" })).status).toBe(403);
+    expect((await call("POST", "/api/z", { id: "ENG1", startRound: 1, callSeconds: 20, cap: 10 })).status).toBe(403);
+    expect((await call("POST", "/api/z", { id: "ENG1", startRound: 1, callSeconds: 20, cap: 10 }, { "x-organizer": "wrong" })).status).toBe(403);
   });
   test("with no secret configured, nobody is the organizer (no empty-secret bypass)", async () => {
     env.ORGANIZER_SECRET = undefined;
-    expect((await call("POST", "/api/z", { id: "ENG1", startRound: 1, callSeconds: 6, cap: 10 }, { "x-organizer": "" })).status).toBe(403);
+    expect((await call("POST", "/api/z", { id: "ENG1", startRound: 1, callSeconds: 20, cap: 10 }, { "x-organizer": "" })).status).toBe(403);
   });
   test("call speed must be a multiple of 3 s and at least 6 s", async () => {
     for (const s of [10, 3, 7, 0, -6, 6.5]) expect((await create({ callSeconds: s })).status).toBe(400);
-    expect((await create({ callSeconds: 9 })).status).toBe(200);
+    expect((await create({ callSeconds: 20 })).status).toBe(200);
   });
   test("bad ids, caps and rounds are refused", async () => {
     for (const o of [{ id: "x" }, { id: "a b c d" }, { id: "../../etc" }, { cap: 0 }, { cap: 100001 }, { startRound: 1.5 }, { startRound: "1" }]) expect((await create(o)).status).toBe(400);
@@ -50,7 +50,7 @@ describe("joining", () => {
   test("a join returns what the phone needs to play and nothing about others", async () => {
     const r = await (await join(1)).json() as any;
     expect(r.startRound).toBe(1000);
-    expect(r.callSeconds).toBe(6);
+    expect(r.callSeconds).toBe(20);
     expect(r.pid).toMatch(/^1x[0-9a-f]{12}$/); // seat number + hash: the seat makes the ticket collision-free
     expect(Object.keys(r).sort()).toEqual(["breaks", "callSeconds", "closing", "invites", "joinPhone", "jr", "opening", "pid", "rewards", "rounds", "startRound", "tickets", "trackClaims"]);
   });
@@ -99,25 +99,25 @@ describe("claims", () => {
   beforeEach(async () => { await create(); pid = ((await (await join(1)).json()) as any).pid; });
   const claim = (b: unknown) => call("POST", "/api/z/ENG1/claims", b);
   test("a claim is stored once even if the phone sends it five times", async () => {
-    for (let i = 0; i < 5; i++) await claim({ pid, claims: [{ pattern: "line", idx: 33 }] });
+    for (let i = 0; i < 5; i++) await claim({ pid, claims: [{ pattern: "finish", idx: 33 }] });
     expect(raw.query("SELECT COUNT(*) c FROM claim").get()).toEqual({ c: 1 });
   });
   test("a stranger cannot claim", async () => {
-    expect((await claim({ pid: "deadbeefdeadbeef", claims: [{ pattern: "line", idx: 3 }] })).status).toBe(403);
+    expect((await claim({ pid: "deadbeefdeadbeef", claims: [{ pattern: "finish", idx: 3 }] })).status).toBe(403);
     expect((await claim({ pid: 5, claims: [] })).status).toBe(400);
   });
   test("a participant of another engagement cannot claim here", async () => {
     await create({ id: "ENG2" });
     const other = ((await (await join(50, "ENG2")).json()) as any).pid;
-    expect((await claim({ pid: other, claims: [{ pattern: "blackout", idx: 70 }] })).status).toBe(403);
+    expect((await claim({ pid: other, claims: [{ pattern: "climb", idx: 70 }] })).status).toBe(403);
   });
   test("bad patterns and impossible call numbers are dropped, good ones kept", async () => {
-    const r = await (await claim({ pid, claims: [{ pattern: "bingo", idx: 3 }, { pattern: "line", idx: 75 }, { pattern: "line", idx: -1 }, { pattern: "line", idx: 1.5 }, { pattern: "x", idx: 40 }, null, "x"] })).json() as any;
+    const r = await (await claim({ pid, claims: [{ pattern: "bingo", idx: 3 }, { pattern: "finish", idx: 75 }, { pattern: "finish", idx: -1 }, { pattern: "finish", idx: 1.5 }, { pattern: "comeback", idx: 40 }, null, "x"] })).json() as any;
     expect(r.stored).toBe(1);
   });
   test("a huge claims list is capped", async () => {
-    expect((await claim({ pid, claims: Array.from({ length: 5000 }, (_, i) => ({ pattern: "line", idx: i % 75 })) })).status).toBe(400); // oversized body refused outright
-    const r = await (await claim({ pid, claims: Array.from({ length: 60 }, (_, i) => ({ pattern: "line", idx: i })) })).json() as any;
+    expect((await claim({ pid, claims: Array.from({ length: 5000 }, (_, i) => ({ pattern: "finish", idx: i % 75 })) })).status).toBe(400); // oversized body refused outright
+    const r = await (await claim({ pid, claims: Array.from({ length: 60 }, (_, i) => ({ pattern: "finish", idx: i })) })).json() as any;
     expect(r.stored).toBeLessThanOrEqual(7);
   });
   test("claims cannot be read without the organizer secret", async () => {
@@ -131,9 +131,9 @@ describe("winners are decided by the software", () => {
   let pids: string[] = [];
   beforeEach(async () => { await create(); pids = []; for (let i = 1; i <= 8; i++) pids.push(((await (await join(i)).json()) as any).pid); });
   const vote = (pid: string, results: unknown[]) => call("POST", "/api/z/ENG1/vote", { pid, results });
-  const res = (idx: number, winners: string[]) => ({ pattern: "blackout", ordinal: 1, round: 1, idx, pids: winners });
+  const res = (idx: number, winners: string[]) => ({ pattern: "climb", ordinal: 1, round: 1, idx, pids: winners });
   test("nobody can post a result: not the organizer, not the AI, not a stranger", async () => {
-    const body = { results: [{ pattern: "line", idx: 20, pids: [pids[0]!] }] };
+    const body = { results: [{ pattern: "finish", idx: 20, pids: [pids[0]!] }] };
     for (const h of [{}, org]) expect((await call("POST", "/api/z/ENG1/settle", body, h)).status).toBe(403);
     expect(raw.query("SELECT COUNT(*) c FROM settled").get()).toEqual({ c: 0 });
   });
@@ -158,18 +158,18 @@ describe("winners are decided by the software", () => {
   });
   test("a stranger cannot report, and a malformed report changes nothing", async () => {
     expect((await vote("999x000000000000", [res(70, [pids[1]!])])).status).toBe(403);
-    expect((await vote(pids[0]!, [{ pattern: "line", idx: 1, pids: "no" }])).status).toBe(200);
+    expect((await vote(pids[0]!, [{ pattern: "finish", idx: 1, pids: "no" }])).status).toBe(200);
     expect((await vote(pids[0]!, [])).status).toBe(400);
     expect(raw.query("SELECT COUNT(*) c FROM rvote").get()).toEqual({ c: 0 });
   });
   test("public results name winning seats (opaque ids), never names or numbers", async () => {
-    await settleByPhones(call, "ENG1", [{ pattern: "blackout", idx: 70, pids: [pids[1]!] }], pids.slice(0, 3));
+    await settleByPhones(call, "ENG1", [{ pattern: "climb", idx: 70, pids: [pids[1]!] }], pids.slice(0, 3));
     const txt = await (await call("GET", "/api/z/ENG1/results")).text();
     expect(/phone|mobile|9876/i.test(txt)).toBe(false);
-    expect(JSON.parse(txt).results[0]).toEqual({ pattern: "blackout", ordinal: 1, round: 1, idx: 70, count: 1, winners: [pids[1]!] });
+    expect(JSON.parse(txt).results[0]).toEqual({ pattern: "climb", ordinal: 1, round: 1, idx: 70, count: 1, winners: [pids[1]!] });
   });
   test("a winner confirms the details on their own phone; a change is kept with the original; the organizer ticks 'prize given'", async () => {
-    await settleByPhones(call, "ENG1", [{ pattern: "blackout", idx: 70, pids: [pids[1]!] }], pids.slice(0, 3));
+    await settleByPhones(call, "ENG1", [{ pattern: "climb", idx: 70, pids: [pids[1]!] }], pids.slice(0, 3));
     const dev = deviceOf(phone(2));
     const mine = await (await call("GET", `/api/z/ENG1/myprizes?pid=${pids[1]!}&device=${dev}`)).json() as any;
     expect(mine.prizes).toHaveLength(1); expect(mine.phone).toBe(phone(2)); expect(mine.confirmed).toBe(false);
@@ -179,7 +179,7 @@ describe("winners are decided by the software", () => {
     expect(list.prizes[0]).toMatchObject({ name: "Asha Rao", phone: "9876543210", confirmed: true, changed: true, joinedWithName: "P2", joinedWithPhone: phone(2), given: false });
     expect(list.prizes[0].trail).toHaveLength(1);
     expect((await call("GET", "/api/z/ENG1/prizes")).status).toBe(403);
-    expect((await call("POST", "/api/z/ENG1/prizegiven", { round: 1, pattern: "blackout", ordinal: 1, seat: 2, given: true }, org)).status).toBe(200);
+    expect((await call("POST", "/api/z/ENG1/prizegiven", { round: 1, pattern: "climb", ordinal: 1, seat: 2, given: true }, org)).status).toBe(200);
     const after = await (await call("GET", "/api/z/ENG1/prizes", undefined, org)).json() as any;
     expect(after.prizes[0].given).toBe(true); expect(after.prizes[0].givenBy).toBe("organizer"); expect(typeof after.prizes[0].givenMs).toBe("number");
     expect(raw.query("SELECT pii FROM prize").get() as any).not.toMatchObject({ pii: expect.stringContaining("Asha") }); // sealed at rest
@@ -248,7 +248,7 @@ describe("roster, history, erase and 365-day retention", () => {
       expect((await call(m, p, m === "POST" ? {} : undefined)).status).toBe(403);
   });
   test("info is public and holds only what a phone needs", async () => {
-    expect(await (await call("GET", "/api/z/ENG1/info")).json()).toMatchObject({ startRound: 1000, callSeconds: 6, trackClaims: true, controlUrl: null, tickets: 1, breaks: [] });
+    expect(await (await call("GET", "/api/z/ENG1/info")).json()).toMatchObject({ startRound: FAR_START, callSeconds: 20, trackClaims: true, controlUrl: null, tickets: 1, breaks: [] });
   });
   test("the organizer sees ids and names, never phone numbers or hashes", async () => {
     await join(1);
@@ -280,8 +280,8 @@ describe("roster, history, erase and 365-day retention", () => {
   });
   test("erase removes the people, claims and results of one engagement and leaves the others alone", async () => {
     const pid = ((await (await join(1)).json()) as any).pid;
-    await call("POST", "/api/z/ENG1/claims", { pid, claims: [{ pattern: "line", idx: 4 }] });
-    await settleByPhones(call, "ENG1", [{ pattern: "line", idx: 4, pids: [pid] }], [pid]);
+    await call("POST", "/api/z/ENG1/claims", { pid, claims: [{ pattern: "finish", idx: 4 }] });
+    await settleByPhones(call, "ENG1", [{ pattern: "finish", idx: 4, pids: [pid] }], [pid]);
     await create({ id: "ENG2" }); await join(9, "ENG2");
     const r = await (await call("POST", "/api/z/ENG1/erase", {}, org)).json() as any;
     expect(r.erased).toBe(1);
@@ -297,9 +297,9 @@ describe("roster, history, erase and 365-day retention", () => {
   });
   test("purge deletes only engagements older than 365 days, with everything under them", async () => {
     await join(1);
-    await call("POST", "/api/z", { id: "OLD1", startRound: 5, callSeconds: 6, cap: 10 }, org, T - 366 * D);
+    await call("POST", "/api/z", { id: "OLD1", startRound: 5, callSeconds: 20, cap: 10 }, org, T - 366 * D);
     await join(5, "OLD1", T - 366 * D);
-    await call("POST", "/api/z", { id: "EDGE", startRound: 5, callSeconds: 6, cap: 10 }, org, T - 364 * D);
+    await call("POST", "/api/z", { id: "EDGE", startRound: 5, callSeconds: 20, cap: 10 }, org, T - 364 * D);
 
     const r = await (await call("POST", "/api/purge", {}, org)).json() as any;
     expect(r.purged).toBe(1);
@@ -325,7 +325,7 @@ describe("organizers, their AI assistant, and what the AI may not do", () => {
     other = ((await (await call("POST", "/api/org", {}, plat)).json()) as any).organizerKey;
     aiKey = ((await (await call("POST", "/api/org/ai", {}, asM())).json()) as any).aiKey;
     for (let i = 0; i < 6; i++) raw.run("INSERT INTO entitlement(id,org,pack,payment_id,eid,created_ms) SELECT 'g" + i + "'||hash, org, 1000, 'x', NULL, 0 FROM organizer_key WHERE kind='master'"); // purchased engagements
-    await call("POST", "/api/z", { id: "MINE1", startRound: FUTURE, callSeconds: 6, cap: 50 }, asM());
+    await call("POST", "/api/z", { id: "MINE1", startRound: FUTURE, callSeconds: 20, cap: 50 }, asM());
   });
   test("only the platform makes organizers; keys are shown once and never stored in the clear", async () => {
     expect((await call("POST", "/api/org", {}, asM())).status).toBe(403);
@@ -344,24 +344,24 @@ describe("organizers, their AI assistant, and what the AI may not do", () => {
     expect((await (await call("GET", "/api/history", undefined, asM())).json() as any).engagements.map((x: any) => x.id)).toEqual(["MINE1"]);
   });
   test("another organizer can neither reuse my roster nor create over my id", async () => {
-    await call("POST", "/api/z", { id: "THEIRS", startRound: FUTURE, callSeconds: 6, cap: 50 }, { "x-organizer": other });
+    await call("POST", "/api/z", { id: "THEIRS", startRound: FUTURE, callSeconds: 20, cap: 50 }, { "x-organizer": other });
     expect((await call("POST", "/api/z/THEIRS/reuse", { from: "MINE1" }, { "x-organizer": other })).status).toBe(400);
-    const r = await (await call("POST", "/api/z", { id: "MINE1", startRound: 1, callSeconds: 6, cap: 1 }, { "x-organizer": other })).json() as any;
+    const r = await (await call("POST", "/api/z", { id: "MINE1", startRound: 1, callSeconds: 20, cap: 1 }, { "x-organizer": other })).json() as any;
     expect(r.existed).toBe(true);
     expect(raw.query("SELECT cap FROM engagement WHERE id='MINE1'").get()).toEqual({ cap: 50 });
   });
   test("the AI can do the organizer's work: create, load an invite list, change settings, read people and claims, reuse", async () => {
-    expect((await call("POST", "/api/z", { id: "BYAI1", startRound: FUTURE, callSeconds: 9, cap: 10 }, asA())).status).toBe(200);
+    expect((await call("POST", "/api/z", { id: "BYAI1", startRound: FUTURE, callSeconds: 20, cap: 10 }, asA())).status).toBe(200);
     const r = await (await call("POST", "/api/z/BYAI1/roster", { people: [{ phone: phone(1), name: "A" }, { phone: phone(2), name: "B" }, { phone: "12" }] }, asM())).json() as any; // the owner loads the list; an AI key is refused (names and numbers never pass through the AI)
     expect((await call("POST", "/api/z/BYAI1/roster", { people: [{ phone: phone(9), name: "Z" }] }, asA())).status).toBe(403);
     expect(r).toMatchObject({ added: 2, invalid: 1 });
-    expect((await call("PATCH", "/api/z/BYAI1/settings", { callSeconds: 12 }, asA())).status).toBe(200);
+    expect((await call("PATCH", "/api/z/BYAI1/settings", { callSeconds: 20 }, asA())).status).toBe(200);
     expect(((await (await call("GET", "/api/z/BYAI1/participants", undefined, asA())).json()) as any).participants).toHaveLength(2);
     expect((await call("GET", "/api/z/BYAI1/claims", undefined, asA())).status).toBe(200);
     expect((await call("POST", "/api/z/MINE1/reuse", { from: "BYAI1" }, asA())).status).toBe(200);
   });
   test("the AI can NOT publish results, erase data, register the pause key, or mint keys", async () => {
-    expect((await call("POST", "/api/z/MINE1/settle", { results: [{ pattern: "blackout", idx: 5, pids: ["x"] }] }, asA())).status).toBe(403);
+    expect((await call("POST", "/api/z/MINE1/settle", { results: [{ pattern: "climb", idx: 5, pids: ["x"] }] }, asA())).status).toBe(403);
     expect((await call("POST", "/api/z/MINE1/erase", {}, asA())).status).toBe(403);
     expect((await call("PUT", "/api/z/MINE1/control/key", { publicKey: "aa".repeat(32) }, asA())).status).toBe(403);
     expect((await call("POST", "/api/org/ai", {}, asA())).status).toBe(403);
@@ -433,9 +433,9 @@ describe("organizers, their AI assistant, and what the AI may not do", () => {
   test("settings can change before the first number and never after; bad values change nothing", async () => {
     expect((await call("PATCH", "/api/z/MINE1/settings", { callSeconds: 10 }, asM())).status).toBe(400);
     expect((await call("PATCH", "/api/z/MINE1/settings", { startRound: 5 }, asM())).status).toBe(400); // in the past
-    expect((await call("PATCH", "/api/z/MINE1/settings", { callSeconds: 15, startRound: FUTURE + 100 }, asM())).status).toBe(200);
+    expect((await call("PATCH", "/api/z/MINE1/settings", { callSeconds: 20, startRound: FUTURE + 100 }, asM())).status).toBe(200);
     expect(raw.query("SELECT call_seconds, start_round FROM engagement WHERE id='MINE1'").get()).toEqual({ call_seconds: 15, start_round: FUTURE + 100 });
-    await call("POST", "/api/z", { id: "OLDSTART", startRound: 5, callSeconds: 6, cap: 5 }, asM()); // already started long ago
+    await call("POST", "/api/z", { id: "OLDSTART", startRound: 5, callSeconds: 20, cap: 5 }, asM()); // already started long ago
     expect((await call("PATCH", "/api/z/OLDSTART/settings", { cap: 9 }, asM())).status).toBe(409);
   });
   test("the limit cannot be set below the people already listed", async () => {
@@ -447,7 +447,7 @@ describe("organizers, their AI assistant, and what the AI may not do", () => {
     expect((await call("POST", "/api/z/MINE1/erase", {}, plat)).status).toBe(200);
   });
   test("purge also removes the pause file and requests of an old engagement", async () => {
-    await call("POST", "/api/z", { id: "ANCIENT", startRound: 5, callSeconds: 6, cap: 5 }, plat, T - 400 * 86_400_000);
+    await call("POST", "/api/z", { id: "ANCIENT", startRound: 5, callSeconds: 20, cap: 5 }, plat, T - 400 * 86_400_000);
     await call("POST", "/api/z/ANCIENT/control/request", { action: "pause" }, plat);
     await call("PUT", "/api/z/ANCIENT/control/key", { publicKey: "aa".repeat(32) }, plat);
     await call("POST", "/api/purge", {}, plat);
@@ -538,7 +538,7 @@ describe("the shared suggestion board for every organizer's AI", () => {
     expect((await call("POST", "/api/z/suggestions", { kind: "feature", title: "Fresh idea next day", body: "A perfectly reasonable description of the need." }, asA(), T + 86_400_001 + 1)).status).toBe(200);
   });
   test("a suggestion gives no one a way to run code or touch another organizer's engagements", async () => {
-    await call("POST", "/api/z", { id: "OTHERS1", startRound: FAR_START, callSeconds: 9, cap: 5 }, plat);
+    await call("POST", "/api/z", { id: "OTHERS1", startRound: FAR_START, callSeconds: 20, cap: 5 }, plat);
     for (const path of ["/api/z/OTHERS1/participants", "/api/z/OTHERS1/claims", "/api/z/OTHERS1/roster", "/api/z/OTHERS1/erase", "/api/z/OTHERS1/settle", "/api/z/OTHERS1/settings"])
       expect([403, 404, 405]).toContain((await call(path.endsWith("participants") || path.endsWith("claims") ? "GET" : "POST", path, {}, asA())).status);
   });
@@ -597,7 +597,7 @@ describe("pause file served from a cached static copy", () => {
   });
   test("purging an old engagement removes its static copy too", async () => {
     const { publicKeyFromSecret } = await import("../../../packages/beacon/src/control");
-    await call("POST", "/api/z", { id: "OLD99", startRound: 5, callSeconds: 6, cap: 5 }, plat, T - 400 * 86_400_000);
+    await call("POST", "/api/z", { id: "OLD99", startRound: 5, callSeconds: 20, cap: 5 }, plat, T - 400 * 86_400_000);
     await call("PUT", "/api/z/OLD99/control/key", { publicKey: publicKeyFromSecret("77".repeat(32)) }, plat);
     expect(store.has("c/OLD99.json")).toBe(true);
     await call("POST", "/api/purge", {}, plat);
@@ -607,7 +607,7 @@ describe("pause file served from a cached static copy", () => {
 
 describe("tickets, reward lines and brand breaks", () => {
   const FUT = Math.floor((T / 1000 - 1692803367) / 3) + 1 + 4000;
-  const mk = (extra: Record<string, unknown> = {}, id = "CFG01") => call("POST", "/api/z", { id, startRound: FUT, callSeconds: 9, cap: 50, ...extra }, org);
+  const mk = (extra: Record<string, unknown> = {}, id = "CFG01") => call("POST", "/api/z", { id, startRound: FUT, callSeconds: 20, cap: 50, ...extra }, org);
   const info = async (id = "CFG01") => (await (await call("GET", `/api/z/${id}/info`)).json()) as any;
   test("an engagement with nothing set shows phones the plain defaults", async () => {
     await mk();
@@ -617,7 +617,7 @@ describe("tickets, reward lines and brand breaks", () => {
     expect(i.breaks).toEqual([]);
   });
   test("settings given at creation are kept and shown to every phone; bad ones refuse the whole creation", async () => {
-    const good = { tickets: 2, rewards: [{ pattern: "blackout", ordinal: 1, text: "Hamper" }, { pattern: "line", text: "Grand hamper" }], breaks: [{ after: 40, seconds: 45, kind: "speech", title: "CEO message" }] };
+    const good = { tickets: 2, rewards: [{ pattern: "climb", ordinal: 1, text: "Hamper" }, { pattern: "finish", text: "Grand hamper" }], breaks: [{ after: 40, seconds: 45, kind: "speech", title: "CEO message" }] };
     expect((await mk(good)).status).toBe(200);
     const i = await info();
     expect(i).toMatchObject({ tickets: 2, breaks: [{ after: 40, seconds: 45, kind: "speech", title: "CEO message" }] });
@@ -627,28 +627,28 @@ describe("tickets, reward lines and brand breaks", () => {
     expect(raw.query("SELECT COUNT(*) c FROM engagement WHERE id IN ('CFG02','CFG03')").get()).toEqual({ c: 0 });
   });
   test("joining returns the settings too, so a phone never needs a second call", async () => {
-    await mk({ tickets: 2, rewards: [{ pattern: "blackout", text: "Hamper" }] });
+    await mk({ tickets: 2, rewards: [{ pattern: "climb", text: "Hamper" }] });
     const r = await (await join(1, "CFG01")).json() as any;
     expect(r.tickets).toBe(2);
     expect(r.rewards[0].text).toBe("Hamper");
   });
   test("settings can be changed before the start and never after, and a bad change changes nothing", async () => {
     await mk();
-    expect((await call("PATCH", "/api/z/CFG01/settings", { tickets: 2, rewards: [{ pattern: "line", text: "Voucher" }], breaks: [{ after: 20, seconds: 30, kind: "speech", title: "Welcome" }] }, org)).status).toBe(200);
-    expect(await info()).toMatchObject({ tickets: 2, rewards: [{ pattern: "line", text: "Voucher" }], breaks: [{ after: 20 }] });
+    expect((await call("PATCH", "/api/z/CFG01/settings", { tickets: 2, rewards: [{ pattern: "finish", text: "Voucher" }], breaks: [{ after: 20, seconds: 30, kind: "speech", title: "Welcome" }] }, org)).status).toBe(200);
+    expect(await info()).toMatchObject({ tickets: 2, rewards: [{ pattern: "finish", text: "Voucher" }], breaks: [{ after: 20 }] });
     expect((await call("PATCH", "/api/z/CFG01/settings", { breaks: [{ after: 20, seconds: 31, kind: "speech", title: "Welcome" }] }, org)).status).toBe(400);
     expect((await info()).breaks).toHaveLength(1);
-    await call("POST", "/api/z", { id: "STARTED1", startRound: 5, callSeconds: 6, cap: 5 }, org);
+    await call("POST", "/api/z", { id: "STARTED1", startRound: 5, callSeconds: 20, cap: 5 }, org);
     expect((await call("PATCH", "/api/z/STARTED1/settings", { tickets: 2 }, org)).status).toBe(409);
   });
   test("results carry which reward line each outcome is for, and an accepted result is final", async () => {
-    await mk({ tickets: 1, rewards: [{ pattern: "blackout", ordinal: 1 }, { pattern: "blackout", ordinal: 2 }] });
+    await mk({ tickets: 1, rewards: [{ pattern: "climb", ordinal: 1 }, { pattern: "climb", ordinal: 2 }] });
     const p1 = ((await (await join(1, "CFG01")).json()) as any).pid, p2 = ((await (await join(2, "CFG01")).json()) as any).pid;
-    await settleByPhones(call, "CFG01", [{ pattern: "blackout", ordinal: 1, idx: 50, pids: [p1] }, { pattern: "blackout", ordinal: 2, idx: 53, pids: [p2] }], [p1]);
-    await settleByPhones(call, "CFG01", [{ pattern: "blackout", ordinal: 1, idx: 51, pids: [p2] }], [p2]); // a later, different report does not replace it
+    await settleByPhones(call, "CFG01", [{ pattern: "climb", ordinal: 1, idx: 50, pids: [p1] }, { pattern: "climb", ordinal: 2, idx: 53, pids: [p2] }], [p1]);
+    await settleByPhones(call, "CFG01", [{ pattern: "climb", ordinal: 1, idx: 51, pids: [p2] }], [p2]); // a later, different report does not replace it
     const r = await (await call("GET", "/api/z/CFG01/results")).json() as any;
-    expect(r.results).toEqual([{ pattern: "blackout", ordinal: 1, round: 1, idx: 50, count: 1, winners: [p1] }, { pattern: "blackout", ordinal: 2, round: 1, idx: 53, count: 1, winners: [p2] }]);
-    await settleByPhones(call, "CFG01", [{ pattern: "blackout", ordinal: 3, idx: 1, pids: [p1] }, { pattern: "twolines", ordinal: 1, idx: 1, pids: [p1] }], [p1]); // a line this engagement does not have is ignored
+    expect(r.results).toEqual([{ pattern: "climb", ordinal: 1, round: 1, idx: 50, count: 1, winners: [p1] }, { pattern: "climb", ordinal: 2, round: 1, idx: 53, count: 1, winners: [p2] }]);
+    await settleByPhones(call, "CFG01", [{ pattern: "climb", ordinal: 3, idx: 1, pids: [p1] }, { pattern: "nevermissed", ordinal: 1, idx: 1, pids: [p1] }], [p1]); // a line this engagement does not have is ignored
     expect(((await (await call("GET", "/api/z/CFG01/results")).json()) as any).results).toHaveLength(2);
   });
 });
@@ -657,7 +657,7 @@ describe("lucky draw results", () => {
   const FUT = Math.floor((T / 1000 - 1692803367) / 3) + 1 + 4000;
   let pids: string[] = [];
   beforeEach(async () => {
-    await call("POST", "/api/z", { id: "LUCK1", startRound: FUT, callSeconds: 9, cap: 50, breaks: [{ after: 20, seconds: 30, kind: "lucky", title: "Lucky draw", winners: 3 }] }, org);
+    await call("POST", "/api/z", { id: "LUCK1", startRound: FUT, callSeconds: 20, cap: 50, breaks: [{ after: 20, seconds: 30, kind: "lucky", title: "Lucky draw", winners: 3 }] }, org);
     pids = []; for (let i = 1; i <= 5; i++) pids.push(((await (await join(i, "LUCK1")).json()) as any).pid);
   });
   const pub = async () => (await (await call("GET", "/api/z/LUCK1/results")).json()) as any;
@@ -667,7 +667,7 @@ describe("lucky draw results", () => {
     expect((await pub()).results[0]).toEqual({ pattern: "lucky", ordinal: 1, round: 1, idx: 20, count: 3, winners: [pids[0]!, pids[1]!, pids[2]!].sort() });
   });
   test("house results still carry counts only", async () => {
-    await settleByPhones(call, "LUCK1", [{ pattern: "blackout", idx: 70, pids: [pids[0]!] }], pids);
+    await settleByPhones(call, "LUCK1", [{ pattern: "climb", idx: 70, pids: [pids[0]!] }], pids);
     expect(/phone|mobile|9876/i.test(JSON.stringify(await pub()))).toBe(false); // seat ids may be named, never names or numbers
   });
   test("a draw that is not in the engagement's settings, or with too many winners, is ignored", async () => {
@@ -681,7 +681,7 @@ describe("lucky draw results", () => {
     expect((await pub()).results.map((x: any) => x.winners)).toEqual([[pids[0]!]]);
   });
   test("an engagement with no lucky draw ignores lucky results", async () => {
-    await call("POST", "/api/z", { id: "PLAIN1", startRound: FUT, callSeconds: 9, cap: 50 }, org);
+    await call("POST", "/api/z", { id: "PLAIN1", startRound: FUT, callSeconds: 20, cap: 50 }, org);
     const q = ((await (await join(1, "PLAIN1")).json()) as any).pid;
     await settleByPhones(call, "PLAIN1", [{ pattern: "lucky", idx: 20, pids: [q] }], [q]);
     expect(raw.query("SELECT COUNT(*) c FROM settled WHERE eid='PLAIN1'").get()).toEqual({ c: 0 });
@@ -730,41 +730,41 @@ describe("an organizer's own sign-in keys", () => {
 describe("rounds in the store", () => {
   const FUT = Math.floor((T / 1000 - 1692803367) / 3) + 1 + 4000;
   test("rounds are set at creation or before the start, shown to phones, and 1 to 5 only", async () => {
-    expect((await call("POST", "/api/z", { id: "RND01", startRound: FUT, callSeconds: 9, cap: 50, rounds: 3 }, org)).status).toBe(200);
+    expect((await call("POST", "/api/z", { id: "RND01", startRound: FUT, callSeconds: 20, cap: 50, rounds: 3 }, org)).status).toBe(200);
     expect(((await (await call("GET", "/api/z/RND01/info")).json()) as any).rounds).toBe(3);
     expect((await call("PATCH", "/api/z/RND01/settings", { rounds: 2 }, org)).status).toBe(200);
     expect(((await (await call("GET", "/api/z/RND01/info")).json()) as any).rounds).toBe(2);
-    for (const r of [0, 6, 1.5, "2"]) { expect((await call("PATCH", "/api/z/RND01/settings", { rounds: r }, org)).status).toBe(400); expect((await call("POST", "/api/z", { id: "BADR" + String(r).length, startRound: FUT, callSeconds: 9, cap: 5, rounds: r }, org)).status).toBe(400); }
+    for (const r of [0, 6, 1.5, "2"]) { expect((await call("PATCH", "/api/z/RND01/settings", { rounds: r }, org)).status).toBe(400); expect((await call("POST", "/api/z", { id: "BADR" + String(r).length, startRound: FUT, callSeconds: 20, cap: 5, rounds: r }, org)).status).toBe(400); }
     expect(((await (await call("GET", "/api/z/RND01/info")).json()) as any).rounds).toBe(2);
   });
   test("an engagement with nothing set is one round", async () => {
-    await call("POST", "/api/z", { id: "RND02", startRound: FUT, callSeconds: 9, cap: 50 }, org);
+    await call("POST", "/api/z", { id: "RND02", startRound: FUT, callSeconds: 20, cap: 50 }, org);
     expect(((await (await call("GET", "/api/z/RND02/info")).json()) as any).rounds).toBe(1);
   });
   test("claims are kept per round, a round that does not exist is ignored, and the same claim in two rounds is two claims", async () => {
-    await call("POST", "/api/z", { id: "RND03", startRound: FUT, callSeconds: 9, cap: 50, rounds: 2 }, org);
+    await call("POST", "/api/z", { id: "RND03", startRound: FUT, callSeconds: 20, cap: 50, rounds: 2 }, org);
     const pid = ((await (await join(1, "RND03")).json()) as any).pid;
     const claim = (c: unknown) => call("POST", "/api/z/RND03/claims", { pid, claims: [c] });
-    await claim({ pattern: "line", idx: 20 }); await claim({ pattern: "line", idx: 25, round: 2 }); await claim({ pattern: "line", idx: 25, round: 2 }); await claim({ pattern: "line", idx: 30, round: 3 }); await claim({ pattern: "line", idx: 30, round: 0 });
+    await claim({ pattern: "finish", idx: 20 }); await claim({ pattern: "finish", idx: 25, round: 2 }); await claim({ pattern: "finish", idx: 25, round: 2 }); await claim({ pattern: "finish", idx: 30, round: 3 }); await claim({ pattern: "finish", idx: 30, round: 0 });
     const c = (await (await call("GET", "/api/z/RND03/claims", undefined, org)).json() as any).claims;
-    expect(c).toEqual([{ pid, pattern: "line", round: 1, idx: 20 }, { pid, pattern: "line", round: 2, idx: 25 }]);
+    expect(c).toEqual([{ pid, pattern: "finish", round: 1, idx: 20 }, { pid, pattern: "finish", round: 2, idx: 25 }]);
   });
   test("results are kept per round; a round that does not exist, or a lucky draw in round 2, is ignored", async () => {
-    await call("POST", "/api/z", { id: "RND04", startRound: FUT, callSeconds: 9, cap: 50, rounds: 2, breaks: [{ after: 20, seconds: 30, kind: "lucky", title: "Draw", winners: 3 }] }, org);
+    await call("POST", "/api/z", { id: "RND04", startRound: FUT, callSeconds: 20, cap: 50, rounds: 2, breaks: [{ after: 20, seconds: 30, kind: "lucky", title: "Draw", winners: 3 }] }, org);
     const p = ((await (await join(1, "RND04")).json()) as any).pid;
     const post = (results: { pattern: string; ordinal?: number; round?: number; idx: number; pids: string[] }[]) => settleByPhones(call, "RND04", results, [p]);
-    await post([{ pattern: "blackout", round: 1, idx: 60, pids: [p] }, { pattern: "blackout", round: 2, idx: 70, pids: [p] }]);
-    await post([{ pattern: "blackout", round: 3, idx: 1, pids: [p] }, { pattern: "blackout", round: 0, idx: 1, pids: [p] }, { pattern: "lucky", round: 2, idx: 20, pids: [p] }]);
+    await post([{ pattern: "climb", round: 1, idx: 60, pids: [p] }, { pattern: "climb", round: 2, idx: 70, pids: [p] }]);
+    await post([{ pattern: "climb", round: 3, idx: 1, pids: [p] }, { pattern: "climb", round: 0, idx: 1, pids: [p] }, { pattern: "lucky", round: 2, idx: 20, pids: [p] }]);
     const r = (await (await call("GET", "/api/z/RND04/results")).json() as any).results;
     expect(r.map((x: any) => [x.round, x.idx, x.count])).toEqual([[1, 60, 1], [2, 70, 1]]);
     await post([{ pattern: "lucky", round: 1, idx: 20, pids: [p] }]);
     expect(((await (await call("GET", "/api/z/RND04/results")).json()) as any).results.some((x: any) => x.pattern === "lucky")).toBe(true);
   });
   test("erase removes every round's claims and results", async () => {
-    await call("POST", "/api/z", { id: "RND05", startRound: FUT, callSeconds: 9, cap: 50, rounds: 2 }, org);
+    await call("POST", "/api/z", { id: "RND05", startRound: FUT, callSeconds: 20, cap: 50, rounds: 2 }, org);
     const pid = ((await (await join(1, "RND05")).json()) as any).pid;
-    await call("POST", "/api/z/RND05/claims", { pid, claims: [{ pattern: "line", idx: 20, round: 2 }] });
-    await settleByPhones(call, "RND05", [{ pattern: "line", round: 2, idx: 20, pids: [pid] }], [pid]);
+    await call("POST", "/api/z/RND05/claims", { pid, claims: [{ pattern: "finish", idx: 20, round: 2 }] });
+    await settleByPhones(call, "RND05", [{ pattern: "finish", round: 2, idx: 20, pids: [pid] }], [pid]);
     await call("POST", "/api/z/RND05/erase", {}, org);
     for (const t of ["claim", "settled", "participant", "rvote", "rcand"]) expect((raw.query(`SELECT COUNT(*) c FROM ${t} WHERE eid='RND05'`).get() as any).c).toBe(0);
   });
@@ -913,7 +913,7 @@ const nowround = (delta: number) => Math.floor((T / 1000 - 1692803367) / 3) + 1 
 
 describe("brand moments: five for each ticket, placed by the software", () => {
   const FUT = Math.floor((T / 1000 - 1692803367) / 3) + 1 + 4000;
-  const mk = (extra: Record<string, unknown> = {}, id = "BM01") => call("POST", "/api/z", { id, startRound: FUT, callSeconds: 9, cap: 50, ...extra }, org);
+  const mk = (extra: Record<string, unknown> = {}, id = "BM01") => call("POST", "/api/z", { id, startRound: FUT, callSeconds: 20, cap: 50, ...extra }, org);
   const info = async (id = "BM01") => (await (await call("GET", `/api/z/${id}/info`)).json()) as any;
   const mid = (o: Record<string, unknown> = {}) => ({ kind: "speech", title: "A word from Acme", ...o });
   const open = { kind: "youtube", title: "Welcome", mediaUrl: "https://youtu.be/abcdefghijk" };

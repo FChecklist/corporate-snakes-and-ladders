@@ -45,7 +45,7 @@ const start = async (email: string) => { const r = await j(await handle(new Requ
 /** Organizer + a Host (own e-mail) + a Co-host for game CAN-1, 300 places, starting 3 hours after T. */
 const team = async () => {
   const master = await start("boss@acme.com"); const ai = lastAi;
-  await call("POST", "/api/z", { id: "CAN-1", startRound: START, callSeconds: 9, cap: 300 }, master);
+  await call("POST", "/api/z", { id: "CAN-1", startRound: START, callSeconds: 20, cap: 300 }, master);
   const hostR = await j(await call("POST", "/api/org/host", { mobile: "9876500009", label: "Priya", email: "priya@acme.com" }, master));
   const cohostR = await j(await call("POST", "/api/org/cohost", { label: "Ravi", phone: "98765 00001", e: "CAN-1" }, master));
   return { master, ai, host: hostR.hostKey as string, cohost: cohostR.cohostKey as string, hostId: hostR.id as string, cohostId: cohostR.id as string };
@@ -127,7 +127,7 @@ describe("reopen: a cancelled paid game moved to a new date within 30 days", () 
   });
   test("credit already spent on another game: this game can no longer be moved, and nothing is returned", async () => {
     const t = await team(); await paidGame(t); await cancelIt(t.master);
-    await call("POST", "/api/z", { id: "CAN-2", startRound: START, callSeconds: 9, cap: 300 }, t.master);
+    await call("POST", "/api/z", { id: "CAN-2", startRound: START, callSeconds: 20, cap: 300 }, t.master);
     const w = await j(await withCredit(t.master, "CAN-2")); expect(w.paid).toBe(true);
     const pv = await j(await call("GET", "/api/z/CAN-1/cancel-preview", undefined, t.master));
     expect(pv.canReschedule).toBe(false); expect(pv.rescheduleReason).toContain("already been used");
@@ -141,7 +141,7 @@ describe("reopen: a cancelled paid game moved to a new date within 30 days", () 
   });
   test("a game that credit paid for: moving it puts the credit back on the game, and the older game's money stays spent", async () => {
     const t = await team(); await paidGame(t); await cancelIt(t.master); // CAN-1 paid in cash, cancelled -> credit C1
-    await call("POST", "/api/z", { id: "CAN-2", startRound: START, callSeconds: 9, cap: 300 }, t.master);
+    await call("POST", "/api/z", { id: "CAN-2", startRound: START, callSeconds: 20, cap: 300 }, t.master);
     expect((await j(await withCredit(t.master, "CAN-2"))).paid).toBe(true); // C1 pays CAN-2
     await call("POST", "/api/z/CAN-2/cancel", { confirmations: 3 }, t.master, T + 1000); // C1 comes back
     const c1 = () => raw.prepare("SELECT * FROM credit WHERE eid='CAN-1'").get() as any;

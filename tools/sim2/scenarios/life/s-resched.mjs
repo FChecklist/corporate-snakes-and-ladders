@@ -43,7 +43,7 @@ sc("R04", "a time in the past is refused (settings) and the game keeps its time"
 sc("R05", "more than 30 days ahead is refused on create, on settings and on clone (code too-far)", async (w) => {
   const org = await w.org(); const g = await w.game(org, { leadMs: 4 * HOUR });
   let r = await org.settings(g.id, { startRound: await w.roundIn(MAX + 2 * HOUR) }); w.expect("settings 400 too-far", r.status === 400 && r.body.code === "too-far", JSON.stringify(r.body));
-  r = await org.api("POST", "/api/z", { id: "SIMFAR" + w.n + "X", startRound: await w.roundIn(MAX + 2 * HOUR), callSeconds: 6, cap: 100 }); w.expect("create 400 too-far", r.status === 400 && r.body.code === "too-far", JSON.stringify(r.body));
+  r = await org.api("POST", "/api/z", { id: "SIMFAR" + w.n + "X", startRound: await w.roundIn(MAX + 2 * HOUR), callSeconds: 20, cap: 100 }); w.expect("create 400 too-far", r.status === 400 && r.body.code === "too-far", JSON.stringify(r.body));
   r = await org.api("POST", `/api/z/${g.id}/clone`, { startRound: await w.roundIn(MAX + 2 * HOUR) }); w.expect("clone 400 too-far", r.status === 400 && r.body.code === "too-far", JSON.stringify(r.body));
   w.expect("start unchanged", (await startOf(w, org, g.id)) === g.startMs);
 });

@@ -31,7 +31,7 @@ let ip = 0;
 const start = async (email: string) => (await j(await handle(new Request("http://x/api/start", { method: "POST", headers: { "content-type": "application/json", "cf-connecting-ip": `9.9.9.${++ip}` }, body: JSON.stringify({ email }) }), env as Env, T))).token as string;
 const team = async (org = "boss@acme.com", gid = "ROLE-1") => {
   const master = await start(org);
-  await call("POST", "/api/z", { id: gid, startRound: FAR_START, callSeconds: 9, cap: 300 }, master);
+  await call("POST", "/api/z", { id: gid, startRound: FAR_START, callSeconds: 20, cap: 300 }, master);
   const host = (await j(await call("POST", "/api/org/host", { mobile: "9876500009", label: "Priya", email: "priya@acme.com" }, master))).hostKey as string;
   const cohost = (await j(await call("POST", "/api/org/cohost", { label: "Ravi", phone: "9876500001", e: gid }, master))).cohostKey as string;
   return { master, host, cohost };

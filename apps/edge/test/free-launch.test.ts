@@ -10,7 +10,7 @@ const call = (method: string, path: string, body?: unknown, headers: Record<stri
   handle(new Request("http://x" + path, { method, headers: { "content-type": "application/json", ...headers }, body: withDevice(method, path, body) }), env as Env, now);
 const roundAt = (ms: number) => Math.floor((ms / 1000 - 1692803367) / 3) + 1;
 const FUT = roundAt(T) + 1200; // an hour ahead
-const eng = (id: string, cap = 100) => ({ id, startRound: FUT, callSeconds: 6, cap });
+const eng = (id: string, cap = 100) => ({ id, startRound: FUT, callSeconds: 20, cap });
 
 beforeEach(() => {
   const d = makeD1(); raw = d.raw;

@@ -13,7 +13,7 @@ import {
 } from "../../../packages/billing/src";
 import { PACKS, price } from "../../../packages/shared/src/pricing";
 import { GRACE_ROUNDS } from "../../../packages/beacon/src/config";
-import { checkConsent, consentInfo, recordConsent } from "./consent";
+import { checkConsent, recordConsent, refusalBody } from "./consent";
 import type { D1, Env } from "./worker";
 import { keepLegalParty } from "./legal";
 import { PdfDoc, NAVY } from "./pdf";
@@ -276,7 +276,7 @@ export async function payRoute(req: Request, env: PayEnv, now: number, spend: (n
     const rzp = siteTest ? null : rzpOf(env), mode = siteTest ? "test" : payMode(env);
     if (mode === "off") return json({ error: "Payments are not switched on yet. Please try again later." }, 503);
     const b = await body(req);
-    { const c = checkConsent("K3", b?.consent); if (!c.ok) return json({ error: c.error, code: c.code, consent: consentInfo("K3") }, c.status); } // K3: no payment starts without the Terms + Refund tick
+    { const c = checkConsent("K3", b?.consent); if (!c.ok) return json(refusalBody("K3", c), c.status); } // K3: no payment starts without the Terms + Refund tick
     { const who = plm ? "paylink:" + plm[1] : (req.headers.get("x-organizer") ?? "").trim() ? "key:" + (await sha("key|" + (req.headers.get("x-organizer") ?? "").trim())).slice(0, 16) : "payer:" + (await sha("email|" + String(b?.email ?? "").trim().toLowerCase())).slice(0, 16); await recordConsent(db, "K3", who, typeof b?.eid === "string" ? b.eid : null, now); }
     // a signed-in organizer paying to publish their own draft: the pack is the smallest one that fits the draft, and the payment is bound to them and to it
     let boundOrg: string | null = null, boundEid: string | null = null, boundPack: number | null = null, paidBy: string | null = null;
@@ -352,7 +352,7 @@ export async function payRoute(req: Request, env: PayEnv, now: number, spend: (n
   if (req.method === "POST" && p === "/api/payments/paytest") { // Payment Testing: Rs 1 from India, US$ 1 from abroad; buys nothing; anyone, any number of times
     if (!rzp || (await getMode(env)) === "TEST") return json({ error: "Online payments are not switched on." }, 503);
     const b = await body(req);
-    { const c = checkConsent("K3", b?.consent); if (!c.ok) return json({ error: c.error, code: c.code, consent: consentInfo("K3") }, c.status); }
+    { const c = checkConsent("K3", b?.consent); if (!c.ok) return json(refusalBody("K3", c), c.status); }
     if (!b || typeof b.email !== "string" || !EMAIL.test(b.email.trim())) return json({ error: "Enter a valid e-mail address." }, 400);
     const nm = typeof b.name === "string" ? b.name.trim() : ""; if (nm.length < 2) return json({ error: "Enter your name." }, 400);
     const cty = typeof b.country === "string" && /^[A-Z]{2}$/.test(b.country) ? b.country : "IN", cur = cty === "IN" ? "INR" : "USD";

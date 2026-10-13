@@ -87,7 +87,7 @@ describe("the guided path, followed like an outside AI", () => {
     expect(t).toContain(`${ORIGIN}/zc.html?e=DIWALI-1002&do=publish`); // the one-tap hand-over for publishing
     expect(t).toMatch(/I never pay/);
     const sm = await j(await call("GET", `/ai/${o.key}/z/DIWALI-1002/summary`));
-    expect(sm).toMatchObject({ id: "DIWALI-1002", name: "Diwali party, Fri 2 Oct", tickets: 2, tz: "Asia/Kolkata", limit: 250, callSeconds: 9, rounds: 1, closed: false, status: "draft" });
+    expect(sm).toMatchObject({ id: "DIWALI-1002", name: "Diwali party, Fri 2 Oct", tickets: 2, tz: "Asia/Kolkata", limit: 250, callSeconds: 20, rounds: 1, closed: false, status: "draft" });
     expect(sm.startMs).toBe(Date.UTC(2026, 9, 2, 10, 30)); // 4 pm India time tomorrow
     expect(sm.rewards.map((r: any) => r.pattern)).toEqual(["line", "corners", "x", "blackout"]);
     expect(sm.breaks).toMatchObject([{ kind: "lucky", winners: 1, after: 38 }]); // placed by the software
@@ -133,18 +133,18 @@ describe("every function in the list does what the list says", () => {
     const checks: Record<string, () => Promise<void>> = {
       facts: async () => { expect((await open(`${o.base}/facts`)).status).toBe(200); },
       demo: async () => { expect(existsSync(join(root, "apps/web/public/demo.html"))).toBe(true); },
-      "new-game": async () => { const r = await A("POST", "z", { id: ID, startRound: FUT, callSeconds: 9, cap: 100 }); expect(r.status).toBe(200); expect((await j(r)).draft).toBe(true); },
+      "new-game": async () => { const r = await A("POST", "z", { id: ID, startRound: FUT, callSeconds: 20, cap: 100 }); expect(r.status).toBe(200); expect((await j(r)).draft).toBe(true); },
       "list-games": async () => { expect((await j(await A("GET", "history"))).engagements.map((e: any) => e.id)).toContain(ID); },
       "read-game": async () => { const s = await j(await A("GET", `z/${ID}/summary`)); expect(s.links.console).toContain(ID); expect(s.nextSteps.length).toBe(4); },
       "change-time": async () => { const s = await j(await A("GET", "z/schedule?at=2026-10-20T16:00:00%2B05:30")); expect(s.ok).toBe(true); expect((await A("PATCH", `z/${ID}/settings`, { startRound: s.startRound })).status).toBe(200); },
-      "size-speed": async () => { expect((await A("PATCH", `z/${ID}/settings`, { cap: 150, callSeconds: 12 })).status).toBe(200); },
+      "size-speed": async () => { expect((await A("PATCH", `z/${ID}/settings`, { cap: 150, callSeconds: 20 })).status).toBe(200); },
       "tickets-rounds": async () => { expect((await A("PATCH", `z/${ID}/settings`, { tickets: 2, rounds: 2 })).status).toBe(200); },
-      prizes: async () => { expect((await A("PATCH", `z/${ID}/settings`, { rewards: [{ pattern: "blackout", ordinal: 1, text: "Voucher" }] })).status).toBe(200); },
+      prizes: async () => { expect((await A("PATCH", `z/${ID}/settings`, { rewards: [{ pattern: "climb", ordinal: 1, text: "Voucher" }] })).status).toBe(200); },
       "brand-moments": async () => { const r = await j(await A("PATCH", `z/${ID}/settings`, { opening: [{ kind: "speech", title: "Welcome" }], breaks: [{ kind: "speech", title: "A word" }, { kind: "lucky", title: "Lucky draw: watch", winners: 1 }], closing: [{ kind: "speech", title: "Thanks" }] })); expect(r.breaks.map((b: any) => b.after)).toEqual([25, 50]); },
       "test-media": async () => { const js = readFileSync(join(root, "apps/web/public/preview.js"), "utf8"); for (const k of ["w", "k", "t", "u", "s"]) expect(js).toContain(`q.get("${k}")`); expect(existsSync(join(root, "apps/web/public/preview.html"))).toBe(true); },
       invites: async () => { expect((await A("PATCH", `z/${ID}/settings`, { closed: true, invites: { on: true, per: 4, cats: ["family"] } })).status).toBe(200); },
       "guest-list": async () => { const r = await A("POST", `z/${ID}/roster`, { people: [{ name: "Ravi", phone: "9876543210" }] }); expect(r.status).toBe(403); const b = await j(r); expect(b.error).toMatch(/owner/); expect(b.next).toMatch(/console/); expect(JSON.stringify(b)).not.toContain(o.key); },
-      "reuse-list": async () => { await A("POST", "z", { id: "FN-TEST-2", startRound: FUT, callSeconds: 9, cap: 100 }); const r = await A("POST", `z/FN-TEST-2/reuse`, { from: ID }); expect(r.status).not.toBe(403); expect(r.status).not.toBe(404); },
+      "reuse-list": async () => { await A("POST", "z", { id: "FN-TEST-2", startRound: FUT, callSeconds: 20, cap: 100 }); const r = await A("POST", `z/FN-TEST-2/reuse`, { from: ID }); expect(r.status).not.toBe(403); expect(r.status).not.toBe(404); },
       publish: async () => { const r = await j(await A("POST", `z/${ID}/publish`, {})); expect(r.needsOrganizer).toBe(true); expect(r.consoleUrl).toContain(ID); },
       pay: async () => { expect(existsSync(join(root, "apps/web/public/pay.html"))).toBe(true); expect((await A("POST", `z/${ID}/checkout`, {})).status).not.toBe(200); },
       links: async () => { const s = await j(await A("GET", `z/${ID}/summary`)); expect(s.links.testBrandMoment).toBe(`${ORIGIN}/preview.html`); },
@@ -155,7 +155,7 @@ describe("every function in the list does what the list says", () => {
       "mark-seat": async () => { expect((await A("POST", `z/${ID}/mark`, { seat: 1, role: "host" })).status).not.toBe(403); expect((await A("POST", `z/${ID}/unbind`, { seat: 1 })).status).not.toBe(403); expect((await A("POST", `z/${ID}/unbind`, { phone: "9876543210" })).status).toBe(403); /* a phone number is never accepted from an AI */ },
       "pause-stop": async () => { const r = await j(await A("POST", `z/${ID}/control/request`, { action: "pause", note: "x" })); expect(r.ok).toBe(true); expect(r.message).toMatch(/must approve/); },
       results: async () => { expect((await A("GET", `z/${ID}/results`)).status).toBe(200); expect((await A("GET", `z/${ID}/prizes`)).status).toBe(200); },
-      "prize-given": async () => { expect((await A("POST", `z/${ID}/prizegiven`, { round: 1, pattern: "blackout", ordinal: 1, seat: 1, given: true })).status).not.toBe(403); },
+      "prize-given": async () => { expect((await A("POST", `z/${ID}/prizegiven`, { round: 1, pattern: "climb", ordinal: 1, seat: 1, given: true })).status).not.toBe(403); },
       report: async () => { const r = await j(await A("GET", `z/${ID}/reportlink`)); expect(r.url).toBeNull(); expect(r.note).toMatch(/e-mail/); },
       erase: async () => { expect((await A("POST", `z/${ID}/erase`, {})).status).toBe(403); const r = await j(await A("POST", `z/${ID}/control/request`, { action: "erase", note: "x" })); expect(r.ok).toBe(true); },
       audit: async () => { expect((await A("GET", "org/ai/audit")).status).toBe(200); },
@@ -169,7 +169,7 @@ describe("every function in the list does what the list says", () => {
     for (const f of FUNCTIONS) { try { await checks[f.id]!(); } catch (e: any) { throw new Error(`function "${f.id}" (${f.name}) does not behave as classified (${f.who}): ${e.message}`); } }
   });
   test("every refusal an AI gets also says what to do next, never contains the key, and names the console page for that game", async () => {
-    const o = await organizer(); await call("POST", `/ai/${o.key}/z`, { id: "NXT-1", startRound: Math.floor((T / 1000 - 1692803367) / 3) + 1 + 4000, callSeconds: 9, cap: 100 });
+    const o = await organizer(); await call("POST", `/ai/${o.key}/z`, { id: "NXT-1", startRound: Math.floor((T / 1000 - 1692803367) / 3) + 1 + 4000, callSeconds: 20, cap: 100 });
     const cases: [string, string, unknown, RegExp][] = [
       ["PATCH", "z/NXT-1/settings", { startRound: 5 }, /schedule/], ["PATCH", "z/NXT-1/settings", { breaks: [{ kind: "speech", title: "x" }] }, /2 or more characters/],
       ["PATCH", "z/NXT-1/settings", { tickets: 1, breaks: [1, 2, 3, 4].map(() => ({ kind: "speech", title: "A word" })) }, /fewer brand moments/], ["POST", "z/NXT-1/erase", {}, /hand-over link/],

@@ -24,7 +24,7 @@ const C0 = BRAND_COLORS[0]!;
 beforeEach(() => { const d = makeD1(); raw = d.raw; env = { DB: d.db, ORGANIZER_SECRET: "plat", DAILY_WRITE_BUDGET: "100000", PUBLIC_ORIGIN: "http://x" } as PayEnv; });
 const game = async () => {
   const st = await j(await handle(new Request("http://x/api/start", { method: "POST", headers: { "content-type": "application/json", "cf-connecting-ip": `5.5.5.${++ipN}` }, body: JSON.stringify({ email: `b${ipN}@acme.com` }) }), env as Env, T));
-  await call("POST", "/api/z", { id: "BRAND-1", startRound: START, callSeconds: 6, cap: 100 }, st.token);
+  await call("POST", "/api/z", { id: "BRAND-1", startRound: START, callSeconds: 20, cap: 100 }, st.token);
   await call("POST", "/api/z/BRAND-1/publish", { email: "boss@acme.com", phone: "98765 43210" }, st.token);
   return st.token as string;
 };
@@ -94,7 +94,7 @@ describe("the brand through the API", () => {
   });
   test("a game can be created with a brand, and the brand can be removed again", async () => {
     const st = await j(await handle(new Request("http://x/api/start", { method: "POST", headers: { "content-type": "application/json", "cf-connecting-ip": "5.5.9.9" }, body: JSON.stringify({ email: "c@acme.com" }) }), env as Env, T));
-    expect((await call("POST", "/api/z", { id: "BRAND-2", startRound: START, callSeconds: 6, cap: 100, brand: { name: "Zed", color: C0, logo: webp() } }, st.token)).status).toBe(200);
+    expect((await call("POST", "/api/z", { id: "BRAND-2", startRound: START, callSeconds: 20, cap: 100, brand: { name: "Zed", color: C0, logo: webp() } }, st.token)).status).toBe(200);
     await call("POST", "/api/z/BRAND-2/publish", { email: "boss@acme.com", phone: "98765 43210" }, st.token);
     expect((await j(await call("GET", "/api/z/BRAND-2/info"))).brand.name).toBe("Zed");
     expect((await call("PATCH", "/api/z/BRAND-2/settings", { brand: null }, st.token)).status).toBe(200);

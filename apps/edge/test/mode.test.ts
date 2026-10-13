@@ -17,7 +17,7 @@ const one = (sql: string, ...a: any[]) => raw.prepare(sql).get(...a) as any;
 const PLAT = { "x-organizer": "plat" };
 const roundAt = (ms: number) => Math.floor((ms / 1000 - 1692803367) / 3) + 1;
 const FUT = roundAt(T) + 1200;
-const eng = (id: string, cap = 100) => ({ id, startRound: FUT, callSeconds: 6, cap });
+const eng = (id: string, cap = 100) => ({ id, startRound: FUT, callSeconds: 20, cap });
 const OWNER = "owner@example.com";
 
 beforeEach(() => {
@@ -72,7 +72,7 @@ describe("the mode row and its switch", () => {
     const live = await j(await call("GET", `/api/z/schedule?at=${at}`)); await toTest(); const test = await j(await call("GET", `/api/z/schedule?at=${at}`));
     expect(test).toEqual(live);
     const o = await organizer("a@acme.com"); await call("POST", "/api/z", eng("CLOCK-1"), o.h);
-    expect(one("SELECT start_round, call_seconds FROM engagement WHERE id='CLOCK-1'")).toEqual({ start_round: FUT, call_seconds: 6 });
+    expect(one("SELECT start_round, call_seconds FROM engagement WHERE id='CLOCK-1'")).toEqual({ start_round: FUT, call_seconds: 20 });
   });
 });
 

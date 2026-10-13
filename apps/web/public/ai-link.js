@@ -9,9 +9,11 @@
   async function api(method, path, body, tk) {
     const r = await fetch(path, { method, headers: { "content-type": "application/json", "x-organizer": tk || token }, body: method === "GET" ? undefined : JSON.stringify(body || {}) });
     let j = {}; try { j = await r.json(); } catch {}
-    if (!r.ok) { const e = new Error(j.error || "Something went wrong. Please try again."); e.status = r.status; throw e; }
+    if (!r.ok) { const e = new Error(j.error || "Something went wrong. Please try again."); e.status = r.status; e.code = j.code; e.consent = j.consent; throw e; }
     return j;
   }
+  // K2: the sign-in boxes on the code step. Never pre-ticked; the button stays off until both are ticked; the wording comes from the server (consent.js). The e-mail code stays valid if the boxes are refused.
+  let k2 = null; const k2State = {};
   const shell = (inner) => { app.innerHTML = `<div class="zhead"><b>Corporate Snakes and Ladders · Your AI work link</b></div><div class="zbanner bad" role="alert" style="font-weight:700;text-align:center">${esc(WARN)}</div>${inner}<div class="zbanner bad" role="alert" style="font-weight:700;text-align:center">${esc(WARN)}</div>`; };
   // Seven ways to hand the paste to an AI: three open the AI with the paste pre-filled (a web address), three copy it and open the site (Ctrl+V, Send), one plain copy.
   const AIOPEN = [["ChatGPT", "https://chatgpt.com/?q="], ["Grok", "https://grok.com/?q="], ["Claude", "https://claude.ai/new?q="]];
@@ -28,9 +30,14 @@
   function signIn(msg, email, codeStep) {
     shell(`<div class="zcard zform"><h2>Sign in as the organizer</h2><p class="zsmall" style="margin-top:0">Sign in to see your AI work link. We e-mail you a 6-digit code.</p>
       ${msg ? `<div class="zbanner bad">${esc(msg)}</div>` : ""}
-      ${codeStep ? `<label for="cd">6-digit passcode sent to ${esc(email)}</label><input id="cd" inputmode="numeric" autocomplete="one-time-code" maxlength="8"><button class="zbtn" id="go">Show my AI work link</button>`
+      ${codeStep ? `<label for="cd">6-digit passcode sent to ${esc(email)}</label><input id="cd" inputmode="numeric" autocomplete="one-time-code" maxlength="8"><div id="k2box">${k2 ? "" : `<p class="zsmall" role="status">Loading the terms…</p>`}</div><button class="zbtn" id="go" disabled aria-disabled="true">Show my AI work link</button>`
         : `<label for="em">Your work e-mail</label><input id="em" type="email" autocomplete="email" value="${esc(email || "")}" placeholder="you@company.com"><button class="zbtn" id="go">E-mail me a code</button>`}</div>`);
     const go = document.getElementById("go");
+    if (codeStep) {
+      const box = document.getElementById("k2box");
+      const paint = () => { if (!document.body.contains(box)) return; box.innerHTML = CBConsent.html(k2, k2State); CBConsent.bind(box, k2, k2State, go); };
+      if (k2) paint(); else CBConsent.load("K2", (p) => fetch(p, { headers: { accept: "application/json" } }).then((x) => x.json())).then((i) => { k2 = i; paint(); }, () => { box.innerHTML = `<p class="zsmall" role="alert">The terms could not be loaded. Please reload this page.</p>`; });
+    }
     go.onclick = async () => {
       go.disabled = true;
       try {
@@ -40,9 +47,13 @@
           await api("POST", "/api/auth/email", { email: e }, "-");
           return signIn("", e, true);
         }
-        const r = await api("POST", "/api/auth/verify", { email, code: document.getElementById("cd").value }, "-");
+        const consent = k2 ? CBConsent.payload(k2, k2State) : null; if (!consent) { go.disabled = false; return; } // never sent without both ticks
+        const r = await api("POST", "/api/auth/verify", { email, code: document.getElementById("cd").value, consent }, "-");
         token = r.token; ss.set("cbz-org", token); show();
-      } catch (e) { signIn(e.message, email, codeStep); }
+      } catch (e) {
+        if (e.code === "consent-required" || e.code === "terms-changed") { if (e.consent && Array.isArray(e.consent.boxes)) k2 = e.consent; Object.keys(k2State).forEach((x) => delete k2State[x]); return signIn("Please read and tick the box again, then press the button. Your code is still good.", email, codeStep); }
+        signIn(e.message, email, codeStep);
+      }
     };
   }
 

@@ -47,7 +47,7 @@ const team = async () => {
   const cohostR = await j(await call("POST", "/api/org/cohost", { label: "Ravi", phone: "98765 00001", e: "GAME-1" }, master));
   return { master, ai, host: hostR.hostKey as string, cohost: cohostR.cohostKey as string };
 };
-const game = async (key: string, id: string, cap: number, startMs: number, now = T) => (await call("POST", "/api/z", { id, startRound: roundAt(startMs), callSeconds: 9, cap }, key, now)).status;
+const game = async (key: string, id: string, cap: number, startMs: number, now = T) => (await call("POST", "/api/z", { id, startRound: roundAt(startMs), callSeconds: 20, cap }, key, now)).status;
 const pay = (key: string, eid: string, now = T) => call("POST", "/api/checkout", { eid, org: "Acme Ltd", name: "Boss", email: "payer@acme.com", country: "IN", taxId: "", currency: "INR" }, key, now);
 const sign = (c: any, id: string) => createHmac("sha256", "sek").update(`${c.razorpay.orderId}|${id}`).digest("hex");
 const complete = async (c: any, id = "pay_" + (Object.keys(payments).length + 1), now = T, status = "captured") => {

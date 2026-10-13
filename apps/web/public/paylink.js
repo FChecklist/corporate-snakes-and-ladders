@@ -15,7 +15,18 @@
     if (!r.ok) throw Object.assign(new Error(j.error || "Something went wrong. Please try again."), { status: r.status, body: j });
     return j;
   };
-  const head = `<div class="zhead"><b>Corporate Snakes and Ladders · Payment</b></div>${TB.payBrand ? TB.payBrand() : ""}`;
+  // K3 (payment boxes): the wording and the Terms version come from the server (consent.js). Never pre-ticked; the pay button stays off until every box is ticked; the tick lives here because the page repaints.
+  const K3 = { info: null, state: {}, err: "", loading: false };
+  const k3Ready = () => !!K3.info && !!window.CBConsent && CBConsent.ready(K3.info, K3.state);
+  function k3Html() {
+    if (!window.CBConsent) return `<p class="zsmall" role="status">The terms could not be shown. Please reload this page.</p>`;
+    if (!K3.info && !K3.loading && !K3.err) {
+      K3.loading = true;
+      CBConsent.load("K3", (p) => call("GET", p)).then((i) => { K3.info = i; }, () => { K3.err = "The terms could not be loaded. Please reload this page and try again."; }).then(() => { K3.loading = false; keep(); draw(); });
+    }
+    return K3.info ? CBConsent.html(K3.info, K3.state) : `<p class="zsmall" role="status">${esc(K3.err || "Loading the terms…")}</p>`;
+  }
+  const head =`<div class="zhead"><b>Corporate Snakes and Ladders · Payment</b></div>${TB.payBrand ? TB.payBrand() : ""}`;
   const when = (ms) => { try { return new Date(ms).toLocaleString(undefined, { weekday: "short", day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit" }); } catch { return ""; } };
   const calm = (title, text) => `${head}<div class="zcard" role="status"><h2>${esc(title)}</h2><p class="zsmall" style="margin:0">${text}</p></div>`;
 
@@ -50,7 +61,8 @@
         <label for="tax">GST / Tax number <span class="zsmall" style="display:inline">(optional)</span></label><input id="tax" autocomplete="off" maxlength="30" value="${esc(S.tax || "")}" placeholder="GST / Tax number" style="text-transform:uppercase">
 ` : `<button class="zsnd" id="more" type="button" style="margin-top:8px">Add a mobile number or organization (optional)</button>`}
         ${S.err ? `<div class="zbanner bad" role="alert">${esc(S.err)}</div>` : ""}${S.busy ? `<div class="zbanner info" role="status">Confirming your payment with Razorpay. Please keep this page open.</div>` : ""}
-        <button class="zbtn" id="paygo" ${S.busy ? "disabled" : ""}>${S.busy ? "Confirming your payment…" : "Pay " + TB.money(p.total, cur) + " securely with Razorpay"}</button>
+        <div id="k3box">${k3Html()}</div>
+        <button class="zbtn" id="paygo" ${S.busy || !k3Ready() ? "disabled" : ""}>${S.busy ? "Confirming your payment…" : "Pay " + TB.money(p.total, cur) + " securely with Razorpay"}</button>
         <p class="zsmall">Secure payment by Razorpay. Payment to <a href="https://itservices-rajat-agarwal.pages.dev/" rel="noopener" target="_blank">IT Services by Rajat Agarwal</a>. An invoice is e-mailed to you. See the <a href="/legal.html#privacy">privacy policy</a>.</p></div>`;
   }
   function keep() { const g = (id) => { const e = document.getElementById(id); return e ? e.value : undefined; }; const v = { name: g("nm"), email: g("em"), phone: g("ph"), pcode: g("pcode"), org: g("org"), tax: g("tax") }; for (const k in v) if (v[k] !== undefined) S[k] = v[k]; }
@@ -68,16 +80,23 @@
   function bind() {
     const $ = (id) => document.getElementById(id);
     if ($("more")) $("more").onclick = () => { keep(); S.more = true; draw(); };
+    if ($("k3box") && K3.info && window.CBConsent) { // ticking the boxes switches the pay button on (unless a payment is already running)
+      const pg = $("paygo"), hard = S.busy;
+      CBConsent.bind($("k3box"), K3.info, K3.state, null);
+      const sync = () => { if (pg) { const ok = !hard && CBConsent.ready(K3.info, K3.state); pg.disabled = !ok; pg.setAttribute("aria-disabled", ok ? "false" : "true"); } };
+      $("k3box").querySelectorAll("input.cbc-tick").forEach((i) => i.addEventListener("change", sync)); sync();
+    }
     if ($("paygo")) $("paygo").onclick = async () => {
       keep(); S.err = "";
       const nm = (S.name || "").trim(), email = (S.email || "").trim().toLowerCase(), tax = (S.tax || "").trim().toUpperCase();
       if (nm.length < 2) { S.err = "Please enter your name."; return draw(); }
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) { S.err = "Please enter a valid e-mail."; return draw(); }
       if (tax && !/^\d{2}[A-Z]{5}\d{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/.test(tax)) { S.err = "Please enter a valid 15-character GSTIN, like 27ABCDE1234F1Z5."; return draw(); }
+      const consent = K3.info ? CBConsent.payload(K3.info, K3.state) : null; if (!consent) { S.err = "Please tick the box first."; return draw(); } // never sent without every tick
       TB.payer.save(S);
       S.busy = true; draw();
       try {
-        const body = { name: nm, email, country: S.country };
+        const body = { name: nm, email, country: S.country, consent };
         if ((S.phone || "").trim()) { body.phone = S.phone.trim(); body.phoneCode = S.pcode; }
         if ((S.org || "").trim()) body.org = S.org.trim();
         if (tax) body.taxId = tax;
@@ -88,6 +107,7 @@
         S.done = r || { ok: true };
       } catch (e) {
         if (e && e.status === 409 && e.body && e.body.status) { try { S.info = await call("GET", `/api/paylink/${token}`); S.err = ""; } catch { S.err = e.message; } } // already paid, expired or cancelled meanwhile: show that calm screen
+        else if (e && e.body && (e.body.code === "consent-required" || e.body.code === "terms-changed")) { if (e.body.consent && Array.isArray(e.body.consent.boxes)) K3.info = e.body.consent; Object.keys(K3.state).forEach((k) => delete K3.state[k]); S.err = "Please read and tick the box again, then press the pay button."; }
         else S.err = e.message;
       }
       S.busy = false; draw();

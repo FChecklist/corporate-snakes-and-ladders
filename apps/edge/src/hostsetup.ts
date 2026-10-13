@@ -9,7 +9,7 @@
 // A Host is identified by `host_id` = the hash of the key row the Organizer created (the "identity row"); device keys are extra organizer_key rows whose host_id points at it.
 // Only the Organizer and Hosts have e-mail addresses; nothing here is available to an AI key (the setup routes need a Host key, the new-link route the Organizer's own key).
 import { openPii, openText, sealPii, sealText } from "./pii";
-import { checkConsent, consentInfo, hasConsent, recordConsent } from "./consent";
+import { checkConsent, hasConsent, recordConsent, refusalBody } from "./consent";
 import type { D1, Env } from "./worker";
 
 export const HOST_LINK_TTL_MS = 7 * 86_400_000;
@@ -91,6 +91,9 @@ export async function setupView(c: HostCtx): Promise<{ needEmail: boolean; needM
   return { needEmail, needMobile, needAccept, ...(email ? { emailMasked: maskEmail(email) } : {}), ...(who?.phone ? { mobileMasked: maskMobile(who.phone) } : {}), ready: !needEmail && !needMobile && !needAccept };
 }
 
+/** A Host who sends the K5 tick with any setup step has accepted the role; the tick is stored (the dedicated accept route does the same). */
+async function noteAccept(c: HostCtx, b: any): Promise<void> { if (checkConsent("K5", b?.consent).ok) await recordConsent(c.env.DB, "K5", c.hid, null, c.now); }
+
 /** `/api/host/setup...` : the Host key only (never an AI key, never an Organizer). */
 export async function hostSetupRoute(c: HostCtx): Promise<Response | null> {
   const { req, env, now, p } = c, db = env.DB;
@@ -99,13 +102,13 @@ export async function hostSetupRoute(c: HostCtx): Promise<Response | null> {
   if (p === "/api/host/setup/accept") { // K5: the Host ticks the role box; the server refuses without it and stores the tick (who, version, wording, time)
     const b = await c.body(req);
     const k = checkConsent("K5", b?.consent);
-    if (!k.ok) return c.json({ error: k.error, code: k.code, consent: consentInfo("K5") }, k.status);
+    if (!k.ok) return c.json(refusalBody("K5", k), k.status);
     await recordConsent(db, "K5", c.hid, null, now);
     const v = await setupView(c);
     return c.json({ ok: true, ready: v.ready, needEmail: v.needEmail, needMobile: v.needMobile });
   }
   if (p === "/api/host/setup/mobile") {
-    const b = await c.body(req);
+    const b = await c.body(req); await noteAccept(c, b);
     const m = c.cleanPhone(b?.mobile ?? b?.phone);
     if (!m.ok) return c.json({ error: "Please give your mobile number. " + m.why }, 400);
     const st = await hostStateRow(db, c.hid);
@@ -142,7 +145,7 @@ export async function hostSetupRoute(c: HostCtx): Promise<Response | null> {
     return c.json({ ok: true, ...(c.test ? { devCode: code } : {}) });
   }
   if (p === "/api/host/setup/email/verify") {
-    const b = await c.body(req);
+    const b = await c.body(req); await noteAccept(c, b);
     const code = typeof b?.code === "string" ? b.code.replace(/\D/g, "") : "";
     if (code.length !== 6) return c.json({ error: "Enter the 6-digit code." }, 400);
     const st = await hostStateRow(db, c.hid);

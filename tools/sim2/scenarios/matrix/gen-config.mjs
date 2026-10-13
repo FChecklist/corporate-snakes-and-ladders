@@ -51,7 +51,7 @@ export default async function gen({ seed, R, L }) {
   const now = () => clock.now();
   const bad = [
     ["cap=0", { cap: 0 }], ["cap=-5", { cap: -5 }], ["cap=1.5", { cap: 1.5 }], ["cap string", { cap: "50" }], ["cap=100001", { cap: 100001 }], ["cap null", { cap: null }],
-    ["gap=0", { callSeconds: 0 }], ["gap=3", { callSeconds: 3 }], ["gap=5", { callSeconds: 5 }], ["gap=7", { callSeconds: 7 }], ["gap=10", { callSeconds: 10 }], ["gap=-9", { callSeconds: -9 }], ["gap string", { callSeconds: "9" }], ["gap=9.5", { callSeconds: 9.5 }],
+    ["gap=0", { callSeconds: 0 }], ["gap=3", { callSeconds: 3 }], ["gap=5", { callSeconds: 5 }], ["gap=7", { callSeconds: 7 }], ["gap=10", { callSeconds: 10 }], ["gap=-9", { callSeconds: -9 }], ["gap string", { callSeconds: "9" }], ["gap=9.5", { callSeconds: 20.5 }],
     ["gap=18 (not one of 6/9/12/15)", { callSeconds: 18 }], ["gap=30 (not one of 6/9/12/15)", { callSeconds: 30 }], ["gap=3000 (not one of 6/9/12/15)", { callSeconds: 3000 }],
     ["rounds=0", { rounds: 0 }], ["rounds=6", { rounds: 6 }], ["rounds=2.5", { rounds: 2.5 }], ["rounds string", { rounds: "3" }], ["rounds=-1", { rounds: -1 }],
     ["tickets=0", { tickets: 0 }], ["tickets=3", { tickets: 3 }], ["tickets string", { tickets: "2" }], ["tickets=1.5", { tickets: 1.5 }],
@@ -66,7 +66,7 @@ export default async function gen({ seed, R, L }) {
       const org = await t.newOrg(); const id = t.gid("BAD"); const st = await startAt(5, "19:00"); let startRound = st.round;
       if (patch.startRound === "PAST") patch = { startRound: L.roundFrom((await now()) - 3600_000) };
       if (patch.startRound === "FAR") patch = { startRound: L.roundFrom((await now()) + 31 * DAY) };
-      const body = { id, startRound, callSeconds: 9, cap: 50, ...patch }; if (patch.startRound === undefined && "startRound" in patch) delete body.startRound;
+      const body = { id, startRound, callSeconds: 20, cap: 50, ...patch }; if (patch.startRound === undefined && "startRound" in patch) delete body.startRound;
       const r = await org.api("POST", "/api/z", body);
       if (mode === "ok") { t.expect("accepted (long text is trimmed)", r, "ok"); const inf = await A.call("GET", `/api/z/${id}/info`, undefined, org.h); t.check("trimmed to 60", (inf.body.name ?? "").length <= 60, `${(inf.body.name ?? "").length}`); return; }
       if (mode === "settings" || mode === "settings-after-pay") {
@@ -82,7 +82,7 @@ export default async function gen({ seed, R, L }) {
   out.push({ name: "cfg-invalid|body is not JSON / is a list / is empty", run: async (t) => {
     const org = await t.newOrg();
     for (const [label, body] of [["text", "hello"], ["array", "[1,2,3]"], ["empty", ""], ["null", "null"], ["number", "42"]]) t.expect(`create with ${label} body`, await A.call("POST", "/api/z", body, org.h), "bad");
-    const huge = await A.call("POST", "/api/z", JSON.stringify({ id: t.gid("HUGE"), startRound: (await startAt(3)).round, callSeconds: 9, cap: 50, name: "x".repeat(200_000) }), org.h);
+    const huge = await A.call("POST", "/api/z", JSON.stringify({ id: t.gid("HUGE"), startRound: (await startAt(3)).round, callSeconds: 20, cap: 50, name: "x".repeat(200_000) }), org.h);
     t.expect("a 200 KB body is refused", huge, "bad");
   } });
   out.push({ name: "cfg-invalid|name with markup is cleaned", run: async (t) => {

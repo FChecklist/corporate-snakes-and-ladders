@@ -45,7 +45,7 @@ const start = async (email: string) => { const r = await j(await handle(new Requ
 /** Organizer + a Host (own e-mail) + a Co-host for game CAN-1, 300 places, starting 3 hours after T. */
 const team = async () => {
   const master = await start("boss@acme.com"); const ai = lastAi;
-  await call("POST", "/api/z", { id: "CAN-1", startRound: START, callSeconds: 9, cap: 300 }, master);
+  await call("POST", "/api/z", { id: "CAN-1", startRound: START, callSeconds: 20, cap: 300 }, master);
   const hostR = await j(await call("POST", "/api/org/host", { mobile: "9876500009", label: "Priya", email: "priya@acme.com" }, master));
   const cohostR = await j(await call("POST", "/api/org/cohost", { label: "Ravi", phone: "98765 00001", e: "CAN-1" }, master));
   return { master, ai, host: hostR.hostKey as string, cohost: cohostR.cohostKey as string, hostId: hostR.id as string, cohostId: cohostR.id as string };
@@ -74,7 +74,7 @@ describe("Host link carries the game id", () => {
     const t = await team();
     const a = await j(await call("POST", "/api/org/host", { label: "A", email: "a@acme.com" }, t.master)); expect(a.link).not.toContain("&e=");
     const other = await start("other@rival.com");
-    await call("POST", "/api/z", { id: "RIV-1", startRound: START, callSeconds: 9, cap: 100 }, other);
+    await call("POST", "/api/z", { id: "RIV-1", startRound: START, callSeconds: 20, cap: 100 }, other);
     const b = await j(await call("POST", "/api/org/host", { label: "B", email: "b@acme.com", e: "RIV-1" }, t.master)); expect(b.link).not.toContain("RIV-1");
     const c = await j(await call("POST", "/api/org/host", { label: "C", email: "c@acme.com", e: "x y/../" }, t.master)); expect(c.link).not.toContain("&e=");
   });

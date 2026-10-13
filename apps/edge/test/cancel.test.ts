@@ -45,7 +45,7 @@ const start = async (email: string) => { const r = await j(await handle(new Requ
 /** Organizer + a Host (own e-mail) + a Co-host for game CAN-1, 300 places, starting 3 hours after T. */
 const team = async () => {
   const master = await start("boss@acme.com"); const ai = lastAi;
-  await call("POST", "/api/z", { id: "CAN-1", startRound: START, callSeconds: 9, cap: 300 }, master);
+  await call("POST", "/api/z", { id: "CAN-1", startRound: START, callSeconds: 20, cap: 300 }, master);
   const hostR = await j(await call("POST", "/api/org/host", { mobile: "9876500009", label: "Priya", email: "priya@acme.com" }, master));
   const cohostR = await j(await call("POST", "/api/org/cohost", { label: "Ravi", phone: "98765 00001", e: "CAN-1" }, master));
   return { master, ai, host: hostR.hostKey as string, cohost: cohostR.cohostKey as string, hostId: hostR.id as string, cohostId: cohostR.id as string };
@@ -99,7 +99,7 @@ describe("cancel: who, when, how many confirmations", () => {
     expect(raw.prepare("SELECT cancelled_ms FROM engagement WHERE id='CAN-1'").get()).toEqual({ cancelled_ms: null });
     expect(raw.prepare("SELECT COUNT(*) AS c FROM credit").get()).toEqual({ c: 0 });
     // the same far-later time on an unpaid game is fine
-    await call("POST", "/api/z", { id: "CAN-2", startRound: START, callSeconds: 9, cap: 100 }, t.master);
+    await call("POST", "/api/z", { id: "CAN-2", startRound: START, callSeconds: 20, cap: 100 }, t.master);
     expect((await call("POST", "/api/z/CAN-2/cancel", { confirmations: 3 }, t.master, after)).status).toBe(200);
   });
 });
@@ -224,7 +224,7 @@ describe("Confirming your payment", () => {
 describe("late payment starts 2 minutes after confirmation", () => {
   test("the first number comes 120 to 123 seconds after the payment is confirmed (was about 3 minutes)", async () => {
     const master = await start("boss@acme.com");
-    await call("POST", "/api/z", { id: "CAN-1", startRound: START, callSeconds: 9, cap: 300 }, master);
+    await call("POST", "/api/z", { id: "CAN-1", startRound: START, callSeconds: 20, cap: 300 }, master);
     await call("POST", "/api/z/CAN-1/publish", { email: "boss@acme.com", phone: "9876543210" }, master);
     const late = T + 5 * H + 1234;
     const c = await j(await pay(master, "CAN-1", late));
@@ -267,17 +267,17 @@ describe("Host e-mail", () => {
 describe("Co-host: name + mobile (no e-mail), bound to one game", () => {
   test("a name and a valid mobile number are required, and the game must be the account's own", async () => {
     const master = await start("boss@acme.com");
-    await call("POST", "/api/z", { id: "CAN-1", startRound: START, callSeconds: 9, cap: 300 }, master);
+    await call("POST", "/api/z", { id: "CAN-1", startRound: START, callSeconds: 20, cap: 300 }, master);
     const base = { label: "Ravi", phone: "9876500001", e: "CAN-1" };
     for (const bad of [{ ...base, label: "" }, { ...base, label: undefined }, { ...base, phone: "" }, { ...base, phone: "123" }, { ...base, e: undefined }, { ...base, e: "NOPE-1" }]) expect((await call("POST", "/api/org/cohost", bad, master)).status).toBe(400);
     const other = await start("other@rival.com");
-    await call("POST", "/api/z", { id: "RIV-1", startRound: START, callSeconds: 9, cap: 100 }, other);
+    await call("POST", "/api/z", { id: "RIV-1", startRound: START, callSeconds: 20, cap: 100 }, other);
     expect((await call("POST", "/api/org/cohost", { ...base, e: "RIV-1" }, master)).status).toBe(400); // someone else's game
     expect((await call("POST", "/api/org/cohost", base, master)).status).toBe(200);
   });
   test("the mobile number is stored sealed; the team list shows only the last 4 digits, per game", async () => {
     const t = await team();
-    await call("POST", "/api/z", { id: "CAN-2", startRound: START, callSeconds: 9, cap: 100 }, t.master);
+    await call("POST", "/api/z", { id: "CAN-2", startRound: START, callSeconds: 20, cap: 100 }, t.master);
     await call("POST", "/api/org/cohost", { label: "Sunita", phone: "+91 91234 56789", e: "CAN-2" }, t.master);
     expect(JSON.stringify(raw.prepare("SELECT * FROM organizer_key").all())).not.toMatch(/9876500001|9123456789/);
     const one = await j(await call("GET", "/api/org/team?e=CAN-1", undefined, t.host));
@@ -292,7 +292,7 @@ describe("Co-host: name + mobile (no e-mail), bound to one game", () => {
   });
   test("the Co-host key works for its own game only: header and payment for another game are refused", async () => {
     const t = await team();
-    await call("POST", "/api/z", { id: "CAN-2", startRound: START, callSeconds: 9, cap: 100 }, t.master);
+    await call("POST", "/api/z", { id: "CAN-2", startRound: START, callSeconds: 20, cap: 100 }, t.master);
     expect((await call("GET", "/api/z/CAN-1/cohost", undefined, t.cohost)).status).toBe(200);
     expect((await call("GET", "/api/z/CAN-2/cohost", undefined, t.cohost)).status).toBe(403);
     expect((await pay(t.cohost, "CAN-2")).status).toBe(403);
@@ -304,7 +304,7 @@ describe("Co-host: name + mobile (no e-mail), bound to one game", () => {
     const h = await j(await call("GET", "/api/z/CAN-1/cohost", undefined, t.cohost));
     expect(h.inviteLink).toContain("from=");
     const from = Number(h.inviteLink.match(/from=(\d+)/)![1]);
-    await call("POST", "/api/z", { id: "CAN-2", startRound: START, callSeconds: 9, cap: 100 }, t.master); await call("POST", "/api/z/CAN-2/publish", { email: "boss@acme.com", phone: "9876543210" }, t.master);
+    await call("POST", "/api/z", { id: "CAN-2", startRound: START, callSeconds: 20, cap: 100 }, t.master); await call("POST", "/api/z/CAN-2/publish", { email: "boss@acme.com", phone: "9876543210" }, t.master);
     await call("POST", "/api/z/CAN-1/join", { phone: "9876543210", from }); await call("POST", "/api/z/CAN-2/join", { phone: "9876543211", from });
     expect(raw.prepare("SELECT src FROM seat WHERE eid='CAN-1'").get()).toMatchObject({ src: expect.stringMatching(/^co:/) });
     expect((raw.prepare("SELECT src FROM seat WHERE eid='CAN-2'").get() as any).src).toBe("link"); // not credited to a Co-host of another game

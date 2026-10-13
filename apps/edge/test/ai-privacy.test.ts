@@ -22,7 +22,7 @@ const needles = () => PLANTED.flatMap((p) => [p.name, p.name.split(" ")[0]!, p.p
 async function setup() {
   const x = await j(await call("POST", "/api/start", { email: "boss@acme.com" }, { "cf-connecting-ip": "1.1.1.1" }));
   const h = { "x-organizer": x.token as string };
-  await call("POST", "/api/z", { id: "PLANT-1", startRound: roundAt(T) + 1200, callSeconds: 6, cap: 100 }, h);
+  await call("POST", "/api/z", { id: "PLANT-1", startRound: roundAt(T) + 1200, callSeconds: 20, cap: 100 }, h);
   await call("POST", "/api/z/PLANT-1/publish", { email: "boss@acme.com", phone: "98765 43210" }, h);
   await call("POST", "/api/z/PLANT-1/join", { phone: PLANTED[0]!.phone, name: PLANTED[0]!.name });
   await call("POST", "/api/z/PLANT-1/roster", { people: [PLANTED[1]] }, h); // the owner loads a list in the console

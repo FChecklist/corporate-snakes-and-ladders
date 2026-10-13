@@ -13,7 +13,7 @@ export default async function gen({ R, L }) {
   const later = (w) => w.startRound + 3000; // about 2.5 hours later
   const ACTIONS = [
     { id: "whoami", state: "draft", exp: E("YYYYYYNYn"), build: () => ({ m: "GET", p: "/api/whoami" }) },
-    { id: "create a game", state: "draft", exp: E("YNNNNYNYY"), build: (w) => ({ m: "POST", p: "/api/z", b: { id: w.t.gid("NEW"), startRound: w.startRound, callSeconds: 9, cap: 30 } }), verify: (w, role, r, t) => { if (r.ok && role !== "OTHER") t.check("created game exists for the account", !!r.body.openUrl, JSON.stringify(r.body)); } },
+    { id: "create a game", state: "draft", exp: E("YNNNNYNYY"), build: (w) => ({ m: "POST", p: "/api/z", b: { id: w.t.gid("NEW"), startRound: w.startRound, callSeconds: 20, cap: 30 } }), verify: (w, role, r, t) => { if (r.ok && role !== "OTHER") t.check("created game exists for the account", !!r.body.openUrl, JSON.stringify(r.body)); } },
     { id: "change the game name", state: "draft", exp: E("YYNNNYNNY"), build: (w) => ({ m: "PATCH", p: `/api/z/${w.eid}/settings`, b: { name: "Renamed by " + w.t.R.int(1000) } }) },
     { id: "switch guest invites on", state: "draft", exp: E("YYNNNYNNY"), build: (w) => ({ m: "PATCH", p: `/api/z/${w.eid}/settings`, b: { guestInvites: { on: true, per: 3, cats: ["family", "friends"] } } }) },
     { id: "reschedule", state: "paid", exp: E("YYNNNYNNY"), build: (w) => ({ m: "PATCH", p: `/api/z/${w.eid}/settings`, b: { startRound: later(w) } }) },

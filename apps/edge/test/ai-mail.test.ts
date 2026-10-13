@@ -79,7 +79,7 @@ describe("the AI link is in the dedicated mails and nowhere else", () => {
   });
   test("publish, reminder, could-not-begin and every other mail of a full unpaid lifecycle carry no AI link; only the dedicated mails do", async () => {
     const { h } = await organizer();
-    await call("POST", "/api/z", { id: "MAIL-1", startRound: roundAt(T + 30 * 3_600_000), callSeconds: 6, cap: 500 }, h);
+    await call("POST", "/api/z", { id: "MAIL-1", startRound: roundAt(T + 30 * 3_600_000), callSeconds: 20, cap: 500 }, h);
     expect((await call("POST", "/api/z/MAIL-1/publish", contact, h)).status).toBe(200);
     expect((await call("POST", "/api/org/host", { mobile: "9876500009", email: "host@acme.com" }, h)).status).toBe(200);
     expect((await call("POST", "/api/org/ai/replace", {}, h)).status).toBe(200);
@@ -156,7 +156,7 @@ describe("Replace my AI link", () => {
 describe("opening the manual never changes anything", () => {
   test("GET and HEAD on /ai/<key> (a mail scanner or a chat AI) leave keys, engagements, people and mail untouched", async () => {
     const o = await organizer();
-    await call("POST", "/api/z", { id: "SAFE-1", startRound: roundAt(T) + 1200, callSeconds: 6, cap: 100 }, o.h);
+    await call("POST", "/api/z", { id: "SAFE-1", startRound: roundAt(T) + 1200, callSeconds: 20, cap: 100 }, o.h);
     const snap = () => {
       const tables = (raw.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT IN ('ai_audit','sqlite_sequence')").all() as { name: string }[]).map((t) => t.name).sort();
       return JSON.stringify(tables.map((n) => [n, raw.prepare(n === "kv" ? `SELECT * FROM kv WHERE k NOT LIKE 'seen/%'` : `SELECT * FROM "${n}"`).all()])); // the only bookkeeping a read leaves is the unfamiliar-use baseline (seen/) and the audit line

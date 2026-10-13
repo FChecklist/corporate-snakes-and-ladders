@@ -65,13 +65,13 @@ export default async function gen({ R, L }) {
   out.push({ name: "cancel|a Host's console can cancel but cannot create the game it cancelled", run: async (t) => {
     const { org, g } = await setup(t, "published unpaid"); const host = await t.host(org);
     t.expect("Host cancel an unpaid game", await host.api("POST", `/api/z/${g.id}/cancel`, { confirmations: 3 }), "ok");
-    t.expect("Host cannot create games", await host.api("POST", "/api/z", { id: t.gid(), startRound: g.startRound, callSeconds: 9, cap: 30 }), "deny");
+    t.expect("Host cannot create games", await host.api("POST", "/api/z", { id: t.gid(), startRound: g.startRound, callSeconds: 20, cap: 30 }), "deny");
   } });
 
   // ---------- edit ----------
   const EDITS = [
     ["name", { name: "Dealer meet - Mehta and Sons" }, "ok"], ["prizes to three lines", { rewards: [{ pattern: "corners", scope: "ticket", ordinal: 1, text: "Gift voucher: Rs 500" }, { pattern: "blackout", scope: "ticket", ordinal: 1, text: "Smartphone" }, { pattern: "blackout", scope: "ticket", ordinal: 2, text: "Smart watch" }] }, "ok"],
-    ["rounds to 3", { rounds: 3 }, "ok"], ["tickets to 2", { tickets: 2 }, "ok"], ["gap to 12", { callSeconds: 12 }, "ok"], ["who can join to list", { whoCanJoin: "list" }, "ok"], ["size down to 20", { cap: 20 }, "ok"],
+    ["rounds to 3", { rounds: 3 }, "ok"], ["tickets to 2", { tickets: 2 }, "ok"], ["gap to 12", { callSeconds: 20 }, "ok"], ["who can join to list", { whoCanJoin: "list" }, "ok"], ["size down to 20", { cap: 20 }, "ok"],
     ["size up to 100 (inside the pack of 100)", { cap: 100 }, "ok"], ["size up to 101", { cap: 101 }, "paid-only-402"],
   ];
   for (const state of STATES) for (const [label, patch, rule] of EDITS) out.push({ name: `edit|${state}: ${label}`, run: async (t) => {

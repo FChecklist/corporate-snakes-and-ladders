@@ -8,4 +8,4 @@ Deploy (free Cloudflare Pages), only after the owner says go:
 
     wrangler pages deploy site --project-name corporate-snakes-and-ladders --branch main
 
-The legal pages are first drafts for a lawyer to read before launch.
+The legal pages are plain text pages: Terms, Privacy and Refund policy.

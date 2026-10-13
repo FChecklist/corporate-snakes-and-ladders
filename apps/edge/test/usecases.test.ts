@@ -23,7 +23,7 @@ let rz: { orders: any[]; payments: Record<string, any>; mail: any[]; mailDown: b
 const call = (method: string, path: string, body?: unknown, headers: Record<string, string> = {}, now = T) =>
   handle(new Request("http://x" + path, { method, headers: { "content-type": "application/json", ...headers }, body: withDevice(method, path, body) }), env as Env, now);
 const j = async (r: Response) => (await r.json()) as any;
-const eng = (id: string, over: Record<string, unknown> = {}) => ({ id, startRound: START, callSeconds: 6, cap: 100, ...over });
+const eng = (id: string, over: Record<string, unknown> = {}) => ({ id, startRound: START, callSeconds: 20, cap: 100, ...over });
 const contact = { email: "boss@acme.com", phone: "98765 43210" };
 
 async function organizer(email = `o${++ipN}@acme.com`) {
@@ -487,9 +487,9 @@ describe("F. exceptions: what can go wrong", () => {
     const o = await organizer(); await call("POST", "/api/z", eng("CLAIM-1"), o.h); await call("POST", "/api/z/CLAIM-1/publish", contact, o.h);
     const pid = (await j(await call("POST", "/api/z/CLAIM-1/join", { phone: phone(1) }))).pid;
     const send = (claims: unknown[], p = pid) => call("POST", "/api/z/CLAIM-1/claims", { pid: p, claims });
-    expect((await j(await send([{ pattern: "nonsense", idx: 3 }, { pattern: "blackout", idx: 999 }, { pattern: "blackout", idx: -1 }, { pattern: "blackout", idx: 5, round: 9 }]))).stored).toBe(0);
-    expect((await call("POST", "/api/z/CLAIM-1/claims", { pid: "ffffffffffffffff", claims: [{ pattern: "blackout", idx: 5 }] })).status).toBe(403);
-    expect((await j(await send([{ pattern: "blackout", idx: 5 }, { pattern: "blackout", idx: 5 }]))).stored).toBe(1); // sent twice, stored once
+    expect((await j(await send([{ pattern: "nonsense", idx: 3 }, { pattern: "climb", idx: 999 }, { pattern: "climb", idx: -1 }, { pattern: "climb", idx: 5, round: 9 }]))).stored).toBe(0);
+    expect((await call("POST", "/api/z/CLAIM-1/claims", { pid: "ffffffffffffffff", claims: [{ pattern: "climb", idx: 5 }] })).status).toBe(403);
+    expect((await j(await send([{ pattern: "climb", idx: 5 }, { pattern: "climb", idx: 5 }]))).stored).toBe(1); // sent twice, stored once
   });
 });
 
@@ -504,17 +504,17 @@ describe("G. the organizer's AI", () => {
   });
   test("UC-61 the worked example in the manifest is accepted exactly as written (lucky draw, three full-house lines, two-ticket house)", async () => {
     const o = await organizer(); await call("POST", "/api/z", eng("EXAMPLE-1", { cap: 250 }), o.ai);
-    const body = { startRound: START + 100, callSeconds: 9, cap: 250, tickets: 2, rounds: 1,
-      rewards: [{ pattern: "line", ordinal: 1, text: "Gift hamper" }, { pattern: "blackout", ordinal: 1, text: "Voucher 50" }, { pattern: "blackout", ordinal: 2, text: "Voucher 30" }, { pattern: "corners", ordinal: 1, text: "Tablet" }],
+    const body = { startRound: START + 100, callSeconds: 20, cap: 250, tickets: 2, rounds: 1,
+      rewards: [{ pattern: "finish", ordinal: 1, text: "Gift hamper" }, { pattern: "climb", ordinal: 1, text: "Voucher 50" }, { pattern: "climb", ordinal: 2, text: "Voucher 30" }, { pattern: "milestone", ordinal: 1, text: "Tablet" }],
       breaks: [{ after: 30, seconds: 90, kind: "youtube", title: "Anniversary film", mediaUrl: "https://www.youtube.com/watch?v=aqz-KE-bpKQ" }, { after: 60, seconds: 60, kind: "lucky", title: "Lucky draw", winners: 3 }] };
     const r = await call("PATCH", "/api/z/EXAMPLE-1/settings", body, o.ai); expect(r.status).toBe(200);
   });
   test("UC-62 the summary reads everything back (time, speed, limit, rewards, breaks, status) so the AI can confirm it; strangers and other organizers get nothing", async () => {
     const o = await organizer(), other = await organizer();
     await call("POST", "/api/z", eng("SUM-1", { cap: 250 }), o.ai);
-    await call("PATCH", "/api/z/SUM-1/settings", { callSeconds: 9, tickets: 2, rewards: [{ pattern: "blackout", ordinal: 1, text: "TV" }], breaks: [{ after: 60, seconds: 60, kind: "lucky", title: "Lucky draw", winners: 3 }] }, o.ai);
+    await call("PATCH", "/api/z/SUM-1/settings", { callSeconds: 20, tickets: 2, rewards: [{ pattern: "climb", ordinal: 1, text: "TV" }], breaks: [{ after: 60, seconds: 60, kind: "lucky", title: "Lucky draw", winners: 3 }] }, o.ai);
     let s = await j(await call("GET", "/api/z/SUM-1/summary", undefined, o.ai));
-    expect(s.status).toBe("draft"); expect(s.limit).toBe(250); expect(s.callSeconds).toBe(9); expect(s.tickets).toBe(2); expect(s.rewards.length).toBe(1); expect(s.breaks[0].kind).toBe("lucky"); expect(s.startsAtIST).toMatch(/IST/); expect(s.shareUrl).toBeUndefined();
+    expect(s.status).toBe("draft"); expect(s.limit).toBe(250); expect(s.callSeconds).toBe(20); expect(s.tickets).toBe(2); expect(s.rewards.length).toBe(1); expect(s.breaks[0].kind).toBe("lucky"); expect(s.startsAtIST).toMatch(/IST/); expect(s.shareUrl).toBeUndefined();
     await call("POST", "/api/z/SUM-1/publish", contact, o.h);
     s = await j(await call("GET", "/api/z/SUM-1/summary", undefined, o.ai));
     expect(s.status).toMatch(/payment due before the start/); expect(s.shareUrl).toContain("/z.html?e=SUM-1"); expect(s.payUrl).toContain("/pay.html?e=SUM-1");
@@ -532,11 +532,11 @@ describe("G. the organizer's AI", () => {
 describe("G2. the organizer's AI: round 2 findings", () => {
   test("UC-64 a partial rewards patch is refused with a message that explains rewards REPLACE the list, and nothing changes", async () => {
     const o = await organizer(); await call("POST", "/api/z", eng("REPL-1"), o.ai);
-    await call("PATCH", "/api/z/REPL-1/settings", { rewards: [{ pattern: "line", ordinal: 1, text: "A" }, { pattern: "line", ordinal: 2, text: "B" }] }, o.ai);
-    const r = await call("PATCH", "/api/z/REPL-1/settings", { rewards: [{ pattern: "line", ordinal: 3, text: "E" }] }, o.ai);
+    await call("PATCH", "/api/z/REPL-1/settings", { rewards: [{ pattern: "finish", ordinal: 1, text: "A" }, { pattern: "finish", ordinal: 2, text: "B" }] }, o.ai);
+    const r = await call("PATCH", "/api/z/REPL-1/settings", { rewards: [{ pattern: "finish", ordinal: 3, text: "E" }] }, o.ai);
     expect(r.status).toBe(400); expect((await j(r)).error).toMatch(/REPLACES the whole list/);
     expect((await j(await call("GET", "/api/z/REPL-1/summary", undefined, o.ai))).rewards.length).toBe(2);
-    expect((await call("PATCH", "/api/z/REPL-1/settings", { rewards: [{ pattern: "line", ordinal: 1, text: "A" }, { pattern: "line", ordinal: 2, text: "B" }, { pattern: "line", ordinal: 3, text: "C" }] }, o.ai)).status).toBe(200);
+    expect((await call("PATCH", "/api/z/REPL-1/settings", { rewards: [{ pattern: "finish", ordinal: 1, text: "A" }, { pattern: "finish", ordinal: 2, text: "B" }, { pattern: "finish", ordinal: 3, text: "C" }] }, o.ai)).status).toBe(200);
   });
   test("UC-65 the links are consistent: a draft gives consoleUrl; once published the same call gives payUrl and shareUrl", async () => {
     const o = await organizer(); await call("POST", "/api/z", eng("LINK-1"), o.ai);
@@ -547,7 +547,7 @@ describe("G2. the organizer's AI: round 2 findings", () => {
   });
   test("UC-66 the summary says what is due: pack, price, pay-before time, paid flag and the game length", async () => {
     const o = await organizer();
-    await call("POST", "/api/z", eng("DUE-1", { cap: 480, callSeconds: 12 }), o.ai);
+    await call("POST", "/api/z", eng("DUE-1", { cap: 480, callSeconds: 20 }), o.ai);
     await call("PATCH", "/api/z/DUE-1/settings", { rounds: 2, breaks: [{ after: 20, seconds: 120, kind: "speech", title: "MD address" }] }, o.ai);
     await call("POST", "/api/z/DUE-1/publish", contact, o.h);
     const s = await j(await call("GET", "/api/z/DUE-1/summary", undefined, o.ai));

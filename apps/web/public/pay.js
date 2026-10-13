@@ -12,9 +12,20 @@
   const call = async (method, path, body) => {
     const r = await fetch(path, { method, headers: { "content-type": "application/json", "x-organizer": secret }, body: body === undefined ? undefined : JSON.stringify(body) });
     const j = await r.json().catch(() => ({}));
-    if (!r.ok) throw Object.assign(new Error(j.error || "Something went wrong. Please try again."), { status: r.status });
+    if (!r.ok) throw Object.assign(new Error(j.error || "Something went wrong. Please try again."), { status: r.status, code: j.code, consent: j.consent });
     return j;
   };
+  // K3 (payment boxes): the wording and the Terms version come from the server (consent.js). Never pre-ticked; the pay button stays off until every box is ticked; the tick lives here because the page repaints.
+  const K3 = { info: null, state: {}, err: "", loading: false };
+  const k3Ready = () => !!K3.info && !!window.CBConsent && CBConsent.ready(K3.info, K3.state);
+  function k3Html() {
+    if (!window.CBConsent) return `<p class="zsmall" role="status">The terms could not be shown. Please reload this page.</p>`;
+    if (!K3.info && !K3.loading && !K3.err) {
+      K3.loading = true;
+      CBConsent.load("K3", (p) => call("GET", p)).then((i) => { K3.info = i; }, () => { K3.err = "The terms could not be loaded. Please reload this page and try again."; }).then(() => { K3.loading = false; keep(); draw(); });
+    }
+    return K3.info ? CBConsent.html(K3.info, K3.state) : `<p class="zsmall" role="status">${esc(K3.err || "Loading the terms…")}</p>`;
+  }
   const head = `<div class="zhead"><b>Corporate Snakes and Ladders · Publish engagement</b><a class="zsnd" href="/zc.html?e=${encodeURIComponent(eid)}" style="text-decoration:none">Back to my engagement</a></div>${TB.payBrand ? TB.payBrand() : ""}`;
   const packFor = (cap) => { const p = TB.PACKS.find((x) => x[0] >= cap); return p ? p[0] : null; };
 
@@ -59,7 +70,8 @@
         <label for="cty">Country of your organization <span class="zsmall" style="display:inline">(optional)</span></label><select id="cty">${TB.countryOpts(S.country)}</select>
         <label for="tax">GST / Tax number <span class="zsmall" style="display:inline">(optional)</span></label><input id="tax" autocomplete="off" maxlength="30" value="${esc(S.tax || "")}" placeholder="GST / Tax number" style="text-transform:uppercase">
         ${S.err ? `<div class="zbanner bad">${esc(S.err)}</div>` : ""}${S.busy ? `<div class="zbanner info" role="status">Confirming your payment with Razorpay. Please keep this page open. Your game starts only after Razorpay confirms.</div>` : ""}
-        <button class="zbtn" id="paygo" ${off || S.busy ? "disabled" : ""}>${S.busy ? "Confirming your payment…" : off ? "Payment opens soon" : "Pay " + TB.money(applied ? toPay : x.total, S.cur) + " securely with Razorpay"}</button>
+        <div id="k3box">${k3Html()}</div>
+        <button class="zbtn" id="paygo" ${off || S.busy || !k3Ready() ? "disabled" : ""}>${S.busy ? "Confirming your payment…" : off ? "Payment opens soon" : "Pay " + TB.money(applied ? toPay : x.total, S.cur) + " securely with Razorpay"}</button>
         <p class="zsmall">Secure payment by Razorpay. Payment to <a href="https://itservices-rajat-agarwal.pages.dev/" rel="noopener" target="_blank">IT Services by Rajat Agarwal</a>. An invoice is emailed to you. See the <a href="/legal.html#privacy">privacy policy</a>.</p></div>`;
   }
   // The server answers 202 {confirming:true} while Razorpay still says the payment is only created or authorized. We ask every 4 seconds, for up to 5 minutes, until the game itself says Paid.
@@ -80,6 +92,12 @@
     const $ = (id) => document.getElementById(id);
     if ($("cty")) $("cty").onchange = () => { keep(); S.country = $("cty").value; S.cur = S.country === "IN" ? "INR" : "USD"; draw(); };
     if ($("goLogin")) $("goLogin").onclick = () => { try { sessionStorage.setItem("cbz-next", "/pay.html?e=" + encodeURIComponent(eid)); } catch {} };
+    if ($("k3box") && K3.info && window.CBConsent) { // ticking the boxes switches the pay button on (unless payment is off or already running)
+      const pg = $("paygo"), hard = S.mode === "off" || S.busy;
+      CBConsent.bind($("k3box"), K3.info, K3.state, null);
+      const sync = () => { if (pg) { const ok = !hard && CBConsent.ready(K3.info, K3.state); pg.disabled = !ok; pg.setAttribute("aria-disabled", ok ? "false" : "true"); } };
+      $("k3box").querySelectorAll("input.cbc-tick").forEach((i) => i.addEventListener("change", sync)); sync();
+    }
     if ($("usecredit")) $("usecredit").onclick = async () => {
       S.err = ""; S.creditErr = false; S.busy = true; draw();
       try {
@@ -96,17 +114,21 @@
       if (nm.length < 2) { S.err = "Please enter your name."; return draw(); }
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) { S.err = "Please enter a valid email."; return draw(); }
       if (S.country === "IN" && tax && !/^\d{2}[A-Z]{5}\d{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/.test(tax)) { S.err = "Please enter a valid 15-character GSTIN, like 27ABCDE1234F1Z5."; return draw(); }
+      const consent = K3.info ? CBConsent.payload(K3.info, K3.state) : null; if (!consent) { S.err = "Please tick the box first."; return draw(); } // never sent without every tick
       TB.payer.save(S);
       S.busy = true; draw();
       try {
         let ref = ""; try { const v = JSON.parse(localStorage.getItem("cbz-ref") || "null"); if (v && Date.now() - v.at < 30 * 86400000) ref = v.code; } catch {}
-        let r = await call("POST", "/api/checkout", { eid, name: nm, org, email, country: S.country, taxId: tax, currency: S.cur, phone: S.phone, phoneCode: S.pcode, ref });
+        let r = await call("POST", "/api/checkout", { eid, name: nm, org, email, country: S.country, taxId: tax, currency: S.cur, phone: S.phone, phoneCode: S.pcode, ref, consent });
         if (r.mode === "razorpay") r = await TB.pay(r.razorpay, r.paymentId, r.hop); // opens Razorpay Checkout; the server verifies the payment
         else if (r.result) r = r.result; // local test mode answers with the finished order
         try { sessionStorage.setItem("cbz-email", email); sessionStorage.setItem("cbz-name", nm); } catch {}
         if (r && r.confirming) r = await waitForConfirm(r); // Razorpay has not confirmed yet: keep asking, never mark it paid early
         S.done = r;
-      } catch (e) { S.err = e.cancelled ? e.message : e.message; }
+      } catch (e) {
+        if (e.code === "consent-required" || e.code === "terms-changed") { if (e.consent && Array.isArray(e.consent.boxes)) K3.info = e.consent; Object.keys(K3.state).forEach((k) => delete K3.state[k]); S.err = "Please read and tick the box again, then press the pay button."; }
+        else S.err = e.message;
+      }
       S.busy = false; draw();
     };
   }

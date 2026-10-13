@@ -204,7 +204,7 @@ describe("from visit to sale: linking the person", () => {
     expect(one("SELECT org, stage, eh FROM visit_session")).toMatchObject({ org, stage: 4 }); expect(one("SELECT eh FROM visit_session").eh).toMatch(/^[0-9a-f]{32}$/); expect(JSON.stringify(q("SELECT * FROM visit_session"))).not.toContain("acme");
     // publishing
     const start = Math.floor((T / 1000 - 1692803367) / 3) + 1200;
-    expect((await call("POST", "/api/z", { id: "VIS-1", startRound: start, callSeconds: 6, cap: 100 }, { "x-organizer": st.token }, T + 70_000)).status).toBe(200);
+    expect((await call("POST", "/api/z", { id: "VIS-1", startRound: start, callSeconds: 20, cap: 100 }, { "x-organizer": st.token }, T + 70_000)).status).toBe(200);
     const pub = await call("POST", "/api/z/VIS-1/publish", { email: "boss@acme.com", phone: "9876543210" }, { "x-organizer": st.token }, T + 80_000);
     expect(pub.status).toBe(200);
     expect(one("SELECT stage FROM visit_session").stage).toBe(5);

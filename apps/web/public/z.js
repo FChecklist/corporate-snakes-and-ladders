@@ -1,10 +1,12 @@
-/* Corporate Snakes and Ladders, phone page for zero-server engagements. All game logic lives in zgame.js (window.ZG); this file only draws it. */
+/* Corporate Snakes and Ladders, phone page for zero-server games. All game logic lives in zgame.js (window.ZG); this file only draws it.
+   Note: the page is served with a strict style policy (no inline style attributes), so everything dynamic is drawn with classes and SVG attributes. */
 (function () {
+  if (window.__CB_DEMO_STUB) return; // demo.html while the demo is not rebuilt: demo.js shows its own message
   const ZG = window.ZG;
   const $app = document.getElementById("app");
   const q = new URLSearchParams(location.search);
   const LAST = "cb-last-eid";
-  const DEMO = window.__CB_DEMO || null; // the free demo (demo.html) runs this same page with a preloaded script and nothing stored on our side
+  const DEMO = window.__CB_DEMO || null; // kept for a future free demo: nothing stored on our side
   let EID = DEMO ? DEMO.eid : (q.get("e") || location.hash.replace(/^#/, "") || "").trim();
   if (!DEMO) try { if (EID) localStorage.setItem(LAST, EID); else EID = localStorage.getItem(LAST) || ""; } catch {} // the installed app opens without the link: use the last game
   const BASE = (q.get("api") || "").replace(/\/$/, "");
@@ -53,51 +55,84 @@
   };
   const INVITE_FROM = Number(q.get("from")) || 0, INVITE_CAT = q.get("c") || "";
   const NAMES = {};
-  // house names and "how to win" come from the one shared table (ZG.PRIZE_HOUSES)
+  // prize names and "how to win" come from the one shared table (ZG.PRIZE_HOUSES)
   ZG.PRIZE_HOUSES.forEach((h) => { if (!NAMES[h.id]) NAMES[h.id] = h.label; });
   const HOW = Object.fromEntries(ZG.PRIZE_HOUSES.map((h) => [h.id, h.how]));
-  const howLine = (key) => (HOW[key] ? `<small class="zsmall zhow" style="margin:0">${esc(HOW[key])}</small>` : "");
+  const howLine = (key) => (HOW[key] ? `<small class="zsmall zhow">${esc(HOW[key])}</small>` : "");
   const getPublic = DEMO ? DEMO.getPublic : async (url) => { let r; try { r = await fetch(url, { cache: "no-store" }); } catch { throw new Error("offline"); } if (!r.ok) throw Object.assign(new Error("http " + r.status), { status: r.status }); return r.json(); };
   const rt = new ZG.PhoneRuntime(EID, DEMO ? { api, getPublic, beacon: DEMO.beacon, verify: DEMO.verify, mono: DEMO.mono, store } : { api, getPublic, beacon: {}, mono: () => performance.now(), store });
-  let lastLen = 0, firstPaint = true, sound = store.get("cbz-sound") !== "off", timer = null;
+  let firstPaint = true, sound = store.get("cbz-sound") !== "off", timer = null, lastStepKey = "";
   if (window.TBAudio) TBAudio.enabled = sound;
   const clock = (s) => { s = Math.max(0, Math.round(s)); return [Math.floor(s / 3600), Math.floor((s % 3600) / 60), s % 60].map((n) => String(n).padStart(2, "0")).join(":"); }; // 00:12:34
   const GRACE_SECS = ZG.GRACE_ROUNDS * 3;
-  const fmt = (s) => (s >= 90 ? Math.round(s / 60) + " min" : s + "s");
+  const nickOf = (seat) => "Player " + seat; // nicknames are not available to the page yet: this is the one place to change when they are
+  const plural = (n, one, many) => n + " " + (n === 1 ? one : many);
 
-  // ---------- the company strip at the top of the card page (colour and name set by the organizer; the small picture travels inside the settings) ----------
+  // ---------- the company strip at the top of the page (colour and name set by the organizer; the small picture travels inside the settings) ----------
   const brandStrip = () => {
-    const b = INFO.brand; if (!b) return `<div class="zbrand" data-bg="#0B5D5B" data-fg="#ffffff"><b>CORPORATE SNAKES AND LADDERS</b></div>`; // no company brand set: the card carries our own name in writing
+    const b = INFO.brand; if (!b) return `<div class="zbrand" data-bg="#0B5D5B" data-fg="#ffffff"><b>CORPORATE SNAKES AND LADDERS</b></div>`; // no company brand set: the page carries our own name in writing
     return `<div class="zbrand" data-bg="${esc(b.color)}" data-fg="${esc(b.fg)}">${b.logo ? `<img class="zblogo" alt="" src="${esc(b.logo)}">` : ""}${b.name ? `<b>${esc(b.name)}</b>` : ""}</div><div class="zpow">Powered by Corporate Snakes and Ladders</div>`;
   };
   const paintBrand = () => document.querySelectorAll(".zbrand").forEach((el) => { el.style.background = el.dataset.bg; el.style.color = el.dataset.fg; }); // set from the script, so a strict style policy never blocks the colour
 
+  // ---------- terms and consent boxes (consent.js): K4 on the join screen, K6 on the "My invites" form. The tick state lives here so a repaint never loses it. ----------
+  const K4 = { info: null, state: {}, loading: false, failed: false };
+  const K6 = { info: null, state: {}, loading: false, failedAt: -Infinity };
+  const CBC = () => window.CBConsent || null;
+  const consentLoading = (failed, retryId) => (failed ? `<p class="zsmall">We could not load the terms. Check your connection. <button class="zsnd" id="${retryId}" type="button">Try again</button></p>` : `<p class="zsmall">Loading the terms…</p>`);
+  async function loadK4() {
+    if (K4.info || K4.loading) return;
+    K4.loading = true;
+    try { if (!CBC()) throw new Error("no consent.js"); K4.info = await CBC().load("K4", (path) => api("GET", path)); K4.failed = false; } catch { K4.failed = true; }
+    K4.loading = false; fillK4();
+  }
+  function bindK4() {
+    const box = document.getElementById("k4box"), go = document.getElementById("go"); if (!box) return;
+    if (K4.info && CBC() && go) CBC().bind(box, K4.info, K4.state, go); else if (go) { go.disabled = true; go.setAttribute("aria-disabled", "true"); }
+    const again = document.getElementById("k4retry"); if (again) again.onclick = () => { K4.failed = false; fillK4(); loadK4(); };
+  }
+  /** Redraws only the box area (never the name field), so the terms can arrive while someone is typing. */
+  function fillK4() {
+    const box = document.getElementById("k4box"); if (!box) return;
+    box.innerHTML = K4.info && CBC() ? CBC().html(K4.info, K4.state) : consentLoading(K4.failed, "k4retry");
+    bindK4();
+  }
+  async function loadK6() {
+    if (DEMO || !ME.canInvite || K6.info || K6.loading || performance.now() - K6.failedAt < 30000) return;
+    K6.loading = true;
+    try { if (!CBC()) throw new Error("no consent.js"); K6.info = await CBC().load("K6", (path) => api("GET", path)); } catch { K6.failedAt = performance.now(); }
+    K6.loading = false; if (K6.info) paint();
+  }
+
   // ---------- joining: a personal link needs no number; a number may be asked for; a request may have to wait to be let in; a person may have been removed ----------
-  const J = { mode: "", phone: "", name: "", wid: "", who: "", timer: null, polling: false, note: "" };
+  const J = { mode: "", phone: "", name: "", wid: "", who: "", timer: null, polling: false, note: "", msg: "", consent: null };
   const inviteOf = () => (INVITE_FROM ? { from: INVITE_FROM, cat: INVITE_CAT } : undefined);
+  const head = `<div class="zhead"><b>Corporate Snakes and Ladders</b></div>`;
   const joinView = (msg) => {
-    if (J.mode === "removed") return `${brandStrip()}<div class="zhead"><b>Corporate Snakes and Ladders</b></div><div class="zcard" role="status"><h2>You are not on this game's list</h2><p class="zsmall" style="margin:0">You were removed from this game, so there is no card for you here. If you think this is a mistake, please ask the person who invited you.</p></div>`;
-    if (J.mode === "gone") return `${brandStrip()}<div class="zhead"><b>Corporate Snakes and Ladders</b></div><div class="zcard" role="status"><h2>This link is not active any more</h2><p class="zsmall" style="margin:0">Please ask the person who invited you for a new link.</p></div>`;
-    if (J.mode === "waiting") return `${brandStrip()}<div class="zhead"><b>Corporate Snakes and Ladders</b></div><div class="zcard zwait" role="status"><h2>Please wait a moment</h2><p style="margin:0 0 6px">${J.note ? esc(J.note) : `Your request to join has gone to ${J.who ? esc(J.who) : "the organizer"}.`}</p><p class="zsmall" style="margin:0">Keep this page open. As soon as you are let in, your card appears here.</p></div>`;
-    if (J.mode === "declined" || J.mode === "lapsed") return `${brandStrip()}<div class="zhead"><b>Corporate Snakes and Ladders</b></div><div class="zcard" role="status"><h2>${J.mode === "declined" ? "Your request was not accepted" : "This request has run out"}</h2><p class="zsmall" style="margin:0 0 8px">${J.mode === "declined" ? "You are not on the list for this game. Please ask the person who invited you." : "Nobody answered in time. You can ask again."}</p>${J.mode === "lapsed" ? `<button class="zbtn s" id="again" type="button">Ask again</button>` : ""}</div>`;
+    if (J.mode === "removed") return `${brandStrip()}${head}<div class="zcard" role="status"><h2>You are not on this game's list</h2><p class="zsmall zflush">You were removed from this game, so there is no board for you here. If you think this is a mistake, please ask the person who invited you.</p></div>`;
+    if (J.mode === "gone") return `${brandStrip()}${head}<div class="zcard" role="status"><h2>This link is not active any more</h2><p class="zsmall zflush">Please ask the person who invited you for a new link.</p></div>`;
+    if (J.mode === "closed") return `${brandStrip()}${head}<div class="zcard" role="status"><h2>Sign-up has closed</h2><p class="zsmall zflush">Sign-up for this game has closed. The game is already running.</p></div>`;
+    if (J.mode === "waiting") return `${brandStrip()}${head}<div class="zcard zwait" role="status"><h2>Please wait a moment</h2><p class="zflush zgap">${J.note ? esc(J.note) : `Your request to join has gone to ${J.who ? esc(J.who) : "the organizer"}.`}</p><p class="zsmall zflush">Keep this page open. As soon as you are let in, your board appears here.</p></div>`;
+    if (J.mode === "declined" || J.mode === "lapsed") return `${brandStrip()}${head}<div class="zcard" role="status"><h2>${J.mode === "declined" ? "Your request was not accepted" : "This request has run out"}</h2><p class="zsmall zflush zgap">${J.mode === "declined" ? "You are not on the list for this game. Please ask the person who invited you." : "Nobody answered in time. You can ask again."}</p>${J.mode === "lapsed" ? `<button class="zbtn s" id="again" type="button">Ask again</button>` : ""}</div>`;
     const personal = !!TOKEN && J.mode !== "needPhone"; // a personal link is made for one person: nothing to type unless the server asks
     const needPhone = J.mode === "needPhone" || INFO.joinPhone; // the organizer asked guests to give a mobile number, or the link was already opened elsewhere
-    return `${brandStrip()}<div class="zhead"><b>Corporate Snakes and Ladders</b></div>
-    <div class="zcard zform"><h2>Join the game</h2>${INVITE_FROM ? `<div class="zbanner ok" style="margin:0 0 8px">A colleague invited you. Join with your name to get your own card.</div>` : ""}
-    ${J.mode === "needPhone" ? `<div class="zbanner info" role="status" style="margin:0 0 8px">${J.note ? esc(J.note) : "This link was already opened on another phone. Please type your mobile number to get your card."}</div>` : ""}
-    ${personal ? `<p class="zsmall" style="margin:0 0 6px">Your personal link is ready. Press the button to get your card.</p>` : ""}
-    ${personal ? "" : `<label for="nm">Your name</label><input id="nm" autocomplete="name" maxlength="60" value="${esc(J.name)}">`}
+    const m = msg || J.msg;
+    return `${brandStrip()}${head}
+    <div class="zcard zform"><h2>Join the game</h2>${INVITE_FROM ? `<div class="zbanner ok zflush">A colleague invited you. Join with your nickname to get your own board.</div>` : ""}
+    ${J.mode === "needPhone" ? `<div class="zbanner info zflush" role="status">${J.note ? esc(J.note) : "This link was already opened on another phone. Please type your mobile number to join."}</div>` : ""}
+    <div id="k4box">${K4.info && CBC() ? CBC().html(K4.info, K4.state) : consentLoading(K4.failed, "k4retry")}</div>
+    ${personal ? `<p class="zsmall">Your personal link is ready. Tick the boxes and press the button to join.</p>` : ""}
+    ${personal ? "" : `<label for="nm">Your nickname</label><input id="nm" autocomplete="off" maxlength="60" value="${esc(J.name)}">`}
     ${personal || !needPhone ? "" : `<label for="ph">Your mobile number</label><input id="ph" inputmode="tel" autocomplete="tel" placeholder="+1 555 010 0100" value="${esc(J.phone)}">`}
-    ${msg ? `<div class="zbanner bad" role="alert">${esc(msg)}</div>` : ""}
-    <button class="zbtn" id="go">Get my card</button>
-    <p class="zsmall">We use your name for your card and, if you win, to hand over your prize. Your organizer sees it. Other players do not.</p>
+    ${m ? `<div class="zbanner bad" role="alert">${esc(m)}</div>` : ""}
+    <button class="zbtn" id="go" type="button" disabled aria-disabled="true">Join the game</button>
     <p class="spriv">Players are 18 or older. Playing is free: you never pay, and no prize money is held or paid by us.</p>
     <p class="spriv"><a href="/legal.html#privacy" target="_blank" rel="noopener">Privacy Policy</a></p></div>`;
   };
-  const cancelledView = () => `${brandStrip()}<div class="zhead"><b>Corporate Snakes and Ladders</b></div><div class="zcard" role="status"><h2>This game was cancelled</h2><p class="zsmall" style="margin:0">${esc((INFO.cancelled && INFO.cancelled.message) || "The organizer cancelled this game.")} There is nothing to do on this page. Thank you for your interest.</p></div>`;
-  const dnsView = () => `${brandStrip()}<div class="zhead"><b>Corporate Snakes and Ladders</b></div><div class="zcard" role="status"><h2>This game did not start</h2><p class="zsmall" style="margin:0">This game did not start. Your details have been erased. There is nothing to do on this page. Thank you for your interest.</p></div>`;
-  const removedView = () => `${brandStrip()}<div class="zhead"><b>Corporate Snakes and Ladders</b></div><div class="zcard" role="status"><h2>You have been removed from this game</h2><p class="zsmall" style="margin:0">This phone no longer plays in this game. If you think this is a mistake, please ask the person who invited you.</p></div>`;
-  // what the server's "me" answer says about this card: removed, and (for a guest invited straight by the organizer's side) whether they may invite
+  const cancelledView = () => `${brandStrip()}${head}<div class="zcard" role="status"><h2>This game was cancelled</h2><p class="zsmall zflush">${esc((INFO.cancelled && INFO.cancelled.message) || "The organizer cancelled this game.")} There is nothing to do on this page. Thank you for your interest.</p></div>`;
+  const dnsView = () => `${brandStrip()}${head}<div class="zcard" role="status"><h2>This game did not start</h2><p class="zsmall zflush">This game did not start. Your details have been erased. There is nothing to do on this page. Thank you for your interest.</p></div>`;
+  const removedView = () => `${brandStrip()}${head}<div class="zcard" role="status"><h2>You have been removed from this game</h2><p class="zsmall zflush">This phone no longer plays in this game. If you think this is a mistake, please ask the person who invited you.</p></div>`;
+  // what the server's "me" answer says about this player: removed, and (for a guest invited straight by the organizer's side) whether they may invite
   const ME = { at: -Infinity, role: null, removed: false, canInvite: false, per: 0, used: 0, loaded: false };
   async function pollMe(v) {
     if (DEMO || !v.pid || performance.now() - ME.at < 90000 + (Math.floor(performance.now()) % 30000)) return;
@@ -107,7 +142,7 @@
       ME.loaded = true; ME.removed = r.removed === true || r.state === "removed"; ME.canInvite = r.canInvite === true; ME.per = Number(r.per) || 0; ME.used = Number(r.used) || 0; ME.role = r.role || null;
       if (ME.removed) paint();
     } catch (e) {
-      if (e && e.status === 404 && /not a participant/i.test(String(e.message || ""))) { ME.removed = true; paint(); } // removed before the start: the server has deleted the seat, so it no longer knows this card
+      if (e && e.status === 404 && /not a participant/i.test(String(e.message || ""))) { ME.removed = true; paint(); } // removed before the start: the server has deleted the seat, so it no longer knows this player
       /* any other trouble: asked again later */
     }
   }
@@ -135,16 +170,22 @@
       J.polling = false;
     }, 5000);
   }
-  /** Joins with what is typed (or just the token). Shows a card, or the calm screen that fits the answer. */
+  /** Joins with what is typed (or just the token). Shows the game, or the calm screen that fits the answer. */
   async function doJoin() {
-    const ok = await rt.join(J.phone, J.name, inviteOf());
+    const ok = await rt.join(J.phone, J.name, inviteOf(), J.consent || undefined);
     if (ok) {
-      J.mode = ""; clearInterval(J.timer); clearWait();
+      J.mode = ""; J.msg = ""; clearInterval(J.timer); clearWait();
       if (TOKEN) { try { const u = new URLSearchParams(location.search); u.delete("t"); history.replaceState(null, "", location.pathname + (u.toString() ? "?" + u : "")); } catch {} } // the personal token leaves the address bar once it has done its job
       paint(); start(); return true;
     }
     const l = lastJoin || {}, b = l.body || {}, code = l.code || b.code || "";
     if (code === "did-not-start" || b.didNotStart) { INFO.dns = true; rt.error = null; clearInterval(J.timer); }
+    else if (code === "consent-required" || code === "terms-changed") {
+      if (b.consent && Array.isArray(b.consent.boxes)) K4.info = b.consent; // the fresh wording, drawn again unticked
+      K4.state = {}; J.consent = null; rt.error = null; if (J.mode === "waiting") J.mode = "";
+      J.msg = code === "terms-changed" ? "The terms have changed. Please read them and tick both boxes again." : "Please tick both boxes to join.";
+    }
+    else if (code === "closed" || /closed/i.test(String(rt.error || "")) || /closed/i.test(l.message || "")) { J.mode = "closed"; rt.error = null; clearInterval(J.timer); clearWait(); }
     else if (code === "removed") { J.mode = "removed"; rt.error = null; clearInterval(J.timer); }
     else if (code === "waiting" || b.waiting) { J.mode = "waiting"; J.wid = String(b.wid || J.wid || ""); J.who = String(b.with || J.who || "").slice(0, 60); J.note = String(b.error || l.message || "").slice(0, 300) || (code === "invite-full" ? "The person who invited you has used all their invitations, so your request has gone to the organizer." : ""); rt.error = null; saveWait(); waitPoll(); }
     else if (code === "declined" || b.declined) { J.mode = "declined"; rt.error = null; clearInterval(J.timer); }
@@ -154,36 +195,165 @@
     paint(); return false;
   }
 
-  const LET = ["B", "I", "N", "G", "O"];
-  const colOf = (n) => Math.floor((n - 1) / 15);
-  const lblOf = (n) => LET[colOf(n)] + " " + n; // "B 7", "G 52"
-  const TAP = () => rt.cfg && rt.cfg.mark === "tap"; // tap-to-daub is only a feeling: the software always decides the winners
-  const daubKey = (r, ci) => "cbz-daub:" + EID + ":" + r + ":" + ci;
-  const daubs = (r, ci) => new Set(readJson(daubKey(r, ci), []));
-  const freeHtml = () => (INFO.brand && INFO.brand.logo ? `<img class="zfl" alt="FREE" src="${esc(INFO.brand.logo)}">` : `<span>FREE</span>`);
-  /** One 5 x 5 card with the B I N G O heads. Auto-mark: a called number is marked. Tap-to-daub: a called number is marked once the guest taps it (a button then). The FREE square is always marked. */
-  const cardHtml = (t, called, label, win, round, ci) => {
-    const tap = TAP(), dset = tap ? daubs(round, ci) : null;
-    const heads = LET.map((l, c) => `<div class="h l${c}" aria-hidden="true">${l}</div>`).join("");
-    const cells = t.flat().map((v) => {
-      if (v === null) return `<div class="m free" role="img" aria-label="FREE square, already marked">${freeHtml()}</div>`;
-      const isCalled = called.has(v), marked = isCalled && (!tap || dset.has(v)), w = win && win.has(v) && isCalled ? " w" : "";
-      if (tap) return `<button type="button" class="c${marked ? " m" : isCalled ? " due" : ""}${w}" data-dn="${v}" data-dr="${round}" data-dc="${ci}" aria-pressed="${marked}" aria-label="${lblOf(v)}${isCalled ? (marked ? ", marked" : ", called, tap to mark") : ", not called yet"}">${v}</button>`;
-      return `<div class="c${marked ? " m" : ""}${w}" aria-label="${lblOf(v)}${marked ? ", marked" : ""}">${v}</div>`;
-    }).join("");
-    return `<div class="zticket" role="group" aria-label="${label}">${heads}${cells}</div>`;
-  };
+  // ---------- the board ----------
   const ordinalName = (k) => ["", "1st", "2nd", "3rd"][k] || k + "th";
   const KEYNAME = (key) => NAMES[key] || key;
-
-  function roundCards(v) {
-    let out = "";
-    if (v.intermission) out += `<div class="zcard zbreak" role="status"><h2>Round ${v.round} is over</h2><div style="font:700 20px var(--sans,inherit);margin:2px 0 4px">Round ${v.intermission.round} of ${v.rounds} starts in ${v.intermission.secondsLeft}s</div><div class="zsmall" style="margin:0">Everyone gets new cards and a fresh set of numbers.</div></div>`;
-    const earlier = (v.past || []).filter((p) => p.got.length);
-    if (earlier.length) out += `<div class="zcard"><h2>Earlier rounds</h2>${earlier.map((p) => `<div class="zrow"><span>Round ${p.round}</span><em>${p.got.map((g) => esc((g.ordinal > 1 ? ordinalName(g.ordinal) + " " : "") + KEYNAME(g.pattern))).join(", ")}</em></div>`).join("")}</div>`;
+  const seatOf = (pid) => { const m = /^(\d+)x/.exec(pid || ""); return m ? Number(m[1]) : 0; };
+  const f2 = (n) => Math.round(n * 100) / 100;
+  const msOf = (v) => {
+    const size = v.board ? v.board.size : 100, m = v.cfg && Array.isArray(v.cfg.milestones) && v.cfg.milestones.length ? v.cfg.milestones : [ZG.DEFAULT_MILESTONE];
+    return m.filter((n) => Number.isInteger(n) && n > 1 && n < size);
+  };
+  const ctr = (s, side) => { const p = ZG.squareXY(s, side); return { x: p.col + 0.5, y: side - 1 - p.row + 0.5 }; }; // row 0 is the BOTTOM row
+  function ladderSvg(a, b, side) {
+    const p = ctr(a, side), r = ctr(b, side), dx = r.x - p.x, dy = r.y - p.y, len = Math.hypot(dx, dy) || 1, nx = (-dy / len) * 0.13, ny = (dx / len) * 0.13;
+    let out = `<line class="rail" x1="${f2(p.x + nx)}" y1="${f2(p.y + ny)}" x2="${f2(r.x + nx)}" y2="${f2(r.y + ny)}"/><line class="rail" x1="${f2(p.x - nx)}" y1="${f2(p.y - ny)}" x2="${f2(r.x - nx)}" y2="${f2(r.y - ny)}"/>`;
+    const n = Math.max(2, Math.floor(len / 0.6));
+    for (let i = 1; i < n; i++) { const t = i / n, cx = p.x + dx * t, cy = p.y + dy * t; out += `<line class="rung" x1="${f2(cx + nx)}" y1="${f2(cy + ny)}" x2="${f2(cx - nx)}" y2="${f2(cy - ny)}"/>`; }
     return out;
   }
-  // A scratch card is the same fair draw as a lucky draw (the winners are fixed by the public numbers before anyone scratches); only the reveal differs.
+  function snakeSvg(head, tail, side) {
+    const p = ctr(head, side), r = ctr(tail, side), dx = r.x - p.x, dy = r.y - p.y, len = Math.hypot(dx, dy) || 1, k = Math.min(1.1, len * 0.28), nx = (-dy / len) * k, ny = (dx / len) * k;
+    const c1 = { x: p.x + dx / 3 + nx, y: p.y + dy / 3 + ny }, c2 = { x: p.x + (2 * dx) / 3 - nx, y: p.y + (2 * dy) / 3 - ny };
+    return `<path class="snk" d="M${f2(p.x)} ${f2(p.y)} C${f2(c1.x)} ${f2(c1.y)} ${f2(c2.x)} ${f2(c2.y)} ${f2(r.x)} ${f2(r.y)}"/><circle class="snkhead" cx="${f2(p.x)}" cy="${f2(p.y)}" r="0.2"/><circle class="snkdot" cx="${f2(r.x)}" cy="${f2(r.y)}" r="0.1"/>`;
+  }
+  /** Square cells (classes place them: gcN = column, grN = row from the top) plus an SVG layer for the ladders and snakes. `pawns` maps a square to a list of seats (table mode). */
+  function boardHtml(v, pawns, label) {
+    const b = v.board, side = b.side, size = b.size, ms = msOf(v), me = v.me ? v.me.square : 0, table = !!pawns;
+    let cells = "", lines = "";
+    for (let s = 1; s <= size; s++) {
+      const { col, row } = ZG.squareXY(s, side);
+      const lad = b.ladders[s], snk = b.snakes[s], isMs = ms.includes(s), isEnd = s === size, mine = !table && s === me, here = table ? pawns[s] || [] : [];
+      const lab = ["Square " + s];
+      if (lad !== undefined) lab.push("ladder to " + lad);
+      if (snk !== undefined) lab.push("snake to " + snk);
+      if (isMs) lab.push("milestone");
+      if (isEnd) lab.push("last square");
+      if (mine) lab.push("you are here");
+      for (const seat of here) lab.push(seat === v.seat ? "you are here" : nickOf(seat) + " is here");
+      const cls = ["sq", "gc" + (col + 1), "gr" + (side - row)];
+      if ((col + row) % 2) cls.push("a");
+      if (lad !== undefined) cls.push("lb"); if (snk !== undefined) cls.push("sh"); if (isMs) cls.push("ms"); if (isEnd) cls.push("end"); if (mine || here.includes(v.seat)) cls.push("me");
+      const marks = (isMs ? `<span class="mk mk1">&#9733;</span>` : isEnd ? `<span class="mk mk1">&#9873;</span>` : "") + (lad !== undefined ? `<span class="mk mk2">&#9650;</span>` : snk !== undefined ? `<span class="mk mk2">&#9660;</span>` : "");
+      const pw = mine ? `<i class="pawn me"></i>` : here.slice(0, 2).map((seat) => `<i class="pawn t${seat === v.seat ? " me" : ""}">${seat}</i>`).join("") + (here.length > 2 ? `<i class="pawn t more">+${here.length - 2}</i>` : "");
+      cells += `<div class="${cls.join(" ")}" role="listitem" aria-label="${esc(lab.join(", "))}"><b>${s}</b>${marks}${pw}</div>`;
+    }
+    for (const a of Object.keys(b.ladders).map(Number).sort((x, y) => x - y)) lines += ladderSvg(a, b.ladders[a], side);
+    for (const h of Object.keys(b.snakes).map(Number).sort((x, y) => x - y)) lines += snakeSvg(h, b.snakes[h], side);
+    return `<div class="sqwrap"><div class="sqgrid g${side}" role="list" aria-label="${esc(label)}">${cells}</div><svg class="sqsvg" viewBox="0 0 ${side} ${side}" aria-hidden="true" focusable="false">${lines}</svg></div>`;
+  }
+  function boardCard(v) {
+    const b = v.board;
+    if (!b) return v.phase === "play" && !v.ended && !isWaiting(v) ? `<div class="zcard"><h2>${v.kind === "table" ? "The shared board" : "Your board"}</h2><p class="zsmall zflush">Getting the board ready…</p></div>` : "";
+    const table = v.kind === "table" && v.table, ms = msOf(v);
+    let pawns = null;
+    if (table) { pawns = {}; for (const p of v.table.squares) (pawns[p.square] = pawns[p.square] || []).push(p.seat); }
+    const lad = Object.keys(b.ladders).map(Number).sort((x, y) => x - y).map((a) => a + " to " + b.ladders[a]).join(", ");
+    const snk = Object.keys(b.snakes).map(Number).sort((x, y) => x - y).map((h) => h + " to " + b.snakes[h]).join(", ");
+    let pos = "";
+    if (table) {
+      const wt = v.table.whoseTurn;
+      pos = wt === null || v.ended ? "" : wt === v.seat ? `<b>It is your turn to throw.</b> ` : `It is ${esc(nickOf(wt))}'s turn to throw. `;
+      pos += v.me ? `You are on square <b>${v.me.square}</b> of ${b.size}.` : "";
+    } else if (v.me) {
+      pos = v.me.finishedTurn !== null ? `<b>You are home.</b> You reached square ${b.size} on turn ${v.me.finishedTurn + 1}.` : `You are on square <b>${v.me.square}</b> of ${b.size}. Ladders climbed: ${v.me.ladders}. Snakes met: ${v.me.snakes}.`;
+    }
+    const lab = (table ? "Shared board, " : "Your board, ") + b.size + " squares. Square 1 is at the bottom left and the rows zig-zag upwards.";
+    return `<div class="zcard zboardcard"><h2>${table ? "The shared board" : "Your board"}</h2>
+      ${pos ? `<p class="zpos" role="status">${pos}</p>` : ""}
+      ${boardHtml(v, pawns, lab)}
+      <p class="zsmall zleg">&#9733; milestone square ${ms.length ? esc(ms.join(", ")) : "none"} &middot; &#9873; last square ${b.size} &middot; &#9650; ladder, goes up &middot; &#9660; snake, goes down${table ? " &middot; numbered dots are players" : ""}</p>
+      <p class="zsmall zlist2" id="ladlist"><b>Ladders:</b> ${esc(lad || "none")}.</p>
+      <p class="zsmall zlist2" id="snklist"><b>Snakes:</b> ${esc(snk || "none")}.</p></div>`;
+  }
+
+  // ---------- the dice card: countdown ring, the last throw, the Throw button (presence mode) ----------
+  const THROW = { busy: false, note: "" };
+  const PIPS = { 1: [4], 2: [0, 8], 3: [0, 4, 8], 4: [0, 2, 6, 8], 5: [0, 2, 4, 6, 8], 6: [0, 2, 3, 5, 6, 8] };
+  const dieHtml = (roll) => `<div class="die" role="img" aria-label="You rolled ${roll}">${Array.from({ length: 9 }, (_, i) => `<i class="pip${(PIPS[roll] || []).includes(i) ? " on" : ""}"></i>`).join("")}</div>`;
+  function ringHtml(secs, total, label) {
+    const R = 20, C = 2 * Math.PI * R, frac = total > 0 && secs !== null ? Math.max(0, Math.min(1, secs / total)) : 1;
+    return `<div class="zring" role="img" aria-label="${esc(label)}"><svg viewBox="0 0 48 48" aria-hidden="true" focusable="false"><circle class="bg" cx="24" cy="24" r="${R}"/><circle class="fg" cx="24" cy="24" r="${R}" stroke-dasharray="${f2(C * frac)} ${f2(C)}" transform="rotate(-90 24 24)"/></svg><span>${secs === null ? "&ndash;" : secs}</span></div>`;
+  }
+  function stepText(s) {
+    if (!s) return "";
+    if (s.kind === "ladder") return `A ladder! You climb from square ${s.landed} up to square ${s.to}.`;
+    if (s.kind === "snake") return `A snake! You slide from square ${s.landed} down to square ${s.to}.`;
+    if (s.kind === "overshoot") return `Too many for the last square. You stay on square ${s.from}.`;
+    if (s.kind === "finish") return "You are home! You landed on the last square.";
+    return `You move from square ${s.from} to square ${s.to}.`;
+  }
+  function diceCard(v) {
+    if (v.phase !== "play" || (!v.board && v.kind !== "table" && !v.me)) return "";
+    const t = v.turn, presence = v.cfg.play === "presence", me = v.me, s = me && me.lastStep;
+    const tableOther = v.kind === "table" && v.table && v.table.whoseTurn !== v.seat;
+    const home = !!me && me.finishedTurn !== null;
+    let state, ring = "";
+    if (v.ended || t.state === "over") state = "The game is over.";
+    else if (t.state === "wait") { state = t.secondsLeft === null ? "Getting ready…" : `Turn ${t.index + 1} opens in ${t.secondsLeft} seconds.`; ring = ringHtml(t.secondsLeft, 0, state); }
+    else if (t.state === "open") {
+      state = presence ? (home ? "You are home. Nothing left to throw." : tableOther ? "Waiting for the other player to throw." : `Turn ${t.index + 1} is open. Press Throw before the window closes.`) : `Turn ${t.index + 1}. Your throw happens by itself when the window closes.`;
+      ring = ringHtml(t.secondsLeft, t.windowSec, `${t.secondsLeft} seconds left in this turn`);
+    } else { state = `Turn ${t.index + 1}: the dice are thrown.`; ring = ringHtml(t.secondsLeft, 0, `Next turn in ${t.secondsLeft} seconds`); }
+    const canThrow = presence && t.state === "open" && !t.thrown && !home && !tableOther && !THROW.busy;
+    const throwBtn = presence && !v.ended ? `<button class="zbtn" id="throw" type="button"${canThrow ? "" : " disabled"}>${THROW.busy ? "Throwing…" : t.state === "open" && t.thrown && !home && !tableOther ? "Thrown. Wait for the result" : "Throw"}</button>${THROW.note ? `<div class="zbanner bad" role="alert">${esc(THROW.note)}</div>` : ""}` : "";
+    const last = s ? `<div class="zthrow">${dieHtml(s.roll)}<div><div class="zrolled">You rolled <b>${s.roll}</b></div><div class="zsmall zflush">${esc(stepText(s))}</div></div></div>` : (v.ended ? "" : `<p class="zsmall zflush">${v.turnsPlayed ? "You have not thrown yet." : "Your first throw comes with the first turn."}</p>`);
+    const missed = presence && me ? `<p class="zsmall zmissed">${me.missed ? `You missed ${plural(me.missed, "turn", "turns")}.` : "You have not missed a turn."}</p>` : "";
+    const tableLine = v.kind === "table" && v.table && v.table.whoseTurn !== null && !v.ended ? `<p class="zsmall zflush">${v.table.whoseTurn === v.seat ? "It is your turn." : "It is " + esc(nickOf(v.table.whoseTurn)) + "'s turn."} Turn ${v.turnsPlayed + 1} of at most ${v.turnCap}.</p>` : "";
+    return `<div class="zcard zdice"><h2>The dice</h2>
+      <div class="zdicetop">${ring}<div class="zstate" role="status"><b>${esc(state)}</b>${v.kind === "table" ? "" : `<div class="zsmall zflush">Turn ${Math.min(v.turnsPlayed + (v.ended ? 0 : 1), v.turnCap)} of at most ${v.turnCap}.</div>`}</div></div>
+      ${tableLine}${throwBtn}${last}${missed}</div>`;
+  }
+
+  // ---------- the crowd strip, the standings and the team table ----------
+  function crowdCard(v) {
+    const c = v.crowd; if (!c || !c.players) return "";
+    const size = v.board ? v.board.size : 100, per = size / 10, max = Math.max(1, ...c.bands);
+    const mine = v.me && v.kind !== "table" ? Math.min(9, Math.floor((v.me.square - 1) / per)) : -1;
+    const bars = c.bands.map((n, i) => {
+      const from = Math.floor(i * per) + 1, to = Math.round((i + 1) * per), h = n ? Math.max(1, Math.round((n / max) * 20)) : 0;
+      return `<div class="cbar${i === mine ? " me" : ""}" role="img" aria-label="Squares ${from} to ${to}: ${plural(n, "player", "players")}${i === mine ? ", your band" : ""}"><em>${n}</em><span class="bh bh${h}"></span><small>${from}</small></div>`;
+    }).join("");
+    const ahead = v.kind !== "table" && v.me ? `, you are ahead of <b>${c.ahead}%</b> of players` : "";
+    return `<div class="zcard"><h2>The crowd</h2><div class="zcrowd" role="group" aria-label="Where the players are, in ten bands of the board. The number under a bar is the first square of its band.">${bars}</div>
+      <p class="zsmall zcrowdtxt">${plural(c.players, "player", "players")}, ${c.finished} home${ahead}.</p></div>`;
+  }
+  function standingsCard(v) {
+    if (!v.top || !v.top.length) return "";
+    const rows = v.top.map((r) => `<li class="zrk${r.seat === v.seat ? " you" : ""}"><span class="zr">${r.rank}</span><span class="zn">${esc(nickOf(r.seat))}${r.seat === v.seat ? " <em>(you)</em>" : ""}${r.note ? `<small class="zsmall zflush">${esc(r.note)}</small>` : ""}</span><span class="zq">${r.finishedTurn !== null ? "home, turn " + (r.finishedTurn + 1) : "square " + r.square}</span></li>`).join("");
+    const inTop = v.top.some((r) => r.seat === v.seat);
+    const mine = v.myRank !== null && v.myRank !== undefined && !inTop ? `<p class="zsmall zmyrank">Your place: <b>${v.myRank}</b>${v.crowd ? " of " + v.crowd.players : ""}.</p>` : "";
+    return `<div class="zcard"><h2>Standings</h2><ol class="zstand">${rows}</ol>${mine}</div>`;
+  }
+  function teamCard(v) {
+    if (v.kind !== "team" || !v.team || !v.team.rows || !v.team.rows.length) return "";
+    const rows = v.team.rows.slice().sort((a, b) => a.rank - b.rank).map((r) => `<tr class="${v.team.mine === r.team ? "you" : ""}"><th scope="row">Team ${r.team + 1}${v.team.mine === r.team ? " (yours)" : ""}</th><td>${r.members.length}</td><td>${(Math.round(r.avgSquare * 10) / 10).toFixed(1)}</td><td>${r.finishedTurn !== null ? "turn " + (r.finishedTurn + 1) : "&ndash;"}</td></tr>`).join("");
+    return `<div class="zcard"><h2>Team race</h2>${v.team.mine !== null && v.team.mine !== undefined ? `<p class="zsmall zflush zgap">Your team: <b>${v.team.mine + 1}</b></p>` : ""}<table class="ztable"><thead><tr><th scope="col">Team</th><th scope="col">Players</th><th scope="col">Average square</th><th scope="col">Home</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  }
+
+  // ---------- prizes: what can be won, and what is decided ----------
+  const lineName = (cfg, key, ordinal) => (ZG.linesFor(cfg.rewards, key).length > 1 ? ordinalName(ordinal) + " " : "") + KEYNAME(key);
+  function howFor(v, key, line) {
+    if (key === "milestone") { const sq = msOf(v)[line.ordinal - 1]; if (sq) return `The first player on or past square ${sq}.`; }
+    if (key === "finish") return `Land exactly on the last square${v.board ? " (" + v.board.size + ")" : ""}. The first five players home win 1st to 5th.`;
+    return HOW[key] || "";
+  }
+  function prizeList(v) {
+    const out = [];
+    for (const key of ZG.keysInPlay(v.cfg.rewards)) for (const line of ZG.linesFor(v.cfg.rewards, key)) out.push({ key, line, name: lineName(v.cfg, key, line.ordinal), how: howFor(v, key, line), text: line.text || "" });
+    return out;
+  }
+  function prizesStatusCard(v) {
+    const list = prizeList(v); if (!list.length) return "";
+    const rows = list.map((p) => {
+      const res = (v.results || []).find((r) => r.pattern === p.key && r.ordinal === p.line.ordinal);
+      const right = res && res.winners && res.winners.length ? ((res.winners || []).includes(v.pid) ? `<em>Yours${res.tied > 1 ? " &middot; decided by fate" : ""}</em>` : `<i>Awarded</i>`) : `<i>not decided yet</i>`;
+      return `<div class="zrow"><span>${esc(p.name)}${p.text ? `<br><small class="zsmall zflush">${esc(p.text)}</small>` : ""}${p.how ? `<br><small class="zsmall zflush zhow">${esc(p.how)}</small>` : ""}</span>${right}</div>`;
+    }).join("");
+    return `<div class="zcard"><h2>Prizes</h2>${rows}</div>`;
+  }
+
+  // A lucky draw is the same fair draw whatever it looks like (the winners are fixed by public values before anyone scratches); only the reveal differs.
   const scratched = new Set(), seenAt = {};
   function luckyCard(v) {
     if (!v.lucky.length) return "";
@@ -196,37 +366,39 @@
         const open = scratched.has(l.ordinal) || Date.now() - seenAt[l.ordinal] > 45000; // it opens by itself after 45 seconds
         right = open ? (l.won ? `<em>You won!</em>` : `<i>Not this time</i>`) : `<button class="zscratch" data-scr="${l.ordinal}" aria-label="Scratch to reveal">Scratch here</button>`;
       } else right = l.won ? `<em>You won!</em>` : `<i>Not this time</i>`;
-      return `<div class="zrow"><span>${esc(l.title)}<br><small class="zsmall" style="margin:0">${l.winners} ${l.winners === 1 ? "person is" : "people are"} picked at random${l.style === "scratch" ? " · scratch card" : ""}</small></span>${right}</div>`;
+      return `<div class="zrow"><span>${esc(l.title)}<br><small class="zsmall zflush">${l.winners} ${l.winners === 1 ? "person is" : "people are"} picked at random${l.style === "scratch" ? " &middot; scratch card" : ""}</small></span>${right}</div>`;
     }).join("");
     return `<div class="zcard"><h2>${scr ? "Scratch card" : "Lucky draw"}</h2>${rows}</div>`;
   }
   function icsFor(v) {
     const ms = (1692803367 + (v.scheduledRound - 1) * 3) * 1000, f = (d) => new Date(d).toISOString().replace(/[-:]/g, "").replace(/\.\d+/, "");
-    const text = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Corporate Snakes and Ladders//EN", "BEGIN:VEVENT", "UID:" + EID + "@corporate-snakes-and-ladders", "DTSTAMP:" + f(Date.now()), "DTSTART:" + f(ms), "DTEND:" + f(ms + 45 * 60000), "SUMMARY:Corporate Snakes and Ladders engagement", "DESCRIPTION:Open " + location.origin + "/z?e=" + EID + " a few minutes early.", "END:VEVENT", "END:VCALENDAR"].join("\r\n");
+    const text = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Corporate Snakes and Ladders//EN", "BEGIN:VEVENT", "UID:" + EID + "@corporate-snakes-and-ladders", "DTSTAMP:" + f(Date.now()), "DTSTART:" + f(ms), "DTEND:" + f(ms + 45 * 60000), "SUMMARY:Corporate Snakes and Ladders game", "DESCRIPTION:Open " + location.origin + "/z?e=" + EID + " a few minutes early.", "END:VEVENT", "END:VCALENDAR"].join("\r\n");
     return "data:text/calendar;charset=utf-8," + encodeURIComponent(text);
   }
-  /** Before the first number: what to expect, what can be won, a sound check and a calendar entry. Everything here is known at boot, so it costs no extra requests. */
+  /** True while the first turn has not opened yet (and no break or hold is showing): the waiting room is shown instead of the dice. */
+  const isWaiting = (v) => v.phase === "play" && !v.locked && !v.brk && v.turnsPlayed === 0 && v.turn.state === "wait" && v.turn.secondsLeft !== null && v.turn.secondsLeft > 0;
+  /** Before the first turn: what to expect, what can be won, the rules, a sound check and a calendar entry. Everything here is known at boot, so it costs no extra requests. */
   function waitingRoom(v) {
-    if (v.phase !== "play" || v.locked || v.late || v.log.length || v.nextCallInSec === null || v.nextCallInSec <= 0 || v.round > 1) return "";
-    if (DEMO) return DEMO.running ? `<div class="zcard zwait"><h2>Starting in <span id="cd">${Math.max(0, v.nextCallInSec)}</span> seconds</h2><p class="zsmall" style="margin:0">Watch your card below: each number is marked for you.</p></div>` : "";
+    if (!isWaiting(v)) return "";
     const ms = (1692803367 + (v.scheduledRound - 1) * 3) * 1000;
     const when = new Date(ms).toLocaleString(undefined, { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
-    const prizes = ZG.keysInPlay(v.cfg.rewards).map((key) => ZG.linesFor(v.cfg.rewards, key).map((line) => `<li>${esc((ZG.linesFor(v.cfg.rewards, key).length > 1 ? ordinalName(line.ordinal) + " " : "") + KEYNAME(key))}${line.text ? ": <b>" + esc(line.text) + "</b>" : ""}<br>${howLine(key)}</li>`).join("")).join("");
-    const toFirst = v.nextCallInSec, setup = toFirst <= GRACE_SECS;
+    const prizes = prizeList(v).map((p) => `<li>${esc(p.name)}${p.text ? ": <b>" + esc(p.text) + "</b>" : ""}${p.how ? `<br><small class="zsmall zflush zhow">${esc(p.how)}</small>` : ""}</li>`).join("");
+    const toFirst = v.turn.secondsLeft, setup = toFirst <= GRACE_SECS;
     const top = setup
-      ? `<h2>Your game is setting up</h2><div class="zsetup">We are waiting 2 minutes more for everyone to join.</div><div class="zcount" aria-live="off" id="cd">${clock(toFirst)}</div><p class="zsmall" style="margin-top:0">until the first number. Keep this page open: the numbers appear on their own.</p>`
-      : `<h2>You are in. See you at ${esc(when)}</h2><div class="zsmall" style="margin:0">Starting in</div><div class="zcount" aria-live="off" id="cd">${clock(toFirst - GRACE_SECS)}</div><p class="zsmall" style="margin-top:0">hours : minutes : seconds. Keep this page open: the numbers appear on their own.</p>`;
+      ? `<h2>Your game is setting up</h2><div class="zsetup">Sign-up has closed. The first turn comes in a moment.</div><div class="zcount" aria-live="off" id="cd">${clock(toFirst)}</div><p class="zsmall zflush">until the first turn. Keep this page open: the game moves by itself.</p>`
+      : `<h2>You are in. See you at ${esc(when)}</h2><div class="zsmall zflush">Starting in</div><div class="zcount" aria-live="off" id="cd">${clock(toFirst - GRACE_SECS)}</div><p class="zsmall zflush">hours : minutes : seconds. Keep this page open: the game moves by itself.</p>`;
+    const secs = v.callSeconds || 20;
+    const rules = [v.kind === "table" ? "1. Everyone plays on one shared board and takes turns." : "1. You have your own board. Nobody else has the same one.", `2. Every turn lasts about ${secs} seconds. Your throw is the dice for that turn.`, "3. Snakes take you down. Ladders take you up.", "4. To finish you need the exact number to land on the last square.", "5. The software checks everything. Nobody can change a result."];
     return `<div class="zcard zwait">${top}
       ${prizes ? `<h3>What you can win</h3><ul class="zlist">${prizes}</ul>` : ""}
-      <h3>How it works</h3><ol class="zlist"><li>Your card is below: 5 x 5 with the letters B I N G O, and FREE in the middle. Numbers are called one by one as a letter and a number, like G 52.</li><li>When your card completes a prize pattern you will see it. The software checks every card, so you do not need to shout Bingo.</li><li>The organizer hands over the rewards.</li></ol>
-      <button class="zbtn s alt" id="soundtest">Check my sound</button><a class="zbtn s alt" id="addcal" download="engagement.ics" href="${icsFor(v)}">Add to my calendar</a></div>`;
+      <h3>The rules</h3><ul class="zlist zrules">${rules.map((r) => `<li>${esc(r)}</li>`).join("")}</ul>
+      <button class="zbtn s alt" id="soundtest" type="button">Check my sound</button><a class="zbtn s alt" id="addcal" download="game.ics" href="${icsFor(v)}">Add to my calendar</a></div>`;
   }
 
   // ---------- winners: a prize record that stays on this phone, the hurray, the final thank-you ----------
   const prizeKey = "cbz-prizes:" + EID;
   const readJson = (k, d) => { try { const v = JSON.parse(store.get(k) || ""); return v || d; } catch { return d; } };
   const winId = (w) => w.round + ":" + w.pattern + ":" + w.ordinal;
-  const lineName = (cfg, key, ordinal) => (ZG.linesFor(cfg.rewards, key).length > 1 ? ordinalName(ordinal) + " " : "") + KEYNAME(key);
   let PRIZES = [];
   const celebrated = new Set();
   function syncPrizes(v) {
@@ -289,9 +461,9 @@
   function confirmCard(v) {
     if (DEMO || v.phase !== "ended" || !PRIZES.length) return "";
     if (!CF.loaded) return `<div class="zcard"><h2>Confirm where your prize goes</h2><p class="zsmall">Waiting for your result to be confirmed by the other phones. This takes a moment.</p></div>`;
-    if (CF.confirmed && !CF.editing) return `<div class="zcard"><h2>Details confirmed</h2><p style="margin:4px 0"><b>${esc(CF.name)}</b> &middot; ${esc(CF.phone)}</p><p class="zsmall">Your organizer has these details. <button class="zsnd" id="cfedit">Change</button></p></div>`;
+    if (CF.confirmed && !CF.editing) return `<div class="zcard"><h2>Details confirmed</h2><p class="zgap"><b>${esc(CF.name)}</b> &middot; ${esc(CF.phone)}</p><p class="zsmall">Your organizer has these details. <button class="zsnd" id="cfedit">Change</button></p></div>`;
     return `<div class="zcard zform"><h2>Confirm your prize details</h2>
-      <p class="zsmall" style="margin:0 0 6px">Your organizer will use this name to hand over your prize. Please check them and correct anything that is wrong. If you change them, your organizer and co-host will see both what you joined with and what you changed it to.</p>
+      <p class="zsmall zflush zgap">Your organizer will use this name to hand over your prize. Please check them and correct anything that is wrong. If you change them, your organizer and co-host will see both what you joined with and what you changed it to.</p>
       <label for="cfnm">Your name</label><input id="cfnm" autocomplete="name" maxlength="60" value="${esc(CF.name)}">
       <label for="cfph">Your mobile number (optional)</label><input id="cfph" inputmode="tel" autocomplete="tel" value="${esc(CF.phone)}">
       ${CF.note ? `<div class="zbanner ${CF.note.startsWith("Thank") ? "ok" : "bad"}" role="alert">${esc(CF.note)}</div>` : ""}
@@ -304,37 +476,27 @@
     if (ph) ph.oninput = () => { CF.phone = ph.value; CF.edited = true; };
     if (go) go.onclick = async () => {
       CF.busy = true; CF.note = ""; paint();
-      try { const r = await api("POST", `/api/z/${EID}/confirm`, { pid: v.pid, device: myDevice(), name: CF.name, phone: CF.phone }); CF.confirmed = true; CF.editing = false; CF.edited = false; CF.note = ""; CF.last = 0; }
+      try { await api("POST", `/api/z/${EID}/confirm`, { pid: v.pid, device: myDevice(), name: CF.name, phone: CF.phone }); CF.confirmed = true; CF.editing = false; CF.edited = false; CF.note = ""; CF.last = 0; }
       catch (e) { CF.note = (e && e.message) || "Could not save. Please try again."; }
       CF.busy = false; paint();
     };
   }
   function prizesCard() {
     if (!PRIZES.length) return "";
-    const rows = PRIZES.slice().sort((a, b) => a.round - b.round).map((w) => `<div class="zrow"><span>${esc(w.name)}${w.text ? `<br><small class="zsmall" style="margin:0">${esc(w.text)}</small>` : ""}${HOW[w.pattern] ? "<br>" + howLine(w.pattern) : ""}</span><em>${w.pattern === "lucky" ? "Lucky draw" : "Round " + w.round}</em></div>`).join("");
-    return `<div class="zcard zprizes"><h2>Your prizes</h2>${rows}<p class="zsmall" style="margin:6px 0 0">Saved on this phone. Show this to your organizer to collect.</p></div>`;
+    const rows = PRIZES.slice().sort((a, b) => a.round - b.round).map((w) => `<div class="zrow"><span>${esc(w.name)}${w.text ? `<br><small class="zsmall zflush">${esc(w.text)}</small>` : ""}${HOW[w.pattern] ? "<br>" + howLine(w.pattern) : ""}</span><em>${w.pattern === "lucky" ? "Lucky draw" : "Prize"}</em></div>`).join("");
+    return `<div class="zcard zprizes"><h2>Your prizes</h2>${rows}<p class="zsmall">Saved on this phone. Show this to your organizer to collect.</p></div>`;
   }
   let shareLink = location.origin + "/";
   try { localStorage.removeItem("cbz-phone"); } catch {} // older versions saved the participant's own number on the phone: it is not kept any more
-  function demoCard(v) {
-    if (!DEMO || v.phase === "ended") return "";
-    if (!DEMO.running) return `<div class="zcard zdemo" role="note"><h2>Free demo <span class="zdemotag">DEMO</span></h2><p class="zsmall" style="margin:0 0 10px">This is a real card and a real game, about a minute long: 3 numbers, a short break with your host's message, 3 more numbers, and you win <b>Four corners</b> (the four corner squares of your card). Turn your sound on, then press the button.</p><button class="zbtn" id="drun" type="button">Run Demo</button> <button class="zbtn s alt" id="dcopy" type="button">Copy the demo link to send to a colleague</button></div>`;
-    return `<div class="zcard zdemo" role="note"><span class="zdemotag">DEMO</span> <span class="zsmall">A sample game is running. Nothing is saved and nothing is charged.</span> <button class="zbtn s alt" id="dagain" type="button">Run demo again</button></div>`;
-  }
-  function bindDemo() {
-    if (!DEMO) return;
-    for (const id of ["drun", "dagain", "dagain2"]) { const b = document.getElementById(id); if (b) b.onclick = () => DEMO.run(); }
-    for (const id of ["dcopy", "dcopy2"]) { const b = document.getElementById(id); if (b) b.onclick = async () => { const link = location.origin + "/demo.html"; try { await navigator.clipboard.writeText(link); b.textContent = "Link copied: " + link; } catch { b.textContent = "Send this link: " + link; } }; } // the plain address: whoever opens it runs their own demo
-  }
   function finalCard(v) {
-    if (DEMO) return `<div class="zcard zfinal"><h2>That was the demo <span class="zdemotag">DEMO</span></h2><div class="zfbig">${PRIZES.length ? "You won Four corners." : "You saw how a game runs."}</div><p class="zsmall" style="font-size:15px;margin:6px 0 10px">A real game calls 75 numbers, has many prizes, your own brand messages and videos, lucky draws and a report. You build it in about five minutes and nobody pays until you are ready.</p><a class="zbtn" style="display:inline-flex;align-items:center;text-decoration:none" href="/">Create my game</a> <button class="zbtn s alt" id="dagain2" type="button">Run demo again</button> <button class="zbtn s alt" id="dcopy2" type="button">Copy the demo link</button></div>`;
     const n = PRIZES.length;
+    const place = v.me && v.me.finishedTurn !== null ? `You reached the last square on turn ${v.me.finishedTurn + 1}.` : v.me ? `You finished on square ${v.me.square}.` : "";
     return `<div class="zcard zfinal"><h2>Game complete</h2>
       <div class="zfbig">Thank you for joining our extended family of Corporate Snakes and Ladders.</div>
-      <p class="zsmall" style="font-size:15px;margin:6px 0 10px">${n ? "You won " + n + " prize" + (n === 1 ? "" : "s") + ". They are listed below and stay on this phone." : "Every game is a good game. We hope you had fun, and we would love to see you at the next one."}</p>
+      <p class="zsmall zbigger">${place}${v.myRank ? " Your final place: " + v.myRank + "." : ""} ${n ? "You won " + n + " prize" + (n === 1 ? "" : "s") + ". They are listed below and stay on this phone." : "Every game is a good game. We hope you had fun, and we would love to see you at the next one."}</p>
       <button class="zbtn" id="shr">Share with friends and colleagues</button>
-      <a class="zbtn s alt" style="display:inline-flex;align-items:center;text-decoration:none;margin-top:8px" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent("I just played Corporate Snakes and Ladders with my team. Bring it to your company: " + shareLink)}">WhatsApp</a>
-      <p class="zsmall" style="margin:10px 0 0"><a href="/partner.html?from=card">Earn 50% by sharing: Refer &amp; earn</a></p></div>`;
+      <a class="zbtn s alt zlinkbtn" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent("I just played Corporate Snakes and Ladders with my team. Bring it to your company: " + shareLink)}">WhatsApp</a>
+      <p class="zsmall"><a href="/partner.html?from=card">Earn 50% by sharing: Refer &amp; earn</a></p></div>`;
   }
   function bindShare() {
     const b = document.getElementById("shr"); if (!b) return;
@@ -401,15 +563,8 @@
   }
   addEventListener("resize", placeMedia);
 
-  /** Joined after the first number: what that means, then the countdown to this phone's own first number. */
-  function lateCard(v) {
-    const l = v.late; if (!l) return "";
-    if (l.secondsUntil > 0) return `<div class="zcard zbreak" role="status"><h2>You joined after the game began</h2><div class="zsetup">Numbers called before you joined are gone, and prizes already awarded stay awarded.</div><div class="zcount" aria-live="off">${clock(l.secondsUntil)}</div><p class="zsmall" style="margin:0">until your numbers start. Your card is ready below.</p></div>`;
-    return `<div class="zcard"><div class="zsmall" style="margin:0">You joined after the game began, so you play from your first number. ${l.hidden} number${l.hidden === 1 ? " was" : "s were"} called before you.</div></div>`;
-  }
   // ---------- invite your colleagues / family members (when the organizer allows it) ----------
   let inviteCat = "", inviteInfo = null, inviteAt = -Infinity;
-  const seatOf = (pid) => { const m = /^(\d+)x/.exec(pid || ""); return m ? Number(m[1]) : 0; };
   async function loadInvites(v) {
     if (!v.pid || !(v.cfg.invites && v.cfg.invites.on) || performance.now() - inviteAt < 45000) return;
     inviteAt = performance.now();
@@ -427,19 +582,19 @@
     const counter = unl ? "You can invite as many people as you like." : `You can invite up to <b>${iv.per}</b> people. You have invited <b>${used}</b>${left ? `, so <b>${left}</b> ${left === 1 ? "invitation is" : "invitations are"} left` : ". You have used all your invitations"}.`;
     const chips = cats.map((c) => `<button type="button" class="zchip${c.id === inviteCat ? " on" : ""}" data-icat="${esc(c.id)}">${esc(c.label)}</button>`).join("");
     const link = inviteLink(v), kind = (cats.find((c) => c.id === inviteCat) || cats[0]).label.toLowerCase();
-    const text = "Join me for Corporate Snakes and Ladders! Open this link, enter your name and you get your own card: " + link;
+    const text = "Join me for Corporate Snakes and Ladders! Open this link, enter your nickname and you get your own board: " + link;
     return `<div class="zcard zinvite"><h2>Invite your colleagues / family members</h2>
-      <p class="zsmall" style="margin:0 0 8px">${counter}</p>
-      ${!unl && !left ? "" : `<div class="zsmall" style="margin:0 0 4px">Who are you inviting?</div><div class="zchips">${chips}</div>
-      <div class="zlink" id="invlink" style="margin-top:8px">${esc(link)}</div>
+      <p class="zsmall zflush zgap">${counter}</p>
+      ${!unl && !left ? "" : `<div class="zsmall zflush">Who are you inviting?</div><div class="zchips">${chips}</div>
+      <div class="zlink" id="invlink">${esc(link)}</div>
       <button class="zbtn s" id="invshare">Share invitation (${esc(kind)})</button>
-      <a class="zbtn s alt" style="display:inline-flex;align-items:center;text-decoration:none" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent(text)}">WhatsApp</a>
+      <a class="zbtn s alt zlinkbtn" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent(text)}">WhatsApp</a>
       <button class="zbtn s alt" id="invcopy">Copy link</button>
-      <p class="zsmall" style="margin:8px 0 0">Your guest joins with their own name and gets their own card. ${unl ? "" : `Your link stops working after ${iv.per} people have joined through it.`}</p>`}</div>`;
+      <p class="zsmall">Your guest joins with their own nickname and gets their own board. ${unl ? "" : `Your link stops working after ${iv.per} people have joined through it.`}</p>`}</div>`;
   }
   function bindInvite(v) {
     document.querySelectorAll("[data-icat]").forEach((b) => (b.onclick = () => { inviteCat = b.dataset.icat; paint(); }));
-    const sh = document.getElementById("invshare"); if (sh) sh.onclick = async () => { const data = { title: "Corporate Snakes and Ladders", text: "Join me for Corporate Snakes and Ladders! Open this link, enter your name and you get your own card:", url: inviteLink(v) }; try { if (navigator.share) { await navigator.share(data); return; } } catch { return; } try { await navigator.clipboard.writeText(data.text + " " + data.url); sh.textContent = "Link copied"; } catch { sh.textContent = data.url; } };
+    const sh = document.getElementById("invshare"); if (sh) sh.onclick = async () => { const data = { title: "Corporate Snakes and Ladders", text: "Join me for Corporate Snakes and Ladders! Open this link, enter your nickname and you get your own board:", url: inviteLink(v) }; try { if (navigator.share) { await navigator.share(data); return; } } catch { return; } try { await navigator.clipboard.writeText(data.text + " " + data.url); sh.textContent = "Link copied"; } catch { sh.textContent = data.url; } };
     const cp = document.getElementById("invcopy"); if (cp) cp.onclick = async () => { try { await navigator.clipboard.writeText(inviteLink(v)); cp.textContent = "Copied"; } catch { cp.textContent = "Press and hold the link above to copy"; } };
   }
   // ---------- My invites: for a guest who may invite (level 1) only. Their own small list: add, send on WhatsApp, resend, remove. A guest invited by a guest sees nothing. ----------
@@ -460,37 +615,49 @@
     if (DEMO || !ME.canInvite) return "";
     const left = Math.max(0, MI.limit - MI.used);
     const counter = !MI.loaded ? "Getting your list…" : MI.limit ? `You can invite up to <b>${MI.limit}</b> people. You have invited <b>${MI.used}</b>${left ? `, so <b>${left}</b> ${left === 1 ? "place is" : "places are"} left` : ". You have used all your places"}.` : "";
-    const started = v.log.length > 0 || !!v.late || v.phase === "ended"; // a guest can take a name off their list only before the game starts
+    const started = v.turnsPlayed > 0 || v.phase === "ended"; // a guest can take a name off their list only before the game starts
     const rows = MI.people.map((p) => {
       const wa = waOk(p.waLink), gone = p.status === "removed";
-      return `<div class="zrow zmi"><span>${esc(p.name || "Guest")}<br><small class="zsmall" style="margin:0">${esc(p.maskedPhone || "")} · ${gone ? "Removed" : p.status === "joined" ? "Joined" : "Invited"}</small></span>
-        <span class="zmia">${!gone && p.status !== "joined" && wa ? `<a class="zbtn s" target="_blank" rel="noopener" href="${esc(wa)}" style="text-decoration:none;display:inline-flex;align-items:center">Send on WhatsApp</a>` : ""}
+      return `<div class="zrow zmi"><span>${esc(p.name || "Guest")}<br><small class="zsmall zflush">${esc(p.maskedPhone || "")} &middot; ${gone ? "Removed" : p.status === "joined" ? "Joined" : "Invited"}</small></span>
+        <span class="zmia">${!gone && p.status !== "joined" && wa ? `<a class="zbtn s zlinkbtn" target="_blank" rel="noopener" href="${esc(wa)}">Send on WhatsApp</a>` : ""}
         ${!gone && p.status !== "joined" ? `<button class="zbtn s alt" type="button" data-mire="${esc(p.id)}">Send a new link</button>` : ""}
         ${!gone && !started ? (MI.ask === p.id ? `<button class="zbtn s" type="button" data-miyes="${esc(p.id)}">Yes, remove</button><button class="zbtn s alt" type="button" data-mino="1">No</button>` : `<button class="zbtn s alt" type="button" data-mirm="${esc(p.id)}">Remove</button>`) : ""}</span></div>`;
     }).join("");
-    return `<div class="zcard zinvite" id="mine"><h2>My invites</h2><p class="zsmall" style="margin:0 0 8px">${counter}</p>${rows}
-      ${MI.loaded && !left && MI.limit ? "" : `<div class="zform"><label for="mi-name">Name</label><input id="mi-name" autocomplete="off" maxlength="60" value="${esc(MI.name)}"><label for="mi-phone">Mobile number</label><input id="mi-phone" inputmode="tel" autocomplete="off" value="${esc(MI.phone)}" placeholder="98765 43210"><button class="zbtn s" id="mi-add" type="button"${MI.busy ? " disabled" : ""}>Add to my invites</button></div>`}
-      ${MI.note ? `<div class="zbanner ${MI.bad ? "bad" : "ok"}" role="status" style="margin-top:8px">${esc(MI.note)}</div>` : ""}</div>`;
+    const k6 = K6.info && CBC() ? CBC().html(K6.info, K6.state) : consentLoading(K6.failedAt > -Infinity && !K6.loading && !K6.info, "k6retry");
+    return `<div class="zcard zinvite" id="mine"><h2>My invites</h2><p class="zsmall zflush zgap">${counter}</p>${rows}
+      ${MI.loaded && !left && MI.limit ? "" : `<div class="zform"><label for="mi-name">Name</label><input id="mi-name" autocomplete="off" maxlength="60" value="${esc(MI.name)}"><label for="mi-phone">Mobile number</label><input id="mi-phone" inputmode="tel" autocomplete="off" value="${esc(MI.phone)}" placeholder="98765 43210"><div id="k6box">${k6}</div><button class="zbtn s" id="mi-add" type="button" disabled aria-disabled="true">Add to my invites</button></div>`}
+      ${MI.note ? `<div class="zbanner ${MI.bad ? "bad" : "ok"}" role="status">${esc(MI.note)}</div>` : ""}</div>`;
   }
   function bindMine(v) {
     if (!document.getElementById("mine")) return;
-    const nm = document.getElementById("mi-name"), ph = document.getElementById("mi-phone"), add = document.getElementById("mi-add");
+    const nm = document.getElementById("mi-name"), ph = document.getElementById("mi-phone"), add = document.getElementById("mi-add"), box = document.getElementById("k6box");
     if (nm) nm.oninput = () => { MI.name = nm.value; };
     if (ph) ph.oninput = () => { MI.phone = ph.value; };
+    if (add) {
+      if (K6.info && CBC() && box) CBC().bind(box, K6.info, K6.state, add); // the Add button stays disabled until the box is ticked
+      if (MI.busy) add.disabled = true;
+    }
+    const retry = document.getElementById("k6retry"); if (retry) retry.onclick = () => { K6.failedAt = -Infinity; loadK6(); };
     const act = async (fn, okNote) => {
       MI.busy = true; MI.note = ""; MI.bad = false; paint();
       try { await fn(); MI.note = okNote || ""; } catch (e) { MI.bad = true; MI.note = (e && e.status !== 0 && e.message && !/^http \d+$|^offline$/.test(e.message) ? e.message : "Could not do that. Please try again."); }
       MI.busy = false; await loadMine(v, true); paint();
     };
     if (add) add.onclick = () => {
-      const name = (nm.value || "").trim(), phone = (ph.value || "").trim();
+      const name = (nm.value || "").trim(), phone = (ph.value || "").trim(), consent = K6.info && CBC() ? CBC().payload(K6.info, K6.state) : null;
+      if (!consent) return;
       if (name.length < 2) { MI.bad = true; MI.note = "Please type their name."; return paint(); }
       if (phone.replace(/\D/g, "").length < 10) { MI.bad = true; MI.note = "Please type their mobile number."; return paint(); }
       act(async () => {
-        const r = await api("POST", `/api/z/${EID}/people${miQ(v)}`, { people: [{ name, phone }], me: v.pid });
+        let r;
+        try { r = await api("POST", `/api/z/${EID}/people${miQ(v)}`, { people: [{ name, phone }], me: v.pid, consent }); }
+        catch (e) {
+          if (e && (e.code === "consent-required" || e.code === "terms-changed")) { if (e.body && e.body.consent && Array.isArray(e.body.consent.boxes)) K6.info = e.body.consent; K6.state = {}; throw new Error("Please read the box again, tick it, and press Add once more."); }
+          throw e;
+        }
         if (r.invalid && r.invalid.length) throw new Error("That number does not look right. Please check it.");
         if (r.duplicates) throw new Error("That number is already invited.");
-        MI.name = ""; MI.phone = "";
+        MI.name = ""; MI.phone = ""; K6.state = {};
       }, "Added. Press Send on WhatsApp next to their name.");
     };
     document.querySelectorAll("[data-mire]").forEach((b) => (b.onclick = () => act(async () => { await api("POST", `/api/z/${EID}/people/${encodeURIComponent(b.dataset.mire)}/resend${miQ(v)}`, { me: v.pid }); }, "A new link is ready. Press Send on WhatsApp.")));
@@ -500,14 +667,14 @@
   }
   function mediaAct(b) {
     const inPage = !!mediaKind(b);
-    return b.mediaUrl ? (inPage ? `<div id="mslot" class="zmslot"></div><a class="zsmall" target="_blank" rel="noopener noreferrer" href="${esc(b.mediaUrl)}">Trouble playing? Open it in a new tab</a>` : `<a class="zbtn s" style="display:inline-flex;align-items:center;text-decoration:none;margin-top:10px" target="_blank" rel="noopener noreferrer" href="${esc(b.mediaUrl)}">${b.kind === "youtube" ? "Watch the video" : "Open"}</a>`) : "";
+    return b.mediaUrl ? (inPage ? `<div id="mslot" class="zmslot"></div><a class="zsmall" target="_blank" rel="noopener noreferrer" href="${esc(b.mediaUrl)}">Trouble playing? Open it in a new tab</a>` : `<a class="zbtn s zlinkbtn zmt" target="_blank" rel="noopener noreferrer" href="${esc(b.mediaUrl)}">${b.kind === "youtube" ? "Watch the video" : "Open"}</a>`) : "";
   }
-  // ---------- the OPENING plays while everyone waits for the first number; the CLOSING plays on the final screen ----------
+  // ---------- the OPENING plays while everyone waits for the first turn; the CLOSING plays on the final screen ----------
   let closingIdx = 0;
   function openingNow(v) {
     const list = (v.cfg && v.cfg.opening) || [];
-    if (!list.length || v.phase !== "play" || v.locked || v.stopped || v.paused || v.late || v.brk || v.log.length > 0 || v.nextCallInSec === null || v.nextCallInSec > GRACE_SECS) return null;
-    const elapsed = GRACE_SECS - v.nextCallInSec; let from = 0; // the openings follow one another inside the 2 minutes before the first number
+    if (!list.length || v.phase !== "play" || v.locked || v.stopped || v.paused || v.brk || v.turnsPlayed > 0 || v.turn.state !== "wait" || v.turn.secondsLeft === null || v.turn.secondsLeft > GRACE_SECS) return null;
+    const elapsed = GRACE_SECS - v.turn.secondsLeft; let from = 0; // the openings follow one another inside the 2 minutes before the first turn
     for (const o of list) { const len = o.seconds || 60; if (elapsed < from + len) return Object.assign({}, o, { seconds: len, secondsLeft: Math.max(1, Math.round(from + len - elapsed)) }); from += len; }
     return null;
   }
@@ -521,35 +688,16 @@
   const slotWhat = (b) => (b.kind === "speech" ? "Please listen to the host." : b.kind === "slides" ? "Please look at the screen." : "");
   function openingCard(v) {
     const b = openingNow(v); if (!b) return "";
-    return `<div class="zcard zbreak" role="status"><h2>A message from your organizer</h2><div style="font:700 20px var(--sans,inherit);margin:2px 0 4px">${esc(b.title)}</div><div class="zsmall" style="margin:0">${slotWhat(b)} The game starts in a moment.</div>${mediaAct(b)}</div>`;
+    return `<div class="zcard zbreak" role="status"><h2>A message from your organizer</h2><div class="zbigline">${esc(b.title)}</div><div class="zsmall zflush">${slotWhat(b)} The game starts in a moment.</div>${mediaAct(b)}</div>`;
   }
   function closingCard(v) {
     const b = closingNow(v); if (!b) return "";
-    return `<div class="zcard zbreak" role="status"><h2>Thank you from your organizer</h2><div style="font:700 20px var(--sans,inherit);margin:2px 0 4px">${esc(b.title)}</div><div class="zsmall" style="margin:0">${slotWhat(b)}</div>${mediaAct(b)}${b.n < b.of ? `<button class="zbtn s alt" id="cnext" type="button" style="margin-top:10px">Next message (${b.n} of ${b.of})</button>` : ""}</div>`;
+    return `<div class="zcard zbreak" role="status"><h2>Thank you from your organizer</h2><div class="zbigline">${esc(b.title)}</div><div class="zsmall zflush">${slotWhat(b)}</div>${mediaAct(b)}${b.n < b.of ? `<button class="zbtn s alt zmt" id="cnext" type="button">Next message (${b.n} of ${b.of})</button>` : ""}</div>`;
   }
   function breakCard(b) {
     const act = mediaAct(b);
     const what = b.kind === "lucky" ? `${b.winners || 3} ${b.winners === 1 ? "person is" : "people are"} picked at random when this break ends. Everyone has an equal chance.` : b.kind === "speech" ? "Please listen to the host." : b.kind === "slides" ? "Please look at the screen." : "";
-    return `<div class="zcard zbreak" role="status"><h2>A short break</h2><div style="font:700 20px var(--sans,inherit);margin:2px 0 4px">${esc(b.title)}</div><div class="zsmall" style="margin:0">${what} The numbers continue in ${b.secondsLeft}s.</div>${act}</div>`;
-  }
-
-  function stillToWinRows(v) {
-    const keys = ZG.keysInPlay(v.cfg.rewards);
-    return keys.map((key) => {
-      const lines = ZG.linesFor(v.cfg.rewards, key);
-      const n = ZG.stillToWin(v.tickets, key, v.log);
-      const mine = v.myIdx[key];
-      return lines.map((line) => {
-        const total = lines.length;
-        const name = (total > 1 ? ordinalName(line.ordinal) + " " : "") + KEYNAME(key);
-        const res = v.results.find((r) => r.pattern === key && r.ordinal === line.ordinal);
-        let right;
-        if (res) right = (res.winners || []).includes(v.pid) ? `<em>Yours${res.tied > 1 ? " · decided by fate" : ""}</em>` : `<i>Awarded</i>`;
-        else if (line.ordinal === 1) right = mine >= 0 ? `<em>Complete</em>` : n >= 99 ? `<i>not possible on your card</i>` : `<i>${n} to go</i>`;
-        else right = `<i>after the ${ordinalName(line.ordinal - 1)}</i>`;
-        return `<div class="zrow"><span>${esc(name)}${line.text ? `<br><small class="zsmall" style="margin:0">${esc(line.text)}</small>` : ""}<br>${howLine(key)}</span>${right}</div>`;
-      }).join("");
-    }).join("");
+    return `<div class="zcard zbreak" role="status"><h2>A short break</h2><div class="zbigline">${esc(b.title)}</div><div class="zsmall zflush">${what} The game continues in ${b.secondsLeft}s.</div>${act}</div>`;
   }
 
   let annSeen = null, annSpoken = null;
@@ -558,76 +706,68 @@
     if (!a || a.id === annSeen) return "";
     return `<div class="zbanner info zann" role="alert"><b>Message from the organizer</b><br>${esc(a.text)} <button class="zsnd" id="annok">OK</button></div>`;
   }
-  /** Tap-to-daub only: a gentle reminder when called numbers on the card are still unmarked. It changes nothing: the software already knows the truth. */
-  function missedNudge(v, called) {
-    const miss = []; v.tickets.forEach((t, i) => { const d = daubs(v.round, i); for (const n of t.flat()) if (n !== null && called.has(n) && !d.has(n) && !miss.includes(n)) miss.push(n); });
-    if (!miss.length) return "";
-    const shown = miss.slice(-3).map(lblOf).join(", ");
-    return `<p class="zsmall znudge" role="status" style="margin:0 0 8px">You missed ${esc(shown)}${miss.length > 3 ? " and " + (miss.length - 3) + " more" : ""}. Tap ${miss.length === 1 ? "it" : "them"} to mark. Your prizes never depend on this: the software checks every card.</p>`;
-  }
-  /** The ranking: 1st, 2nd, 3rd ... and the top-10 list (prize order, then call number, then fate). One winner per prize line, so there is never a shared prize. */
-  function rankCard(v) {
-    const sett = (v.results || []).filter((r) => r.pattern !== "lucky" && r.winners && r.winners.length).map((r) => ({ pattern: r.pattern, ordinal: r.ordinal, idx: r.idx, pids: r.winners, round: v.round, tied: r.tied }));
-    if (!sett.length) return "";
-    const rows = ZG.rankWinners(ZG.roundEid(EID, v.round), v.cfg, sett, 10);
-    const li = rows.map((x) => `<li><b>${esc(ZG.rankName(x.rank))}</b> ${esc(lineName(v.cfg, x.pattern, x.ordinal))}${x.text ? " (" + esc(x.text) + ")" : ""}: card ${esc(String(seatOf(x.pid)))}${x.pid === v.pid ? " <em>(you)</em>" : ""}${x.note ? `<br><small class="zsmall" style="margin:0">${esc(x.note)}</small>` : ""}</li>`).join("");
-    return `<div class="zcard zrank"><h2>Winners</h2><ol class="zlist" style="padding-left:0;list-style:none">${li}</ol></div>`;
-  }
   function playView(v) {
-    const called = new Set(v.log);
-    const last = v.log[v.log.length - 1];
     const banners = [];
     if (v.error) banners.push(`<div class="zbanner warn" role="alert">${esc(v.error)}</div>`);
-    if (v.locked) banners.push(ME.role === "organizer" || ME.role === "host" ? `<div class="zbanner warn" role="status"><b>Payment pending for this game.</b> The game starts 2 minutes after the payment is confirmed. Open your console to pay. Your card is safe. Keep this page open.</div>` : `<div class="zbanner warn" role="status"><b>Waiting for the Organizer or Host to start the game.</b> Your card is safe. Keep this page open: it begins as soon as they are done.</div>`);
-    else if (v.stopped) banners.push(`<div class="zbanner info">The organizer has ended this engagement.</div>`);
+    if (v.locked) banners.push(ME.role === "organizer" || ME.role === "host" ? `<div class="zbanner warn" role="status"><b>Payment pending for this game.</b> The game starts 2 minutes after the payment is confirmed. Open your console to pay. Your place is safe. Keep this page open.</div>` : `<div class="zbanner warn" role="status"><b>Waiting for the Organizer or Host to start the game.</b> Your place is safe. Keep this page open: it begins as soon as they are done.</div>`);
+    else if (v.stopped) banners.push(`<div class="zbanner info">The organizer has ended this game.</div>`);
     else if (v.paused) banners.push(`<div class="zbanner info">Paused by the organizer. It will carry on shortly.</div>`);
-    else if (v.mode === "hold" && v.nowRound !== null) banners.push(`<div class="zbanner warn">Checking with the organizer… numbers will continue in a moment.</div>`);
+    else if (v.mode === "hold" && v.nowRound !== null) banners.push(`<div class="zbanner warn">Checking with the organizer… the game will continue in a moment.</div>`);
     else if (v.mode === "blind") banners.push(`<div class="zbanner warn">Cannot reach the organizer's controls right now. Play continues; a pause may appear late.</div>`);
-    if (v.phase === "ended" && !v.stopped && !v.endedByPrizes) banners.push(`<div class="zbanner ok">${v.rounds > 1 ? "All " + v.rounds + " rounds are finished." : "All 75 numbers have been called."} Thank you for taking part.</div>`);
-    const sub = v.phase === "ended" || v.locked || v.brk || v.intermission || (DEMO && !DEMO.running) ? "" : v.late && v.late.secondsUntil > 0 ? "Your numbers start in " + clock(v.late.secondsUntil) : v.log.length === 0 ? (v.nextCallInSec !== null ? (v.nextCallInSec > GRACE_SECS ? "Starting in " + clock(v.nextCallInSec - GRACE_SECS) : "First number in " + clock(v.nextCallInSec)) : "Getting ready…") : v.paused || v.mode === "hold" ? "" : v.nextCallInSec !== null ? "Next number in " + v.nextCallInSec + "s" : "";
-    const still = v.tickets.length ? stillToWinRows(v) : "";
-    const chk = v.pendingChecks > 0 ? `<p class="zsmall">Double-checking ${v.pendingChecks} earlier number${v.pendingChecks === 1 ? "" : "s"} in the background.</p>` : "";
-    const curWins = v.won.filter((w) => w.round === v.round), winSet = new Set(curWins.flatMap((w) => w.cells));
+    if (v.phase === "ended" && !v.stopped) banners.push(`<div class="zbanner ok">${v.endedByPrizes ? "All the end prizes have been awarded." : "The game is over."} Thank you for taking part.</div>`);
+    const chk = v.pendingChecks > 0 ? `<p class="zsmall">Double-checking ${plural(v.pendingChecks, "earlier result", "earlier results")} in the background.</p>` : "";
+    const curWins = v.won || [];
     const ribbon = curWins.length ? `<div class="zwin" role="status">&#127881; Congratulations! You won ${curWins.map((w) => esc(lineName(v.cfg, w.pattern, w.ordinal))).join(", ")}${curWins.some((w) => w.text) ? " &middot; " + curWins.filter((w) => w.text).map((w) => esc(w.text)).join(", ") : ""}</div>` : "";
-    const tix = v.tickets.map((t, i) => (v.tickets.length > 1 ? `<div class="zsmall" style="margin:${i ? 12 : 0}px 0 4px"><b>Card ${"AB"[i]}</b></div>` : "") + cardHtml(t, called, v.tickets.length > 1 ? "Card " + "AB"[i] : DEMO ? "Demo card" : "Your card", winSet, v.round, i)).join("");
-    const recent = v.log.slice(-6, -1).reverse(), nudge = TAP() ? missedNudge(v, called) : "";
+    const waiting = isWaiting(v);
     return `${brandStrip()}<div class="zhead"><b>Corporate Snakes and Ladders</b><button class="zsnd" id="snd" aria-pressed="${sound}">${sound ? "Sound on" : "Sound off"}</button></div>
-      ${demoCard(v)}${annBanner(v)}${banners.join("")}
+      ${annBanner(v)}${banners.join("")}
       ${v.phase === "ended" ? finalCard(v) + closingCard(v) + confirmCard(v) + prizesCard() : ""}
       ${waitingRoom(v)}
       ${openingCard(v)}
-      ${lateCard(v)}
-      ${roundCards(v)}
       ${v.brk ? breakCard(v.brk) : ""}
-      ${rankCard(v)}
-      <div class="zcard"><div class="zball"><div class="zbig ${last ? "l" + colOf(last) : "none"}" id="big" role="status" aria-live="assertive" aria-label="${last ? "Number " + lblOf(last) : "No number yet"}">${last ? `<small>${LET[colOf(last)]}</small><span>${last}</span>` : "–"}</div></div>
-        <div class="zsub">${sub}</div>
-        <div class="zlast" aria-label="Last numbers called">${recent.map((n) => `<span class="l${colOf(n)}" aria-label="${lblOf(n)}"><i>${LET[colOf(n)]}</i>${n}</span>`).join("")}</div></div>
-      <div class="zcard${curWins.length ? " zwon" : ""}"><h2>${DEMO ? 'Demo card <span class="zdemotag">DEMO</span>' : v.tickets.length > 1 ? "Your cards" : "Your card"}${TAP() ? ' <span class="zmode">tap to mark</span>' : ""}</h2>${ribbon}${nudge}${tix}<a class="zref" href="/partner.html?from=card">Refer &amp; earn</a></div>
+      ${ribbon ? `<div class="zcard zwon">${ribbon}</div>` : ""}
+      ${waiting || v.phase === "ended" ? "" : diceCard(v)}
+      ${boardCard(v)}
+      ${waiting ? "" : crowdCard(v)}
+      ${teamCard(v)}
+      ${standingsCard(v)}
+      ${waiting ? "" : prizesStatusCard(v)}
       ${v.phase === "ended" ? "" : prizesCard()}
       ${mineCard(v)}${inviteCard(v)}
-      <div class="zcard"><h2>Still to win</h2>${still}${chk}</div>
       ${luckyCard(v)}
-      <div class="zcard"><h2>${v.rounds > 1 ? "Round " + v.round + " of " + v.rounds + " · " : ""}${v.late ? "Numbers since you joined · " + v.log.length : "Call board · " + v.log.length + " of 75"} called</h2><div class="zboard" role="group" aria-label="Call board, 75 numbers">${LET.map((l, c) => `<div class="bl l${c}" aria-hidden="true">${l}</div>` + Array.from({ length: 15 }, (_, i) => { const n = c * 15 + i + 1; return `<div class="${called.has(n) ? "c" : ""}" aria-label="${lblOf(n)}${called.has(n) ? ", called" : ""}">${n}</div>`; }).join("")).join("")}</div></div>`;
+      ${chk}<a class="zref" href="/partner.html?from=card">Refer &amp; earn</a>`;
   }
 
+  const focusGuard = (ids) => { const af = document.activeElement; return !!af && (ids.includes(af.id) || (af.classList && af.classList.contains("cbc-tick"))); };
+  function speakStep(v) {
+    const s = v.me && v.me.lastStep, key = s ? v.me.history.length + ":" + s.from + ":" + s.roll : "";
+    if (!firstPaint && key && key !== lastStepKey && sound && window.TBAudio) TBAudio.roll(s.roll, s.kind, s.to);
+    lastStepKey = key;
+  }
   function paint() {
     const v = rt.view();
     if (!v.won) v.won = []; // an older saved copy of the game code during an update: never break the screen
     if (INFO.dns) { if (timer) { clearInterval(timer); timer = null; } clearInterval(J.timer); mediaHost.style.display = "none"; $app.innerHTML = dnsView(); window.__cbzOff = v.phase === "boot"; paintBrand(); return; } // a game that did not start: one calm screen, nobody can join or pay
-    if (v.phase === "missing" || v.phase === "boot") { $app.innerHTML = (INFO.brand || v.phase === "boot" ? brandStrip() : "") + `<p class="zmsg">${esc(v.phase === "boot" && !navigator.onLine ? "No connection right now. Your card is safe on this phone. This page opens the game by itself when you are back online." : v.error || "Loading…")}</p>`; paintBrand(); return; }
+    if (v.phase === "missing" || v.phase === "boot") { $app.innerHTML = (INFO.brand || v.phase === "boot" ? brandStrip() : "") + `<p class="zmsg">${esc(v.phase === "boot" && !navigator.onLine ? "No connection right now. Your place is safe on this phone. This page opens the game by itself when you are back online." : v.error || "Loading…")}</p>`; paintBrand(); return; }
     if (INFO.cancelled) { if (timer) { clearInterval(timer); timer = null; } clearInterval(J.timer); mediaHost.style.display = "none"; $app.innerHTML = cancelledView(); paintBrand(); return; } // a cancelled game: one calm screen, nothing else
-    if (v.phase === "join") { const f = document.getElementById("ph") || document.getElementById("nm"); if (f && document.activeElement === f) return; $app.innerHTML = joinView(J.mode ? null : v.error); paintBrand(); bindJoin(); return; }
+    if (v.phase === "join") { if (focusGuard(["ph", "nm"])) return; $app.innerHTML = joinView(J.mode ? null : v.error); paintBrand(); bindJoin(); return; }
     if (ME.removed) { if (timer) { clearInterval(timer); timer = null; } mediaHost.style.display = "none"; $app.innerHTML = removedView(); paintBrand(); return; } // taken off the list: the phone stops
-    const fresh = syncPrizes(v); reportToStore(v); loadCf(v); pollMe(v);
-    { const af = document.activeElement; if (af && (af.id === "cfnm" || af.id === "cfph" || af.id === "mi-name" || af.id === "mi-phone")) return; } // never wipe a form someone is typing in
+    const fresh = syncPrizes(v); reportToStore(v); loadCf(v); pollMe(v); loadK6();
+    if (focusGuard(["cfnm", "cfph", "mi-name", "mi-phone"])) return; // never wipe a form someone is typing in
     $app.innerHTML = playView(v);
-    paintBrand(); syncMedia(v); bindShare(); bindDemo(); bindConfirm(v); loadInvites(v); bindInvite(v); loadMine(v); bindMine(v);
+    paintBrand(); syncMedia(v); bindShare(); bindConfirm(v); loadInvites(v); bindInvite(v); loadMine(v); bindMine(v);
     if (fresh.length) showHurray(fresh);
-    document.querySelectorAll("button[data-dn]").forEach((b) => (b.onclick = () => { const n = Number(b.dataset.dn), r = Number(b.dataset.dr), ci = Number(b.dataset.dc), d = daubs(r, ci); if (!v.log.includes(n)) return; if (d.has(n)) d.delete(n); else d.add(n); store.set(daubKey(r, ci), JSON.stringify([...d])); paint(); }));
     const s = document.getElementById("snd");
     if (s) s.onclick = async () => { sound = !sound; store.set("cbz-sound", sound ? "on" : "off"); if (window.TBAudio) { TBAudio.enabled = sound; if (sound) await TBAudio.unlock(); } paint(); };
-    if (v.log.length > lastLen) { if (!firstPaint && v.log.length === lastLen + 1 && sound && window.TBAudio) TBAudio.play(v.log[v.log.length - 1]); lastLen = v.log.length; }
+    const tb = document.getElementById("throw");
+    if (tb) tb.onclick = async () => {
+      if (THROW.busy) return;
+      THROW.busy = true; THROW.note = ""; tb.disabled = true;
+      let ok = false; try { ok = await rt.throwNow(); } catch { ok = false; }
+      THROW.busy = false; THROW.note = ok ? "" : "Your throw could not be sent. Please try again while the window is open.";
+      paint();
+    };
+    speakStep(v);
     firstPaint = false;
     const cn = document.getElementById("cnext"); if (cn) cn.onclick = () => { closingIdx += 1; paint(); };
     const ok = document.getElementById("annok"); if (ok) ok.onclick = () => { annSeen = v.announcement.id; paint(); };
@@ -638,18 +778,25 @@
   function bindJoin() {
     const again = document.getElementById("again"); if (again) again.onclick = () => { J.mode = ""; J.wid = ""; clearWait(); paint(); };
     const go = document.getElementById("go"); if (!go) return;
+    const nm = document.getElementById("nm"), ph = document.getElementById("ph");
+    if (nm) nm.oninput = () => { J.name = nm.value; };
+    if (ph) ph.oninput = () => { J.phone = ph.value; };
+    bindK4(); // the button stays disabled until both boxes are ticked
+    if (!K4.info && !K4.loading && !K4.failed) loadK4();
     go.onclick = async () => {
+      const consent = K4.info && CBC() ? CBC().payload(K4.info, K4.state) : null;
+      if (!consent) return;
+      J.consent = consent; J.msg = "";
       go.disabled = true;
       if (window.TBAudio) TBAudio.unlock();
-      const ph = document.getElementById("ph"), nm = document.getElementById("nm");
       J.phone = ph ? ph.value : J.phone; J.name = nm ? nm.value.trim() : J.name;
-      await doJoin(); // shows the card screen at once on success: the first tick may take a few seconds on a slow network
+      await doJoin(); // shows the game at once on success: the first tick may take a few seconds on a slow network
     };
   }
   async function loop() { try { await rt.tick(); } catch { /* the loop must never die */ } paint(); }
   function start() { if (timer) return; loop(); timer = setInterval(loop, 1000); }
 
-  if (!EID) { $app.innerHTML = `<p class="zmsg">This link is incomplete. Please ask your organizer for the engagement link.</p>`; return; }
+  if (!EID) { $app.innerHTML = `<p class="zmsg">This link is incomplete. Please ask your organizer for the game link.</p>`; return; }
   rt.boot().then(() => { if (rt.phase === "play") clearWait(); else restoreWait(); paint(); if (rt.phase === "play") start(); });
   window.__rt = rt;
 })();

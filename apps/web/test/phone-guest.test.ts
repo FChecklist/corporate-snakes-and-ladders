@@ -19,7 +19,7 @@ async function organizer(extra: Record<string, string> = {}) {
   return { ...w, token: s.token as string, aiKey: s.aiKey as string };
 }
 type O = Awaited<ReturnType<typeof organizer>>;
-const make = (o: O, id: string, over: Record<string, unknown> = {}) => o.api("POST", "/api/z", { id, startRound: START, callSeconds: 9, cap: 100, join: "phone", ...over }, o.aiKey);
+const make = (o: O, id: string, over: Record<string, unknown> = {}) => o.api("POST", "/api/z", { id, startRound: START, callSeconds: 20, cap: 100, join: "phone", ...over }, o.aiKey);
 const publish = (o: O, id: string) => o.api("POST", `/api/z/${id}/publish`, { email: "boss@acme.com", phone: "98765 43210" }, o.token);
 const settings = (o: O, id: string, body: unknown) => o.api("PATCH", `/api/z/${id}/settings`, body, o.token);
 const published = async (o: O, id: string, set: Record<string, unknown> = {}, over: Record<string, unknown> = {}) => { await make(o, id, over); if (Object.keys(set).length) { const r = await settings(o, id, set); expect(r.status).toBe(200); } await publish(o, id); };
