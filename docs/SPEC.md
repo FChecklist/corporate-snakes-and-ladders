@@ -1,4 +1,4 @@
-# Corporate Snakes and Ladders: product and build specification (draft 1, 2026-10-12)
+# Corporate Snakes and Ladders: product and build specification (version 1, 2026-10-12)
 
 Owner brief (2026-10-12): a snakes-and-ladders game that thousands play at the same time, from their own phones or laptops, like Corporate Tambola and Corporate Bingo. A separate product with its own website. Status: SPEC ONLY, nothing is built.
 
