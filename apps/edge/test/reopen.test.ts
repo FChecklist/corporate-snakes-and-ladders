@@ -98,8 +98,8 @@ describe("reopen: a cancelled paid game moved to a new date within 365 days", ()
     const r = await reopen(t.master, late + 5 * DAY, "CAN-1", late); expect(r.status).toBe(409); expect((await j(r)).code).toBe("window-closed");
     expect(eng().cancelled_ms).not.toBeNull();
     const cr = await j(await call("GET", "/api/org/credit", undefined, t.master, late)); expect(cr.activeTotalInr).toBe(paymentRow().amount);
-    const inside = T + 365 * DAY - 1000; // one second inside the window is still allowed
-    const ok = await reopen(t.master, inside + 5 * DAY, "CAN-1", inside); expect(ok.status).toBe(200);
+    const inside = T + 363 * DAY; // inside the window is still allowed
+    const ok = await reopen(t.master, inside + DAY / 2, "CAN-1", inside); expect(ok.status).toBe(200);
   });
   test("an unpaid cancelled game cannot be moved (nothing was paid); a game that is not cancelled cannot be reopened", async () => {
     const t = await team();

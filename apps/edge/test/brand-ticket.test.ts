@@ -1,3 +1,4 @@
+import { withDevice } from "./device";
 import { TICKS } from "./device";
 // Phase 3: the brand on the ticket (docs/ROLES_AND_CONSOLE_SPEC_4.md section B, spec 2 item 11): a name, one of 8 colours and an optional small logo kept INSIDE the game's settings.
 // Nothing is ever fetched from outside: a logo is a data URL whose type, size and first bytes are all checked here, on the server.
@@ -11,7 +12,7 @@ const T = Date.UTC(2026, 9, 1, 10, 0, 0);
 const GEN = 1692803367, START = Math.floor((T / 1000 - GEN) / 3) + 1 + 1200;
 let env: PayEnv; let raw: ReturnType<typeof makeD1>["raw"]; let ipN = 0;
 const call = (method: string, path: string, body?: unknown, key?: string, raw0?: string) =>
-  handle(new Request("http://x" + path, { method, headers: { "content-type": "application/json", ...(key ? { "x-organizer": key } : {}) }, body: raw0 ?? (body === undefined ? undefined : JSON.stringify(body)) }), env as Env, T);
+  handle(new Request("http://x" + path, { method, headers: { "content-type": "application/json", ...(key ? { "x-organizer": key } : {}) }, body: raw0 ?? withDevice(method, path, body) }), env as Env, T);
 const j = async (r: Response) => (await r.json()) as any;
 const dataUrl = (mime: string, bytes: number[], pad = 0) => `data:${mime};base64,${Buffer.from([...bytes, ...new Array(pad).fill(1)]).toString("base64")}`;
 const be32 = (n: number) => [(n >>> 24) & 255, (n >>> 16) & 255, (n >>> 8) & 255, n & 255], le24 = (n: number) => [n & 255, (n >> 8) & 255, (n >> 16) & 255];

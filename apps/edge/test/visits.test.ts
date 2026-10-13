@@ -205,11 +205,11 @@ describe("from visit to sale: linking the person", () => {
     // publishing
     const start = Math.floor((T / 1000 - 1692803367) / 3) + 1200;
     expect((await call("POST", "/api/z", { id: "VIS-1", startRound: start, callSeconds: 20, cap: 100 }, { "x-organizer": st.token }, T + 70_000)).status).toBe(200);
-    const pub = await call("POST", "/api/z/VIS-1/publish", { email: "boss@acme.com", phone: "9876543210" }, { "x-organizer": st.token }, T + 80_000);
+    const pub = await call("POST", "/api/z/VIS-1/publish", { email: "boss@acme.com", phone: "9876543210", consent: { v: "2026-10-13", boxes: ["A", "B"] } }, { "x-organizer": st.token }, T + 80_000);
     expect(pub.status).toBe(200);
     expect(one("SELECT stage FROM visit_session").stage).toBe(5);
     // paying (test mode fulfils at once): the same organizer, found through the e-mail
-    const paid = await call("POST", "/api/checkout", { org: "Acme", email: "boss@acme.com", country: "IN", taxId: "", pack: 500, currency: "INR" }, {}, T + 90_000);
+    const paid = await call("POST", "/api/checkout", { org: "Acme", email: "boss@acme.com", country: "IN", taxId: "", pack: 500, currency: "INR", consent: { v: "2026-10-13", boxes: ["A"] } }, {}, T + 90_000);
     expect(paid.status).toBe(200);
     expect(one("SELECT stage FROM visit_session").stage).toBe(6);
     expect(q("SELECT name FROM visit_event WHERE kind='fun' ORDER BY id").map((r) => r.name)).toEqual(["account", "published", "paid"]);
