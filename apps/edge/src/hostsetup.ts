@@ -37,7 +37,7 @@ export async function hostKeyStatus(db: D1, hash: string, hostId: string | null,
   const hid = hostId ?? hash, st = await hostStateRow(db, hid);
   if (!st) return { usable: true, hid, ready: false }; // an old key from before this feature, or a 24-hour AI key: still needs the setup before the console opens
   if (hash === hid && (st.spent || (!st.verified_ms && now > st.link_exp_ms))) return { usable: false, hid, ready: false };
-  return { usable: true, hid, ready: !!st.verified_ms && !!st.mobile_ok && (await hasConsent(db, "K5", hid)) }; // K5: the Host has ticked "I will not charge any player..."
+  return { usable: true, hid, ready: !!st.verified_ms && !!st.mobile_ok };
 }
 
 /** The Host's identity row (the one the Organizer sees in "Your team"). */
@@ -59,7 +59,7 @@ export async function confirmHostEmail(env: Env, hid: string, org: string, email
   ]);
   const token = await mintDeviceKey(env, hid, key, now);
   const st = await hostStateRow(env.DB, hid);
-  return { token, ready: !!st?.mobile_ok && (await hasConsent(env.DB, "K5", hid)), needMobile: !st?.mobile_ok };
+  return { token, ready: !!st?.mobile_ok, needMobile: !st?.mobile_ok };
 }
 
 /** A confirmed e-mail address that belongs to a Host who is still on the team (the newest one when it belongs to several). */
@@ -88,11 +88,17 @@ export async function setupView(c: HostCtx): Promise<{ needEmail: boolean; needM
   const email = row?.email_sealed ? await openText(c.env as any, row.email_sealed) : null;
   const who = row?.pii ? await openPii(c.env as any, row.pii) : null;
   const needEmail = !st?.verified_ms, needMobile = !st?.mobile_ok, needAccept = !(await hasConsent(c.env.DB, "K5", c.hid));
-  return { needEmail, needMobile, needAccept, ...(email ? { emailMasked: maskEmail(email) } : {}), ...(who?.phone ? { mobileMasked: maskMobile(who.phone) } : {}), ready: !needEmail && !needMobile && !needAccept };
+  return { needEmail, needMobile, needAccept, ...(email ? { emailMasked: maskEmail(email) } : {}), ...(who?.phone ? { mobileMasked: maskMobile(who.phone) } : {}), ready: !needEmail && !needMobile };
 }
 
-/** A Host who sends the K5 tick with any setup step has accepted the role; the tick is stored (the dedicated accept route does the same). */
-async function noteAccept(c: HostCtx, b: any): Promise<void> { if (checkConsent("K5", b?.consent).ok) await recordConsent(c.env.DB, "K5", c.hid, null, c.now); }
+/** K5: a Host who has not yet accepted the role must send the tick with the setup step; without it the step is refused. The tick is stored once. Returns a refusal response or null. */
+async function requireAccept(c: HostCtx, b: any): Promise<Response | null> {
+  if (await hasConsent(c.env.DB, "K5", c.hid)) return null;
+  const k = checkConsent("K5", b?.consent);
+  if (!k.ok) return c.json(refusalBody("K5", k), k.status);
+  await recordConsent(c.env.DB, "K5", c.hid, null, c.now);
+  return null;
+}
 
 /** `/api/host/setup...` : the Host key only (never an AI key, never an Organizer). */
 export async function hostSetupRoute(c: HostCtx): Promise<Response | null> {
@@ -108,7 +114,7 @@ export async function hostSetupRoute(c: HostCtx): Promise<Response | null> {
     return c.json({ ok: true, ready: v.ready, needEmail: v.needEmail, needMobile: v.needMobile });
   }
   if (p === "/api/host/setup/mobile") {
-    const b = await c.body(req); await noteAccept(c, b);
+    const b = await c.body(req); { const refused = await requireAccept(c, b); if (refused) return refused; }
     const m = c.cleanPhone(b?.mobile ?? b?.phone);
     if (!m.ok) return c.json({ error: "Please give your mobile number. " + m.why }, 400);
     const st = await hostStateRow(db, c.hid);
@@ -145,7 +151,7 @@ export async function hostSetupRoute(c: HostCtx): Promise<Response | null> {
     return c.json({ ok: true, ...(c.test ? { devCode: code } : {}) });
   }
   if (p === "/api/host/setup/email/verify") {
-    const b = await c.body(req); await noteAccept(c, b);
+    const b = await c.body(req); { const refused = await requireAccept(c, b); if (refused) return refused; }
     const code = typeof b?.code === "string" ? b.code.replace(/\D/g, "") : "";
     if (code.length !== 6) return c.json({ error: "Enter the 6-digit code." }, 400);
     const st = await hostStateRow(db, c.hid);

@@ -1,3 +1,4 @@
+import { TICKS } from "./device";
 // Phase 3: the brand on the ticket (docs/ROLES_AND_CONSOLE_SPEC_4.md section B, spec 2 item 11): a name, one of 8 colours and an optional small logo kept INSIDE the game's settings.
 // Nothing is ever fetched from outside: a logo is a data URL whose type, size and first bytes are all checked here, on the server.
 import { beforeEach, describe, expect, test } from "bun:test";
@@ -23,7 +24,7 @@ const C0 = BRAND_COLORS[0]!;
 
 beforeEach(() => { const d = makeD1(); raw = d.raw; env = { DB: d.db, ORGANIZER_SECRET: "plat", DAILY_WRITE_BUDGET: "100000", PUBLIC_ORIGIN: "http://x" } as PayEnv; });
 const game = async () => {
-  const st = await j(await handle(new Request("http://x/api/start", { method: "POST", headers: { "content-type": "application/json", "cf-connecting-ip": `5.5.5.${++ipN}` }, body: JSON.stringify({ email: `b${ipN}@acme.com` }) }), env as Env, T));
+  const st = await j(await handle(new Request("http://x/api/start", { method: "POST", headers: { "content-type": "application/json", "cf-connecting-ip": `5.5.5.${++ipN}` }, body: JSON.stringify({ consent: TICKS, email: `b${ipN}@acme.com` }) }), env as Env, T));
   await call("POST", "/api/z", { id: "BRAND-1", startRound: START, callSeconds: 20, cap: 100 }, st.token);
   await call("POST", "/api/z/BRAND-1/publish", { email: "boss@acme.com", phone: "98765 43210" }, st.token);
   return st.token as string;

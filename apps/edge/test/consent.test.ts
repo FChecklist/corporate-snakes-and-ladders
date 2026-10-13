@@ -212,14 +212,20 @@ describe("K5 host acceptance, K6 guest lists, K9", () => {
     expect((await call("POST", "/api/z/CONS-6/roster", { people }, { "x-organizer": tok }, T + 401)).status).toBe(200);
     expect(rows("K6")).toMatchObject([{ ref: "CONS-6", boxes: '["A"]', text_hash: expectedHash("K6"), version: TERMS_VERSION }]);
   });
-  test("K5 a Host is not ready until the role box is accepted, and is ready once it is stored", async () => {
-    const { hostKeyStatus } = await import("../src/hostsetup");
-    const hid = "h".repeat(64);
-    raw.prepare("INSERT INTO host_state(host_id,org,verified_ms,mobile_ok,link_exp_ms,spent) VALUES(?,?,?,1,?,1)").run(hid, "org1", T, T + 1e9);
-    expect((await hostKeyStatus(env.DB as any, "d".repeat(64), hid, T + 600)).ready).toBe(false);
-    await recordConsent(env.DB as any, "K5", hid, null, T + 601);
-    expect((await hostKeyStatus(env.DB as any, "d".repeat(64), hid, T + 700)).ready).toBe(true);
-    expect(rows("K5")).toMatchObject([{ subject: hid, text_hash: expectedHash("K5") }]);
+  test("K5 a Host's first setup step is refused without the role box, accepted with it, and the acceptance is stored once", async () => {
+    const tok = await organizerWithDraft("CONS-5");
+    const add = await j(await call("POST", "/api/org/host", { mobile: "9876500009", label: "Priya", email: "priya@acme.com" }, { "x-organizer": tok }, T + 500));
+    const hk = add.hostKey as string; expect(hk).toBeTruthy();
+    const h = { "x-organizer": hk };
+    const no = await call("POST", "/api/host/setup/mobile", { mobile: "9876500009", consent: undefined }, h, T + 510);
+    expect(no.status).toBe(400); expect(await j(no)).toMatchObject(REFUSED("K5"));
+    expect((await call("POST", "/api/host/setup/mobile", { mobile: "9876500009", consent: { v: OLD, boxes: ["A"] } }, h, T + 511)).status).toBe(400);
+    expect(rows("K5").length).toBe(0);
+    const ok = await call("POST", "/api/host/setup/mobile", { mobile: "9876500009" }, h, T + 520);
+    expect(ok.status).toBe(200);
+    expect(rows("K5")).toMatchObject([{ kind: "K5", version: TERMS_VERSION, boxes: '["A"]', text_hash: expectedHash("K5"), at_ms: T + 520 }]);
+    await call("POST", "/api/host/setup/accept", {}, h, T + 530);                                  // asking again stores nothing new
+    expect(rows("K5").length).toBe(1);
   });
   test("K9: this product has no contact, grievance or data-request form that stores details (contact is a mail link); the box exists for a form if one is added", () => {
     expect(rd("contact.html")).not.toMatch(/<form/i);

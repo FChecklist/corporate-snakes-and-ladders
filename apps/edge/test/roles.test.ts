@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { createHmac } from "node:crypto";
-import { withDevice } from "./device";
+import { withDevice, TICKS } from "./device";
 import { handle, type Env } from "../src/worker";
 import type { PayEnv } from "../src/pay";
 import { makeD1 } from "./d1-sqlite";
@@ -28,7 +28,7 @@ beforeEach(() => {
 afterEach(() => { globalThis.fetch = realFetch; });
 
 let ip = 0;
-const start = async (email: string) => (await j(await handle(new Request("http://x/api/start", { method: "POST", headers: { "content-type": "application/json", "cf-connecting-ip": `9.9.9.${++ip}` }, body: JSON.stringify({ email }) }), env as Env, T))).token as string;
+const start = async (email: string) => (await j(await handle(new Request("http://x/api/start", { method: "POST", headers: { "content-type": "application/json", "cf-connecting-ip": `9.9.9.${++ip}` }, body: JSON.stringify({ consent: TICKS, email }) }), env as Env, T))).token as string;
 const team = async (org = "boss@acme.com", gid = "ROLE-1") => {
   const master = await start(org);
   await call("POST", "/api/z", { id: gid, startRound: FAR_START, callSeconds: 20, cap: 300 }, master);

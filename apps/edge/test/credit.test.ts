@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { createHmac } from "node:crypto";
-import { withDevice } from "./device";
+import { withDevice, TICKS } from "./device";
 import { handle, type Env } from "../src/worker";
 import { lifecycleTick } from "../src/lifecycle";
 import { applyCreditToGame, creditExpiryMs, creditLastDay, creditTick } from "../src/credit";
@@ -38,7 +38,7 @@ beforeEach(() => {
 afterEach(() => { globalThis.fetch = realFetch; });
 
 let ip = 0, lastAi = "";
-const start = async (email: string) => { const r = await j(await handle(new Request("http://x/api/start", { method: "POST", headers: { "content-type": "application/json", "cf-connecting-ip": `9.9.9.${++ip}` }, body: JSON.stringify({ email }) }), env as Env, T)); lastAi = r.aiKey as string; return r.token as string; };
+const start = async (email: string) => { const r = await j(await handle(new Request("http://x/api/start", { method: "POST", headers: { "content-type": "application/json", "cf-connecting-ip": `9.9.9.${++ip}` }, body: JSON.stringify({ consent: TICKS, email }) }), env as Env, T)); lastAi = r.aiKey as string; return r.token as string; };
 /** Organizer + a Host (own e-mail) + a Co-host for game GAME-1 (300 places = the 500 pack, Rs 4,699, no GST), starting 3 hours after T. */
 const team = async () => {
   const master = await start("boss@acme.com"); const ai = lastAi;

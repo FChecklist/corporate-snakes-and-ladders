@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { createHmac } from "node:crypto";
-import { withDevice } from "./device";
+import { withDevice, TICKS } from "./device";
 import { handle, purgeOld, type Env } from "../src/worker";
 import { lifecycleTick } from "../src/lifecycle";
 const MAX_AHEAD_MS = 30 * 86_400_000; // written out on purpose: the test must not follow a changed constant
@@ -34,7 +34,7 @@ beforeEach(() => {
 afterEach(() => { globalThis.fetch = realFetch; });
 
 let ip = 0, lastAi = "";
-const start = async (email: string) => { const r = await j(await handle(new Request("http://x/api/start", { method: "POST", headers: { "content-type": "application/json", "cf-connecting-ip": `8.8.8.${++ip}` }, body: JSON.stringify({ email }) }), env as Env, T)); lastAi = r.aiKey as string; return r.token as string; };
+const start = async (email: string) => { const r = await j(await handle(new Request("http://x/api/start", { method: "POST", headers: { "content-type": "application/json", "cf-connecting-ip": `8.8.8.${++ip}` }, body: JSON.stringify({ consent: TICKS, email }) }), env as Env, T)); lastAi = r.aiKey as string; return r.token as string; };
 const PUB = { email: "boss@acme.com", phone: "9876543210" };
 const GAME_START = T + 3 * H;
 const BRAND = { name: "Acme Foods", color: "#0B3D91" };

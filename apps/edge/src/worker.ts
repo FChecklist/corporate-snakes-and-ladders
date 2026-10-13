@@ -712,7 +712,7 @@ Did not ask for this? Ignore this e-mail.`, now, { secret: true });
       const row = await identityRow(env.DB, ha.hid!), onFile = row?.email_sealed ? await openText(env as any, row.email_sealed) : null;
       if (onFile && onFile.toLowerCase() !== email) return json({ error: `This link is for ${maskEmail(onFile)}`, code: "email-mismatch" }, 403);
       if (!(await spend(env, now, 3))) return BUSY();
-      if (checkConsent("K5", b?.consent).ok) await recordConsent(env.DB, "K5", ha.hid!, null, now); // K5 sent with the Google step
+      if (!(await hasConsent(env.DB, "K5", ha.hid!))) { const k = checkConsent("K5", b?.consent); if (!k.ok) return consentRefusal("K5", k); await recordConsent(env.DB, "K5", ha.hid!, null, now); } // K5
       const done = await confirmHostEmail(env, ha.hid!, ha.org, email, newHostKey(), now);
       return json({ ok: true, token: done.token, kind: "host", ready: done.ready, needMobile: done.needMobile });
     }

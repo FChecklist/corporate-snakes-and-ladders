@@ -1,7 +1,7 @@
 // Privacy and lifecycle, end to end through the real Worker code and a real SQLite: names and numbers are sealed, invitations obey the organizer's rules,
 // the winners record outlives the personal data, the report is built and e-mailed, and everything is deleted on time.
 import { beforeEach, describe, expect, test } from "bun:test";
-import { withDevice } from "./device";
+import { withDevice, TICKS } from "./device";
 import { settleByPhones } from "./settle";
 import { layoutPeoplePart, layoutReport } from "../src/report-layout";
 import { handle, purgeOld, type Env } from "../src/worker";
@@ -305,7 +305,7 @@ describe("exact deletion dates", () => {
 });
 
 describe("asking for deletion", () => {
-  const key = async () => { const r = await handle(new Request("http://x/api/start", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email: "boss@acme.com" }) }), env, T); return (await j(r)) as { token: string; aiKey: string }; };
+  const key = async () => { const r = await handle(new Request("http://x/api/start", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ consent: TICKS, email: "boss@acme.com" }) }), env, T); return (await j(r)) as { token: string; aiKey: string }; };
   test("an AI assistant can only ASK for a deletion: nothing is deleted until the organizer confirms in their console, and the organizer is e-mailed", async () => {
     const k = await key();
     await call("POST", "/api/z", { id: "PRV-AI", startRound: roundOf(T - 2 * 3_600_000), callSeconds: 20, cap: 100 }, { "x-organizer": k.token });

@@ -26,7 +26,7 @@ beforeEach(async () => {
 afterEach(() => setGoogleKeyProvider());
 
 const organizer = async (email = "boss@acme.com") => {
-  const st = await j(await handle(new Request("http://x/api/start", { method: "POST", headers: { "content-type": "application/json", "cf-connecting-ip": `3.3.3.${++ip}` }, body: JSON.stringify({ email }) }), env as Env, T));
+  const st = await j(await handle(new Request("http://x/api/start", { method: "POST", headers: { "content-type": "application/json", "cf-connecting-ip": `3.3.3.${++ip}` }, body: JSON.stringify({ consent: TICKS, email }) }), env as Env, T));
   await call("POST", "/api/z", { id: "HOST-1", startRound: FAR_START, callSeconds: 20, cap: 100 }, st.token);
   return { master: st.token as string, ai: st.aiKey as string };
 };

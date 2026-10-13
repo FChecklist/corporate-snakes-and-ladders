@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { createHmac } from "node:crypto";
-import { withDevice } from "./device";
+import { withDevice, TICKS } from "./device";
 import { handle, purgeOld, type Env } from "../src/worker";
 import { endBoundMs, lifecycleTick, personalDeleteAt, PURGE_AFTER_MS } from "../src/lifecycle";
 const MAX_AHEAD_MS = 30 * 86_400_000, SETTINGS_KEEP_MS = 30 * 86_400_000, UNPLAYED_WARN_MS = 6 * 3_600_000; // the owner's numbers, written out here on purpose: the test must not follow a changed constant
@@ -39,7 +39,7 @@ beforeEach(() => {
 afterEach(() => { globalThis.fetch = realFetch; });
 
 let ip = 0, lastAi = "";
-const start = async (email: string) => { const r = await j(await handle(new Request("http://x/api/start", { method: "POST", headers: { "content-type": "application/json", "cf-connecting-ip": `9.9.9.${++ip}` }, body: JSON.stringify({ email }) }), env as Env, T)); lastAi = r.aiKey as string; return r.token as string; };
+const start = async (email: string) => { const r = await j(await handle(new Request("http://x/api/start", { method: "POST", headers: { "content-type": "application/json", "cf-connecting-ip": `9.9.9.${++ip}` }, body: JSON.stringify({ consent: TICKS, email }) }), env as Env, T)); lastAi = r.aiKey as string; return r.token as string; };
 const PUB = { email: "boss@acme.com", phone: "9876543210" };
 const GAME_START = T + 3 * H;
 /** Organizer + Host (own e-mail) + a Co-host; a PUBLISHED but unpaid game UNP-1 for 300 people starting at GAME_START. */
