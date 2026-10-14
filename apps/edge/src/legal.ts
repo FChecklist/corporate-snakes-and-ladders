@@ -1,9 +1,9 @@
-// Records the law makes us keep for ever (owner order 2026-10-09):
+// Billing data kept for audit and tax reasons (nothing deletes it):
 //   1. payments and invoices (tables payment, invoice, entitlement: nothing deletes them),
 //   2. the organizer's details that are part of the invoice (name, e-mail, mobile),
 //   3. who paid (the payer: name, organisation, e-mail, mobile, country, GSTIN).
 // Everything else about a game is deleted at the end of day 365 (lifecycle.ts). The details in 2 and 3 live in the payment and invoice rows;
-// `legal_party` is a second, permanent copy per game that also holds the mobile number the organizer confirmed at Publish (kv contact/<eid>, which is deleted with the game).
+// `legal_party` is a second copy per game that also holds the mobile number the organizer confirmed at Publish (kv contact/<eid>, which is deleted with the game).
 import type { D1 } from "./worker";
 
 export const LEGAL_SCHEMA: string[] = [
@@ -11,7 +11,7 @@ export const LEGAL_SCHEMA: string[] = [
   `CREATE INDEX IF NOT EXISTS legal_party_org ON legal_party (org)`,
 ];
 
-/** Writes (or refreshes) the permanent record of a game that has a paid payment. Safe to repeat. Call it before the game's own rows are deleted. */
+/** Writes (or refreshes) the billing record of a game that has a paid payment. Safe to repeat. Call it before the game's own rows are deleted. */
 export async function keepLegalParty(db: D1, eid: string, now: number): Promise<boolean> {
   const pays = (await db.prepare("SELECT id, org, email, meta FROM payment WHERE eid=? AND status='paid' ORDER BY paid_ms, id").bind(eid).all<{ id: string; org: string | null; email: string; meta: string }>()).results ?? [];
   if (!pays.length) return false;

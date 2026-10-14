@@ -6,6 +6,7 @@ import { handle, type Env } from "../src/worker";
 import { withDevice } from "./device";
 import { makeD1 } from "./d1-sqlite";
 import { ERROR_ALERT_THRESHOLD, MAIL_EVENT_DAYS, maskMail, verifyMailSignature } from "../src/admin";
+import { endBoundMs } from "../src/lifecycle";
 
 const T = Date.UTC(2026, 9, 14, 10, 0, 0);
 const GEN = 1692803367;
@@ -263,4 +264,43 @@ describe("E12: the mail bounce log", () => {
     expect(all("SELECT id FROM mail_bounce").map((r) => r.id)).toEqual(["new"]);
   });
   test("masking", () => { expect(maskMail("Maya.Lopez@Acme.com")).toBe("m***@acme.com"); expect(maskMail("nonsense")).toBe("***"); });
+});
+
+describe("A8: the 24-hour promise has an alarm, and the tick keeps the mail log short", () => {
+  let endBound = 0; // the end the schedule gives the game (what the tick would also work out)
+  const late = () => endBound + 23 * 3_600_000 + 31 * 60_000; // 31 minutes past the 23-hour deletion of a game that was never started
+  async function withPlayer(id: string) {
+    await game(id); raw.prepare("UPDATE engagement SET pack=100 WHERE id=?").run(id);
+    expect((await call("POST", `/api/z/${id}/join`, { name: "Maya", device: dev(1) })).status).toBe(200);
+    endBound = await endBoundMs(env as any, one("SELECT * FROM engagement WHERE id=?", id));
+  }
+  test("a game past its 23-hour deletion that still holds a player turns the health read to ok:false (count and hours); the tick clears it; a legal hold is left out", async () => {
+    await withPlayer("OVD-1");
+    expect(await j(await call("GET", "/api/status/health"))).toMatchObject({ ok: true, overdue_purge: 0, overdue_hours: null });
+    expect(await j(await call("GET", "/api/status/health", undefined, {}, late() - 3_600_000))).toMatchObject({ ok: true, overdue_purge: 0 }); // not yet: the tick still has time
+    const h = await j(await call("GET", "/api/status/health", undefined, {}, late())); // nobody has run the tick at all: the alarm sees the stored player anyway
+    expect(h).toMatchObject({ ok: false, overdue_purge: 1 }); expect(h.overdue_hours).toBeGreaterThan(0);
+    raw.prepare("INSERT INTO legal_hold(eid,at_ms,note) VALUES('OVD-1',?,'x')").run(T);
+    expect(await j(await call("GET", "/api/status/health", undefined, {}, late()))).toMatchObject({ ok: true, overdue_purge: 0 }); // kept on purpose
+    raw.prepare("DELETE FROM legal_hold WHERE eid='OVD-1'").run();
+    expect((await call("POST", "/api/lifecycle/tick", {}, PLAT, late())).status).toBe(200);
+    expect(one("SELECT COUNT(*) c FROM participant WHERE eid='OVD-1'").c).toBe(0);
+    expect(await j(await call("GET", "/api/status/health", undefined, {}, late()))).toMatchObject({ ok: true, overdue_purge: 0, overdue_hours: null });
+  });
+  test("a game the tick has seen (a life row) is watched the same way; once purged it no longer counts", async () => {
+    await withPlayer("OVD-2");
+    raw.prepare("INSERT INTO life(eid,end_ms,end_src) VALUES('OVD-2',?, 'schedule')").run(T - 24 * 3_600_000);
+    expect(await j(await call("GET", "/api/status/health"))).toMatchObject({ ok: false, overdue_purge: 1 });
+    raw.prepare("UPDATE life SET purged_ms=? WHERE eid='OVD-2'").run(T);
+    expect(await j(await call("GET", "/api/status/health"))).toMatchObject({ ok: true, overdue_purge: 0 });
+  });
+  test("the tick forgets mail-log rows older than 3 days (once an hour) and keeps newer ones", async () => {
+    const ins = (id: number, at: number, sent: number) => raw.prepare("INSERT INTO outbox(id,to_addr,subject,body,sent,at_ms) VALUES(?,?,?,?,?,?)").run(id, "a@acme.com", "s", "", sent, at);
+    ins(901, T - 4 * 86_400_000, 1); ins(902, T - 11 * 86_400_000, 1); ins(903, T - 2 * 86_400_000, 1);
+    expect((await call("POST", "/api/lifecycle/tick", {}, PLAT, T)).status).toBe(200);
+    expect(all("SELECT id FROM outbox WHERE id>=901 ORDER BY id").map((r) => r.id)).toEqual([903]);
+    ins(904, T - 5 * 86_400_000, 1); // the same hour: not looked at again
+    await call("POST", "/api/lifecycle/tick", {}, PLAT, T + 60_000); expect(all("SELECT id FROM outbox WHERE id=904").length).toBe(1);
+    await call("POST", "/api/lifecycle/tick", {}, PLAT, T + 3_600_000 + 60_000); expect(all("SELECT id FROM outbox WHERE id=904").length).toBe(0); // the next hour
+  });
 });
