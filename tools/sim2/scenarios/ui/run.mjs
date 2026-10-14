@@ -30,7 +30,7 @@ const up = async (url, ms = 90000) => { const t0 = Date.now(); while (Date.now()
 const alive = async (url) => { try { return (await fetch(url)).ok; } catch { return false; } };
 const procs = [];
 mkdirSync(join(H.ROOT, "sim"), { recursive: true });
-if (flag("build")) { const r = spawnSync("node", [join(H.ROOT, "pages/build.mjs")], { cwd: H.ROOT, encoding: "utf8" }); if (r.status !== 0) { console.error("pages/build.mjs failed", r.stderr); process.exit(2); } }
+if (flag("build")) { const r = spawnSync(H.BUN, [join(H.ROOT, "pages/build.mjs")], { cwd: H.ROOT, encoding: "utf8" }); if (r.status !== 0) { console.error("pages/build.mjs failed", r.stderr); process.exit(2); } }
 // (re)starts what is not answering; another agent's cleanup may kill bun processes, so this runs before every scenario too
 let restarts = 0;
 const ensureStack = async () => {
