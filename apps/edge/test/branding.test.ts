@@ -114,7 +114,7 @@ describe("pages: one title pattern, icons, manifest, theme colour", () => {
 describe("the legal page carries the owner's final text, and each line matches what the code does", () => {
   const html = read("apps/web/public/legal.html");
   const sec = (id: string) => { const m = html.match(new RegExp(`<section id="${id}"[\\s\\S]*?</section>`)); expect(m).toBeTruthy(); return m![0]; };
-  const items = (id: string) => [...sec(id).matchAll(/<li>([\s\S]*?)<\/li>/g)].map((x) => x[1]!.replace(/<[^>]+>/g, "").replace(/&rsquo;/g, "’").replace(/&amp;/g, "&"));
+  const items = (id: string) => [...sec(id).matchAll(/<li>([\s\S]*?)<\/li>/g)].map((x) => x[1]!.replace(/<[^>]+>/g, "").replace(/&rsquo;/g, "’").replace(/&ldquo;/g, "“").replace(/&rdquo;/g, "”").replace(/&amp;/g, "&"));
 });
 
 describe("claims register: customer-facing text never says what the build does not do", () => {

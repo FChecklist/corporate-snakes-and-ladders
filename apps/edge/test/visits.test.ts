@@ -148,7 +148,7 @@ describe("privacy signals: counts only", () => {
   });
   test("with the signal on, an account is only counted, never linked to a visit", async () => {
     await beacon(msg([pv()]), {}, T); // an earlier, tracked visit by the same browser
-    const r = await call("POST", "/api/start", { email: "priv@acme.com", consent: { v: "2026-10-13", boxes: ["A"] } }, { "sec-gpc": "1", cookie: `cbv=${VID}` });
+    const r = await call("POST", "/api/start", { email: "priv@acme.com", consent: { v: "2026-10-14", boxes: ["A"] } }, { "sec-gpc": "1", cookie: `cbv=${VID}` });
     expect(r.status).toBe(200);
     expect(one("SELECT org FROM visit_session").org).toBeNull();
     expect(one("SELECT n FROM visit_agg WHERE dim='gpc_fun' AND k='account'").n).toBe(1);
@@ -198,18 +198,18 @@ describe("from visit to sale: linking the person", () => {
     await beacon(msg([pv(), { k: "sec", p: "/", n: "pricing", m: 5000 }, { k: "act", p: "/", n: "pack", z: 500, v: "INR 3999" }, { k: "act", p: "/", n: "create", z: 500, v: "INR 3999" }]), {}, T);
     expect(one("SELECT stage FROM visit_session").stage).toBe(3);
     // the account: the browser's cookie and session header ride along on the call
-    const st = await j(await call("POST", "/api/start", { email: "Boss@Acme.com", consent: { v: "2026-10-13", boxes: ["A"] } }, { cookie: `cbv=${VID}`, "x-cb-vs": SID }, T + 60_000));
+    const st = await j(await call("POST", "/api/start", { email: "Boss@Acme.com", consent: { v: "2026-10-14", boxes: ["A"] } }, { cookie: `cbv=${VID}`, "x-cb-vs": SID }, T + 60_000));
     expect(st.token).toBeTruthy();
     const org = one("SELECT org FROM organizer_email").org;
     expect(one("SELECT org, stage, eh FROM visit_session")).toMatchObject({ org, stage: 4 }); expect(one("SELECT eh FROM visit_session").eh).toMatch(/^[0-9a-f]{32}$/); expect(JSON.stringify(q("SELECT * FROM visit_session"))).not.toContain("acme");
     // publishing
     const start = Math.floor((T / 1000 - 1692803367) / 3) + 1200;
     expect((await call("POST", "/api/z", { id: "VIS-1", startRound: start, callSeconds: 20, cap: 100 }, { "x-organizer": st.token }, T + 70_000)).status).toBe(200);
-    const pub = await call("POST", "/api/z/VIS-1/publish", { email: "boss@acme.com", phone: "9876543210", consent: { v: "2026-10-13", boxes: ["A", "B"] } }, { "x-organizer": st.token }, T + 80_000);
+    const pub = await call("POST", "/api/z/VIS-1/publish", { email: "boss@acme.com", phone: "9876543210", consent: { v: "2026-10-14", boxes: ["A", "B"] } }, { "x-organizer": st.token }, T + 80_000);
     expect(pub.status).toBe(200);
     expect(one("SELECT stage FROM visit_session").stage).toBe(5);
     // paying (test mode fulfils at once): the same organizer, found through the e-mail
-    const paid = await call("POST", "/api/checkout", { org: "Acme", email: "boss@acme.com", country: "IN", taxId: "", pack: 500, currency: "INR", consent: { v: "2026-10-13", boxes: ["A"] } }, {}, T + 90_000);
+    const paid = await call("POST", "/api/checkout", { org: "Acme", email: "boss@acme.com", country: "IN", taxId: "", pack: 500, currency: "INR", consent: { v: "2026-10-14", boxes: ["A"] } }, {}, T + 90_000);
     expect(paid.status).toBe(200);
     expect(one("SELECT stage FROM visit_session").stage).toBe(6);
     expect(q("SELECT name FROM visit_event WHERE kind='fun' ORDER BY id").map((r) => r.name)).toEqual(["account", "published", "paid"]);
@@ -225,7 +225,7 @@ describe("from visit to sale: linking the person", () => {
   });
   test("a returning organizer signing in with their code is linked to a new visitor id, and the first visit stays the source", async () => {
     await beacon(msg([pv()]), {}, T);
-    const st = await j(await call("POST", "/api/start", { email: "boss@acme.com", consent: { v: "2026-10-13", boxes: ["A"] } }, { cookie: `cbv=${VID}`, "x-cb-vs": SID }, T + 1000));
+    const st = await j(await call("POST", "/api/start", { email: "boss@acme.com", consent: { v: "2026-10-14", boxes: ["A"] } }, { cookie: `cbv=${VID}`, "x-cb-vs": SID }, T + 1000));
     expect(st.ok).toBe(true); const org = one("SELECT org FROM organizer_email").org;
     await beacon(msg([pv()], { s: "c3".repeat(12), d: "f6".repeat(16), r: "" }), {}, T + DAY);
     await call("POST", "/api/auth/email", { email: "boss@acme.com" }, {}, T + DAY + 1000);
@@ -234,7 +234,7 @@ describe("from visit to sale: linking the person", () => {
     expect(one("SELECT sid FROM visit_session WHERE org=? ORDER BY first_ms LIMIT 1", org).sid).toBe(SID);
   });
   test("an account with no visit on record only raises an anonymous counter", async () => {
-    await call("POST", "/api/start", { email: "direct@acme.com", consent: { v: "2026-10-13", boxes: ["A"] } });
+    await call("POST", "/api/start", { email: "direct@acme.com", consent: { v: "2026-10-14", boxes: ["A"] } });
     expect(one("SELECT n FROM visit_agg WHERE dim='gpc_fun' AND k='account'").n).toBe(1);
   });
 });
@@ -249,7 +249,7 @@ describe("owner-only reports", () => {
       expect((await call("GET", u, undefined, { "x-organizer": "plat", "x-cb-link": "1" })).status).toBe(404); // never through an AI work link
       expect((await call("POST", u, {}, { "x-organizer": "plat" })).status).toBe(404);
     }
-    const st = await j(await call("POST", "/api/start", { email: "o@acme.com", consent: { v: "2026-10-13", boxes: ["A"] } }));
+    const st = await j(await call("POST", "/api/start", { email: "o@acme.com", consent: { v: "2026-10-14", boxes: ["A"] } }));
     expect((await call("GET", urls[0]!, undefined, { "x-organizer": st.token })).status).toBe(404); // an organizer's own key is not the owner's
     expect(q("SELECT action, ok FROM audit_access WHERE action LIKE 'denied:visits%'").length).toBe(9);
     expect((await call("GET", urls[0]!, undefined, { "x-organizer": "plat" })).status).toBe(200);
