@@ -374,7 +374,7 @@ describe("removing people", () => {
     expect((await call("POST", `/api/z/PPL-1/people/${p.id}/remove`, {}, t.master, DURING)).status).toBe(200);
     const seatsAfter = await j(await call("GET", "/api/z/PPL-1/seats", undefined, undefined, DURING));
     expect(seatsAfter.seats).toEqual(seatsBefore.seats); // identical on every phone
-    expect(rowsOf("SELECT blocked FROM seat WHERE seq=1")[0].blocked).toBe(1);
+    expect(rowsOf("SELECT blocked FROM seat WHERE seq=1")[0].blocked).toBeGreaterThan(1); // the server records WHEN the seat was taken out
     const claim = await call("POST", "/api/z/PPL-1/claims", { pid: asha.pid, claims: [{ pattern: "finish", idx: 4 }] }, undefined, DURING);
     expect(claim.status).toBe(403); expect((await j(claim)).code).toBe("removed");
     expect((await j(await call("GET", `/api/z/PPL-1/me?pid=${asha.pid}`))).state).toBe("removed");

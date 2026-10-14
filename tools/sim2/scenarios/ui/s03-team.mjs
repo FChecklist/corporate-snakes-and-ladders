@@ -1,5 +1,5 @@
 // Group 3: Host and Co-host. Invitation through the WhatsApp simulator, first open (e-mail code, fake Google, expired link, new link), what each role sees and cannot do.
-import { H, fakeGoogle, openConsole, openStep, uiPublish, payOnPage, nextPhone, cohostUrl, tickTerms, tickGuestList, askCodeUi, passK5Gate, setupSendUi, acceptRole, tickIfAny, tickCode, acceptHostRole, tickRest } from "./kit.mjs";
+import { H, fakeGoogle, openConsole, openStep, uiPublish, payOnPage, nextPhone, cohostUrl, tickTerms, tickGuestList, askCodeUi, passK5Gate, setupSendUi, acceptRole, cohostAccepted, tickIfAny, tickCode, acceptHostRole, tickRest } from "./kit.mjs";
 
 const keyOf = (page) => page.evaluate(() => sessionStorage.getItem("cbz-org"));
 /** the Organizer adds a Host through the API; returns { inv, email, mobile } */
@@ -194,11 +194,15 @@ export default [
       const c = await org.inviteCohost({ label: "Chandra", phone: nextPhone(), e: g.id });
       t.check("Co-host link from the API is a console link", /zc/.test(c.link ?? ""), c.link);
       const dead = await t.open({ device: "mobile" });
-      await dead.page.goto(c.link); await passK5Gate(dead.page); await dead.page.waitForTimeout(2500);
+      t.check("before the first open the server has no acceptance for this Co-host key (K5)", !(await cohostAccepted(g.id, c)));
+      await dead.page.goto(c.link); const metBox = await passK5Gate(dead.page); await dead.page.waitForTimeout(2500);
+      t.check("a first-time Co-host met the role box (K5), ticked it for real and pressed Accept", metBox === true);
+      t.check("the server now records the Co-host's acceptance (K5), read back from the server", await cohostAccepted(g.id, c));
       t.check("the API's own Co-host link (no game id) opens the game", !!(await dead.page.$(".zc-sech")), (await t.text(dead.page)).slice(0, 220));
       await t.shot(dead.page, "cohost-api-link-deadend");
       const x = await t.open({ device: "mobile" });
-      await x.page.goto(cohostUrl(g.id, c)); await passK5Gate(x.page); await x.page.waitForSelector(".zc-sech", { timeout: 15000 }); await x.page.waitForTimeout(800);
+      await x.page.goto(cohostUrl(g.id, c)); await passK5Gate(x.page, { optional: true }); await x.page.waitForSelector(".zc-sech", { timeout: 15000 }); await x.page.waitForTimeout(800); // the same key has already accepted: no box now
+      t.check("the same key meets no second box", !(await x.page.$("#roleaccept")));
       const txt = await t.text(x.page);
       const heads = await x.page.$$eval(".zc-sech", (els) => els.map((e) => e.innerText.replace(/\s+/g, " ").slice(0, 40)));
       t.check("exactly three numbered steps (Today's game, Invite people, Payment)", heads.filter((h) => /^\d /.test(h)).length === 3, heads.join(" | "));

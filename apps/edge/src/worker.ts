@@ -1457,10 +1457,13 @@ Did not ask for this? Ignore this e-mail.`, now, { secret: true });
       base = `{"ready":true,"seats":[${rows.map((r) => `[${r.seq},"${r.pid}",${r.jr},${r.ex}]`).join(",")}],"upto":${n}}`;
       if (await spend(env, now)) await env.DB.prepare("INSERT OR IGNORE INTO kv(k,v) VALUES(?,?)").bind(key, base).run();
     }
-    const blk = (await env.DB.prepare("SELECT v FROM kv WHERE k=?").bind(`seats-blk/${eid}`).first<{ v: string }>())?.v ?? "[]"; // removed seats: still listed, never a winner of Unlucky
-    if (after < n) return new Response(base.slice(0, -1) + `,"blk":${blk}}`, { headers: { "content-type": "application/json", "cache-control": "public, max-age=20" } }); // the saved text as it is: nothing to parse
+    // removed seats: still listed (every phone must work out the same draw), with the time of each removal; a lucky draw leaves out whoever was removed well before it (game.ts luckyEligible)
+    let blkAt: Record<string, number> = {};
+    try { const v = JSON.parse((await env.DB.prepare("SELECT v FROM kv WHERE k=?").bind(`seats-blk/${eid}`).first<{ v: string }>())?.v ?? "{}"); if (Array.isArray(v)) for (const p of v) blkAt[String(p)] = 0; else if (v && typeof v === "object") blkAt = v; } catch { blkAt = {}; }
+    const blk = JSON.stringify(Object.keys(blkAt)), blkAtJson = JSON.stringify(blkAt);
+    if (after < n) return new Response(base.slice(0, -1) + `,"blk":${blk},"blkAt":${blkAtJson}}`, { headers: { "content-type": "application/json", "cache-control": "public, max-age=20" } }); // the saved text as it is: nothing to parse
     const rows = (await env.DB.prepare("SELECT seq, pid, COALESCE(jr,0) AS jr, CASE WHEN role IS NULL THEN 0 ELSE 1 END AS ex FROM seat WHERE eid=? AND seq>? ORDER BY seq LIMIT 2000").bind(eid, after).all<{ seq: number; pid: string; jr: number; ex: number }>()).results ?? [];
-    return json({ ready: true, seats: rows.map((r) => [r.seq, r.pid, r.jr, r.ex]), upto: rows.length ? rows[rows.length - 1]!.seq : after, blk: JSON.parse(blk) });
+    return json({ ready: true, seats: rows.map((r) => [r.seq, r.pid, r.jr, r.ex]), upto: rows.length ? rows[rows.length - 1]!.seq : after, blk: Object.keys(blkAt), blkAt });
   }
   if ((action === "person" || action === "forget") && req.method === "POST") { // a participant asks the organizer to see, or to delete, their own data: the organizer does it in the console (never an AI)
     if (!can(a, e, true)) return deny(a);
@@ -1602,7 +1605,7 @@ Did not ask for this? Ignore this e-mail.`, now, { secret: true });
   if (action === "participants" && req.method === "GET") {
     if (!can(a, e)) return deny(a);
     const limit = Math.min(Math.max(Number(url.searchParams.get("limit")) || PAGE, 1), PAGE), offset = Math.max(Number(url.searchParams.get("offset")) || 0, 0);
-    const r = await env.DB.prepare("SELECT p.pid AS pid, COALESCE(s.jr,0) AS jr, s.role AS role, s.inv AS inv, s.cat AS cat FROM participant p LEFT JOIN seat s ON s.eid=p.eid AND s.pid=p.pid WHERE p.eid=? ORDER BY p.joined_ms, p.pid LIMIT ? OFFSET ?").bind(eid, limit, offset).all<any>(); // ids only: names are sealed and are opened one small batch at a time (see /names)
+    const r = await env.DB.prepare("SELECT p.pid AS pid, COALESCE(s.jr,0) AS jr, s.role AS role, s.inv AS inv, s.cat AS cat, s.blocked AS blocked FROM participant p LEFT JOIN seat s ON s.eid=p.eid AND s.pid=p.pid WHERE p.eid=? ORDER BY p.joined_ms, p.pid LIMIT ? OFFSET ?").bind(eid, limit, offset).all<any>(); // ids only: names are sealed and are opened one small batch at a time (see /names)
     const total = (await env.DB.prepare("SELECT COUNT(*) AS c FROM participant WHERE eid=?").bind(eid).first<{ c: number }>())?.c ?? 0;
     return json({ participants: r.results ?? [], total, offset, limit, closed: !!e.closed, cap: e.cap, ...pub(e) });
   }

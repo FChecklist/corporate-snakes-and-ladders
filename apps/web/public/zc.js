@@ -1076,7 +1076,7 @@
       const x = S.luckyRand && S.luckyRand[round] ? S.luckyRand[round] : await ZG.fetchRound(round);
       if (!x) { out.push(null); continue; }
       (S.luckyRand = S.luckyRand || {})[round] = x;
-      const winners = ZG.luckyWinners(eid, L[i].after, x.randomness, S.people.map((p) => p.pid), L[i].winners || 3); // everyone who joined: sign-up closes at the start
+      const winners = ZG.luckyWinners(eid, L[i].after, x.randomness, ZG.luckyEligible(S.people.map((p) => ({ pid: p.pid, ex: !!p.role, removedMs: p.blocked || null })), ZG.roundTimeMs(round)), L[i].winners || 3); // the same list the phones use: everyone who joined except the flagged team and people removed well before the draw
       out.push({ winners, published: (S.published || []).some((r) => r.pattern === "lucky" && r.ordinal === i + 1) });
     }
     return out;

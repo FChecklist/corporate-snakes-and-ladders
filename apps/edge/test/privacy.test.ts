@@ -53,7 +53,7 @@ describe("names and numbers are sealed", () => {
   test("the participant list carries ids, join rounds, roles and inviters but no names; the organizer opens a few names at a time", async () => {
     await create(); await joinAs(1, "Asha"); await joinAs(2, "Bala");
     const list = await j(await call("GET", "/api/z/PRV-1/participants", undefined, org));
-    expect(JSON.stringify(list)).not.toMatch(/Asha|Bala/); expect(Object.keys(list.participants[0]).sort()).toEqual(["cat", "inv", "jr", "pid", "role"]);
+    expect(JSON.stringify(list)).not.toMatch(/Asha|Bala/); expect(Object.keys(list.participants[0]).sort()).toEqual(["blocked", "cat", "inv", "jr", "pid", "role"]);
     const pids = list.participants.map((p: any) => p.pid).join(",");
     expect((await call("GET", `/api/z/PRV-1/names?pids=${pids}`)).status).toBe(403); // nobody but the organizer
     expect((await call("GET", `/api/z/PRV-1/names?pids=${pids}`, undefined, { "x-organizer": "wrong" })).status).toBe(403);

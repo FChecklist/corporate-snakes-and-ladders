@@ -111,7 +111,7 @@ export default [
       await openStep(c.page, 9); await c.page.waitForTimeout(800);
       const t9 = await t.text(c.page, "#sec9");
       t.note("step 9 buttons: " + (await c.page.$$eval("#sec9 button,#sec9 input", (els) => els.map((e) => (e.id || e.type) + ":" + (e.innerText || e.placeholder || "").slice(0, 24)).join(" | "))));
-      t.check("Game day step offers pause / end / message", /Pause|End the game|message/i.test(t9), t9.slice(0, 260));
+      t.check("Game day step offers Pause, Resume and End the game", (await c.page.locator("#sec9 [data-ctl]").evaluateAll((els) => els.map((e) => e.dataset.ctl))).join(",") === "pause,resume,stop" && /Pause/.test(t9) && /End the game/.test(t9), t9.slice(0, 260));
       const r = await org.announce(g.id, "Snacks are served in the hall");
       t.check("announcement accepted", r.ok, JSON.stringify(r.body).slice(0, 120));
       await H.clock.advance(6000); t.shared.track.bump(6000); for (const p of ps) await p.ctx.clock.runFor(6000);
@@ -172,6 +172,43 @@ export default [
       const mails = await t.mails(); t.check("e-mail only to the Organizer and Hosts", mails.every((m) => t.team.has(m.to.toLowerCase())), mails.filter((m) => !t.team.has(m.to.toLowerCase())).map((m) => m.to).join(","));
     },
     resetAfter: true,
+  },
+  {
+    id: "S07-09", name: "The console's 'End the game' button, clicked in Chrome: it asks first (Cancel changes nothing), then every phone ends at the same turn, long before the game would end by itself",
+    async run(t) {
+      const org = await t.org("o"); const g = await playGame(t, org);
+      const ps = await phones(t, g, ["Asha", "Bala"]);
+      const track = t.shared.track;
+      const turnsOf = () => Promise.all(ps.map((p) => p.page.evaluate(() => (window.__rt ? window.__rt.view().turnsPlayed : -1)).catch(() => -1)));
+      const phasesOf = () => Promise.all(ps.map((p) => p.page.evaluate(() => (window.__rt ? window.__rt.phase : "none")).catch(() => "none")));
+      const c = await openConsole(t, org, g.id, { device: "laptop" });
+      await H.clock.advance(150_000); track.bump(150_000); await H.advanceBrowsers(ps.map((p) => p.ctx), 150_000, { run: false });
+      for (let i = 0; i < 40; i++) { await H.clock.advance(3000); track.bump(3000); for (const p of ps) await p.ctx.clock.runFor(3000); await new Promise((r) => setTimeout(r, 40)); }
+      await openStep(c.page, 9); await c.page.waitForTimeout(600);
+      t.check("the End button is on the Game day step", (await c.page.locator('#sec9 [data-ctl="stop"]').count()) === 1 && /End the game/.test(await t.text(c.page, "#sec9")));
+      const before = await turnsOf(); t.check("both phones are playing", before.every((n) => n > 0) && (await phasesOf()).every((x) => x !== "ended"), before.join(","));
+      // 1. Cancel on the question: nothing is sent, the game goes on
+      let asked = ""; c.page.once("dialog", async (d) => { asked = d.message(); await d.dismiss(); });
+      await c.page.click('#sec9 [data-ctl="stop"]'); await c.page.waitForTimeout(800);
+      t.check("the button asks 'End this game for everyone?' first", /End this game for everyone/.test(asked), asked);
+      t.check("Cancel sends nothing", !/Stop sent|sent\./i.test(await t.text(c.page, "#sec9")), (await t.text(c.page, "#sec9")).slice(0, 160));
+      for (let i = 0; i < 25; i++) { await H.clock.advance(3000); track.bump(3000); for (const p of ps) await p.ctx.clock.runFor(3000); await new Promise((r) => setTimeout(r, 40)); }
+      t.check("after Cancel the game plays on (no phone has ended, more turns were played)", (await phasesOf()).every((x) => x !== "ended") && (await turnsOf()).every((n, i) => n > before[i]), (await turnsOf()).join(","));
+      // 2. OK on the question: the signed stop goes out
+      c.page.once("dialog", async (d) => { await d.accept(); });
+      await c.page.click('#sec9 [data-ctl="stop"]');
+      let note = ""; for (let i = 0; i < 40 && !/Stop sent|Not accepted|failed|error/i.test(note); i++) { await c.page.waitForTimeout(300); note = await t.text(c.page, "#sec9"); }
+      t.check("the console says the stop was sent", /Stop sent/i.test(note), note.replace(/\s+/g, " ").slice(-200));
+      const atStop = await turnsOf();
+      const r = await H.playBrowserGame(ps, { track, maxSteps: 400 });
+      t.check("both phones ended", r.ended.every(Boolean), `${r.steps} steps, ${r.ended}`);
+      const after = r.views.map((v) => v.log.length);
+      t.check("both phones ended at the same turn", new Set(after).size === 1, after.join(","));
+      t.check("it ended within a few turns of the press, not at the game's natural end", after[0] >= Math.max(...atStop) && after[0] < Math.max(...atStop) + 12, `${after[0]} turns after a press at turn ${atStop.join("/")}`);
+      t.check("both phones show the same standings", r.views[0].top === r.views[1].top && r.views[0].top.length > 2, r.views.map((v) => v.top.slice(0, 60)).join(" || "));
+      const txt = await guestText(ps[0].page); t.check("the phone shows a finished game", /game (is )?over|finished|thank|winners|well played|ended/i.test(txt), txt.slice(0, 200));
+      await t.shot(ps[0].page, "phone-after-end");
+    },
   },
   {
     id: "S07-08", name: "A game has one round: asking for two rounds is refused in plain words that point to Play again",

@@ -3,7 +3,7 @@
 // Boards, dice, positions and winners are all worked out here from public values; nothing the store says can change them.
 import { ALL_SAFETIES, ControlTracker, SAFETY_FAST, SAFETY_STANDARD, pausedAt, type ControlConfig } from "./control";
 import { GRACE_ROUNDS, defaultCfg, linesFor, validateCfg, votersFor, keysInPlay, type BreakCfg, type EngagementCfg, type PatternKey } from "./config";
-import { RoundStore, activeBreak, callRoundR, luckyRound, luckyWinners, raceCfgOf, tableCfgOf, settleGame, playGame, type GameState } from "./game";
+import { RoundStore, activeBreak, callRoundR, luckyEligible, luckyRound, luckyWinners, raceCfgOf, tableCfgOf, settleGame, playGame, type GameState } from "./game";
 import { seatOfPid } from "./seat";
 import { QUICKNET, fetchRound, roundAt, roundTimeMs, type BeaconOpts } from "./index";
 import { betaOffset, turnRounds } from "./schedule";
@@ -94,6 +94,8 @@ export class PhoneRuntime {
   private mine: Run | null = null;
   private myBoard: Board | null = null;
   private seatList: { pid: string; ex?: boolean; blk?: boolean }[] = [];
+  /** When the server recorded each removal (people removed during the game stay in the public list); read again with every copy of the list. A legacy list of ids only counts as "removed long ago". */
+  private removedAt = new Map<string, number>();
   private seatUpto = 0; private seatsFetched = false; private lastSeatPoll = -Infinity; private seatsFreshRound = 0; private wantSeats = false;
   private settled: Settled[] = [];
   private serverResults: NonNullable<RuntimeView["results"]> = [];
@@ -311,6 +313,8 @@ export class PhoneRuntime {
       if (!r || !r.ready || !Array.isArray(r.seats)) return;
       const known = new Set(this.seatList.map((x) => x.pid));
       const blk = new Set<string>(Array.isArray(r.blk) ? r.blk.filter((x: unknown): x is string => typeof x === "string") : []);
+      const at = r.blkAt && typeof r.blkAt === "object" ? (r.blkAt as Record<string, unknown>) : {};
+      this.removedAt = new Map([...blk].map((p) => [p, typeof at[p] === "number" ? (at[p] as number) : 0] as const));
       for (const [, pid, , ex] of r.seats as [number, string, number, number?][]) if (!known.has(pid)) { known.add(pid); this.seatList.push({ pid, ex: ex === 1, blk: blk.has(pid) }); }
       this.seatList.sort((a, b) => (seatOfPid(a.pid) ?? 0) - (seatOfPid(b.pid) ?? 0));
       this.seatUpto = Math.max(this.seatUpto, Number(r.upto) || 0);
@@ -371,7 +375,7 @@ export class PhoneRuntime {
         if (this.seatsFreshRound < round) { this.wantSeats = true; continue; }
         const x = this.store.rounds.get(round) ?? (await fetchRound(round, { ...this.deps.beacon, ...(this.deps.verify ? { verify: this.deps.verify as any } : {}) }, 0));
         if (!x) continue;
-        const pids = this.seatList.filter((s) => !s.ex).map((s) => s.pid);
+        const pids = luckyEligible(this.seatList.map((s) => ({ pid: s.pid, ex: s.ex, removedMs: this.removedAt.get(s.pid) ?? null })), roundTimeMs(round));
         this.luckyLocal.push({ ordinal: i + 1, idx: L[i]!.after, round, winners: luckyWinners(this.eid, L[i]!.after, x.randomness, pids, L[i]!.winners || 3) });
       }
     } catch { /* tried again on the next pass */ } finally { this.luckyBusy = false; }

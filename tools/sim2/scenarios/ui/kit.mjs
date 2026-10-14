@@ -110,14 +110,20 @@ export async function askCodeUi(page, email) {
   await page.goto(H.SIM + "/#login"); await page.fill("#lMail", email);
   await tickIfAny(CUR, page, { scope: ".cbc", btn: "#lgGo", what: "Sign-in" }); await page.click("#lgGo"); await page.waitForSelector("#lCode");
 }
-/** A Host or Co-host who opened the console for the first time on this device meets ONE box (K5) before anything else: ticks it and carries on. No-op when the console opens straight away. */
-export async function passK5Gate(page, { timeout = 15000 } = {}) {
-  await page.waitForSelector(".zc-sech, #roleaccept, #mk, #finishsetup", { timeout: Math.min(timeout, 9000) }).catch(() => {});
+/** A Co-host who opened the console for the first time meets ONE box (K5) before anything else: this ticks it for real and carries on. It FAILS when the box does not appear (a first-time Co-host must always meet it), and when the box is still there after "Accept"; pass { optional: true } only for a key that has already accepted. */
+export async function passK5Gate(page, { timeout = 15000, optional = false } = {}) {
+  await page.waitForSelector("#roleaccept, .zc-sech, #mk, #finishsetup", { timeout: Math.min(timeout, 9000) }).catch(() => {});
   if (await page.$("#roleaccept")) {
     await tickTerms(CUR, page, { scope: "#roleaccept", btn: "#roleacceptgo", what: "Co-host role box (K5)" });
     await page.click("#roleacceptgo"); await page.waitForSelector(".zc-sech, #mk", { timeout });
+    if (await page.$("#roleaccept")) throw new Error("the Co-host role box (K5) is still on the screen after Accept");
+    return true;
   }
+  if (!optional) throw new Error("the Co-host role box (K5) did not appear for a first-time Co-host: " + (await page.innerText("body").catch(() => "")).replace(/\s+/g, " ").slice(0, 300));
+  return false;
 }
+/** The server's own word on it: a Co-host key that ticked the box is recorded (GET /api/z/<id>/cohost says roleAccepted: true). */
+export async function cohostAccepted(eid, c) { const r = await H.call("GET", `/api/z/${eid}/cohost`, undefined, { "x-organizer": c.cohostKey }); return r.body?.roleAccepted === true; }
 /** The API way of the same K5 acceptance for a Co-host key (what the one-time box does when ticked). */
 export const acceptRole = (key) => H.call("POST", "/api/org/role/accept", {}, { "x-organizer": key });
 /** Host first-open, e-mail step: the box (K5) first, then "Send me a code". */

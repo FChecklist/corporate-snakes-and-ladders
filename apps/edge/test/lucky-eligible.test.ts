@@ -7,11 +7,19 @@ import { handle, type Env } from "../src/worker";
 import { makeD1 } from "./d1-sqlite";
 import { TICKS } from "./device";
 import { PhoneRuntime } from "../../../packages/beacon/src/phone-runtime";
-import { luckyWinners } from "../../../packages/beacon/src/game";
+import { luckyEligible, luckyRound, luckyWinners, LUCKY_REMOVAL_MARGIN_MS } from "../../../packages/beacon/src/game";
+import { GRACE_ROUNDS } from "../../../packages/beacon/src/config";
+import { turnRounds } from "../../../packages/beacon/src/schedule";
+import { roundTimeMs } from "../../../packages/beacon/src/index";
 // @ts-ignore plain JS module shared with the other harnesses
 import { fakeFetcher, fakeVerify, randomnessOf, roundAt } from "../../../tools/sim2/lib/beacon.mjs";
 
-async function drawGame(players: number, flagged: number[], winners: 1 | 3 | 5 | 10, seed: string) {
+/** When the lucky draw of drawGame is decided (the time of the beacon round that ends its break), worked out the way a phone does. */
+const WINDOW = 20, START_MS = Date.UTC(2026, 9, 20, 10, 0, 0) + 10 * 60_000, BRK = { after: 3, seconds: 30, kind: "lucky" as const, title: "Lucky draw", winners: 10 as 1 | 3 | 5 | 10 };
+const DRAW_MS = roundTimeMs(luckyRound(null, roundAt(START_MS) + GRACE_ROUNDS, turnRounds(WINDOW), [BRK], BRK)!);
+
+/** `removals`: the organizer removes player i (the person's line on the organizer's list) when virtual time first reaches `at`. */
+async function drawGame(players: number, flagged: number[], winners: 1 | 3 | 5 | 10, seed: string, removals: { i: number; at: number }[] = []) {
   const d = makeD1(); const raw = d.raw;
   const env = { DB: d.db, ORGANIZER_SECRET: "plat", DAILY_WRITE_BUDGET: "100000000", JOIN_PER_IP_DAY: "1000000", JOIN_PER_IP_MINUTE: "1000000", DATA_KEY: "k", TEST_MODE: "1" } as unknown as Env;
   let vt = Date.UTC(2026, 9, 20, 10, 0, 0);
@@ -19,8 +27,8 @@ async function drawGame(players: number, flagged: number[], winners: 1 | 3 | 5 |
   const j = async (r: Response) => (await r.json()) as any;
   const org = await j(await req("POST", "/api/start", { email: "boss@acme.com", consent: TICKS }, { "cf-connecting-ip": "1.1.1.1" }));
   const h = { "x-organizer": org.token as string };
-  const window = 20, startMs = vt + 10 * 60_000, startRound = roundAt(startMs);
-  const brk = { after: 3, seconds: 30, kind: "lucky" as const, title: "Lucky draw", winners };
+  const window = WINDOW, startMs = vt + 10 * 60_000, startRound = roundAt(startMs); expect(startMs).toBe(START_MS);
+  const brk = { ...BRK, winners };
   expect((await req("POST", "/api/z", { id: "LK-1", startRound, callSeconds: window, cap: 100, breaks: [brk] }, h)).status).toBe(200);
   expect((await req("POST", "/api/z/LK-1/publish", { email: "boss@acme.com", phone: "9876543210", consent: TICKS }, h)).status).toBe(200);
   raw.prepare("UPDATE engagement SET pack=100").run();
@@ -38,7 +46,9 @@ async function drawGame(players: number, flagged: number[], winners: 1 | 3 | 5 |
   for (const i of flagged) { const seat = Number(/^(\d+)x/.exec(phones[i]!.rt.pid!)![1]); expect((await req("POST", "/api/z/LK-1/mark", { seat, role: "host" }, h)).status).toBe(200); }
   vt = startMs - 30_000;
   const done = () => phones.every((p) => { const l = p.rt.view().lucky; return l.length > 0 && l[0]!.published; });
-  for (let step = 0; step < 900 && !done(); step++) { vt += 3000; for (const p of phones) { try { await p.rt.tick(); } catch { /* the next step tries again */ } } }
+  const removed: number[] = [];
+  const due = async () => { for (const r of removals) if (!removed.includes(r.i) && vt >= r.at) { removed.push(r.i); const pid = phones[r.i]!.rt.pid!; const id = (raw.prepare("SELECT p.id AS id FROM person p JOIN seat s ON s.eid=p.eid AND s.ph=p.ph WHERE s.pid=?").get(pid) as { id: string }).id; expect((await req("POST", `/api/z/LK-1/people/${id}/remove`, {}, h)).status).toBe(200); } };
+  for (let step = 0; step < 900 && !done(); step++) { vt += 3000; await due(); for (const p of phones) { try { await p.rt.tick(); } catch { /* the next step tries again */ } } }
   for (let k = 0; k < 12; k++) { vt += 3000; for (const p of phones) { try { await p.rt.tick(); } catch { /* */ } } }
   return { raw, phones, req, j, h, brk, startRound, window, seed, done: done() };
 }
@@ -67,6 +77,38 @@ describe("G14: the lucky draw picks only eligible people", () => {
     expect(g.phones.filter((p) => p.rt.view().lucky[0]!.won).map((p) => p.rt.pid!).sort()).toEqual([...stored.winners].sort());
     expect(g.phones[1]!.rt.view().lucky[0]!.won).toBe(false);
   }, 300_000);
+  test("a person REMOVED during the game, well before the draw, never wins; the seat stays in the public list with the time of the removal; every phone and the store agree", async () => {
+    const g = await drawGame(8, [0], 10, "lkr", [{ i: 5, at: START_MS + 150_000 }]); // removed 30 seconds after the game began (sign-up closes 2 minutes after the start time), about 100 seconds before the draw
+    expect(g.done).toBe(true);
+    const gone = g.phones[5]!.rt.pid!, flagged = g.phones[0]!.rt.pid!;
+    const seats = g.raw.prepare("SELECT pid, role, blocked FROM seat ORDER BY seq").all() as { pid: string; role: string | null; blocked: number | null }[];
+    expect(seats.filter((s) => s.blocked).map((s) => s.pid)).toEqual([gone]); expect(seats.length).toBe(8); // still in the public list
+    expect(seats.find((s) => s.pid === gone)!.blocked).toBeGreaterThanOrEqual(START_MS); // the server recorded WHEN
+    const pub = await g.j(await g.req("GET", "/api/z/LK-1/seats?after=0")); expect(pub.blk).toEqual([gone]); expect(pub.blkAt[gone]).toBeGreaterThanOrEqual(START_MS); expect(pub.seats.length).toBe(8);
+    const stored = (await g.j(await g.req("GET", "/api/z/LK-1/results"))).results.find((x: any) => x.pattern === "lucky");
+    expect(stored.winners.length).toBe(6); expect(stored.winners).not.toContain(gone); expect(stored.winners).not.toContain(flagged);
+    for (const p of g.phones) { const l = p.rt.view().lucky[0]!; expect([p.i, l.published, l.won]).toEqual([p.i, true, ![0, 5].includes(p.i)]); } // every phone worked out the same six winners
+  }, 300_000);
+  test("a removal recorded in the last 30 seconds before the draw does not count for this draw (it counts for the next one), and every phone still gets the same result", async () => {
+    const g = await drawGame(8, [], 10, "lkl", [{ i: 2, at: DRAW_MS - 10_000 }]);
+    expect(g.done).toBe(true);
+    const gone = g.phones[2]!.rt.pid!;
+    expect((g.raw.prepare("SELECT blocked FROM seat WHERE pid=?").get(gone) as any).blocked).toBeGreaterThan(DRAW_MS - 30_000 - 1);
+    const stored = (await g.j(await g.req("GET", "/api/z/LK-1/results"))).results.find((x: any) => x.pattern === "lucky");
+    expect(stored.winners.length).toBe(8); expect(stored.winners).toContain(gone); // not yet counted: the rule is the same on every phone
+    for (const p of g.phones) expect(p.rt.view().lucky[0]!.won).toBe(true);
+  }, 300_000);
+});
+
+describe("luckyEligible (who may be drawn: the rule the phones and the console share)", () => {
+  const seats = [{ pid: "1xa" }, { pid: "2xb", ex: true }, { pid: "3xc", removedMs: 1_000_000 }, { pid: "4xd", removedMs: 0 }, { pid: "5xe", removedMs: null }];
+  test("the flagged team is out; a removal recorded at least 30 seconds before the draw is out; a later one, and nobody removed, stay in", () => {
+    const draw = 1_000_000 + LUCKY_REMOVAL_MARGIN_MS;
+    expect(luckyEligible(seats, draw)).toEqual(["1xa", "5xe"]); // exactly 30 s before: out
+    expect(luckyEligible(seats, draw - 1)).toEqual(["1xa", "3xc", "5xe"]); // 1 ms inside the margin: still in; the legacy "removed long ago" (0) is out in both
+    expect(luckyEligible([{ pid: "6xf", removedMs: draw + 5 }], draw)).toEqual(["6xf"]); // removed after the draw: of course in
+  });
+  test("the console shows nobody the phones would not draw", () => { expect(luckyEligible([], 1)).toEqual([]); });
 });
 
 describe("luckyWinners (the pure draw the phones and the console both use)", () => {

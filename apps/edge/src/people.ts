@@ -193,11 +193,12 @@ export async function chainOf(db: D1, eid: string, inviter: string): Promise<str
 
 const csvCell = (v: unknown) => { let s = String(v ?? ""); if (/^[=+\-@\t\r]/.test(s)) s = "'" + s; return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
 
-/** Removed seats stay in the public seat list (winners must be identical on every phone) but cannot win Unlucky: their ids are kept in one small public list that phones read with the seats. */
+/** Removed seats stay in the public seat list (winners must be identical on every phone) but cannot win a lucky draw: their ids, with the time the server recorded each removal, are kept in one small public list that phones read with the seats (game.ts luckyEligible). */
 async function refreshBlocked(db: D1, eid: string): Promise<void> {
   try {
-    const rows = (await db.prepare("SELECT pid FROM seat WHERE eid=? AND blocked=1").bind(eid).all<{ pid: string }>()).results ?? [];
-    await db.prepare("INSERT OR REPLACE INTO kv(k,v) VALUES(?,?)").bind(`seats-blk/${eid}`, JSON.stringify(rows.map((r) => r.pid))).run();
+    const rows = (await db.prepare("SELECT pid, blocked FROM seat WHERE eid=? AND blocked IS NOT NULL").bind(eid).all<{ pid: string; blocked: number }>()).results ?? [];
+    const at: Record<string, number> = {}; for (const r of rows) at[r.pid] = Number(r.blocked) || 0; // when the server recorded the removal (an old row that holds 1 counts as removed long ago)
+    await db.prepare("INSERT OR REPLACE INTO kv(k,v) VALUES(?,?)").bind(`seats-blk/${eid}`, JSON.stringify(at)).run();
   } catch { /* the next removal or restore writes it again; until then Unlucky treats these seats as present */ }
 }
 async function batched(db: D1, stmts: ReturnType<D1["prepare"]>[]): Promise<{ meta?: { changes?: number } }[]> {
@@ -380,7 +381,7 @@ async function removePerson(c: Ctx, who: Caller, id: string, b: any): Promise<Re
   const stmts: ReturnType<D1["prepare"]>[] = [];
   for (const t of targets) {
     stmts.push(db.prepare("UPDATE person SET status='removed', removed_ms=?, removed_by=?, tok_hash=NULL, tok_sealed=NULL WHERE eid=? AND id=? AND status<>'removed'").bind(c.now, who.id, c.eid, t.id));
-    if (c.started) stmts.push(db.prepare("UPDATE seat SET blocked=1 WHERE eid=? AND ph=?").bind(c.eid, t.ph)); // the seat stays in the public list: winners must be identical on every phone
+    if (c.started) stmts.push(db.prepare("UPDATE seat SET blocked=? WHERE eid=? AND ph=?").bind(c.now, c.eid, t.ph)); // the seat stays in the public list: winners must be identical on every phone
     else stmts.push(db.prepare("DELETE FROM claim WHERE eid=? AND pid IN (SELECT pid FROM seat WHERE eid=? AND ph=?)").bind(c.eid, c.eid, t.ph), db.prepare("DELETE FROM participant WHERE eid=? AND phone_hash=?").bind(c.eid, t.ph), db.prepare("DELETE FROM seat WHERE eid=? AND ph=?").bind(c.eid, t.ph));
   }
   await batched(db, stmts);

@@ -129,7 +129,7 @@ export async function listPrizes(env: Env & PiiEnv, eid: string, json: Json, out
 /** The organizer / co-host ticks "prize given" (with the date) or takes the tick back. */
 export async function markGiven(env: Env, eid: string, b: any, kind: string | null, now: number, json: Json, spend: Spend): Promise<Response> {
   if (!b || !Number.isInteger(b.round) || !Number.isInteger(b.ordinal) || !Number.isInteger(b.seat) || typeof b.pattern !== "string" || typeof b.given !== "boolean") return json({ error: "Bad request." }, 400);
-  if (b.given && (await env.DB.prepare("SELECT 1 AS x FROM seat WHERE eid=? AND seq=? AND blocked=1").bind(eid, b.seat).first())) return json({ error: "Not given: this person was removed from the game.", code: "removed" }, 409);
+  if (b.given && (await env.DB.prepare("SELECT 1 AS x FROM seat WHERE eid=? AND seq=? AND blocked IS NOT NULL").bind(eid, b.seat).first())) return json({ error: "Not given: this person was removed from the game.", code: "removed" }, 409);
   if (!(await spend(env, now))) return json({ error: "Busy day. Please try again after midnight UTC." }, 503);
   const r = await env.DB.prepare("UPDATE prize SET given_ms=?, given_by=? WHERE eid=? AND round=? AND pattern=? AND ordinal=? AND seat=?").bind(b.given ? now : null, b.given ? (kind === "host" ? "co-host" : kind === "ai" ? "organizer's AI" : "organizer") : null, eid, b.round, b.pattern, b.ordinal, b.seat).run();
   return (r.meta?.changes ?? 0) > 0 ? json({ ok: true, givenMs: b.given ? now : null }) : json({ error: "No such reward." }, 404);

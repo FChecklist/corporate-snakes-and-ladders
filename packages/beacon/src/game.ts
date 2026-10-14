@@ -89,6 +89,17 @@ export function luckyWinners(engagementId: string, breakAfter: number, randomnes
 }
 
 /**
+ * Who may win a lucky draw. A seat that is flagged as Organizer, Host or Co-host (`ex`) never wins. A person REMOVED during the game stays in the public seat list (every phone must work out the
+ * same draw from the same list), so the list also says WHEN each removal was recorded by the server (`removedMs`): a person removed at least LUCKY_REMOVAL_MARGIN_MS before the moment of the draw
+ * (`drawMs`, the time of the beacon round that decides it) is left out, on every phone and in the console, by the same arithmetic. A removal recorded later than that is not counted for this draw
+ * (it counts for the next one): the margin is longer than the 20 seconds a copy of the public list may be cached for, so no phone can see a removal that another phone does not, and the draw stays identical everywhere.
+ */
+export const LUCKY_REMOVAL_MARGIN_MS = 30_000;
+export function luckyEligible(seats: readonly { pid: string; ex?: boolean; removedMs?: number | null }[], drawMs: number): string[] {
+  return seats.filter((s) => !s.ex && !(typeof s.removedMs === "number" && s.removedMs + LUCKY_REMOVAL_MARGIN_MS <= drawMs)).map((s) => s.pid);
+}
+
+/**
  * Rounds a phone holds for a game. Past rounds (a phone that opens the game late) are accepted provisionally when two different mirrors
  * give byte-identical answers, then checked against the BLS signature in the background so the page never blocks for seconds.
  * Current rounds are always signature-checked straight away. Anything that fails the check is thrown away and re-fetched.
