@@ -1,6 +1,6 @@
 // Technical search-engine hygiene of the public pages (no promise about rankings): sitemap, robots, unique titles and descriptions, canonical, share tags, structured data that matches the real prices, image alt text, quick loading hints.
 import { describe, expect, test } from "bun:test";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { PACKS } from "../../../packages/shared/src/pricing";
 
 const PUB = new URL("../public/", import.meta.url), ORIGIN = "https://corporate-snakes-and-ladders.pages.dev";
@@ -45,6 +45,16 @@ describe("each indexable page", () => {
     expect(h).toContain('<meta name="twitter:card" content="summary_large_image">'); expect(h).toMatch(/<meta name="twitter:title" content="[^"]+"/);
     expect(h).not.toMatch(/name="robots" content="[^"]*noindex/); expect(h).toMatch(/<html lang="en">/); expect(h).toContain('name="viewport"');
     for (const tag of ['name="description"', 'rel="canonical"', 'property="og:title"', 'name="twitter:card"']) expect(h.split(tag).length).toBe(2); // each exactly once
+  });
+  test("P7: the share image every indexable page names (og:image and twitter:image) is a file that ships with the site", () => {
+    for (const f of INDEXABLE) {
+      const h = rd(f);
+      for (const re of [/<meta property="og:image" content="([^"]+)"/, /<meta name="twitter:image" content="([^"]+)"/]) {
+        const m = re.exec(h); if (!m) continue; // not every page carries a share image tag
+        const path = m[1]!.replace(ORIGIN, ""); expect([f, path.startsWith("/img/"), existsSync(new URL("." + path, PUB))]).toEqual([f, true, true]);
+      }
+    }
+    expect(/<meta property="og:image" content="([^"]+)"/.test(rd("index.html"))).toBe(true); // and the home page does carry one
   });
   test("the home page's structured data parses and its prices equal the real packs", () => {
     const h = rd("index.html"), raw = meta(h, /<script type="application\/ld\+json">([\s\S]*?)<\/script>/), ld = JSON.parse(raw) as any[];

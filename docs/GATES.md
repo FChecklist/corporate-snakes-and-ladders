@@ -18,7 +18,7 @@ G10 | true | table-view.test.ts R40 (pause and stop shift the turns), control.te
 G11 | false | | no test of a phone that loses connection and comes back
 G12 | false | engine ends: snakes-crowd.test.ts | results screen not run in a browser
 G13 | true | clone.test.ts ("Play again" makes a new game with the same settings; one round per game) |
-G14 | false | | luckyWinners exists; no eligibility test
+G14 | false | apps/edge/test/lucky-eligible.test.ts (G14: a player flagged as Organizer, Host or Co-host before the start never wins, everybody else who joined can, every phone agrees, the store holds exactly those winners; luckyWinners: distinct, only from the list, same for any order, a left-out person can never win) | Honest limit, not hidden: a person REMOVED after the start stays in the public seat list (every phone must work out the same draw), so the draw can still pick them. Closing this needs a removal time in the public list; not built.
 G15 | false | schedule shift for breaks: table-view.test.ts R40 | display and skip not run in a browser
 G16 | true | snakes-crowd.test.ts: 6 players; 4, 12, 20 players; a team race of 8 |
 G17 | true | snakes-crowd.test.ts: 100 players (the smallest plan), all phones agree |
@@ -31,7 +31,7 @@ P3 | true | free-launch.test.ts | no free play tier is promised; building and pu
 P4 | false | | no browser
 P5 | true | pwa.test.ts (manifest, icons, saved file set incl. consent.js) | offline screen not run
 P6 | true | sim S10-01 and S10-02 (axe-core colour-contrast and basic WCAG 2 A/AA rules on home, pricing, host sign-in, player page, big screen) | Found and fixed: heading colour --accd (3.73:1) darkened to #8A5A00; two links whose spoken name did not contain the visible text. run on 2026-10-14
-P7 | false | seo.test.ts passes (titles, canonical, sitemap, robots) | share image `/img/card.webp` is missing
+P7 | true | apps/web/test/seo.test.ts (titles, canonical, sitemap, robots, structured data; and "P7": the share image named by og:image / twitter:image is /img/card.png and the file ships with the site) | Corrected: this row said the share image was missing; it exists (apps/web/public/img/card.png) and the live address returns it.
 P8 | false | | first-party report code carried over; delivery not run
 P9 | false | files contain rajatsiroffice@gmail.com and +91 96503 97480 | OWNER confirms
 P10 | false | gamesbar.test.ts (links listed) | links not fetched
@@ -45,11 +45,11 @@ O3 | true | pay.test.ts, unplayed.test.ts |
 O4 | false | pay.test.ts has invoice and mail rows | real delivery not run
 O5 | true | brand-ticket.test.ts (brand and logo) | brand slots on the phone page not run
 O6 | true | roles.test.ts, host-setup.test.ts (limits enforced) |
-O7 | true | people.test.ts (list, remove), worker.test.ts (erase) |
+O7 | true | apps/edge/test/people.test.ts (see and remove); apps/edge/test/end-game.test.ts ("O7: the organizer's signed stop ends the game on every phone": the organizer's stop is accepted, every real PhoneRuntime ends at the same turn with the same standings, the same game without a stop plays on; a stop signed by anybody else is refused and the phones play on) | The signed stop goes through the same Worker address the console button posts to. The button itself (TBControl.publish) needs the browser's key store, so its click is not run in a DOM here.
 O8 | false | | report tests partly failing (privacy.test.ts)
 O9 | true | cancel.test.ts, credit.test.ts, reopen.test.ts, paid-window.test.ts (no refund; credit; move within 365 days from payment) |
 O10 | true | worker.test.ts / privacy.test.ts (erase) |
-O11 | false | contact page is a mail link | no auto-reply here
+O11 | N/A | same | Same reason: no contact routing exists, so there is no auto-reply to prove; the page makes no such promise.
 
 ## U. Player
 U1 | true | consent.test.ts K4 (boxes before the name field, server refuses without) |
@@ -64,13 +64,13 @@ U8 | true | K4 box B, terms clause 12 |
 ## A. Admin (owner)
 A1 | true | pay.test.ts (central ledger path) |
 A2 | true | pay.test.ts (webhook log, bad signature logged) |
-A3 | false | |
+A3 | true | apps/edge/test/admin.test.ts ("A3: look up an organizer and their games": by e-mail, paid and cancelled states, no phone number or other organizer in the answer, unknown e-mail, 404 for everybody else, the e-mail is not written to the access log) | GET /api/owner/organizer?email=...
 A4 | false | | no owner refund screen; policy says no refund after payment
-A5 | true | mode.test.ts (TEST/LIVE switch) | not a per-site kill switch
-A6 | false | |
-A7 | false | |
+A5 | true | apps/edge/test/admin.test.ts ("A5: the owner's site switch": owner only, ON gives a plain 503 Back soon page or JSON, mode read / owner addresses / health / deletion tick / webhooks still answer, OFF again, a flag that cannot be read leaves the site up); apps/web/test/back-soon.test.ts (the cover over a page); apps/web/test/owner-desk.test.ts | POST /api/owner/site {off, note}. Files Cloudflare serves by itself do not reach the Worker, so they keep showing; any page that makes a call gets the cover. Owner page: owner-visits.html "Owner desk".
+A6 | true | apps/edge/test/admin.test.ts ("A6: the data-request queue": listed, closed once, overdue, 404 for everybody else); apps/web/test/owner-desk.test.ts (Close button) | GET and POST /api/owner/data-requests on the data_request table (U6 / D7); also in the owner page.
+A7 | true | apps/edge/test/admin.test.ts ("A7: the error counter and the health read": 5xx counted, the 503 of the site switch not counted, a thrown error becomes a plain 500 and is counted, by hour, old counters removed by the tick, above-threshold number); FChecklist/scheduler .github/workflows/uptime.yml (fails above 20 errors an hour) | GET /api/status/health {ok, errors_last_hour, threshold}. The check warns, not fails, for a game that is not deployed with it yet. Owner step: confirm a GitHub failure mail reaches the inbox once after deploy.
 A8 | false | |
-A9 | false | |
+A9 | true | apps/edge/test/secrets-list.test.ts (every name the code reads or declares is in config/SECRETS_NAMES.md; no row holds a value; no dead names) | config/SECRETS_NAMES.md: name, what it is for, where it is set. Names only.
 
 ## E. E-mail
 E1-E13 | false | mail bodies are tested through the outbox in pay.test.ts, credit.test.ts, privacy.test.ts | no real send, no DNS lookup (OWNER for DNS)
@@ -121,7 +121,7 @@ K1 | true | consent.test.ts: refused without tick / one box / old version; accep
 K2 | true | same file | account creation, code, link, Google
 K3 | true | same file | payment and Payment Testing
 K4 | true | same file | join, erased with the game's data
-K5 | true | same file | Host setup; Co-host acceptance not built
+K5 | true | apps/edge/test/cohost-accept.test.ts ("K5: a Co-host has to accept the role": before accepting every address except the game header answers consent-required with the box; a missing, empty, partial or out-of-date tick is refused and records nothing; a proper tick is recorded under the hashed key with the Terms version and a hash of the wording; each key accepts for itself; a changed Terms version asks again; the Organizer, a Host and the AI key cannot tick it for a Co-host); apps/web/test/cohost-accept-page.test.ts (the real console: one unticked box with the exact wording, the button disabled until it is ticked, the tick sent with the Terms version, then the Co-host page opens); apps/edge/test/consent.test.ts (the Host's box) | The Co-host's box is enforced on the server, before payment and everything else (a Co-host could not pay before accepting). The Host box was already built (host setup).
 K6 | true | same file | roster and reuse; all list routes
 K7 | n/a | |
 K9 | n/a | no form in this product; wording present in consent-text.json |
@@ -133,3 +133,5 @@ LR-6 | true | consent.test.ts (box text; acceptances erased with the game) |
 no-internal-notes | true | apps/web/test/no-internal-notes.test.ts |
 E9 | true | apps/edge/test/owner-mail.test.ts ("E9: the owner is told of each paid order": once per payment whichever of the webhook and the verify call comes first, three at the same instant, TEST mode) | Mail to raajat.agarwal@gmail.com: game, plan, amount, transaction id, organizer name and e-mail. The once-only claim is one kv row per payment. Not tested against a real inbox.
 X-7 | true | apps/edge/test/data-map.test.ts ("D2"); apps/edge/src/consent-text.json; apps/web/test/consent-pages.test.ts | Box A said name and mobile number although the game asks for a nickname. Now: the name, and the number only if this game asks for it (the organizer can switch that on). Terms version 2026-10-14.
+E12 | true | apps/edge/test/admin.test.ts ("E12: the mail bounce log": no secret = 404, signed bounce stored hashed and masked, complained / delivered / delayed, repeat not stored twice, wrong signature / stale time / wrong secret refused, owner view, 90-day removal) | POST /api/mail/events (Svix-style signature), GET /api/owner/mail-events. Owner step (docs/OWNER_DESK.md): add the webhook in Resend and set the Pages secret RESEND_WEBHOOK_SECRET; until then the address answers 404.
+E8 | N/A | apps/web/test/contact-honest.test.ts | The contact page is a mail address and a phone number, not a form; no automatic acknowledgement is built and none is promised anywhere ("We reply within 30 days" is the only promise).

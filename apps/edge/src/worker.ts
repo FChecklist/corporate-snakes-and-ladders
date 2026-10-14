@@ -21,6 +21,7 @@ import { LINK_MAIL_TTL_MS, aiLinkMail, coHostLinkMail, hostLinkMail, newUseAlert
 import { cancelGame, cancelPreview, reopenGame, teamEmails } from "./cancel";
 import { LEGAL_SCHEMA } from "./legal";
 import { RIGHTS_SCHEMA, leaveRoute, requestRoute } from "./rights";
+import { ADMIN_SCHEMA, adminRoute, adminTick, countError, maintenanceGate } from "./admin";
 import { LEDGER_SCHEMA } from "./ledger";
 import { LEDGERC_SCHEMA, ledgerCTick, ownerLedger } from "./ledgerc";
 import { CREDIT_SCHEMA, activeCreditSummary, creditAppliedFor, creditRoute } from "./credit";
@@ -170,6 +171,8 @@ export const SCHEMA: string[] = [
   // ledger C: txn_id, fee/tax/method/bank reference on a payment, every payment attempt (success and failure), refunds, commission sync marks (0022_ledger_c.sql)
   ...LEDGERC_SCHEMA,
   ...RIGHTS_SCHEMA,
+  // the owner's desk: the mail service's bounce / complaint / delivery events (admin.ts)
+  ...ADMIN_SCHEMA,
 ];
 
 const PATTERNS = new Set<string>([...HOUSE_ORDER, "lucky"]); // houses a phone may claim
@@ -180,6 +183,8 @@ const cfgOf = (e: { tickets?: number; config?: string | null }): EngagementCfg =
 };
 const json = (o: unknown, status = 200) => new Response(JSON.stringify(o), { status, headers: { "content-type": "application/json", "cache-control": "no-store" } });
 const day = (ms: number) => new Date(ms).toISOString().slice(0, 10);
+/** The record a Co-host's acceptance of the role is kept under: "c:" and the first 16 characters of the hash of their key (the key itself is never stored). */
+const cohostSubject = async (req: Request): Promise<string> => "c:" + (await sha("key|" + (req.headers.get("x-organizer") || (req.headers.get("authorization") ?? "").replace(/^Bearer\s+/i, "")))).slice(0, 16);
 const sha = async (s: string) => Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s))), (b) => b.toString(16).padStart(2, "0")).join("");
 const randHex = (n: number) => Array.from(crypto.getRandomValues(new Uint8Array(n)), (b) => b.toString(16).padStart(2, "0")).join("");
 const MAX_BODY = 4096;
@@ -345,7 +350,16 @@ let lastNudge = 0;
 /** The names of the secrets this Worker needs in production (STRICT_KEYS=1) and does not have. Empty when strict mode is off (local runs and tests). */
 export const missingKeys = (env: Env): string[] => (env.STRICT_KEYS === "1" ? ["DATA_KEY", "PHONE_SALT", "ORGANIZER_SECRET", "CRON_KEY", "INBOUND_SECRET"].filter((k) => !String((env as any)[k] ?? "").trim()) : []);
 const keysMissing = (env: Env) => missingKeys(env).length > 0;
+/** The front door: the owner's site switch (admin.ts) first, then the real handler; every 5xx answer is counted for the error signal (A7). */
 export async function handle(req: Request, env: Env, now = Date.now(), waitUntil?: (p: Promise<unknown>) => void): Promise<Response> {
+  const off = await maintenanceGate(req, env, now).catch(() => null);
+  if (off) return off;
+  let res: Response;
+  try { res = await handleCore(req, env, now, waitUntil); } catch (e) { await countError(env.DB, now); return json({ error: "Something went wrong. Please try again.", code: "server-error" }, 500); }
+  if (res.status >= 500) await countError(env.DB, now);
+  return res;
+}
+async function handleCore(req: Request, env: Env, now = Date.now(), waitUntil?: (p: Promise<unknown>) => void): Promise<Response> {
   if (keysMissing(env)) return new Response(JSON.stringify({ error: "The service is not configured. Please try again later." }), { status: 503, headers: { "content-type": "application/json", "cache-control": "no-store" } });
   const pn = new URL(req.url).pathname;
   if (pn === "/ai" || pn.startsWith("/ai/")) return aiLink(req, env, now, waitUntil);
@@ -551,7 +565,7 @@ export const AI_MANIFEST = {
     { do: "List engagements and head-counts", call: "GET /api/history" },
     { do: "Create an engagement. It is saved as a free draft that participants cannot see yet; nothing is paid at this step", call: "POST /api/z {id, startRound, callSeconds (the turn window in seconds: 15|20|25|30), cap, closed?}  -> {ok, draft, openUrl}" },
     { do: "When everything is set up, tell the organizer it is ready. Publishing is free but only the organizer can do it (they confirm their email and mobile number), and the game does not begin until it is paid for (pay at any time until the guest data is erased; a late payment starts the game 2 minutes after it is confirmed). This returns a link: give it to the organizer and help them through every step, but never try to publish or pay yourself", call: "POST /api/z/{id}/publish -> {published:false, needsOrganizer:true, consoleUrl} (the organizer opens consoleUrl, confirms their details and presses Publish; afterwards the same call returns payUrl, the payment page, and shareUrl, the link for guests)" },
-    { do: "Change start time, turn window, cap, invite-only, reward lines and brand moments (5 in all: opening, during the game, closing) before the first turn. Each player has one pawn (tickets is always 1) and a game has one round (to play again the organizer uses Play again, which makes a new game with the same settings)", call: "PATCH /api/z/{id}/settings {startRound?, callSeconds?, cap?, closed?, mode?, play?, board?, milestones?, turnCap?, endPrizes?, exclusive?, teams?, theme? (see choices), rewards?: [{pattern: <a house id from choices.rewards>, ordinal?: 1 up to the house maximum, text}], breaks?: [{after?: 1 to 149 turns played (leave it out: the software spreads them evenly), seconds?: 15-600 in steps of 3 (default 60), kind: file|youtube|slides|speech|lucky, title, mediaUrl?: https link (not for lucky), winners?: 1|3|5|10 (lucky only, default 3), style?: draw|scratch (lucky only; scratch shows a scratch card on phones, the winners are drawn the same fair way)}], opening?: [{kind: file|youtube|slides|speech, title, mediaUrl?, seconds?: 15-120}], closing?: [{kind: file|youtube|slides|speech, title, mediaUrl?}]}. IMPORTANT: rewards, breaks and every list you send REPLACE what was saved, they are not merged, so always send the complete list (to change one reward, read the summary, change it, send them all). A media link must be https; for kind youtube it must be a YouTube link; for file it must be a direct link the phones can open (a video, audio, image or PDF file), which we cannot check for you. A reward line is ONE winner of ONE house: for three winners of the Line send three lines with ordinal 1, 2 and 3. Houses, names and how each is won are in the manual. Asking for more winners than a house allows is refused with a plain message. A lucky draw is a break: {after: 60, seconds: 60, kind: lucky, title: Lucky draw, winners: 3}. Worked example: PATCH /api/z/{id}/settings {startRound: 33146812, callSeconds: 20, cap: 250, rewards: [{pattern: milestone, ordinal: 1, text: Gift hamper}, {pattern: finish, ordinal: 1, text: Tablet}, {pattern: finish, ordinal: 2, text: Voucher 50}, {pattern: climb, ordinal: 1, text: Coffee voucher}], breaks: [{after: 30, seconds: 90, kind: youtube, title: Anniversary film, mediaUrl: https://www.youtube.com/watch?v=...}, {after: 60, seconds: 60, kind: lucky, title: Lucky draw, winners: 3}]}" },
+    { do: "Change start time, turn window, cap, invite-only, reward lines and brand moments (5 in all: opening, during the game, closing) before the first turn. Each participant has one pawn (tickets is always 1) and a game has one round (to play again the organizer uses Play again, which makes a new game with the same settings)", call: "PATCH /api/z/{id}/settings {startRound?, callSeconds?, cap?, closed?, mode?, play?, board?, milestones?, turnCap?, endPrizes?, exclusive?, teams?, theme? (see choices), rewards?: [{pattern: <a house id from choices.rewards>, ordinal?: 1 up to the house maximum, text}], breaks?: [{after?: 1 to 149 turns played (leave it out: the software spreads them evenly), seconds?: 15-600 in steps of 3 (default 60), kind: file|youtube|slides|speech|lucky, title, mediaUrl?: https link (not for lucky), winners?: 1|3|5|10 (lucky only, default 3), style?: draw|scratch (lucky only; scratch shows a scratch card on phones, the winners are drawn the same fair way)}], opening?: [{kind: file|youtube|slides|speech, title, mediaUrl?, seconds?: 15-120}], closing?: [{kind: file|youtube|slides|speech, title, mediaUrl?}]}. IMPORTANT: rewards, breaks and every list you send REPLACE what was saved, they are not merged, so always send the complete list (to change one reward, read the summary, change it, send them all). A media link must be https; for kind youtube it must be a YouTube link; for file it must be a direct link the phones can open (a video, audio, image or PDF file), which we cannot check for you. A reward line is ONE winner of ONE house: for three winners of the Line send three lines with ordinal 1, 2 and 3. Houses, names and how each is won are in the manual. Asking for more winners than a house allows is refused with a plain message. A lucky draw is a break: {after: 60, seconds: 60, kind: lucky, title: Lucky draw, winners: 3}. Worked example: PATCH /api/z/{id}/settings {startRound: 33146812, callSeconds: 20, cap: 250, rewards: [{pattern: milestone, ordinal: 1, text: Gift hamper}, {pattern: finish, ordinal: 1, text: Tablet}, {pattern: finish, ordinal: 2, text: Voucher 50}, {pattern: climb, ordinal: 1, text: Coffee voucher}], breaks: [{after: 30, seconds: 90, kind: youtube, title: Anniversary film, mediaUrl: https://www.youtube.com/watch?v=...}, {after: 60, seconds: 60, kind: lucky, title: Lucky draw, winners: 3}]}" },
     { do: "Participants: the OWNER loads the invite list in the Participants card of their console. Names and mobile numbers never pass through the AI (a roster call from an AI key answers 403). Set the limit with settings.", call: "(owner, in the console)" },
     { do: "Reuse an earlier engagement's people", call: "POST /api/z/{id}/reuse {from}" },
     { do: "See who joined (names and ids only, never phone numbers)", call: "GET /api/z/{id}/participants" },
@@ -621,6 +635,7 @@ async function route0(req: Request, env: Env, now: number, a: Auth): Promise<Res
   if (req.method === "GET" && p === "/api/z/ai-manifest") return json(AI_MANIFEST);
   { const cm = p.match(/^\/api\/consent\/(K[1-9])$/); if (cm && req.method === "GET" && isKind(cm[1])) return json(consentInfo(cm[1])); } // the boxes a page must show (exact wording, current version)
   { const mr = await modeRoute(req, env as any, now, a.plat && req.headers.get("x-cb-link") !== "1", (n) => purgeTestData(env, n)); if (mr) return mr; } // TEST/LIVE switch, allow-list, purge (mode.ts): owner only, except the public read of the word TEST or LIVE
+  { const ar = await adminRoute(req, env as any, now, a.plat && req.headers.get("x-cb-link") !== "1", (n) => spend(env, now, n)); if (ar) return ar; } // the owner's desk (admin.ts): site switch, organizer lookup, data requests, mail events, error counts; the health read; the mail webhook
   if (p === "/api/v/b") return beaconRoute(req, env as VisitEnv, now, (n) => spend(env, now, n)); // public-page visit tracking (visits.ts); never the live game
   if (p === "/api/owner/ledger") { // OWNER ONLY (platform key, never through an AI work link): this website's own payment ledger (C). Anybody else gets the same 404 as an unknown address.
     if (!(a.plat && req.headers.get("x-cb-link") !== "1") || req.method !== "GET") { await logAccess(env.DB, now, "denied:ledger-c", null, null, 0, false, a.kind ?? "anonymous"); return json({ error: "Not found" }, 404); }
@@ -640,6 +655,12 @@ async function route0(req: Request, env: Env, now: number, a: Auth): Promise<Res
     }
   }
   { const rm = p.match(/^\/api\/report\/([A-Za-z0-9_-]{4,40})$/); if (rm && req.method === "GET") return reportApi(env as any, rm[1]!, url, now); } // the report page; the key in the link is the only credential
+  if (a.kind === "cohost" && !a.viaLink && req.method === "POST" && p === "/api/org/role/accept") { // K5: a Co-host accepts the role (a Co-host cannot do anything else until they have)
+    const b = await body(req, 512), k = checkConsent("K5", b?.consent); if (!k.ok) return json(refusalBody("K5", k), k.status);
+    await recordConsent(env.DB, "K5", await cohostSubject(req), a.eid ?? a.org, now);
+    return json({ ok: true, version: TERMS_VERSION });
+  }
+  if (a.kind === "cohost" && !(req.method === "GET" && (p === "/api/whoami" || p === "/api/notices" || /^\/api\/z\/[A-Za-z0-9_-]{4,40}\/cohost$/.test(p))) && !(await hasConsent(env.DB, "K5", await cohostSubject(req)))) { const r = checkConsent("K5", null) as ConsentRefusal; return json(refusalBody("K5", r), r.status); } // K5: until the Co-host has ticked the box, nothing else works
   const paid = await payRoute(req, env as PayEnv, now, (n) => spend(env, now, n));
   if (paid) return paid;
   { const cr = await creditRoute(req, env as PayEnv, now, (n) => spend(env, now, n), a); if (cr) return cr; } // credit instead of refunds: the account's credit, and paying a game with it (credit.ts)
@@ -1220,6 +1241,7 @@ Did not ask for this? Ignore this e-mail.`, now, { secret: true });
     const jobKey = req.headers.get("x-cron-key") ?? "";
     const jobSecret = (env.CRON_KEY ?? "").trim(); // a secret pasted in with a trailing line break still matches
     if (!a.plat && !(jobSecret.length >= 16 && jobKey.trim() === jobSecret)) return deny(a);
+    await adminTick(env.DB, now); // old error counters and old mail events go (admin.ts)
     await remindUnpaid(env, now);
     const ledgerC = await ledgerCTick(env as PayEnv, now); // ledger C -> B: a few commission rows and, every 30 minutes, the monthly figures (ledgerc.ts)
     return json({ ok: true, ...(await lifecycleTick(env as any, now)), purged: await purgeOld(env, now), ledgerC });
@@ -1311,7 +1333,8 @@ Did not ask for this? Ignore this e-mail.`, now, { secret: true });
     const joined = (await env.DB.prepare("SELECT COUNT(*) AS c FROM participant WHERE eid=?").bind(eid).first<{ c: number }>())?.c ?? 0;
     const pk = unpaid ? PACKS.find((x) => x[0] >= e.cap)?.[0] ?? null : e.pack;
     const lockedC = unpaid && !isDraft && !cancelled && !e.unplayed_ms && roundMs(e.start_round) - LOCK_LEAD_MS <= now;
-    return json({ name: c.name || e.id, startMs: roundMs(e.start_round), cap: e.cap, joined, brought: await broughtBy(env, e.org, kid), price: pk ? price(pk, "INR").total : null, payment, ...(cancelled ? { cancelled: true } : {}), waitingFor: lockedC ? "organizer" : null, didNotStart: !!e.unplayed_ms, erasureMs: await erasureOf(env, e), ...(await creditFields(env, a, e, unpaid && !cancelled && !e.unplayed_ms, now)), inviteLink: kid && !isDraft && !cancelled ? `${origin}/z.html?e=${e.id}&from=${COHOST_FROM + parseInt(kid, 16)}` : null });
+    const roleAccepted = a.kind === "cohost" ? await hasConsent(env.DB, "K5", await cohostSubject(req)) : undefined;
+    return json({ ...(roleAccepted === undefined ? {} : { roleAccepted }), name: c.name || e.id, startMs: roundMs(e.start_round), cap: e.cap, joined, brought: await broughtBy(env, e.org, kid), price: pk ? price(pk, "INR").total : null, payment, ...(cancelled ? { cancelled: true } : {}), waitingFor: lockedC ? "organizer" : null, didNotStart: !!e.unplayed_ms, erasureMs: await erasureOf(env, e), ...(await creditFields(env, a, e, unpaid && !cancelled && !e.unplayed_ms, now)), inviteLink: kid && !isDraft && !cancelled ? `${origin}/z.html?e=${e.id}&from=${COHOST_FROM + parseInt(kid, 16)}` : null });
   }
   const locked = unpaid && !isDraft && !cancelled && !didNotStart && roundMs(e.start_round) - LOCK_LEAD_MS <= now; // published but not paid by its start time: it does not begin
   if (isDraft && ((action === "join" && req.method === "POST") || (action === "info" && !can(a, e)))) return json({ error: "This engagement is not open yet." }, 403);
