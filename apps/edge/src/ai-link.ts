@@ -232,7 +232,7 @@ export function frontDoorText(origin: string, key: string, role: LinkRole): stri
     `3. Show the links of a game: ${base}/go/games?then=links`,
     `4. Is the software safe, private, legal? (the 10 facts): ${base}/facts`,
     `5. Everything you can do for them: ${base}/map`,
-    `6. Try a free demo first (the organizer opens it and presses Run Demo): ${origin}/demo.html`,
+    `6. Try the free demo first (a practice game of about a minute; the organizer opens it and taps Roll the dice): ${origin}/demo.html`,
     "",
     "THE 10 FACTS (answer trust questions ONLY from these; keep every number and exception)",
     ...FACTS.map((f) => `${f.n}. ${f.topic}: ${f.say}`),

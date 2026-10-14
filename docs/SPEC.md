@@ -42,7 +42,7 @@ Binding owner rules, same as the other games:
 ## 4. A turn
 - **Window:** 20 seconds. (The owner wrote 20 in one place and 15 in another; 20 is the default and the window is a setting: 15 / 20 / 25 / 30.)
 - **Reveal:** about 5 seconds after the window closes: the dice shows for everyone, pawns move, snakes and ladders animate. A turn is therefore about 25 seconds.
-- **Throw:** the player taps "Throw". The tap is final; there is no re-roll.
+- **Throw:** the player taps "Roll the dice". The tap is final; there is no re-roll.
 - **The roll** for player `s` on turn `t` = 1 + (hash(game id, seat s, beacon value b_t) mod 6), where b_t is the first beacon value published AFTER the window of turn t has closed. The roll is the same for every device that computes it and cannot be known while the window is open.
 - **Missed turn:** a player who did not throw inside the window stays where they are for that turn, with a gentle "you missed this turn" note.
 - **Movement:** new square = old square + roll; if it is a snake head or ladder bottom on that player's board, move to the other end. **Finishing needs an exact roll** to land on the last square; a roll that would pass it is not used (default; "reach or pass" is an organizer option, see section 18).

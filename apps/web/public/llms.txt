@@ -10,7 +10,7 @@ Plain, checked answers about safety, privacy, law, cost and what the software do
 - [Terms](https://corporate-snakes-and-ladders.pages.dev/terms.html)
 - [Data processing](https://corporate-snakes-and-ladders.pages.dev/dpa.html) and [sub-processors](https://corporate-snakes-and-ladders.pages.dev/subprocessors.html)
 - [Organizer guide](https://corporate-snakes-and-ladders.pages.dev/organizer-guide.html): how to set up, share, run and close a game
-- [Free demo](https://corporate-snakes-and-ladders.pages.dev/demo.html): a real board and a real mini-game of about a minute; one button, nothing to type
+- [Free demo](https://corporate-snakes-and-ladders.pages.dev/demo.html): a practice game on a real board, about a minute; tap Roll the dice, nothing to type
 - [Home, prices and how to start](https://corporate-snakes-and-ladders.pages.dev/): price list by size; building and publishing are free, the organizer pays before the start
 
 ## For an AI assistant working for an organizer

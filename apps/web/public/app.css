@@ -345,3 +345,9 @@ html[data-theme] .chip.on{background:#fff}
 .spriv.accept{font-size:12px}
 
 /*gb-fix*/.tdots{top:48px!important}@media (max-width:960px){.tdots{top:46px!important}}
+/* the colour dots: a 44 px tap area around each small dot, so a thumb can hit them */
+.tdots,.tdots:where(*){gap:0;padding:0 4px}
+.tdots button,.tdots button:where(*){width:44px;height:44px;padding:15px;border:0;border-radius:50%;background-clip:content-box}
+.tdots button[aria-pressed="true"]{box-shadow:none;outline:2px solid #fff;outline-offset:-12px}
+.tdots button:focus-visible{outline:3px solid var(--acc);outline-offset:-6px}
+@media (max-width:960px){.tdots{top:46px!important;padding:0 4px;gap:0}.tdots button{width:44px;height:44px}}

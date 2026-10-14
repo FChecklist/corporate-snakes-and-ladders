@@ -53,10 +53,11 @@
     for (let i = 1; i < n; i++) { const t = i / n, cx = p.x + dx * t, cy = p.y + dy * t; out += `<line class="rung" x1="${f2(cx + nx)}" y1="${f2(cy + ny)}" x2="${f2(cx - nx)}" y2="${f2(cy - ny)}"/>`; }
     return out;
   }
-  function snakeSvg(head, tail, side) {
+  function snakeSvg(head, tail, side, k5) {
     const p = ctr(head, side), r = ctr(tail, side), dx = r.x - p.x, dy = r.y - p.y, len = Math.hypot(dx, dy) || 1, k = Math.min(1.1, len * 0.28), nx = (-dy / len) * k, ny = (dx / len) * k;
     const c1 = { x: p.x + dx / 3 + nx, y: p.y + dy / 3 + ny }, c2 = { x: p.x + (2 * dx) / 3 - nx, y: p.y + (2 * dy) / 3 - ny };
-    return `<path class="snk" d="M${f2(p.x)} ${f2(p.y)} C${f2(c1.x)} ${f2(c1.y)} ${f2(c2.x)} ${f2(c2.y)} ${f2(r.x)} ${f2(r.y)}"/><circle class="snkhead" cx="${f2(p.x)}" cy="${f2(p.y)}" r="0.2"/><circle class="snkdot" cx="${f2(r.x)}" cy="${f2(r.y)}" r="0.1"/>`;
+    const d = `M${f2(p.x)} ${f2(p.y)} C${f2(c1.x)} ${f2(c1.y)} ${f2(c2.x)} ${f2(c2.y)} ${f2(r.x)} ${f2(r.y)}`;
+    return `<g class="sn s${k5 % 5}"><path class="snk" d="${d}"/><circle class="snkhead" cx="${f2(p.x)}" cy="${f2(p.y)}" r="0.24"/><circle class="snkdot" cx="${f2(r.x)}" cy="${f2(r.y)}" r="0.1"/></g>`;
   }
   function tableBoard(v) {
     const b = v.board, side = b.side, size = b.size, pawns = {};
@@ -72,7 +73,7 @@
       cells += `<div class="${cls.join(" ")}" role="listitem" aria-label="${esc(lab.join(", "))}"><b>${s}</b>${here.slice(0, 2).map((seat) => `<i class="pawn${seat === turnSeat ? " turn" : ""}">${seat}</i>`).join("")}${here.length > 2 ? `<i class="pawn more">+${here.length - 2}</i>` : ""}</div>`;
     }
     for (const a of Object.keys(b.ladders).map(Number).sort((x, y) => x - y)) lines += ladderSvg(a, b.ladders[a], side);
-    for (const h of Object.keys(b.snakes).map(Number).sort((x, y) => x - y)) lines += snakeSvg(h, b.snakes[h], side);
+    Object.keys(b.snakes).map(Number).sort((x, y) => x - y).forEach((h, i) => { lines += snakeSvg(h, b.snakes[h], side, i); });
     return `<div class="sqwrap"><div class="sqgrid g${side}" role="list" aria-label="The shared board, ${size} squares. Numbered dots are players.">${cells}</div><svg class="sqsvg" viewBox="0 0 ${side} ${side}" aria-hidden="true" focusable="false">${lines}</svg></div>`;
   }
 

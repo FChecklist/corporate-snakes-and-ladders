@@ -69,11 +69,11 @@
   const plural = (n, one, many) => n + " " + (n === 1 ? one : many);
 
   // ---------- the company strip at the top of the page (colour and name set by the organizer; the small picture travels inside the settings) ----------
-  const brandStrip = () => {
-    const b = INFO.brand; if (!b) return `<div class="zbrand" data-bg="#0B5D5B" data-fg="#ffffff"><b>CORPORATE SNAKES AND LADDERS</b></div>`; // no company brand set: the page carries our own name in writing
-    return `<div class="zbrand" data-bg="${esc(b.color)}" data-fg="${esc(b.fg)}">${b.logo ? `<img class="zblogo" alt="" src="${esc(b.logo)}">` : ""}${b.name ? `<b>${esc(b.name)}</b>` : ""}</div><div class="zpow">Powered by Corporate Snakes and Ladders</div>`;
+  const brandStrip = (sndBtn) => {
+    const b = INFO.brand; if (!b) return `<div class="zbrand zdef" data-bg="#0B5D5B" data-fg="#ffffff"><b>CORPORATE SNAKES AND LADDERS</b>${sndBtn || ""}</div>`; // no company brand set: the page carries our own name in writing
+    return `<div class="zbrand" data-bg="${esc(b.color)}" data-fg="${esc(b.fg)}">${b.logo ? `<img class="zblogo" alt="" src="${esc(b.logo)}">` : ""}${b.name ? `<b>${esc(b.name)}</b>` : ""}${sndBtn || ""}</div><div class="zpow">Powered by Corporate Snakes and Ladders</div>`;
   };
-  const paintBrand = () => document.querySelectorAll(".zbrand").forEach((el) => { el.style.background = el.dataset.bg; el.style.color = el.dataset.fg; }); // set from the script, so a strict style policy never blocks the colour
+  const paintBrand = () => document.querySelectorAll(".zbrand").forEach((el) => { if (!el.classList.contains("zdef")) el.style.background = el.dataset.bg; el.style.color = el.dataset.fg; }); // our own default strip gets its colours from the stylesheet // set from the script, so a strict style policy never blocks the colour
 
   // ---------- terms and consent boxes (consent.js): K4 on the join screen, K6 on the "My invites" form. The tick state lives here so a repaint never loses it. ----------
   const K4 = { info: null, state: {}, loading: false, failed: false };
@@ -118,7 +118,9 @@
     const needPhone = J.mode === "needPhone" || INFO.joinPhone; // the organizer asked guests to give a mobile number, or the link was already opened elsewhere
     const m = msg || J.msg;
     return `${brandStrip()}${head}
-    <div class="zcard zform"><h2>Join the game</h2>${INVITE_FROM ? `<div class="zbanner ok zflush">A colleague invited you. Join with your nickname to get your own board.</div>` : ""}
+    <div class="zcard zform zjoin"><h2>Join the game</h2>
+    <ol class="zsteps" aria-label="How to join"><li><b>1</b><span>Tick the boxes</span></li><li><b>2</b><span>${personal ? "Press Join" : "Type a nickname"}</span></li><li><b>3</b><span>${personal ? "Wait for the start" : "Press Join"}</span></li></ol>
+    <p class="zgoalline zflush">Race a board of snakes and ladders. Land on the last square to win. The game plays by itself: nothing to download.</p>${INVITE_FROM ? `<div class="zbanner ok zflush">A colleague invited you. Join with your nickname to get your own board.</div>` : ""}
     ${J.mode === "needPhone" ? `<div class="zbanner info zflush" role="status">${J.note ? esc(J.note) : "This link was already opened on another phone. Please type your mobile number to join."}</div>` : ""}
     <div id="k4box">${K4.info && CBC() ? CBC().html(K4.info, K4.state) : consentLoading(K4.failed, "k4retry")}</div>
     ${personal ? `<p class="zsmall">Your personal link is ready. Tick the boxes and press the button to join.</p>` : ""}
@@ -207,20 +209,22 @@
   const ctr = (s, side) => { const p = ZG.squareXY(s, side); return { x: p.col + 0.5, y: side - 1 - p.row + 0.5 }; }; // row 0 is the BOTTOM row
   function ladderSvg(a, b, side) {
     const p = ctr(a, side), r = ctr(b, side), dx = r.x - p.x, dy = r.y - p.y, len = Math.hypot(dx, dy) || 1, nx = (-dy / len) * 0.13, ny = (dx / len) * 0.13;
-    let out = `<line class="rail" x1="${f2(p.x + nx)}" y1="${f2(p.y + ny)}" x2="${f2(r.x + nx)}" y2="${f2(r.y + ny)}"/><line class="rail" x1="${f2(p.x - nx)}" y1="${f2(p.y - ny)}" x2="${f2(r.x - nx)}" y2="${f2(r.y - ny)}"/>`;
+    const rl = (c, sx, sy) => `<line class="${c}" x1="${f2(p.x + sx)}" y1="${f2(p.y + sy)}" x2="${f2(r.x + sx)}" y2="${f2(r.y + sy)}"/>`;
+    let out = `<g class="lad">${rl("railo", nx, ny)}${rl("railo", -nx, -ny)}${rl("rail", nx, ny)}${rl("rail", -nx, -ny)}`;
     const n = Math.max(2, Math.floor(len / 0.6));
     for (let i = 1; i < n; i++) { const t = i / n, cx = p.x + dx * t, cy = p.y + dy * t; out += `<line class="rung" x1="${f2(cx + nx)}" y1="${f2(cy + ny)}" x2="${f2(cx - nx)}" y2="${f2(cy - ny)}"/>`; }
-    return out;
+    return out + "</g>";
   }
-  function snakeSvg(head, tail, side) {
+  function snakeSvg(head, tail, side, k5) {
     const p = ctr(head, side), r = ctr(tail, side), dx = r.x - p.x, dy = r.y - p.y, len = Math.hypot(dx, dy) || 1, k = Math.min(1.1, len * 0.28), nx = (-dy / len) * k, ny = (dx / len) * k;
     const c1 = { x: p.x + dx / 3 + nx, y: p.y + dy / 3 + ny }, c2 = { x: p.x + (2 * dx) / 3 - nx, y: p.y + (2 * dy) / 3 - ny };
-    return `<path class="snk" d="M${f2(p.x)} ${f2(p.y)} C${f2(c1.x)} ${f2(c1.y)} ${f2(c2.x)} ${f2(c2.y)} ${f2(r.x)} ${f2(r.y)}"/><circle class="snkhead" cx="${f2(p.x)}" cy="${f2(p.y)}" r="0.2"/><circle class="snkdot" cx="${f2(r.x)}" cy="${f2(r.y)}" r="0.1"/>`;
+    const d = `M${f2(p.x)} ${f2(p.y)} C${f2(c1.x)} ${f2(c1.y)} ${f2(c2.x)} ${f2(c2.y)} ${f2(r.x)} ${f2(r.y)}`, ex = (-dy / len) * 0.1, ey = (dx / len) * 0.1; // each snake has its own colour (k5 = 0..4), a pale outline, two eyes
+    return `<g class="sn s${k5 % 5}"><path class="snko" d="${d}"/><path class="snk" d="${d}"/><circle class="snkhead" cx="${f2(p.x)}" cy="${f2(p.y)}" r="0.26"/><circle class="snkeye" cx="${f2(p.x + ex)}" cy="${f2(p.y + ey)}" r="0.07"/><circle class="snkeye" cx="${f2(p.x - ex)}" cy="${f2(p.y - ey)}" r="0.07"/><circle class="snkdot" cx="${f2(r.x)}" cy="${f2(r.y)}" r="0.1"/></g>`;
   }
   /** Square cells (classes place them: gcN = column, grN = row from the top) plus an SVG layer for the ladders and snakes. `pawns` maps a square to a list of seats (table mode). */
   function boardHtml(v, pawns, label) {
-    const b = v.board, side = b.side, size = b.size, ms = msOf(v), me = v.me ? v.me.square : 0, table = !!pawns;
-    let cells = "", lines = "";
+    const b = v.board, side = b.side, size = b.size, ms = msOf(v), me = v.me ? shownSquare(v) : 0, table = !!pawns;
+    let cells = "", lines = "", ov = "";
     for (let s = 1; s <= size; s++) {
       const { col, row } = ZG.squareXY(s, side);
       const lad = b.ladders[s], snk = b.snakes[s], isMs = ms.includes(s), isEnd = s === size, mine = !table && s === me, here = table ? pawns[s] || [] : [];
@@ -231,16 +235,17 @@
       if (isEnd) lab.push("last square");
       if (mine) lab.push("you are here");
       for (const seat of here) lab.push(seat === v.seat ? "you are here" : nickOf(seat) + " is here");
-      const cls = ["sq", "gc" + (col + 1), "gr" + (side - row)];
+      const cls = ["sq", "gc" + (col + 1), "gr" + (side - row), "h" + (row % 5)]; // h0..h4: a band of colour per row of the board
       if ((col + row) % 2) cls.push("a");
       if (lad !== undefined) cls.push("lb"); if (snk !== undefined) cls.push("sh"); if (isMs) cls.push("ms"); if (isEnd) cls.push("end"); if (mine || here.includes(v.seat)) cls.push("me");
-      const marks = (isMs ? `<span class="mk mk1">&#9733;</span>` : isEnd ? `<span class="mk mk1">&#9873;</span>` : "") + (lad !== undefined ? `<span class="mk mk2">&#9650;</span>` : snk !== undefined ? `<span class="mk mk2">&#9660;</span>` : "");
+      const marks = (isMs ? `<span class="mk mk1">&#9733;</span>` : "") + (lad !== undefined ? `<span class="mk mk2">&#9650;</span>` : snk !== undefined ? `<span class="mk mk2">&#9660;</span>` : "");
       const pw = mine ? `<i class="pawn me"></i>` : here.slice(0, 2).map((seat) => `<i class="pawn t${seat === v.seat ? " me" : ""}">${seat}</i>`).join("") + (here.length > 2 ? `<i class="pawn t more">+${here.length - 2}</i>` : "");
-      cells += `<div class="${cls.join(" ")}" role="listitem" aria-label="${esc(lab.join(", "))}"><b>${s}</b>${marks}${pw}</div>`;
+      cells += `<div class="${cls.join(" ")}" role="listitem" aria-label="${esc(lab.join(", "))}"></div>`;
+      ov += `<div class="so gc${col + 1} gr${side - row}${lad !== undefined ? " lb" : ""}${snk !== undefined ? " sh" : ""}${isEnd ? " end" : ""}"><b>${s}</b>${marks}${pw}</div>`; // numbers, marks and pawns sit above the ladders and snakes
     }
     for (const a of Object.keys(b.ladders).map(Number).sort((x, y) => x - y)) lines += ladderSvg(a, b.ladders[a], side);
-    for (const h of Object.keys(b.snakes).map(Number).sort((x, y) => x - y)) lines += snakeSvg(h, b.snakes[h], side);
-    return `<div class="sqwrap"><div class="sqgrid g${side}" role="list" aria-label="${esc(label)}">${cells}</div><svg class="sqsvg" viewBox="0 0 ${side} ${side}" aria-hidden="true" focusable="false">${lines}</svg></div>`;
+    Object.keys(b.snakes).map(Number).sort((x, y) => x - y).forEach((h, i) => { lines += snakeSvg(h, b.snakes[h], side, i); });
+    return `<div class="sqwrap"><div class="sqgrid g${side}" role="list" aria-label="${esc(label)}">${cells}</div><svg class="sqsvg" viewBox="0 0 ${side} ${side}" aria-hidden="true" focusable="false">${lines}</svg><div class="sqov g${side}" aria-hidden="true">${ov}</div></div>`;
   }
   function boardCard(v) {
     const b = v.board;
@@ -256,21 +261,77 @@
       pos = wt === null || v.ended ? "" : wt === v.seat ? `<b>It is your turn to throw.</b> ` : `It is ${esc(nickOf(wt))}'s turn to throw. `;
       pos += v.me ? `You are on square <b>${v.me.square}</b> of ${b.size}.` : "";
     } else if (v.me) {
-      pos = v.me.finishedTurn !== null ? `<b>You are home.</b> You reached square ${b.size} on turn ${v.me.finishedTurn + 1}.` : `You are on square <b>${v.me.square}</b> of ${b.size}. Ladders climbed: ${v.me.ladders}. Snakes met: ${v.me.snakes}.`;
+      pos = v.me.finishedTurn !== null ? `<b>You are home!</b> You reached square ${b.size} on turn ${v.me.finishedTurn + 1}.` : `You are on square <b>${v.me.square}</b> of ${b.size}`;
     }
+    const stats = !table && v.me && v.me.finishedTurn === null ? `<span class="zpill up" role="img" aria-label="${v.me.ladders} ${v.me.ladders === 1 ? "ladder" : "ladders"} climbed">&#129693; ${v.me.ladders}</span><span class="zpill down" role="img" aria-label="${v.me.snakes} ${v.me.snakes === 1 ? "snake" : "snakes"} met">&#128013; ${v.me.snakes}</span>` : "";
     const lab = (table ? "Shared board, " : "Your board, ") + b.size + " squares. Square 1 is at the bottom left and the rows zig-zag upwards.";
-    return `<div class="zcard zboardcard"><h2>${table ? "The shared board" : "Your board"}</h2>
-      ${pos ? `<p class="zpos" role="status">${pos}</p>` : ""}
+    return `<div class="zcard zboardcard"><h2>${table ? "The shared board" : "Your board"}</h2> <span class="zgoalpill">Goal: land exactly on ${b.size}</span>
+      ${pos ? `<p class="zpos" role="status"><span>${pos}</span>${stats}</p>` : ""}
       ${boardHtml(v, pawns, lab)}
-      <p class="zsmall zleg">&#9733; milestone square ${ms.length ? esc(ms.join(", ")) : "none"} &middot; &#9873; last square ${b.size} &middot; &#9650; ladder, goes up &middot; &#9660; snake, goes down${table ? " &middot; numbered dots are players" : ""}</p>
-      <p class="zsmall zlist2" id="ladlist"><b>Ladders:</b> ${esc(lad || "none")}.</p>
-      <p class="zsmall zlist2" id="snklist"><b>Snakes:</b> ${esc(snk || "none")}.</p></div>`;
+      <p class="zsmall zleg"><span class="zkey ms">&#9733;</span> milestone ${ms.length ? esc(ms.join(", ")) : "none"} <span class="zkey end">&#127942;</span> last square ${b.size} <span class="zkey up">&#9650;</span> ladder: up <span class="zkey down">&#9660;</span> snake: down${table ? " <span class=\"zkey you\">1</span> numbered dots are players" : ""}</p>
+      ${fold("lists", "Show every ladder and snake", `<p class="zsmall zlist2" id="ladlist"><b>Ladders:</b> ${esc(lad || "none")}.</p><p class="zsmall zlist2" id="snklist"><b>Snakes:</b> ${esc(snk || "none")}.</p>`)}</div>`;
   }
+  // a fold-away block that keeps its open/closed state when the page redraws itself every second
+  const OPENED = new Set();
+  const fold = (key, title, inner) => `<details class="zfold" data-fold="${key}"${OPENED.has(key) ? " open" : ""}><summary>${title}</summary>${inner}</details>`;
+  function bindFolds() { document.querySelectorAll("details[data-fold]").forEach((d) => { d.ontoggle = () => { if (d.open) OPENED.add(d.dataset.fold); else OPENED.delete(d.dataset.fold); }; }); }
 
   // ---------- the dice card: countdown ring, the last throw, the Throw button (presence mode) ----------
   const THROW = { busy: false, note: "" };
+  const FLASH = { turn: -1, until: 0, first: true }; // a short colour pulse on the dice card when a new turn begins (not on the first look at the page)
   const PIPS = { 1: [4], 2: [0, 8], 3: [0, 4, 8], 4: [0, 2, 6, 8], 5: [0, 2, 4, 6, 8], 6: [0, 2, 3, 5, 6, 8] };
-  const dieHtml = (roll) => `<div class="die" role="img" aria-label="You rolled ${roll}">${Array.from({ length: 9 }, (_, i) => `<i class="pip${(PIPS[roll] || []).includes(i) ? " on" : ""}"></i>`).join("")}</div>`;
+  const pipsOf = (face) => Array.from({ length: 9 }, (_, i) => `<i class="pip${(PIPS[face] || []).includes(i) ? " on" : ""}"></i>`).join("");
+  /** A real 3D cube: ivory faces with black pips, opposite faces add up to 7 (1/6, 2/5, 3/4). `roll` is the number the game logic decided and is never changed here. The cube is turned so that exactly that face
+      looks at you; while it rolls it tumbles on two axes, hops, and slows down onto that face. With "reduce motion" it simply shows the number. */
+  const faces = () => [1, 2, 3, 4, 5, 6].map((n) => `<div class="dface df${n}">${pipsOf(n)}</div>`).join("");
+  const dieHtml = (roll, mode) => {
+    const label = mode === "rolling" ? "Rolling the dice" : mode === "wait" ? "The dice are rolling" : mode === "idle" ? "Your dice" : "You rolled " + roll;
+    const cls = mode === "rolling" ? "rolling show" + ROLL.final : mode === "wait" ? "wait" : mode === "idle" ? "idle" : "show" + roll;
+    return `<div class="dice3d${mode === "rolling" ? " rolling" : ""}" role="img" aria-label="${label}"><div class="dshadow"></div><div class="dhop"><div class="dtilt"><div class="dcube ${cls}">${faces()}</div></div></div></div>`;
+  };
+  // ---- the rolling animation (presentation only). It starts when a NEW throw of this player arrives, lasts 1.5 s, and ends on the number the game decided.
+  const MOTION = () => { try { return !matchMedia("(prefers-reduced-motion: reduce)").matches; } catch { return false; } };
+  const ROLL = { seen: null, t0: 0, dur: 1500, final: 0, from: 0, timer: null, doneAt: -Infinity };
+  const rollingNow = () => ROLL.final > 0 && performance.now() - ROLL.t0 < ROLL.dur;
+  const landedRecently = () => performance.now() - ROLL.doneAt < 900;
+  const shownSquare = (v) => (rollingNow() && v.me && v.me.lastStep ? ROLL.from : v.me.square); // the pawn stays where it was until the die has settled
+  function noteRoll(v) {
+    const s = v.me && v.me.lastStep; if (!s) return;
+    const key = v.me.history.length + ":" + s.from + ":" + s.roll;
+    if (key === ROLL.seen) return;
+    const first = ROLL.seen === null; ROLL.seen = key;
+    if (first || firstPaint || !MOTION()) return; // the page has just opened, or motion is off: show the last throw as it is
+    ROLL.final = s.roll; ROLL.from = s.from; ROLL.t0 = performance.now(); ROLL.doneAt = -Infinity;
+    clearTimeout(ROLL.timer); tickRoll();
+  }
+  function tickRoll() {
+    const left = ROLL.dur - (performance.now() - ROLL.t0);
+    if (left <= 0) { ROLL.doneAt = performance.now(); ROLL.final = 0; paint(); return; }
+    ROLL.timer = setTimeout(tickRoll, Math.min(left, 100)); // the cube moves by itself (CSS); this only waits for the end and then draws the result
+  }
+  /** the time bar: its width is set from the script (the page runs without inline styles) and eases to the new value */
+  let lastPct = null;
+  function syncTimer() {
+    const i = document.querySelector(".ztimer i"); if (!i) { lastPct = null; return; }
+    const to = Number(i.dataset.pct);
+    if (lastPct !== null && MOTION()) { i.style.transition = "none"; i.style.width = lastPct + "%"; i.getBoundingClientRect(); i.style.transition = "width 1s linear"; }
+    i.style.width = to + "%"; lastPct = to;
+  }
+  /** the pawn slides from the square it was on to the square it is on now (about 0.4 s; nothing with "reduce motion") */
+  const PAWN = { sq: 0, x: 0, y: 0 };
+  function slidePawn(v) {
+    const el = document.querySelector(".sqov .pawn.me"), wrap = document.querySelector(".sqwrap");
+    if (!el || !wrap) { PAWN.sq = 0; return; }
+    const r = el.getBoundingClientRect(), w = wrap.getBoundingClientRect(), x = r.left - w.left, y = r.top - w.top, sq = v.me ? shownSquare(v) : 0;
+    if (PAWN.sq && PAWN.sq !== sq && MOTION() && !firstPaint) {
+      const dx = PAWN.x - x, dy = PAWN.y - y;
+      el.style.transition = "none"; el.style.transform = `translate(${dx}px,${dy}px)`; el.getBoundingClientRect();
+      el.style.transition = "transform 380ms cubic-bezier(.25,.8,.3,1)"; el.style.transform = "";
+    }
+    PAWN.sq = sq; PAWN.x = x; PAWN.y = y;
+  }
+  /** after each redraw: a die that is mid-roll carries on from where its movement was, not from the start */
+  function syncDie() { const d = -Math.max(0, performance.now() - ROLL.t0) / 1000 + "s"; document.querySelectorAll(".dice3d.rolling, .dice3d.rolling .dshadow, .dice3d.rolling .dhop, .dice3d.rolling .dcube").forEach((el) => { el.style.animationDelay = d; }); }
   function ringHtml(secs, total, label) {
     const R = 20, C = 2 * Math.PI * R, frac = total > 0 && secs !== null ? Math.max(0, Math.min(1, secs / total)) : 1;
     return `<div class="zring" role="img" aria-label="${esc(label)}"><svg viewBox="0 0 48 48" aria-hidden="true" focusable="false"><circle class="bg" cx="24" cy="24" r="${R}"/><circle class="fg" cx="24" cy="24" r="${R}" stroke-dasharray="${f2(C * frac)} ${f2(C)}" transform="rotate(-90 24 24)"/></svg><span>${secs === null ? "&ndash;" : secs}</span></div>`;
@@ -288,20 +349,38 @@
     const t = v.turn, presence = v.cfg.play === "presence", me = v.me, s = me && me.lastStep;
     const tableOther = v.kind === "table" && v.table && v.table.whoseTurn !== v.seat;
     const home = !!me && me.finishedTurn !== null;
-    let state, ring = "";
-    if (v.ended || t.state === "over") state = "The game is over.";
-    else if (t.state === "wait") { state = t.secondsLeft === null ? "Getting ready…" : `Turn ${t.index + 1} opens in ${t.secondsLeft} seconds.`; ring = ringHtml(t.secondsLeft, 0, state); }
+    let state, ring = "", tone = "wait", chip = "Get ready", sub = "";
+    const thrownWait = presence && t.state === "open" && t.thrown && !home && !tableOther;
+    const rolling = rollingNow();
+    if (v.ended || t.state === "over") { state = "The game is over."; tone = "end"; chip = "Game over"; sub = "Thank you for playing."; }
+    else if (t.state === "wait") { state = t.secondsLeft === null ? "Getting ready…" : `Turn ${t.index + 1} opens in ${t.secondsLeft} seconds.`; ring = ringHtml(t.secondsLeft, 0, state); sub = presence ? "Get your thumb ready to roll." : "Nothing to press: your dice roll by themselves."; }
     else if (t.state === "open") {
-      state = presence ? (home ? "You are home. Nothing left to throw." : tableOther ? "Waiting for the other player to throw." : `Turn ${t.index + 1} is open. Press Throw before the window closes.`) : `Turn ${t.index + 1}. Your throw happens by itself when the window closes.`;
       ring = ringHtml(t.secondsLeft, t.windowSec, `${t.secondsLeft} seconds left in this turn`);
-    } else { state = `Turn ${t.index + 1}: the dice are thrown.`; ring = ringHtml(t.secondsLeft, 0, `Next turn in ${t.secondsLeft} seconds`); }
-    const canThrow = presence && t.state === "open" && !t.thrown && !home && !tableOther && !THROW.busy;
-    const throwBtn = presence && !v.ended ? `<button class="zbtn" id="throw" type="button"${canThrow ? "" : " disabled"}>${THROW.busy ? "Throwing…" : t.state === "open" && t.thrown && !home && !tableOther ? "Thrown. Wait for the result" : "Throw"}</button>${THROW.note ? `<div class="zbanner bad" role="alert">${esc(THROW.note)}</div>` : ""}` : "";
-    const last = s ? `<div class="zthrow">${dieHtml(s.roll)}<div><div class="zrolled">You rolled <b>${s.roll}</b></div><div class="zsmall zflush">${esc(stepText(s))}</div></div></div>` : (v.ended ? "" : `<p class="zsmall zflush">${v.turnsPlayed ? "You have not thrown yet." : "Your first throw comes with the first turn."}</p>`);
-    const missed = presence && me ? `<p class="zsmall zmissed">${me.missed ? `You missed ${plural(me.missed, "turn", "turns")}.` : "You have not missed a turn."}</p>` : "";
-    const tableLine = v.kind === "table" && v.table && v.table.whoseTurn !== null && !v.ended ? `<p class="zsmall zflush">${v.table.whoseTurn === v.seat ? "It is your turn." : "It is " + esc(nickOf(v.table.whoseTurn)) + "'s turn."} Turn ${v.turnsPlayed + 1} of at most ${v.turnCap}.</p>` : "";
-    return `<div class="zcard zdice"><h2>The dice</h2>
-      <div class="zdicetop">${ring}<div class="zstate" role="status"><b>${esc(state)}</b>${v.kind === "table" ? "" : `<div class="zsmall zflush">Turn ${Math.min(v.turnsPlayed + (v.ended ? 0 : 1), v.turnCap)} of at most ${v.turnCap}.</div>`}</div></div>
+      if (presence) {
+        if (home) { state = "You are home. Nothing left to roll."; tone = "home"; chip = "You are home"; }
+        else if (tableOther) { state = "Waiting for the other player to roll."; tone = "wait"; chip = "Wait"; }
+        else if (t.thrown) { state = "Rolled! Waiting for the result."; tone = "go"; chip = "Rolled"; }
+        else { state = "Your turn: tap the Roll button."; tone = "go"; chip = "Your turn"; sub = `Roll before the clock runs out. A ladder takes you up, a snake takes you down.`; }
+      } else { state = `Your dice roll by themselves in ${t.secondsLeft === null ? "a moment" : t.secondsLeft + " seconds"}.`; tone = "soon"; chip = "Rolling soon"; sub = "Nothing to press. Just watch your pawn."; }
+    } else { state = `Turn ${t.index + 1} is done.`; ring = ringHtml(t.secondsLeft, 0, `Next turn in ${t.secondsLeft} seconds`); sub = `Next turn in ${t.secondsLeft === null ? "a moment" : t.secondsLeft + " seconds"}.`; chip = "Next turn soon"; }
+    if (home && tone !== "end") { tone = "home"; chip = "You are home"; }
+    if (v.paused) { tone = "pause"; chip = "Paused"; }
+    if (rolling) { state = "Rolling the dice…"; chip = "Rolling"; tone = "go"; sub = ""; }
+    const canThrow = presence && t.state === "open" && !t.thrown && !home && !tableOther && !THROW.busy && !v.paused;
+    const throwBtn = presence && !v.ended ? `<button class="zbtn zroll" id="throw" type="button"${canThrow ? "" : " disabled"}>${THROW.busy ? "Rolling…" : thrownWait ? "Rolled. Wait for the result" : "Roll the dice"}</button>${THROW.note ? `<div class="zbanner bad" role="alert">${esc(THROW.note)}</div>` : ""}` : "";
+    const dieMode = rolling ? "rolling" : (THROW.busy || thrownWait) ? "wait" : s ? "" : "idle";
+    const die = v.ended && !s ? "" : `<div class="zdieblk">${dieHtml(s ? s.roll : 0, dieMode)}<div class="dnum${landedRecently() ? " pop" : ""}" aria-hidden="true">${rolling ? "&hellip;" : s ? s.roll : ""}</div></div>`;
+    const outcome = s && !rolling ? (s.kind === "ladder" ? "up" : s.kind === "snake" ? "down" : s.kind === "finish" ? "win" : "") : "";
+    const last = s ? (rolling ? "" : `<div class="zthrow ${outcome}${landedRecently() ? " zin" : ""}" role="status"><span class="zsteptxt">${esc(stepText(s))}</span></div>`) : (v.ended ? "" : `<p class="zsmall zflush zthrow">${v.turnsPlayed ? "You have not rolled yet." : "Your first roll comes with the first turn."}</p>`);
+    const missed = presence && me && me.missed ? `<p class="zsmall zmissed">You missed ${plural(me.missed, "turn", "turns")}.</p>` : "";
+    const tableLine = v.kind === "table" && v.table && v.table.whoseTurn !== null && !v.ended ? `<p class="zsmall zflush">${v.table.whoseTurn === v.seat ? "It is your turn." : "It is " + esc(nickOf(v.table.whoseTurn)) + "'s turn."}</p>` : "";
+    const turnNo = Math.min(v.turnsPlayed + (v.ended ? 0 : 1), v.turnCap);
+    const turnChip = `<span class="zchip2 plain">Turn ${turnNo} of ${v.turnCap}</span>`;
+    const secs = t.state === "open" && t.secondsLeft !== null && !home && !v.paused ? t.secondsLeft : null, pct = secs !== null && t.windowSec > 0 ? Math.max(0, Math.min(100, Math.round((secs / t.windowSec) * 100))) : null;
+    const flash = FLASH.turn !== t.index ? (FLASH.turn = t.index, FLASH.until = performance.now() + 450, FLASH.first ? (FLASH.first = false, "") : " zflash") : performance.now() < FLASH.until ? " zflash" : "";
+    return `<div class="zcard zdice st-${tone}${flash}"><div class="zchiprow"><span class="zchip2 ${tone}">${esc(chip)}${secs !== null && !rolling ? ` &middot; ${secs}s` : ""}</span>${turnChip}</div>
+      ${pct !== null ? `<div class="ztimer" role="progressbar" aria-label="Time left in this turn" aria-valuemin="0" aria-valuemax="${t.windowSec}" aria-valuenow="${secs}"><i data-pct="${pct}"></i></div>` : ""}
+      <div class="zdicetop">${die}<div class="zstate" role="status"><b>${esc(state)}</b>${sub ? `<div class="zsmall zflush">${esc(sub)}</div>` : ""}</div></div>
       ${tableLine}${throwBtn}${last}${missed}</div>`;
   }
 
@@ -347,10 +426,10 @@
     const list = prizeList(v); if (!list.length) return "";
     const rows = list.map((p) => {
       const res = (v.results || []).find((r) => r.pattern === p.key && r.ordinal === p.line.ordinal);
-      const right = res && res.winners && res.winners.length ? ((res.winners || []).includes(v.pid) ? `<em>Yours${res.tied > 1 ? " &middot; decided by fate" : ""}</em>` : `<i>Awarded</i>`) : `<i>not decided yet</i>`;
-      return `<div class="zrow"><span>${esc(p.name)}${p.text ? `<br><small class="zsmall zflush">${esc(p.text)}</small>` : ""}${p.how ? `<br><small class="zsmall zflush zhow">${esc(p.how)}</small>` : ""}</span>${right}</div>`;
+      const right = res && res.winners && res.winners.length ? ((res.winners || []).includes(v.pid) ? `<em class="zwonchip">You won!${res.tied > 1 ? " &middot; decided by fate" : ""}</em>` : `<i class="zdonechip">Awarded</i>`) : `<i class="zopenchip">Up for grabs</i>`;
+      return `<div class="zrow zprize"><span class="ztrophy" aria-hidden="true">&#127942;</span><span class="zpname"><b>${p.text ? esc(p.text) : esc(p.name)}</b>${p.text ? `<small class="zsmall zflush">${esc(p.name)}</small>` : ""}${p.how ? `<small class="zsmall zflush zhow">${esc(p.how)}</small>` : ""}</span>${right}</div>`;
     }).join("");
-    return `<div class="zcard"><h2>Prizes</h2>${rows}</div>`;
+    return `<div class="zcard zprizecard"><h2>What you can win</h2>${rows}</div>`;
   }
 
   // A lucky draw is the same fair draw whatever it looks like (the winners are fixed by public values before anyone scratches); only the reveal differs.
@@ -382,7 +461,7 @@
     if (!isWaiting(v)) return "";
     const ms = (1692803367 + (v.scheduledRound - 1) * 3) * 1000;
     const when = new Date(ms).toLocaleString(undefined, { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
-    const prizes = prizeList(v).map((p) => `<li>${esc(p.name)}${p.text ? ": <b>" + esc(p.text) + "</b>" : ""}${p.how ? `<br><small class="zsmall zflush zhow">${esc(p.how)}</small>` : ""}</li>`).join("");
+    const prizes = prizeList(v).map((p) => `<div class="zrow zprize"><span class="ztrophy" aria-hidden="true">&#127942;</span><span class="zpname"><b>${p.text ? esc(p.text) : esc(p.name)}</b>${p.text ? `<small class="zsmall zflush">${esc(p.name)}</small>` : ""}${p.how ? `<small class="zsmall zflush zhow">${esc(p.how)}</small>` : ""}</span></div>`).join("");
     const toFirst = v.turn.secondsLeft, setup = toFirst <= GRACE_SECS;
     const top = setup
       ? `<h2>Your game is setting up</h2><div class="zsetup">Sign-up has closed. The first turn comes in a moment.</div><div class="zcount" aria-live="off" id="cd">${clock(toFirst)}</div><p class="zsmall zflush">until the first turn. Keep this page open: the game moves by itself.</p>`
@@ -390,7 +469,8 @@
     const secs = v.callSeconds || 20;
     const rules = [v.kind === "table" ? "1. Everyone plays on one shared board and takes turns." : "1. You have your own board. Nobody else has the same one.", `2. Every turn lasts about ${secs} seconds. Your throw is the dice for that turn.`, "3. Snakes take you down. Ladders take you up.", "4. To finish you need the exact number to land on the last square.", "5. The software checks everything. Nobody can change a result."];
     return `<div class="zcard zwait">${top}
-      ${prizes ? `<h3>What you can win</h3><ul class="zlist">${prizes}</ul>` : ""}
+      <div class="zdo"><b>What to do:</b> nothing yet. Keep this page open. ${v.cfg.play === "presence" ? "When the first turn opens, tap the Roll button." : "Your rolls happen by themselves."}</div>
+      ${prizes ? `<h3>What you can win</h3><div class="zprizes2">${prizes}</div>` : ""}
       <h3>The rules</h3><ul class="zlist zrules">${rules.map((r) => `<li>${esc(r)}</li>`).join("")}</ul>
       <button class="zbtn s alt" id="soundtest" type="button">Check my sound</button><a class="zbtn s alt" id="addcal" download="game.ics" href="${icsFor(v)}">Add to my calendar</a></div>`;
   }
@@ -412,7 +492,7 @@
   }
   function confetti(canvas) {
     const ctx = canvas.getContext("2d"); if (!ctx) return;
-    const W = (canvas.width = innerWidth), H = (canvas.height = innerHeight), cols = ["#FFC93C", "#0B5D5B", "#E4572E", "#2E9E6B", "#F4D35E"];
+    const W = (canvas.width = innerWidth), H = (canvas.height = innerHeight), cols = ["#FFC93C", "#1D7CF2", "#E4572E", "#2E9E6B", "#E63977", "#7B3FE4"];
     const ps = Array.from({ length: 140 }, () => ({ x: Math.random() * W, y: -20 - Math.random() * H * 0.6, r: 4 + Math.random() * 6, c: cols[(Math.random() * cols.length) | 0], vy: 2 + Math.random() * 3.5, vx: -1.5 + Math.random() * 3, a: Math.random() * 6.28, va: -0.2 + Math.random() * 0.4 }));
     const t0 = performance.now();
     (function f(t) {
@@ -491,9 +571,11 @@
   function finalCard(v) {
     const n = PRIZES.length;
     const place = v.me && v.me.finishedTurn !== null ? `You reached the last square on turn ${v.me.finishedTurn + 1}.` : v.me ? `You finished on square ${v.me.square}.` : "";
+    const medal = v.myRank === 1 ? "&#129351;" : v.myRank === 2 ? "&#129352;" : v.myRank === 3 ? "&#129353;" : n ? "&#127942;" : "&#127922;";
     return `<div class="zcard zfinal"><h2>Game complete</h2>
-      <div class="zfbig">Thank you for joining our extended family of Corporate Snakes and Ladders.</div>
-      <p class="zsmall zbigger">${place}${v.myRank ? " Your final place: " + v.myRank + "." : ""} ${n ? "You won " + n + " prize" + (n === 1 ? "" : "s") + ". They are listed below and stay on this phone." : "Every game is a good game. We hope you had fun, and we would love to see you at the next one."}</p>
+      <div class="zmedal" aria-hidden="true">${medal}</div>
+      <div class="zfbig">${n ? "You won " + n + (n === 1 ? " prize!" : " prizes!") : v.myRank ? "You finished number " + v.myRank + (v.crowd ? " of " + v.crowd.players : "") + "." : "Well played!"}</div>
+      <p class="zsmall zbigger">${place} ${n ? "Your prizes are listed below and stay on this phone. Show them to your organizer to collect." : "No prize this time. Every game is a good game, and the next one is another chance."}</p>
       <button class="zbtn" id="shr">Share with friends and colleagues</button>
       <a class="zbtn s alt zlinkbtn" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent("I just played Corporate Snakes and Ladders with my team. Bring it to your company: " + shareLink)}">WhatsApp</a>
       <p class="zsmall"><a href="/partner.html?from=card">Earn 50% by sharing: Refer &amp; earn</a></p></div>`;
@@ -719,7 +801,8 @@
     const curWins = v.won || [];
     const ribbon = curWins.length ? `<div class="zwin" role="status">&#127881; Congratulations! You won ${curWins.map((w) => esc(lineName(v.cfg, w.pattern, w.ordinal))).join(", ")}${curWins.some((w) => w.text) ? " &middot; " + curWins.filter((w) => w.text).map((w) => esc(w.text)).join(", ") : ""}</div>` : "";
     const waiting = isWaiting(v);
-    return `${brandStrip()}<div class="zhead"><b>Corporate Snakes and Ladders</b><button class="zsnd" id="snd" aria-pressed="${sound}">${sound ? "Sound on" : "Sound off"}</button></div>
+    const sndBtn = `<button class="zsnd zsndin" id="snd" aria-pressed="${sound}">${sound ? "&#128266; Sound on" : "&#128263; Sound off"}</button>`;
+    return `${brandStrip(sndBtn)}
       ${annBanner(v)}${banners.join("")}
       ${v.phase === "ended" ? finalCard(v) + closingCard(v) + confirmCard(v) + prizesCard() : ""}
       ${waitingRoom(v)}
@@ -754,8 +837,9 @@
     if (ME.removed) { if (timer) { clearInterval(timer); timer = null; } mediaHost.style.display = "none"; $app.innerHTML = removedView(); paintBrand(); return; } // taken off the list: the phone stops
     const fresh = syncPrizes(v); reportToStore(v); loadCf(v); pollMe(v); loadK6();
     if (focusGuard(["cfnm", "cfph", "mi-name", "mi-phone"])) return; // never wipe a form someone is typing in
+    noteRoll(v);
     $app.innerHTML = playView(v);
-    paintBrand(); syncMedia(v); bindShare(); bindConfirm(v); loadInvites(v); bindInvite(v); loadMine(v); bindMine(v);
+    paintBrand(); syncDie(); syncTimer(); slidePawn(v); bindFolds(); syncMedia(v); bindShare(); bindConfirm(v); loadInvites(v); bindInvite(v); loadMine(v); bindMine(v);
     if (fresh.length) showHurray(fresh);
     const s = document.getElementById("snd");
     if (s) s.onclick = async () => { sound = !sound; store.set("cbz-sound", sound ? "on" : "off"); if (window.TBAudio) { TBAudio.enabled = sound; if (sound) await TBAudio.unlock(); } paint(); };
