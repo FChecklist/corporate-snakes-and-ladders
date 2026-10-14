@@ -74,7 +74,7 @@ Words in the product: **Organizer** (1), **Host** (up to 5), **Co-host** (no lim
 | Winners, numbers, tickets | nobody | nobody | software decides (`docs/WINNERS_AND_AUDIT.md`), unchanged |
 | Retire sign-in keys, mint a new AI key, change e-mail | no | no | |
 
-Honest note: `names` (the organizer's own read of a few winners' names) stays human-only; the AI sees the winner's name and masked number through `prizes`, which is what it needs for the hand-over.
+Honest note: `names` (the organizer's own read of a few winners' names) and `prizes` (the hand-over details) stay human-only: the AI never receives a winner's name or number (test: `apps/edge/test/ai-privacy.test.ts` plants names and numbers and checks every address an AI key can read).
 
 ## Real-AI simulations (2026-10-05)
 

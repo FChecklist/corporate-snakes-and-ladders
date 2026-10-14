@@ -52,11 +52,11 @@ describe("U5: a player can leave at any time", () => {
     const later = T + 2 * 3_600_000; // the game began an hour ago
     const r = await call("POST", "/api/z/LV-2/leave", { pid: a, device: dev(1) }, {}, later); expect(r.status).toBe(200);
     const row = raw.query("SELECT pii, name FROM participant WHERE pid=?").get(a) as any; expect(row.pii).toBeNull(); expect(row.name).toBeNull();
-    expect((raw.query("SELECT blocked FROM seat WHERE pid=?").get(a) as any).blocked).toBe(1);
+    expect((raw.query("SELECT blocked FROM seat WHERE pid=?").get(a) as any).blocked).toBe(later); // the server records WHEN the seat was taken out (a lucky draw leaves out whoever left well before it)
     const seats = await j(await call("GET", "/api/z/LV-2/seats", undefined, {}, later + 3 * 60_000));
     expect(seats.ready).toBe(true); expect(seats.seats.map((s: any) => s[1])).toContain(a); // still listed, opaque
     expect(JSON.stringify(seats)).not.toContain("Maya");
-    expect(JSON.parse((raw.query("SELECT v FROM kv WHERE k='seats-blk/LV-2'").get() as any).v)).toContain(a);
+    expect(Object.keys(JSON.parse((raw.query("SELECT v FROM kv WHERE k='seats-blk/LV-2'").get() as any).v))).toContain(a);
   });
   test("only the player's own phone can do it: another phone, a stranger's card id, a missing device and a made-up id are all refused", async () => {
     await game("LV-3");
@@ -138,6 +138,16 @@ describe("U6 / D7: what do you hold about me, correct it, delete me", () => {
     await game("RQ-6"); const a = await joinAs("RQ-6", 1), b = await joinAs("RQ-6", 2);
     await ask("RQ-6", a, dev(1), "access"); await ask("RQ-6", b, dev(2), "correction", { note: "fix it" });
     const mine = await j(await ask("RQ-6", a, dev(1), "status")); expect(mine.requests.length).toBe(1); expect(mine.requests[0].kind).toBe("access"); expect(mine.promise).toBe("within 7 days");
+  });
+  test("nomination (DPDP Act s14): it is a request in the owner's queue and goes to the organizer and the owner; the player is told the e-mail route; nothing is deleted", async () => {
+    await game("RQ-N"); const a = await joinAs("RQ-N", 1, "Maya Lopez");
+    const r = await ask("RQ-N", a, dev(1), "nomination", { note: "my sister" }); expect(r.status).toBe(200);
+    const b = await j(r); expect(b.kind).toBe("nomination"); expect(b.status).toBe("open"); expect(b.erased).toBeUndefined(); expect(b.message).toContain("rajatsiroffice@gmail.com"); expect(b.message).toContain("within 7 days");
+    expect(count("SELECT COUNT(*) c FROM seat WHERE pid=?", a)).toBe(1); // nothing is deleted
+    expect(raw.query("SELECT kind, status, note, due_ms FROM data_request").get()).toEqual({ kind: "nomination", status: "open", note: "my sister", due_ms: T + 7 * 86_400_000 });
+    const m = mails(); expect(m.some((x) => x.to_addr === orgMail && /nominat|section 14/i.test(x.body) && x.body.includes("rajatsiroffice@gmail.com"))).toBe(true);
+    expect(m.some((x) => x.to_addr === OWNER_NOTIFY_EMAIL && /section 14/.test(x.body))).toBe(true);
+    const q = await j(await call("GET", "/api/owner/data-requests?status=open", undefined, { "x-organizer": "plat" })); expect(q.requests.map((x: any) => x.kind)).toEqual(["nomination"]); // the owner's queue
   });
   test("an unknown kind is refused, and a player cannot send more than the limit", async () => {
     await game("RQ-7"); const a = await joinAs("RQ-7", 1);

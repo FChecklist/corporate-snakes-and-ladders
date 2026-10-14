@@ -129,7 +129,7 @@
     ${m ? `<div class="zbanner bad" role="alert">${esc(m)}</div>` : ""}
     <button class="zbtn" id="go" type="button" disabled aria-disabled="true">Join the game</button>
     <p class="spriv">Players are 18 or older. Playing is free: you never pay, and no prize money is held or paid by us.</p>
-    <p class="spriv"><a href="/legal.html#privacy" target="_blank" rel="noopener">Privacy Policy</a></p></div>`;
+    <p class="spriv"><a href="/privacy.html" target="_blank" rel="noopener">Privacy Policy</a></p></div>`;
   };
   const cancelledView = () => `${brandStrip()}${head}<div class="zcard" role="status"><h2>This game was cancelled</h2><p class="zsmall zflush">${esc((INFO.cancelled && INFO.cancelled.message) || "The organizer cancelled this game.")} There is nothing to do on this page. Thank you for your interest.</p></div>`;
   const dnsView = () => `${brandStrip()}${head}<div class="zcard" role="status"><h2>This game did not start</h2><p class="zsmall zflush">This game did not start. Your details have been erased. There is nothing to do on this page. Thank you for your interest.</p></div>`;

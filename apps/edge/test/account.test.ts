@@ -91,7 +91,7 @@ describe("the notification question", () => {
 
 describe("wording: third parties, fairness, version", () => {
   test("the privacy policy names drand and YouTube in one line, with a version date; the sub-processor page says the phone contacts them", () => {
-    const l = rd("legal.html"); expect(l).toContain("Your phone contacts drand for public random numbers, and YouTube (privacy mode) only if your organizer adds a video."); expect(l).toContain("Version 2026-10-05.");
+    const l = rd("legal.html"); expect(l).toContain("Your phone contacts drand for public random numbers, and YouTube (privacy mode) only if your organizer adds a video."); expect(l).toContain("Version 2026-10-15.");
     const s = rd("subprocessors.html"); expect(s).toContain("drand: public random numbers. Your phone contacts it"); expect(s).toContain("YouTube (privacy mode)");
   });
 });

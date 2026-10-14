@@ -15,7 +15,7 @@ export const isKind = (k: unknown): k is ConsentKind => typeof k === "string" &&
 /** The boxes of one point, in order, with their exact wording. */
 export const boxesFor = (kind: ConsentKind): Box[] => (["A", "B"] as const).filter((id) => typeof WORDING[kind]?.[id] === "string").map((id) => ({ id, text: WORDING[kind]![id]! }));
 /** What a page needs to draw the boxes (GET /api/consent/<kind>). */
-export const consentInfo = (kind: ConsentKind) => ({ kind, version: TERMS_VERSION, boxes: boxesFor(kind), termsUrl: "/terms.html", privacyUrl: "/legal.html#privacy", refundUrl: "/refund-policy.html" });
+export const consentInfo = (kind: ConsentKind) => ({ kind, version: TERMS_VERSION, boxes: boxesFor(kind), termsUrl: "/terms.html", privacyUrl: "/privacy.html", refundUrl: "/refund-policy.html" });
 
 export const CONSENT_SCHEMA: string[] = [
   // one row per acceptance: who (an organizer id, a host id or a player id), the point, the game, the Terms version, the boxes ticked and a hash of the exact wording shown. No address, no device, no phone number.

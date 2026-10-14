@@ -2,14 +2,14 @@
 
 This is the data map for gates D1, D2 and D11. It is written from the code, not from memory: `apps/edge/src/worker.ts` (join, schema), `apps/edge/src/people.ts` (lists), `apps/edge/src/winners.ts` (prize hand-over), `apps/edge/src/rights.ts` (a player's own requests), `apps/edge/src/lifecycle.ts` (deletion), `apps/edge/src/pii.ts` (sealing), `apps/edge/src/audit.ts` (security log), `apps/web/public/z.js` (the player page). If you change one of those, change this page in the same step. `apps/edge/test/data-map.test.ts` reads this page.
 
-Short version: a player gives a name. A mobile number is asked only if the organizer switches that on, or if the organizer's own list holds it. The organizer is the controller of those details; we are the processor. All players' details are deleted 23 hours after the game ends (the promise is "within 24 hours"). The winners record (board numbers only) and the organizer's details stay until 00:00 IST at the end of day 365, then everything goes. Invoices and the payment ledger are kept for the legal period, apart from the game data.
+Short version: a player gives a name. A mobile number is asked only if the organizer switches that on, or if the organizer's own list holds it. The organizer is the controller of those details; we are the processor. All players' details are deleted 23 hours after the game ends (the promise is "within 24 hours"). The winners record (board numbers only) and the organizer's details stay until 00:00 IST at the end of day 365, then everything goes. We keep billing data for audit and tax reasons. Billing data is kept apart from the game data.
 
 ## 1. The player notice (the two boxes shown before the name is asked)
 
-The wording is in `apps/edge/src/consent-text.json` (point K4); the page fetches it from `GET /api/consent/text?kind=K4`. Two boxes, never ticked in advance, both before any name field works:
+The wording is in `apps/edge/src/consent-text.json` (point K4); the page fetches it from `GET /api/consent/K4` (`consent.js`, one wording for the page, the server and the record). Two boxes, never ticked in advance, both before any name field works:
 
-- A: the name (and the mobile number, only if this game asks for it) is used for this game only and deleted within 24 hours after it ends; who invited the player is recorded until then.
-- B: the player is 18 or older, or is on a parent's or guardian's device with their permission.
+- A: the name (and the mobile number, only if the organizer asks for it) is used for this game only and deleted within 24 hours after it ends; who invited the player is recorded until then; if the player wins a prize, the name and mobile number they confirm for the hand-over are kept for 365 days; the final places are kept as board numbers without names; the one billing sentence; the notice is available in Hindi on request.
+- B: the player is 18 or older (adults only: no parent's-device alternative; Terms version 2026-10-15).
 
 The Join button stays disabled until both are ticked, and the server refuses a join without them. The server stores one row per acceptance in `consent_log`: the board id, the point (K4), the game id, the Terms version, the boxes, a hash of the exact wording, and the time. It holds no name, number, address or device. When the Terms version changes, the next join asks again.
 
@@ -81,7 +81,7 @@ Every action that writes something (join, consent, claim, start, pause, console 
 | Game settings the organizer chose: occasion name, start time, size limit, invite-only, invitation policy, time zone, brand name, accent colour and small logo (not personal) | To run the game | `engagement` (`config` column) | CF | End of day 365 (a draft nobody published: 30 days) |
 | Host name, e-mail or mobile (sealed), label | A Host runs the game | `organizer_key` (`email_sealed`, `pii`, `label`) | CF, Resend | Host: while the key lives. A Co-host's name and mobile are deleted with the players' data (23 h after the end) |
 | Sign-in codes and links (hash only) | Sign-in | `login_code` | CF | 10 minutes; row deleted 1 day after expiry |
-| Mail outbox | A mail that failed is retried | `outbox` | CF | A sent mail keeps no body; an unsent one 3 days |
+| Mail log: the address a mail went to and its subject | A mail that failed is retried | `outbox` | CF | 3 days. A sent mail keeps no body. `purgeOutbox` runs from the scheduled tick every hour |
 | Mail delivery events from the mail service (bounced, complained, delivered): a one-way hash of the address, the address with its middle hidden (j***@example.com), the subject line, the kind, the time | So the owner can see which mails did not arrive and tell the organizer | `mail_bounce` (no name, no full address) | CF; the mail service (Resend) sends the event | 90 days |
 | AI work link: log of each call (time, key id, call, status, network address, program, country) | The organizer can see what their AI did | `ai_audit` | CF | 365 days |
 | Partner (refer and earn): name, random code, hashes of phone and e-mail | Commission | `partner`, `commission` | CF | While active; commissions kept as accounting records without a link to a person |
@@ -104,6 +104,8 @@ No board or bank details are ever stored or logged. Players never pay.
 | Resend | Sending e-mail | Organizer and host e-mail addresses and the mail text. Never players: players give no e-mail | United States, as published by Resend |
 | Razorpay (through IT Services by Rajat Agarwal) | Taking payment from the organizer | Payer details and amount | India, as published by Razorpay |
 | Google (optional) | "Continue with Google" for organizers and hosts | The e-mail address the person signs in with | United States, as published by Google |
+| IT Services payment service (`itservices-rajat-agarwal.pages.dev`) | Starts the Razorpay payment and records each payment for the organizer's invoice and our accounts | Payer details and amount (organizers only, never players) | Cloudflare |
+| GitHub | Runs the scheduled jobs (the timer that deletes data on time) and keeps a private copy of the payment records | Organizers' payment records only, never players | United States, as published by GitHub |
 
 **Supabase is not used by this product.** There are no third-party trackers: the only monitoring is our own (`rum.js`, `v.js`). A player's phone contacts drand (a public random beacon) and, only if the organizer adds a video break, YouTube in privacy mode.
 
@@ -155,7 +157,7 @@ Corporate Snakes and Ladders is a one-time game. We keep an internal log of what
 * **What is recorded** for each action (create, edit, delete, publish, pay, start, pause, resume, stop, announce, join, claim, vote, prize, erase request, change of phone, invite, sign-in, failed attempts, and refused attempts by an AI key to publish, pay or erase): who did it (organizer, host, co-host, participant, AI key, system, owner), what, the server's time (UTC; this is the authority) next to the time and zone the device reports, the full network address, country and network number, the full browser string, browser and system, the device id (the phone's own random id; a hash of it is also kept), a short summary of the fields changed, and a request reference. For an AI key: the program that fetched the page, the key id and what the AI declared about itself (model, version, session, machine), marked as declared, observed or inferred, and flagged when they disagree.
 * **Never recorded:** passwords, one-time codes, card or bank details, keys.
 * **How it is protected.** Every identifying value is sealed (AES-256-GCM, same `DATA_KEY` as names and numbers). Rows can only be added; each row carries the hash of the one before, so a removed or edited row is detected (`GET /api/owner/audit/<id>/verify`).
-* **Deletion.** The log is deleted with its engagement at 365 days (sign-in and refused-attempt rows that belong to no engagement, 365 days after they were written). Before that we write an anonymous count by kind of event, country and AI vendor, and a deletion certificate (engagement id, date, number of rows, final hash). Those two hold no personal data and are kept. A legal hold set by the owner stops the deletion (and the 23-hour shredding below) until it is lifted.
+* **Deletion.** The log is deleted with its engagement at 365 days (sign-in and refused-attempt rows that belong to no engagement, 365 days after they were written; the rows of an anonymous visitor, with the network address cut to its first part, IPv4 /24 or IPv6 /48, before it is sealed, live in their own chain `anon` and go after 90 days). Before that we write an anonymous count by kind of event, country and AI vendor, and a deletion certificate (engagement id, date, number of rows, final hash). Those two hold no personal data and are kept. A legal hold set by the owner stops the deletion (and the 23-hour shredding below) until it is lifted.
 
 ### Text for the privacy page (`tools/make-legal-pages.mjs`, not edited here)
 

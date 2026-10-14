@@ -49,8 +49,9 @@ describe("test 5: the box wording is the agreed wording, and the version is one 
   test("the Terms page shows the same version and carries the clauses; clause 6 keeps only the sentence that applies", () => {
     const t = rd("terms.html");
     expect(t).toContain(`Version ${TERMS_VERSION}`);
-    for (const must of ["In short", "No collection and no payment by IT Services", "Invitation record (chain)", "24-hour erasure", "Children", "Electronic contract; how you accept", "We do not collect any money, deposit, contribution", "Grievance Officer", "Governing law, disputes and jurisdiction"]) expect(t).toContain(must);
-    expect(t).not.toContain("Luck by Chance"); expect(t).not.toContain("Tambola");
+    for (const must of ["In short", "No collection and no payment by IT Services", "Invitation record (chain)", "24-hour erasure", "Adults only", "Electronic contract; how you accept", "We do not collect any money, deposit, contribution", "Grievance Officer", "Governing law, disputes and jurisdiction"]) expect(t).toContain(must);
+    const body = t.replace(/<footer class="uf"[\s\S]*?<\/footer>/, ""); // the uniform footer names the sister games on purpose
+    expect(body).not.toContain("Luck by Chance"); expect(body).not.toContain("Tambola");
   });
   test("the page code draws labelled checkboxes, never pre-ticked, with the policy words as links that open in a new tab, and disables the button until all are ticked", () => {
     const c = rd("consent.js");
@@ -185,6 +186,20 @@ describe("K4 join a game: both boxes, before any name", () => {
     expect(r.pid).toMatch(/^1x[0-9a-f]{12}$/);
     expect(rows("K4")).toMatchObject([{ kind: "K4", subject: r.pid, ref: "CONS-4", version: TERMS_VERSION, boxes: '["A","B"]', text_hash: expectedHash("K4"), at_ms: T + 250 }]);
     expect(FIX.K4.A).toContain("who invited me is recorded until then");
+  });
+  test("K4 adults only: box B says only that the person is 18 or older (no parent's-device alternative); box A says what is kept; the server needs both and the current version; the exact wording is hashed with the row", async () => {
+    await publishedGame();
+    const [a, b] = boxesFor("K4").map((x) => x.text); expect(b).toBe("I am 18 or older.");
+    expect(boxesFor("K4").map((x) => x.text).join(" ")).not.toMatch(/parent|guardian|device with/i);
+    for (const part of ["deleted within 24 hours", "who invited me is recorded until then", "kept for 365 days", "board numbers, without names", "We keep billing data for audit and tax reasons.", "Hindi on request"]) expect(a).toContain(part);
+    expect(a).not.toMatch(/forever|for ever|permanent/i);
+    const body = { name: "Maya", device: "d".repeat(32) };
+    expect((await call("POST", "/api/z/CONS-4/join", { ...body, consent: { v: TERMS_VERSION, boxes: ["A"] } }, {}, T + 260)).status).toBe(400); // the age box is required by the server
+    expect((await call("POST", "/api/z/CONS-4/join", { ...body, consent: { v: TERMS_VERSION, boxes: ["B"] } }, {}, T + 261)).status).toBe(400);
+    expect((await call("POST", "/api/z/CONS-4/join", { ...body, consent: { v: "2026-10-14", boxes: ["A", "B"] } }, {}, T + 262)).status).toBe(400); // the old version no longer counts
+    expect(TERMS_VERSION).toBe("2026-10-15");
+    expect((await call("POST", "/api/z/CONS-4/join", body, {}, T + 263)).status).toBe(200); // withDevice ticks both boxes of the current version
+    expect(rows("K4")[0]).toMatchObject({ boxes: '["A","B"]', version: TERMS_VERSION, text_hash: expectedHash("K4") });
   });
   test("the acceptance and the invite record are erased with the game's personal data in the 24-hour job (the organizer's stay)", async () => {
     await publishedGame();

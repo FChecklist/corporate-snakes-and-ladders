@@ -17,7 +17,7 @@
       const link = (s) => esc(s)
         .replace(/Terms &amp; Conditions/g, '<a href="' + esc(info.termsUrl || "/terms.html") + '" target="_blank" rel="noopener">Terms &amp; Conditions</a>')
         .replace(/(^|[^>;])Terms(?! &amp;)/g, (m, p) => p + '<a href="' + esc(info.termsUrl || "/terms.html") + '" target="_blank" rel="noopener">Terms</a>')
-        .replace(/Privacy Policy/g, '<a href="' + esc(info.privacyUrl || "/legal.html#privacy") + '" target="_blank" rel="noopener">Privacy Policy</a>')
+        .replace(/Privacy Policy/g, '<a href="' + esc(info.privacyUrl || "/privacy.html") + '" target="_blank" rel="noopener">Privacy Policy</a>')
         .replace(/Refund Policy/g, '<a href="' + esc(info.refundUrl || "/refund-policy.html") + '" target="_blank" rel="noopener">Refund Policy</a>');
       const boxes = info.boxes.map((b) => `<label class="cbc-box" style="display:flex;gap:10px;align-items:flex-start;margin:8px 0;line-height:1.35"><input type="checkbox" class="cbc-tick" data-box="${esc(b.id)}" ${state[b.id] ? "checked" : ""} style="width:22px;height:22px;flex:none;margin-top:2px"><span>${link(b.text)}</span></label>`).join("");
       return `<fieldset class="cbc" style="border:0;padding:0;margin:8px 0"><legend class="sr" style="position:absolute;left:-9999px">Terms</legend>${boxes}</fieldset>`;
