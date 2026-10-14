@@ -70,8 +70,8 @@
 
   // ---------- the company strip at the top of the page (colour and name set by the organizer; the small picture travels inside the settings) ----------
   const brandStrip = (sndBtn) => {
-    const b = INFO.brand; if (!b) return `<div class="zbrand zdef" data-bg="#0B5D5B" data-fg="#ffffff"><b>CORPORATE SNAKES AND LADDERS</b>${sndBtn || ""}</div>`; // no company brand set: the page carries our own name in writing
-    return `<div class="zbrand" data-bg="${esc(b.color)}" data-fg="${esc(b.fg)}">${b.logo ? `<img class="zblogo" alt="" src="${esc(b.logo)}">` : ""}${b.name ? `<b>${esc(b.name)}</b>` : ""}${sndBtn || ""}</div><div class="zpow">Powered by Corporate Snakes and Ladders</div>`;
+    const b = INFO.brand; if (!b) return `<div class="zbar"><div class="zbrand zdef" data-bg="#0B5D5B" data-fg="#ffffff"><b>CORPORATE SNAKES AND LADDERS</b></div>${sndBtn || ""}</div>`; // no company brand set: the page carries our own name in writing
+    return `<div class="zbar"><div class="zbrand" data-bg="${esc(b.color)}" data-fg="${esc(b.fg)}">${b.logo ? `<img class="zblogo" alt="" src="${esc(b.logo)}">` : ""}${b.name ? `<b>${esc(b.name)}</b>` : ""}</div>${sndBtn || ""}</div><div class="zpow">Powered by Corporate Snakes and Ladders</div>`;
   };
   const paintBrand = () => document.querySelectorAll(".zbrand").forEach((el) => { if (!el.classList.contains("zdef")) el.style.background = el.dataset.bg; el.style.color = el.dataset.fg; }); // our own default strip gets its colours from the stylesheet // set from the script, so a strict style policy never blocks the colour
 
@@ -575,6 +575,7 @@
     return `<div class="zcard zfinal"><h2>Game complete</h2>
       <div class="zmedal" aria-hidden="true">${medal}</div>
       <div class="zfbig">${n ? "You won " + n + (n === 1 ? " prize!" : " prizes!") : v.myRank ? "You finished number " + v.myRank + (v.crowd ? " of " + v.crowd.players : "") + "." : "Well played!"}</div>
+      <p class="zsmall zthanks">Thank you for joining our extended family of Corporate Snakes and Ladders.</p>
       <p class="zsmall zbigger">${place} ${n ? "Your prizes are listed below and stay on this phone. Show them to your organizer to collect." : "No prize this time. Every game is a good game, and the next one is another chance."}</p>
       <button class="zbtn" id="shr">Share with friends and colleagues</button>
       <a class="zbtn s alt zlinkbtn" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent("I just played Corporate Snakes and Ladders with my team. Bring it to your company: " + shareLink)}">WhatsApp</a>
