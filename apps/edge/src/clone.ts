@@ -76,8 +76,8 @@ export async function cloneGame(env: Env, e: any, b: any, now: number, origin: s
   }
   let cfg: any = {}; try { cfg = e.config ? JSON.parse(e.config) : {}; } catch { cfg = {}; }
   const copied = [
-    "Occasion and name", "Number of players", "Cards for each person", "Gap between numbers", "Who can join", "Co-host limit",
-    ...(cfg.rounds ? ["Rounds"] : []), ...(cfg.invites ? ["Guest invites"] : []), ...(Array.isArray(cfg.rewards) && cfg.rewards.length ? ["Prizes (all houses and their texts)"] : []),
+    "Occasion and name", "Number of players", "Boards for each person", "Turn window", "Who can join", "Co-host limit",
+    ...(cfg.rounds ? ["Rounds"] : []), ...(cfg.invites ? ["Guest invites"] : []), ...(Array.isArray(cfg.rewards) && cfg.rewards.length ? ["Prizes (all of them, with their texts)"] : []),
     ...(cfg.brand ? ["Brand strip"] : []), ...((cfg.breaks?.length || cfg.opening || cfg.closing) ? ["Brand moments and lucky draw"] : []),
   ];
   return json({ ok: true, id, openUrl: `${origin}/zc.html?e=${id}`, copied, peopleCopied, ...(peopleNote ? { peopleNote } : {}), needsStart: pending, startRound: sr, from: e.id, message: "Your new game is ready to check. Pick the date and time, then publish. This is a new game. Nothing is paid or published yet." });

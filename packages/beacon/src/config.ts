@@ -60,7 +60,7 @@ export const LOGO_MIN_SIDE = 64;
 export const LOGO_MAX_RATIO = 4;
 export const LOGO_STORED_MIN_SIDE = 48;
 export const LOGO_STORED_MAX_SIDE = 192;
-export const LOGO_RULES_TEXT = "PNG, JPEG or WebP, up to 5 MB, at least 64 x 64 pixels, square or wide (at most 4 times wider than tall). Best: a square 256 x 256 picture with a white or see-through background. We shrink it to fit (30 KB, 192 pixels) and show it 30 pixels high on every ticket, in the browser and in the installed app.";
+export const LOGO_RULES_TEXT = "PNG, JPEG or WebP, up to 5 MB, at least 64 x 64 pixels, square or wide (at most 4 times wider than tall). Best: a square 256 x 256 picture with a white or see-through background. We shrink it to fit (30 KB, 192 pixels) and show it 30 pixels high on every board, in the browser and in the installed app.";
 /** Width and height of a PNG, JPEG or WebP from its first bytes (a string of raw characters), or null when they cannot be read. */
 export function logoSize(raw: string, kind: string): { w: number; h: number } | null {
   const b = (i: number) => raw.charCodeAt(i);
@@ -206,7 +206,7 @@ export function validateCfg(input: { tz?: unknown; join?: unknown; mark?: unknow
       // No number typed (or `auto: true` from an earlier save): the software places it, evenly spread among the automatic ones, and it lasts 60 s unless told otherwise.
       const auto = b?.auto === true || b?.after === undefined || b?.after === null || b?.after === "";
       const after = auto ? 0 : b?.after, seconds = auto && (b?.seconds === undefined || b?.seconds === null || b?.seconds === "") ? 60 : b?.seconds, kind = b?.kind;
-      if (!auto && (!Number.isInteger(after) || after < 1 || after > MAX_CALLS - 1)) return { ok: false, error: `A break starts after 1 to ${MAX_CALLS - 1} numbers have been called.` };
+      if (!auto && (!Number.isInteger(after) || after < 1 || after > MAX_CALLS - 1)) return { ok: false, error: `A break starts after 1 to ${MAX_CALLS - 1} turns have been played.` };
       if (!Number.isInteger(seconds) || seconds < 15 || seconds > 600 || seconds % 3) return { ok: false, error: "A break lasts 15 to 600 seconds, in steps of 3." };
       if (!KINDS.has(kind)) return { ok: false, error: "A break is a file, a YouTube link, slides, a speech or a lucky draw." };
       const winners = kind === "lucky" ? (b?.winners === undefined ? 3 : b.winners) : undefined;
@@ -228,7 +228,7 @@ export function validateCfg(input: { tz?: unknown; join?: unknown; mark?: unknow
     }
     { const nAuto = out.filter((x) => x.auto).length; let k = 0; for (const x of out) if (x.auto) x.after = autoAfter(nAuto, ++k); }
     out.sort((a, b) => a.after - b.after);
-    for (let i = 1; i < out.length; i++) if (out[i]!.after === out[i - 1]!.after) return { ok: false, error: "Two breaks cannot start at the same number." };
+    for (let i = 1; i < out.length; i++) if (out[i]!.after === out[i - 1]!.after) return { ok: false, error: "Two breaks cannot start at the same turn." };
     cfg.breaks = out;
   }
   if (input.mark !== undefined) { if (input.mark !== "auto" && input.mark !== "tap") return { ok: false, error: "Marking is not used in this game." }; if (input.mark === "tap") cfg.mark = "tap"; else delete cfg.mark; }
@@ -275,7 +275,7 @@ export function validateCfg(input: { tz?: unknown; join?: unknown; mark?: unknow
       }
       slots.push({ kind, title, ...(mediaUrl ? { mediaUrl } : {}), ...(seconds !== undefined ? { seconds } : {}) });
     }
-    if (isOpening && slots.reduce((t, x) => t + (x.seconds ?? 0), 0) > OPENING_WINDOW_SECONDS) return { ok: false, error: `Openings must fit together in the ${OPENING_WINDOW_SECONDS / 60} minutes before the first number.` };
+    if (isOpening && slots.reduce((t, x) => t + (x.seconds ?? 0), 0) > OPENING_WINDOW_SECONDS) return { ok: false, error: `Openings must fit together in the ${OPENING_WINDOW_SECONDS / 60} minutes before the first turn.` };
     if (isOpening) cfg.opening = slots; else cfg.closing = slots;
   }
 

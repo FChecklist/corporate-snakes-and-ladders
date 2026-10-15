@@ -5,8 +5,8 @@
 
 import { aiPaste } from "./ai-link";
 
-export const AI_WARNING = "DO NOT FORWARD: this email holds your personal AI work link";
-export const HOST_WARNING = "DO NOT FORWARD: this email holds a Host AI work link";
+export const AI_WARNING = "DO NOT FORWARD: this e-mail holds your personal AI work link";
+export const HOST_WARNING = "DO NOT FORWARD: this e-mail holds a Host AI work link";
 export const AI_SUBJECT = "Your personal AI work link - Corporate Snakes and Ladders";
 export const HOST_SUBJECT = "A Host AI work link for your Corporate Snakes and Ladders account";
 
@@ -72,7 +72,7 @@ export function coHostLinkMail(origin: string, key: string, owner: string, expir
   const { text, html } = shell({
     origin, warning: HOST_WARNING,
     title: "A Host AI work link",
-    intro: `For the Corporate Snakes and Ladders engagements of ${owner}. Watch and announce only. Give it to your Host by pasting the box. Do not forward this email.`,
+    intro: `For the Corporate Snakes and Ladders engagements of ${owner}. Watch and announce only. Give it to your Host by pasting the box. Do not forward this e-mail.`,
     expiry: `THIS HOST LINK WORKS FOR 24 HOURS ONLY (until ${istStamp(expiresMs)}).`,
     button: { label: "Open my console", url: `${origin}/zc.html`, note: "Your lasting Host link is in your console." },
     pasteLabel: "YOUR HOST PASTES THIS INTO AN AI CHAT",
@@ -86,7 +86,7 @@ export function coHostLinkMail(origin: string, key: string, owner: string, expir
 }
 
 export const HOST_LINK_SUBJECT = "You are a Host: your Corporate Snakes and Ladders link";
-export const HOST_LINK_WARNING = "DO NOT FORWARD: this email holds your personal Host link";
+export const HOST_LINK_WARNING = "DO NOT FORWARD: this e-mail holds your personal Host link";
 /** The Host's OWN link (their console), e-mailed to the Host when the Organizer adds them. Not an AI link; it opens the Host's console. Only the Organizer and Hosts have an e-mail. */
 export function hostLinkMail(origin: string, key: string, name: string, eid = ""): BuiltMail {
   const url = `${origin}/zc.html?k=${key}${eid ? "&e=" + encodeURIComponent(eid) : ""}`; // with a game id the link opens that game
