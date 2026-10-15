@@ -126,7 +126,7 @@
     const ann = v && v.announcement ? `<div class="annbar" role="alert">${esc(v.announcement.text)}</div>` : "";
     return `<header>${ann}<div class="top"><div class="brand">${bLogo ? `<img class="blogo" alt="" src="${esc(bLogo)}">` : ""}${esc(bd && bd.name ? bd.name : "Corporate Snakes and Ladders")}</div><div class="meta">${extra || ""}</div></div></header><div class="stage">${inner}</div><div class="foot">Join: ${esc(location.host)}/z?e=${esc(EID)}</div>`;
   }
-  const plain = (title, text) => `<header><div class="top"><div class="brand">Corporate Snakes and Ladders</div></div></header><div class="stage"><div class="big"><h1>${esc(title)}</h1><p>${esc(text)}</p></div></div><div class="foot">${esc(location.host)}/z?e=${esc(EID)}</div>`;
+  const plain = (title, text) => `<header><div class="top"><div class="brand"><a href="/" aria-label="Corporate Snakes and Ladders home" style="display:inline-flex;line-height:0"><img src="/logo-mark.svg" alt="Corporate Snakes and Ladders logo" width="26" height="26" style="border-radius:6px"></a>Corporate Snakes and Ladders</div></div></header><div class="stage"><div class="big"><h1>${esc(title)}</h1><p>${esc(text)}</p></div></div><div class="foot">${esc(location.host)}/z?e=${esc(EID)}</div>`;
 
   function draw() {
     const v = rt.view();

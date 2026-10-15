@@ -52,7 +52,7 @@
     const m = S.me; const t = m.totals;
     const fresh = S.fresh ? `<div class="zbanner ok">You are in. <b>Your partner key (shown only this once):</b><div class="mono" style="word-break:break-all;margin:6px 0">${esc(S.fresh)}</div>Keep it somewhere safe; you need it to see your sales.</div>` : "";
     const rows = m.sales.length ? `<table><tr><th>Date</th><th>Pack</th><th>Status</th><th>Commission</th></tr>${m.sales.map((s) => `<tr><td>${day(s.date)}</td><td>${s.pack ? "up to " + s.pack : "-"}</td><td>${statusText(s)}</td><td>${s.amount === null ? "to be announced" : inr(s.amount)}</td></tr>`).join("")}</table>` : `<p class="zsmall" style="margin:0">No sales yet. Share your link to get started.</p>`;
-    return `<div class="zhead"><b>Corporate Snakes and Ladders · Refer &amp; earn</b><button class="zsnd" id="out">Sign out</button></div>${fresh}
+    return `<div class="zhead"><b><a class="zlogo" href="/" aria-label="Corporate Snakes and Ladders home"><img src="/logo-mark.svg" alt="Corporate Snakes and Ladders logo" width="20" height="20"></a>Corporate Snakes and Ladders · Refer &amp; earn</b><button class="zsnd" id="out">Sign out</button></div>${fresh}
       ${m.state !== "active" ? `<div class="zbanner warn">Your partner account is paused. Please contact us.</div>` : ""}
       <div class="zcard"><h2>Your link</h2>${shareBlock(m.code, m.link)}</div>
       <div class="zgrid"><div class="zcard"><h2>Sales</h2><div class="zstat">${t.sales}</div></div><div class="zcard"><h2>Earned so far</h2><div class="zstat">${inr(t.accruedInr + t.paidInr)}</div><p class="zsmall" style="margin:4px 0 0">${t.paidInr ? inr(t.paidInr) + " paid" : "None paid yet"}</p></div></div>

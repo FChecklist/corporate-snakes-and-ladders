@@ -14,7 +14,7 @@
   }
   // K2: the sign-in boxes on the code step. Never pre-ticked; the button stays off until both are ticked; the wording comes from the server (consent.js). The e-mail code stays valid if the boxes are refused.
   let k2 = null; const k2State = {};
-  const shell = (inner) => { app.innerHTML = `<div class="zhead"><b>Corporate Snakes and Ladders · Your AI work link</b></div><div class="zbanner bad" role="alert" style="font-weight:700;text-align:center">${esc(WARN)}</div>${inner}<div class="zbanner bad" role="alert" style="font-weight:700;text-align:center">${esc(WARN)}</div>`; };
+  const shell = (inner) => { app.innerHTML = `<div class="zhead"><b><a class="zlogo" href="/" aria-label="Corporate Snakes and Ladders home"><img src="/logo-mark.svg" alt="Corporate Snakes and Ladders logo" width="20" height="20"></a>Corporate Snakes and Ladders · Your AI work link</b></div><div class="zbanner bad" role="alert" style="font-weight:700;text-align:center">${esc(WARN)}</div>${inner}<div class="zbanner bad" role="alert" style="font-weight:700;text-align:center">${esc(WARN)}</div>`; };
   // Seven ways to hand the paste to an AI: three open the AI with the paste pre-filled (a web address), three copy it and open the site (Ctrl+V, Send), one plain copy.
   const AIOPEN = [["ChatGPT", "https://chatgpt.com/?q="], ["Grok", "https://grok.com/?q="], ["Claude", "https://claude.ai/new?q="]];
   const AICOPY = [["Gemini", "https://gemini.google.com/app?q="], ["DeepSeek", "https://chat.deepseek.com/"], ["z.ai", "https://chat.z.ai/"]];

@@ -16,7 +16,7 @@ describe("installable app (PWA)", () => {
     const sizes = manifest.icons.map((i: any) => i.sizes);
     expect(sizes).toContain("192x192"); expect(sizes).toContain("512x512");
     expect(manifest.icons.some((i: any) => i.purpose === "maskable")).toBe(true);
-    for (const i of manifest.icons) { const f = join(PUB, i.src.slice(1)); expect(existsSync(f)).toBe(true); expect(statSync(f).size).toBeGreaterThan(500); }
+    for (const i of manifest.icons) { const f = join(PUB, i.src.slice(1).split("?")[0]); expect(existsSync(f)).toBe(true); expect(statSync(f).size).toBeGreaterThan(500); }
   });
   test("every file the service worker saves exists and is shipped by the Pages build", () => {
     for (const f of filesInSw) {

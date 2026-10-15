@@ -26,7 +26,7 @@
     }
     return K3.info ? CBConsent.html(K3.info, K3.state) : `<p class="zsmall" role="status">${esc(K3.err || "Loading the terms…")}</p>`;
   }
-  const head = `<div class="zhead"><b>Corporate Snakes and Ladders · Publish engagement</b><a class="zsnd" href="/zc.html?e=${encodeURIComponent(eid)}" style="text-decoration:none">Back to my engagement</a></div>${TB.payBrand ? TB.payBrand() : ""}`;
+  const head = `<div class="zhead"><b><a class="zlogo" href="/" aria-label="Corporate Snakes and Ladders home"><img src="/logo-mark.svg" alt="Corporate Snakes and Ladders logo" width="20" height="20"></a>Corporate Snakes and Ladders · Publish engagement</b><a class="zsnd" href="/zc.html?e=${encodeURIComponent(eid)}" style="text-decoration:none">Back to my engagement</a></div>${TB.payBrand ? TB.payBrand() : ""}`;
   const packFor = (cap) => { const p = TB.PACKS.find((x) => x[0] >= cap); return p ? p[0] : null; };
 
   function view() {

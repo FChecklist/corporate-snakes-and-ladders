@@ -67,3 +67,4 @@ body.signed #dash{display:block}
   .rsticky{display:none}.rfinal{padding-bottom:48px}.rfoot{padding-bottom:20px}
 }
 @media (prefers-reduced-motion:no-preference){.rcta,.rsticky a,.rcard .zbtn{transition:transform .12s}.rcta:hover,.rcard .zbtn:hover{transform:translateY(-1px)}}
+.rbrand{display:inline-flex;align-items:center;gap:10px}.rlogo{border-radius:8px;display:block}

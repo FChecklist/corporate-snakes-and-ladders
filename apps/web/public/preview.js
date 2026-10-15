@@ -80,7 +80,7 @@
     const tail = when === "break" ? ` The game continues in ${Math.max(0, secondsLeft)}s.` : when === "opening" ? " The game starts in a moment." : "";
     const card = over ? `<div class="zcard zbreak" role="status"><h2>${when === "break" ? "The break is over" : "The opening is over"}</h2><div class="zsmall" style="margin:0">The message and the video have gone, and ${when === "break" ? "the game carries on" : "the first turn comes next"}. This is what your guests see: their board is right there again.</div><button class="zbtn s" id="again" type="button" style="margin-top:10px">Play it again</button></div>`
       : `<div class="zcard zbreak" role="status"><h2>${heading}</h2><div style="font:700 20px var(--sans,inherit);margin:2px 0 4px">${esc(b.title)}</div><div class="zsmall" style="margin:0">${what}${tail}</div>${act}</div>`;
-    $app.innerHTML = `<div class="zhead"><b>Corporate Snakes and Ladders</b></div>
+    $app.innerHTML = `<div class="zhead"><b><a class="zlogo" href="/" aria-label="Corporate Snakes and Ladders home"><img src="/logo-mark.svg" alt="Corporate Snakes and Ladders logo" width="20" height="20"></a>Corporate Snakes and Ladders</b></div>
       <div class="zbanner info" role="note"><b>Test only.</b> No game is running. It shows what a guest's phone shows during your ${when === "break" ? "break" : when}.</div>
       <div class="zcard"><div class="zsmall" id="pvnote" style="margin:0">${verdict}</div></div>${card}${sampleCard}`;
     if (!over && kind && mediaHost.dataset.k !== "on") { mediaHost.dataset.k = "on"; startMedia(kind); }
@@ -128,9 +128,9 @@
       const lucky = (d.breaks || []).find((x) => x && x.kind === "lucky");
       const luckyTitle = lucky ? lucky.title : d.lucky || "Lucky draw prize";
       const luckyN = lucky && lucky.winners ? lucky.winners : 3;
-      $app.innerHTML = `<div class="zhead"><b>Corporate Snakes and Ladders</b></div>
+      $app.innerHTML = `<div class="zhead"><b><a class="zlogo" href="/" aria-label="Corporate Snakes and Ladders home"><img src="/logo-mark.svg" alt="Corporate Snakes and Ladders logo" width="20" height="20"></a>Corporate Snakes and Ladders</b></div>
         <div class="zbanner info" role="note"><b>PREVIEW.</b> This is a sample board, not a real one. Nothing is saved, nobody is told, and no game is running.${note ? " " + esc(note) : ""}</div>
-        ${brand ? `<div class="zbrand" id="pvbrand">${brand.logo ? `<img class="zblogo" alt="" src="${esc(brand.logo)}">` : ""}${brand.name ? `<b>${esc(brand.name)}</b>` : ""}</div><div class="zpow">Powered by Corporate Snakes and Ladders</div>` : `<div class="zbrand" id="pvbrand0">CORPORATE SNAKES AND LADDERS</div><div class="zsmall" style="margin:4px 0 0">No company name or logo is set yet, so guests see our name. Set yours in the Brand step to see it here.</div>`}
+        ${brand ? `<div class="zbrand" id="pvbrand">${brand.logo ? `<img class="zblogo" alt="" src="${esc(brand.logo)}">` : ""}${brand.name ? `<b>${esc(brand.name)}</b>` : ""}</div><div class="zpow"><a class="zlogo" href="/" aria-label="Corporate Snakes and Ladders home"><img src="/logo-mark.svg" alt="Corporate Snakes and Ladders logo" width="12" height="12"></a>Powered by Corporate Snakes and Ladders</div>` : `<div class="zbrand" id="pvbrand0"><a class="zlogo" href="/" aria-label="Corporate Snakes and Ladders home"><img src="/logo-mark.svg" alt="Corporate Snakes and Ladders logo" width="18" height="18"></a>CORPORATE SNAKES AND LADDERS</div><div class="zsmall" style="margin:4px 0 0">No company name or logo is set yet, so guests see our name. Set yours in the Brand step to see it here.</div>`}
         <div class="zcard"><h2>Your board <span class="zdemotag">PREVIEW</span></h2>${cardGrid("Sample board")}</div>
         <div class="zcard"><h2>What you can win</h2><ul class="zlist">${prizeLi}</ul></div>
         <div class="zcard zbreak"><h2>A short break</h2><div style="font:700 20px var(--sans,inherit);margin:2px 0 4px">${esc(brk ? brk.title : "A message from your organizer")}</div><div class="zsmall" style="margin:0">Please listen to the host. The game continues in ${esc(String(brk && brk.seconds ? brk.seconds : 60))}s.</div></div>

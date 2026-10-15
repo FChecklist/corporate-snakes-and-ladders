@@ -10,7 +10,7 @@
   const getJson = (p) => fetch(p, { headers: { accept: "application/json" } }).then((r) => r.json());
   const loadConsent = async () => { try { info = await CBConsent.load("K2", getJson); loadErr = ""; } catch { loadErr = "The terms could not be loaded. Please reload this page."; } };
   const draw = (msg) => {
-    app.innerHTML = `<div class="zhead"><b>Corporate Snakes and Ladders</b></div><div class="zcard zform"><h2>Continue to Corporate Snakes and Ladders</h2>
+    app.innerHTML = `<div class="zhead"><b><a class="zlogo" href="/" aria-label="Corporate Snakes and Ladders home"><img src="/logo-mark.svg" alt="Corporate Snakes and Ladders logo" width="20" height="20"></a>Corporate Snakes and Ladders</b></div><div class="zcard zform"><h2>Continue to Corporate Snakes and Ladders</h2>
       <p class="zsmall" style="margin-top:0">Works once, for 10 minutes.</p>
       ${msg ? `<div class="zbanner bad" role="alert">${esc(msg)}</div>` : ""}
       <div id="k2">${info ? CBConsent.html(info, state) : `<p class="zsmall" role="status">${esc(loadErr || "Loading the terms…")}</p>`}</div>

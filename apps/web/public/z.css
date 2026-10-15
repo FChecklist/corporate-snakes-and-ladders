@@ -391,3 +391,15 @@ body:has(#go) #cb-notify{display:none}
 .zbar .zbrand.zdef{justify-content:flex-start;text-align:left}
 .zbar .zbrand.zdef b{font-size:14px;letter-spacing:.04em;line-height:1.2}
 .zhbig{color:#B45309;text-shadow:none}
+
+/* logo 2026-10-15: the new logo mark replaces the old icon; the tile is part of the picture, corners stay round */
+.mark{background:none;overflow:visible}
+.mark img,.tb-mark img{display:block;width:100%;height:100%;border-radius:22%}
+#topbar .tb-mark{background:none}
+.zlogo{display:inline-flex;flex:0 0 auto;line-height:0;text-decoration:none}
+.zlogo img{display:block;width:20px;height:20px;border-radius:5px}
+.zbrand .zlogo img{width:18px;height:18px;margin:-2px 0}
+.zbrand.zdef b{display:inline-flex;align-items:center;gap:7px}
+.zpow .zlogo{vertical-align:-2px;margin-right:5px}
+.zpow .zlogo img{width:12px;height:12px;border-radius:3px}
+.pb-logo{display:flex;justify-content:center;margin:0 0 8px}.pb-logo img{width:44px;height:44px;border-radius:11px}
