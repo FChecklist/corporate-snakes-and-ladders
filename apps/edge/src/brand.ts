@@ -8,12 +8,15 @@ export const TERMS_VERSION = "2026-10-15";
 export const BRAND = {
   name: "Corporate Snakes and Ladders",
   tagline: "Live engagements for companies",
-  support: "rajatsiroffice@gmail.com", // the contact address the site's legal page publishes
+  support: "hello@corporatetambola.com", // the contact address the site's legal page publishes
   legalPath: "/legal.html",
-  defaultOrigin: "https://corporate-snakes-and-ladders.pages.dev",
+  defaultOrigin: "https://snakes.corporatetambola.com",
   wine: "#0B5D5B", gold: "#FFC93C", gold2: "#FFE08A", ivory: "#F7FBFA", line: "#D5E3E1",
 } as const;
 
+/** Every subject that leaves the service starts with the game tag, so one shared inbox can tell the games apart. Added in one place (sendMail / sendReportMail in pay.ts). */
+export const MAIL_TAG = "[Snakes & Ladders] ";
+export const taggedSubject = (s: string): string => (s.startsWith(MAIL_TAG) ? s : MAIL_TAG + s);
 export const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 const base = (origin?: string) => (origin || BRAND.defaultOrigin).replace(/\/+$/, "");
 

@@ -19,7 +19,7 @@ let orders: any[]; let payments: Record<string, any>; let refundCalls: any[]; le
 const call = (method: string, path: string, body?: unknown, key?: string, now = T) =>
   handle(new Request("http://x" + path, { method, headers: { "content-type": "application/json", ...(key ? { "x-organizer": key } : {}) }, body: withDevice(method, path, body) }), env as Env, now);
 const j = async (r: Response) => (await r.json()) as any;
-const outbox = (like = "%") => raw.prepare("SELECT to_addr, subject, body FROM outbox WHERE subject LIKE ? OR body LIKE ? ORDER BY id").all(like, like) as { to_addr: string; subject: string; body: string }[];
+const outbox = (like = "%") => raw.prepare("SELECT to_addr, subject, body FROM outbox WHERE subject LIKE ? OR body LIKE ? ORDER BY id").all(like === "%" ? like : "%" + like, like) as { to_addr: string; subject: string; body: string }[];
 const mailsTo = (to: string) => raw.prepare("SELECT subject, body FROM outbox WHERE to_addr=? ORDER BY id").all(to) as { subject: string; body: string }[];
 
 beforeEach(() => {

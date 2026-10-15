@@ -2,7 +2,7 @@
 // Run: bun tools/make-sitemap.mjs   (commit the result). Pages that say noindex, and the app pages, are deliberately not listed (test/seo.test.ts checks this).
 import { execFileSync } from "node:child_process";
 import { writeFileSync } from "node:fs";
-const ORIGIN = "https://corporate-snakes-and-ladders.pages.dev";
+const ORIGIN = "https://snakes.corporatetambola.com";
 export const PAGES = [["index.html", "/", "weekly", "1.0"], ["partner.html", "/partner.html", "monthly", "0.7"], ["legal.html", "/legal.html", "monthly", "0.3"], ["terms.html", "/terms.html", "monthly", "0.3"], ["dpa.html", "/dpa.html", "monthly", "0.3"], ["subprocessors.html", "/subprocessors.html", "monthly", "0.3"], ["partner-terms.html", "/partner-terms.html", "monthly", "0.3"], ["organizer-guide.html", "/organizer-guide.html", "monthly", "0.3"], ["pricing.html", "/pricing.html", "monthly", "0.8"], ["about.html", "/about.html", "monthly", "0.4"], ["contact.html", "/contact.html", "monthly", "0.4"], ["refund-policy.html", "/refund-policy.html", "monthly", "0.3"], ["trust.html", "/trust.html", "monthly", "0.5"], ["brochure.html", "/brochure.html", "monthly", "0.4"]];
 const git = (...a) => { try { return execFileSync("git", a, { cwd: new URL("../", import.meta.url), encoding: "utf8" }).trim(); } catch { return ""; } };
 const today = new Date().toISOString().slice(0, 10);

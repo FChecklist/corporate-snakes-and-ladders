@@ -34,7 +34,7 @@ async function organizer(email = `o${++ipN}@acme.com`) {
 type Org = Awaited<ReturnType<typeof organizer>>;
 const orgOf = (id: string) => (raw.prepare("SELECT org FROM engagement WHERE id=?").get(id) as any)?.org as string;
 const engRow = (id: string) => raw.prepare("SELECT * FROM engagement WHERE id=?").get(id) as any;
-const outbox = (like = "%") => raw.prepare("SELECT to_addr, subject, body FROM outbox WHERE subject LIKE ? ORDER BY id").all(like) as { to_addr: string; subject: string; body: string }[];
+const outbox = (like = "%") => raw.prepare("SELECT to_addr, subject, body FROM outbox WHERE subject LIKE ? ORDER BY id").all(like === "%" ? like : "%" + like) as { to_addr: string; subject: string; body: string }[];
 const phone = (i: number) => "9" + String(100000000 + i);
 
 /** Gateway stand-in (Razorpay REST) so the whole money flow is exercised. */

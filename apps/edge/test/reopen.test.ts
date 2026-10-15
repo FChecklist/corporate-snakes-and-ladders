@@ -19,7 +19,7 @@ let orders: any[]; let payments: Record<string, any>; let refundCalls: any[]; le
 const call = (method: string, path: string, body?: unknown, key?: string, now = T) =>
   handle(new Request("http://x" + path, { method, headers: { "content-type": "application/json", ...(key ? { "x-organizer": key } : {}) }, body: withDevice(method, path, body) }), env as Env, now);
 const j = async (r: Response) => (await r.json()) as any;
-const outbox = (like = "%") => raw.prepare("SELECT to_addr, subject, body FROM outbox WHERE subject LIKE ? OR body LIKE ? ORDER BY id").all(like, like) as { to_addr: string; subject: string; body: string }[];
+const outbox = (like = "%") => raw.prepare("SELECT to_addr, subject, body FROM outbox WHERE subject LIKE ? OR body LIKE ? ORDER BY id").all(like === "%" ? like : "%" + like, like) as { to_addr: string; subject: string; body: string }[];
 const mailsTo = (to: string) => raw.prepare("SELECT subject, body FROM outbox WHERE to_addr=? ORDER BY id").all(to) as { subject: string; body: string }[];
 
 beforeEach(() => {
@@ -85,11 +85,11 @@ describe("reopen: a cancelled paid game moved to a new date within 365 days", ()
     expect(refundCalls.length).toBe(0);
     expect(eng().cancelled_by).toBeNull();
     const jn = await join("9811100001"); expect(jn.status).toBe(200); // guests can join the moved game again
-    expect(outbox().some((m) => m.subject.startsWith("Your game is back on"))).toBe(true);
+    expect(outbox().some((m) => m.subject.startsWith("[Snakes & Ladders] Your game is back on"))).toBe(true);
   });
   test("the cancel mail tells the owner until when the game can be moved", async () => {
     const t = await team(); await paidGame(t); await cancelIt(t.master);
-    const m = outbox().find((x) => x.subject.startsWith("Game cancelled"))!;
+    const m = outbox().find((x) => x.subject.startsWith("[Snakes & Ladders] Game cancelled"))!;
     expect(m.body).toContain("move this game to a new date until"); expect(m.body).toContain("If you use the credit for another game first");
   });
   test("after 365 days the game can no longer be moved, but the credit is still there for a new game", async () => {

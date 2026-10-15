@@ -32,7 +32,8 @@ export function ledgerFields(site: string, productType: "game_pack" | "payment_t
 }
 
 /** The website name (no scheme) a payment came from. */
-export const siteOf = (origin: string): string => { try { return new URL(origin).host; } catch { return BINGO_SITE; } };
+// The custom address (snakes.corporatetambola.com) is the same site as the old pages.dev address: the ledger keeps ONE site identity (BINGO_SITE) so reports and the central service never split a site in two.
+export const siteOf = (origin: string): string => { try { const h = new URL(origin).host; return h === "snakes.corporatetambola.com" ? BINGO_SITE : h; } catch { return BINGO_SITE; } };
 
 export interface HookRecord { now: number; event?: string | null; eventId?: string | null; orderId?: string | null; rzpPaymentId?: string | null; paymentId?: string | null; amountMinor?: number | null; signatureOk: boolean; outcome: string; status: number }
 

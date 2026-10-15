@@ -20,7 +20,7 @@ let orders: any[]; let payments: Record<string, any>; let refundCalls: any[]; le
 const call = (method: string, path: string, body?: unknown, key?: string, now = T) =>
   handle(new Request("http://x" + path, { method, headers: { "content-type": "application/json", ...(key ? { "x-organizer": key } : {}) }, body: withDevice(method, path, body) }), env as Env, now);
 const j = async (r: Response) => (await r.json()) as any;
-const outbox = (like = "%") => raw.prepare("SELECT to_addr, subject, body FROM outbox WHERE subject LIKE ? OR body LIKE ? ORDER BY id").all(like, like) as { to_addr: string; subject: string; body: string }[];
+const outbox = (like = "%") => raw.prepare("SELECT to_addr, subject, body FROM outbox WHERE subject LIKE ? OR body LIKE ? ORDER BY id").all(like === "%" ? like : "%" + like, like) as { to_addr: string; subject: string; body: string }[];
 const mailsTo = (to: string) => raw.prepare("SELECT subject, body FROM outbox WHERE to_addr=? ORDER BY id").all(to) as { subject: string; body: string }[];
 
 beforeEach(() => {
@@ -151,17 +151,17 @@ describe("cancel e-mails", () => {
     expect((await cancelIt(t.host)).status).toBe(200);
     const paid = paymentRow().amount;
     for (const to of ["boss@acme.com", "priya@acme.com"]) {
-      const m = mailsTo(to).find((x) => /^Game cancelled/.test(x.subject))!; expect(m).toBeTruthy();
+      const m = mailsTo(to).find((x) => /^\[Snakes \& Ladders\] Game cancelled/.test(x.subject))!; expect(m).toBeTruthy();
       expect(m.body).toContain("cancelled by a Host"); expect(m.body).toContain("stays as credit until"); expect(m.body).toContain(paid.toLocaleString("en-IN")); expect(m.body).toContain("We do not give refunds.");
       expect(m.body).not.toMatch(/refund of|2\.36|credit note/i);
     }
-    expect(mailsTo("payer@acme.com").some((x) => /^Game cancelled/.test(x.subject))).toBe(false);
+    expect(mailsTo("payer@acme.com").some((x) => /^\[Snakes \& Ladders\] Game cancelled/.test(x.subject))).toBe(false);
   });
   test("when the Organizer cancels, the Organizer (not only a Host) is mailed; addresses are not repeated", async () => {
     const t = await team(); await paidGame(t);
     await cancelIt(t.master);
-    expect(mailsTo("boss@acme.com").filter((m) => /^Game cancelled/.test(m.subject))).toHaveLength(1);
-    expect(mailsTo("boss@acme.com").find((m) => /^Game cancelled/.test(m.subject))!.body).toContain("cancelled by the Organizer");
+    expect(mailsTo("boss@acme.com").filter((m) => /^\[Snakes \& Ladders\] Game cancelled/.test(m.subject))).toHaveLength(1);
+    expect(mailsTo("boss@acme.com").find((m) => /^\[Snakes \& Ladders\] Game cancelled/.test(m.subject))!.body).toContain("cancelled by the Organizer");
   });
 });
 
