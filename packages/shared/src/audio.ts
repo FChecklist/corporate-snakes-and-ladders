@@ -29,4 +29,4 @@ export function spokenRoll(roll: number, kind: SpokenKind = "move", to?: number)
 }
 
 /** Version of the voice wording; bump when it changes so devices that cached a voice line refresh it. */
-export const AUDIO_PACK_VERSION = "v1-en-us-speech";
+export const AUDIO_PACK_VERSION = "v2-en-in-speech";
