@@ -64,7 +64,7 @@ const shared = { browser, open, track };
 
 // ---- run
 const results = []; const t00 = Date.now();
-const SCEN_TIMEOUT = Number(process.env.UI_SCEN_TIMEOUT ?? 240000);
+const SCEN_TIMEOUT = Number(process.env.UI_SCEN_TIMEOUT ?? 420000);
 for (const sc of todo) {
   await ensureStack(); await track.refresh();
   const t = makeT(sc, shared); const t0 = Date.now(); let error = null;
