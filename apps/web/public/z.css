@@ -405,3 +405,7 @@ body:has(#go) #cb-notify{display:none}
 .pb-logo{display:flex;justify-content:center;margin:0 0 8px}.pb-logo img{width:44px;height:44px;border-radius:11px}
 /* the header mark is now a real link (img.zlogo), so the old CSS-drawn one is switched off */
 .zhead b::before{content:none!important;display:none!important}
+/* Help Desk pages (helpdesk.html, helpdesk-accept.html, helpdesk-approve.html): a text link is a 40 px tap target, and the small brand line at the top is the page's one main heading. */
+.hdl{display:inline-flex;align-items:center;min-height:40px;padding:0 6px;margin-left:-6px}
+.hdh{margin:0;font:inherit}
+.hdi{min-height:40px;box-sizing:border-box} /* the fields of the Help Desk pages are 40 px high like the buttons (this game's default field is 29 px) */
