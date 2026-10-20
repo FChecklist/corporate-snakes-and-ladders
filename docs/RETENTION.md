@@ -36,3 +36,7 @@ Corporate Snakes and Ladders, as built on 2026-10-14. Everything is kept in one 
 
 * Partner commission records are kept as accounting records.
 * Whether the one-year log rule in DPDP Rule 6(1)(e) reaches players' security-log rows, which are destroyed at 23 hours.
+
+## Error reports (added 2026-10-20)
+
+Error reports hold no names, phone numbers, e-mail addresses, typed text, keys, tokens or visitor addresses (cleaned on the device and again on the server; `apps/web/test/blackbox.test.ts`). They are kept until the error is fixed, then 90 days after it was last seen; up to four full reports per error are kept for 90 days. A report waiting on a phone while it is offline is the only thing stored on the device (key `ctz-bbq`), removed as soon as it is sent.
