@@ -177,7 +177,7 @@
   // ---------- login ----------
   function openLogin(email) {
     TB.sheet(`${xbtn}<div class="eyebrow">Organizer login</div><h2>Sign in with your work e-mail</h2><p class="muted small">Players never log in here. They join with your link. We e-mail you a 6-digit code: no password.</p>
-      ${k2Box}${gBox}<form id="lgForm" novalidate><label class="lb" for="lMail">Work e-mail</label><input class="inp" id="lMail" type="email" autocomplete="email" placeholder="you@company.com" value="${esc(email || "")}"><div id="fErr"></div>
+      ${k2Box}${gBox}<form id="lgForm" novalidate><label class="lb" for="lMail">Work e-mail</label><input class="inp" id="lMail" data-need="1" type="email" autocomplete="email" placeholder="you@company.com" value="${esc(email || "")}"><div id="fErr"></div>
       <button class="btn block" style="margin-top:14px" type="submit" id="lgGo" disabled aria-disabled="true">E-mail me a code ${ic("arrow")}</button></form>`);
     $("lgForm").addEventListener("submit", (e) => { e.preventDefault(); const m = $("lMail").value.trim().toLowerCase(); if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(m)) return setErr("Please enter a valid work e-mail."); if (!k2Payload()) return setErr("Please tick the box first."); askCode(m, $("lgGo")); });
     k2Mount(["lgGo"]);

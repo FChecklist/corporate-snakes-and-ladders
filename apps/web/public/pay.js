@@ -12,7 +12,7 @@
   const call = async (method, path, body) => {
     const r = await fetch(path, { method, headers: { "content-type": "application/json", "x-organizer": secret }, body: body === undefined ? undefined : JSON.stringify(body) });
     const j = await r.json().catch(() => ({}));
-    if (!r.ok) throw Object.assign(new Error(j.error || "Something went wrong. Please try again."), { status: r.status, code: j.code, consent: j.consent });
+    if (!r.ok) { const err = Object.assign(new Error(j.error || "Something went wrong. Please try again."), { status: r.status, code: j.code, consent: j.consent }); if (window.CTG) { CTG.wrap(err, { what: method + " " + path.split("?")[0].replace(/\/[0-9a-f]{16,}/gi, "/...") }); if (method !== "GET") { err.guided = true; CTG.watch(err, { retry: () => call(method, path, body) }); } } throw err; }
     return j;
   };
   // K3 (payment boxes): the wording and the Terms version come from the server (consent.js). Never pre-ticked; the pay button stays off until every box is ticked; the tick lives here because the page repaints.
@@ -62,8 +62,8 @@
       ${avail ? `<div class="zcard" style="border:2px solid #2e7d4f"><h2>Use your credit</h2><p class="zsmall" style="margin-top:0">You have credit of <b>${TB.money(avail, "INR")}</b>${until ? ` (valid until ${esc(until)})` : ""}. Use it for this game.</p>${S.err && S.creditErr ? `<div class="zbanner bad">${esc(S.err)}</div>` : ""}<button class="zbtn" id="usecredit" ${S.busy ? "disabled" : ""}>Use my credit</button></div>` : ""}
       ${TB.proformaBox ? TB.proformaBox() : ""}
       <div class="zcard zform"><h2>Details</h2>
-        <label for="nm">Name</label><input id="nm" autocomplete="name" value="${esc(S.name || "")}" placeholder="Full name">
-        <label for="em">E-mail (your invoice comes here)</label><input id="em" type="email" autocomplete="email" value="${esc(S.email)}" placeholder="Email">
+        <label for="nm">Name</label><input id="nm" data-need="1" autocomplete="name" value="${esc(S.name || "")}" placeholder="Full name">
+        <label for="em">E-mail (your invoice comes here)</label><input id="em" data-need="1" type="email" autocomplete="email" value="${esc(S.email)}" placeholder="Email">
         <label for="ph">Mobile <span class="zsmall" style="display:inline">(optional)</span></label>
         <div style="display:flex;gap:8px"><select id="pcode" aria-label="Country code" style="flex:0 0 112px">${TB.COUNTRIES.map(([c, n, d]) => `<option value="${d}" ${String(d) === String(S.pcode) ? "selected" : ""}>${c} +${d}</option>`).join("")}</select><input id="ph" type="tel" autocomplete="tel-national" value="${esc(S.phone)}" placeholder="Mobile number" style="flex:1;min-width:0"></div>
         <label for="org">Company name <span class="zsmall" style="display:inline">(optional)</span></label><input id="org" autocomplete="organization" value="${esc(S.org || "")}" placeholder="Company name">
