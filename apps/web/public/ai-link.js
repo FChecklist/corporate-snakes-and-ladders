@@ -31,7 +31,7 @@
     shell(`<div class="zcard zform"><h2>Sign in as the organizer</h2><p class="zsmall" style="margin-top:0">Sign in to see your AI work link. We e-mail you a 6-digit code.</p>
       ${msg ? `<div class="zbanner bad">${esc(msg)}</div>` : ""}
       ${codeStep ? `<label for="cd">6-digit passcode sent to ${esc(email)}</label><input id="cd" inputmode="numeric" autocomplete="one-time-code" maxlength="8"><div id="k2box">${k2 ? "" : `<p class="zsmall" role="status">Loading the terms…</p>`}</div><button class="zbtn" id="go" disabled aria-disabled="true">Show my AI work link</button>`
-        : `<label for="em">Your work e-mail</label><input id="em" type="email" autocomplete="email" value="${esc(email || "")}" placeholder="your e-mail"><button class="zbtn" id="go">E-mail me a code</button>`}</div>`);
+        : `<label for="em">Your e-mail</label><input id="em" type="email" autocomplete="email" value="${esc(email || "")}" placeholder="your e-mail"><button class="zbtn" id="go">E-mail me a code</button>`}</div>`);
     const go = document.getElementById("go");
     if (codeStep) {
       const box = document.getElementById("k2box");
@@ -43,7 +43,7 @@
       try {
         if (!codeStep) {
           const e = document.getElementById("em").value.trim().toLowerCase();
-          if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(e)) { go.disabled = false; return signIn("Please enter a valid work e-mail.", e, false); }
+          if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(e)) { go.disabled = false; return signIn("Please enter a valid e-mail address.", e, false); }
           await api("POST", "/api/auth/email", { email: e }, "-");
           return signIn("", e, true);
         }

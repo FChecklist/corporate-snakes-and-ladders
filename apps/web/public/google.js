@@ -50,7 +50,7 @@
           const credential = resp && resp.credential;
           if (!credential) return;
           const consent = opt.consent ? opt.consent() : undefined;
-          if (opt.consent && !consent) { opt.onError && opt.onError("Please tick the box first, then continue with Google."); return; }
+          if (opt.consent && !opt.consentOptional && !consent) { opt.onError && opt.onError("Please tick the box first, then continue with Google."); return; }
           try {
             const r = await fetch("/api/auth/google", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ credential, intent: opt.intent || "signin", ...(opt.hostKey ? { hostKey: opt.hostKey } : {}), ...(consent ? { consent } : {}) }) });
             const j = await r.json().catch(() => ({}));
@@ -60,7 +60,7 @@
           } catch (e) { opt.onError && opt.onError(e && e.message ? e.message : "Google sign-in did not work. Please try again, or use an e-mail code."); }
         },
       });
-      const box = document.createElement("div"); el.appendChild(box); if (opt.consent) { boxes.push(box); paint(box); }
+      const box = document.createElement("div"); el.appendChild(box); if (opt.consent && !opt.consentOptional) { boxes.push(box); paint(box); }
       window.google.accounts.id.renderButton(box, { type: "standard", theme: "outline", size: "large", text: "continue_with", shape: "rectangular", logo_alignment: "left", width: Math.max(200, Math.min(320, (el.clientWidth || 300))) });
     } catch { note(el, LINE); }
     return true;

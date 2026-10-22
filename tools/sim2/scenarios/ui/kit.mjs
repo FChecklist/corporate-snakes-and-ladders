@@ -105,10 +105,10 @@ export async function tickIfAny(t, page, opts) {
 export async function tickCode(page) {
   if (await page.locator(".cbc input[data-box]:not(:checked)").count()) await tickIfAny(CUR, page, { scope: ".cbc", btn: "#cdGo", what: "Sign-in code" });
 }
-/** The home-page sign-in sheet as a person: e-mail, the Terms box (K2), "Email me a code". Waits for the code box. */
+/** The home-page sign-in sheet as a person who already has an account: e-mail, "Continue", and the six code boxes appear. */
 export async function askCodeUi(page, email) {
   await page.goto(H.SIM + "/#login"); await page.fill("#lMail", email);
-  await tickIfAny(CUR, page, { scope: ".cbc", btn: "#lgGo", what: "Sign-in" }); await page.click("#lgGo"); await page.waitForSelector("#lCode");
+  await page.click("#lgGo"); await page.waitForSelector("#lCode", { state: "attached" }); await page.waitForSelector(".otpb");
 }
 /** A Co-host who opened the console for the first time meets ONE box (K5) before anything else: this ticks it for real and carries on. It FAILS when the box does not appear (a first-time Co-host must always meet it), and when the box is still there after "Accept"; pass { optional: true } only for a key that has already accepted. */
 export async function passK5Gate(page, { timeout = 15000, optional = false } = {}) {
