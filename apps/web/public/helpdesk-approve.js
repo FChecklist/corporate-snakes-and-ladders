@@ -28,7 +28,7 @@
     k1s = {}; // like the other pages: a Terms box is unticked every time the page is drawn, the person ticks it again
     shell(`<div class="zcard zform"><h2>${esc(info.helperName)} asks you to publish this game</h2>${summaryCard()}
       <p class="zsmall">Publishing is free. After that the game does not begin until it is paid for. Only you publish and pay.</p>
-      <label for="em">Confirm your e-mail</label><input class="hdi" id="em" type="email" autocomplete="email" value="${esc(form.email)}" placeholder="you@company.com">
+      <label for="em">Confirm your e-mail</label><input class="hdi" id="em" type="email" autocomplete="email" value="${esc(form.email)}" placeholder="your e-mail">
       <label for="ph">Confirm your mobile number</label><input class="hdi" id="ph" inputmode="tel" autocomplete="tel" value="${esc(form.phone)}" placeholder="98765 43210">
       ${C && k1 ? `<div id="hdtb">${C.html(k1, k1s)}</div>` : ""}${msg ? `<div class="zbanner bad" role="alert">${esc(msg)}</div>` : ""}
       <button class="zbtn" id="pub"${C && k1 ? " disabled" : ""}>Publish</button></div>`);
