@@ -14,7 +14,7 @@ const DRAFT = /\bdraft\b/i;
 
 function walk(dir: string, out: string[] = []): string[] {
   for (const n of readdirSync(dir)) {
-    if (n === "node_modules" || n === ".wrangler" || n === ".git") continue;
+    if (n === "node_modules" || n === ".wrangler" || n === ".git" || n === "vendor") continue; // vendor: third-party libraries copied as they are (pdf.js)
     const p = join(dir, n), s = statSync(p);
     if (s.isDirectory()) walk(p, out); else if (!BINARY.test(n)) out.push(p);
   }

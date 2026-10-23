@@ -61,6 +61,20 @@ describe("mirrors", () => {
     expect(x?.round).toBe(REAL.round);
     expect(performance.now() - t0).toBeLessThan(2000);
   });
+  test("hedged: a mirror that hangs delays the answer by about the hedge time, not by its whole timeout", async () => {
+    const f: Fetcher = (url) => (url.includes("hang") ? new Promise(() => {}) : Promise.resolve({ ok: true, status: 200, json: async () => REAL }));
+    const t0 = performance.now();
+    const x = await fetchRound(REAL.round, { fetcher: f, mirrors: ["https://hang", "https://good"], timeoutMs: 6000, hedgeMs: 60 });
+    expect(x?.round).toBe(REAL.round);
+    expect(performance.now() - t0).toBeLessThan(1000);
+  });
+  test("hedged: a failed mirror starts the next one at once; the first valid answer wins and the slow one is abandoned", async () => {
+    const calls: string[] = [];
+    const f: Fetcher = (url) => { calls.push(url); return url.includes("down") ? Promise.reject(new Error("offline")) : url.includes("slow") ? new Promise((r) => setTimeout(() => r({ ok: true, status: 200, json: async () => REAL }), 300)) : Promise.resolve({ ok: true, status: 200, json: async () => REAL }); };
+    const t0 = performance.now();
+    const x = await fetchRound(REAL.round, { fetcher: f, mirrors: ["https://down", "https://good", "https://slow"], hedgeMs: 10_000 });
+    expect(x?.round).toBe(REAL.round); expect(performance.now() - t0).toBeLessThan(200); expect(calls.length).toBe(2);
+  });
   test("a mirror returning garbage JSON or a non-object is skipped", async () => {
     const f: Fetcher = async (url) => (url.includes("bad") ? { ok: true, status: 200, json: async () => "<html>blocked by firewall</html>" } : { ok: true, status: 200, json: async () => REAL });
     expect((await fetchRound(REAL.round, { fetcher: f, mirrors: ["https://bad", "https://good"] }))?.round).toBe(REAL.round);

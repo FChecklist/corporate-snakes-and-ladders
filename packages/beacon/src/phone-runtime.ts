@@ -77,6 +77,7 @@ export class PhoneRuntime {
   tracker: ControlTracker | null = null;
   results: RuntimeView["results"] = [];
   private offsetMs: number | null = null; // utc - mono
+  private offsetSamples: number[] = []; // the last few clock answers (the newest estimate is used)
   private syncedAtMono = -Infinity;
   private lastControlPoll = -Infinity;
   private lastResultPoll = -Infinity;
@@ -123,7 +124,12 @@ export class PhoneRuntime {
     if (this.offsetMs !== null && m - this.syncedAtMono < 60_000) return true;
     const x = await fetchRound("latest", { ...this.deps.beacon, ...(this.deps.verify ? { verify: this.deps.verify as any } : {}) }, 0);
     if (!x) return this.offsetMs !== null;
-    this.offsetMs = roundTimeMs(x.round) + (QUICKNET.periodSec * 1000) / 2 - m;
+    // One answer of "latest" can be a round or two old (a cached mirror) and then makes the clock run SLOW. A stale answer is never too new, so of the last 5 answers the NEWEST estimate (the largest)
+    // is the most accurate. An answer more than 15 s below the best one (a changed clock) starts the list again.
+    const sample = roundTimeMs(x.round) + (QUICKNET.periodSec * 1000) / 2 - m;
+    if (this.offsetSamples.length && Math.max(...this.offsetSamples) - sample > 15_000) this.offsetSamples = [];
+    this.offsetSamples.push(sample); if (this.offsetSamples.length > 5) this.offsetSamples.shift();
+    this.offsetMs = Math.max(...this.offsetSamples);
     this.syncedAtMono = m;
     return true;
   }
@@ -159,16 +165,16 @@ export class PhoneRuntime {
   }
 
   /** Joins with a nickname (and a mobile number if the organizer asked for one). The same number again returns the same player. */
-  async join(phone: string, name?: string, invite?: { from?: number; cat?: string }, consent?: unknown): Promise<boolean> {
+  async join(phone: string, name?: string, invite?: { from?: number; cat?: string }, consent?: unknown, empId?: string): Promise<boolean> {
     try {
-      const r = await this.deps.api("POST", `/api/z/${this.eid}/join`, { phone, name, device: this.device(), ...(invite && Number.isInteger(invite.from) ? { from: invite.from, cat: invite.cat } : {}), ...(consent ? { consent } : {}) });
+      const r = await this.deps.api("POST", `/api/z/${this.eid}/join`, { phone, name, ...(empId ? { empId } : {}), device: this.device(), ...(invite && Number.isInteger(invite.from) ? { from: invite.from, cat: invite.cat } : {}), ...(consent ? { consent } : {}) });
       this.scheduledRound = r.startRound; this.startRound = r.startRound + GRACE_ROUNDS; this.callSeconds = r.callSeconds;
       if (r.rewards !== undefined || r.breaks !== undefined || r.board !== undefined || r.mode !== undefined) this.readCfg(r);
       this.deps.store.set(this.key("pid"), r.pid);
       this.adopt(r.pid); this.error = null;
       return true;
     } catch (e: any) {
-      this.error = e?.status === 423 || e?.code === "invite-full" ? String(e.message || "This place is already on another phone.") : e?.status === 409 ? "This game is full." : e?.status === 410 || e?.code === "closed" ? "Sign-up for this game has closed. It is already running." : e?.status === 400 ? "Enter a valid nickname." : e?.status === 503 ? "It is a busy day. Please try again in a few minutes." : "Could not join. Check your connection and try again.";
+      this.error = e?.status === 423 || e?.code === "invite-full" ? String(e.message || "This place is already on another phone.") : e?.status === 409 ? "This game is full." : e?.status === 410 || e?.code === "closed" ? "Sign-up for this game has closed. It is already running." : e?.code === "need-id" || e?.code === "bad-id" ? String(e.message) : e?.status === 400 ? "Enter a valid nickname." : e?.status === 503 ? "It is a busy day. Please try again in a few minutes." : "Could not join. Check your connection and try again.";
       return false;
     }
   }
