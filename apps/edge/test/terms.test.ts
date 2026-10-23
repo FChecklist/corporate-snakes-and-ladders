@@ -59,15 +59,13 @@ describe("acceptance by continuing, no tick box", () => {
     await call("POST", "/api/z", { id: "TERMS-3", startRound: Math.floor((T / 1000 - 1692803367) / 3) + 1200, callSeconds: 20, cap: 100 }, { "x-organizer": mk.organizerKey }, T + 100);
     expect(rows().map((x) => [x.via, x.at_ms])).toEqual([["engagement", T + 100]]);
   });
-  test("signing in by code or by the e-mailed link records the version for that organizer", async () => {
+  test("signing in by code or by the e-mailed link asks for nothing and records no new acceptance (the version is recorded when the account is made and when a game is created)", async () => {
     await call("POST", "/api/start", { email: "boss@acme.com" }, { "cf-connecting-ip": "1.1.1.1" });
-    raw.prepare("DELETE FROM organizer_terms").run(); // as if an older version had been accepted before
+    const before = rows().length;
     const a = await j(await call("POST", "/api/auth/email", { email: "boss@acme.com" }, {}, T + 1000));
-    await call("POST", "/api/auth/verify", { email: "boss@acme.com", code: a.devCode }, {}, T + 2000);
-    expect(rows().map((x) => x.via)).toEqual(["signin-code"]);
-    raw.prepare("DELETE FROM organizer_terms").run();
+    expect((await call("POST", "/api/auth/verify", { email: "boss@acme.com", code: a.devCode }, {}, T + 2000)).status).toBe(200);
     const b = await j(await call("POST", "/api/auth/email", { email: "boss@acme.com" }, {}, T + 3000));
     expect((await call("POST", "/api/auth/link", { token: b.devToken }, {}, T + 4000)).status).toBe(200);
-    expect(rows().map((x) => x.via)).toEqual(["signin-link"]);
+    expect(rows().length).toBe(before);
   });
 });

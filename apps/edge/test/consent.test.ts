@@ -126,27 +126,12 @@ describe("K2 first sign-in and account creation", () => {
     expect(rows("K2")).toMatchObject([{ kind: "K2", subject: org, ref: null, version: TERMS_VERSION, boxes: '["A"]', text_hash: expectedHash("K2"), at_ms: T + 50 }]);
     expect(raw.prepare("SELECT version FROM organizer_terms WHERE org=?").get(org)).toEqual({ version: TERMS_VERSION });
   });
-  test("a sign-in by code asks again when the organizer has not accepted the CURRENT version (the code stays valid)", async () => {
+  test("signing in by code or by the e-mailed link asks for no tick: continuing is the acceptance", async () => {
     await call("POST", "/api/start", { email: "boss@acme.com" }, { "cf-connecting-ip": "1.1.1.1" });
-    const org = (raw.prepare("SELECT org FROM organizer_key WHERE kind='master'").get() as any).org;
-    raw.prepare("UPDATE consent_log SET version=? WHERE kind='K2'").run(OLD);
-    expect(await hasConsent(env.DB as any, "K2", org)).toBe(false);
     const a = await j(await call("POST", "/api/auth/email", { email: "boss@acme.com" }, {}, T + 1000));
-    const refused = await call("POST", "/api/auth/verify", { email: "boss@acme.com", code: a.devCode, consent: undefined }, {}, T + 2000);
-    expect(refused.status).toBe(400); expect((await j(refused)).code).toBe("consent-required");
-    expect((await call("POST", "/api/auth/verify", { email: "boss@acme.com", code: a.devCode, consent: { v: OLD, boxes: ["A"] } }, {}, T + 2100)).status).toBe(400);
-    const ok = await call("POST", "/api/auth/verify", { email: "boss@acme.com", code: a.devCode }, {}, T + 3000);
-    expect(ok.status).toBe(200); expect((await j(ok)).token).toMatch(/^cbk_/);
-    expect(await hasConsent(env.DB as any, "K2", org)).toBe(true);
-    const b = await j(await call("POST", "/api/auth/email", { email: "boss@acme.com" }, {}, T + 4000));
-    expect((await call("POST", "/api/auth/verify", { email: "boss@acme.com", code: b.devCode, consent: undefined }, {}, T + 5000)).status).toBe(200);
-  });
-  test("a sign-in by the e-mailed link is not consumed before the tick is given", async () => {
-    await call("POST", "/api/start", { email: "boss@acme.com" }, { "cf-connecting-ip": "1.1.1.1" });
-    raw.prepare("DELETE FROM consent_log").run();
+    expect((await call("POST", "/api/auth/verify", { email: "boss@acme.com", code: a.devCode, consent: undefined }, {}, T + 2000)).status).toBe(200);
     const b = await j(await call("POST", "/api/auth/email", { email: "boss@acme.com" }, {}, T + 3000));
-    expect((await call("POST", "/api/auth/link", { token: b.devToken, consent: undefined }, {}, T + 4000)).status).toBe(400);
-    expect((await call("POST", "/api/auth/link", { token: b.devToken }, {}, T + 4100)).status).toBe(200);
+    expect((await call("POST", "/api/auth/link", { token: b.devToken, consent: undefined }, {}, T + 4000)).status).toBe(200);
   });
 });
 

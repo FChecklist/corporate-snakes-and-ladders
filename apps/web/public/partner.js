@@ -61,7 +61,7 @@
       <p class="zsmall">Not there? Look in your spam or junk folder, or press Send a new code.</p><p class="zsmall"><a href="#" id="back2">Back</a></p></div>`;
   }
   function linkView() {
-    return `<div class="zhead"><b>Corporate Games · Refer &amp; earn</b></div><div class="zcard zform"><h2>Press the button to sign in</h2><p class="zsmall" style="margin-top:0">This is Option 2 from your e-mail. It works once, for 10 minutes.</p>
+    return `<div class="zhead"><b>Corporate Snakes and Ladders · Refer &amp; earn</b></div><div class="zcard zform"><h2>Press the button to sign in</h2><p class="zsmall" style="margin-top:0">This is Option 2 from your e-mail. It works once, for 10 minutes.</p>
       ${S.err ? `<div class="zbanner bad" role="alert">${esc(S.err)}</div>` : ""}<button class="zbtn" id="lgo">Sign me in</button><p class="zsmall">Something wrong? <a href="/partner.html">Ask for a new e-mail</a>.</p></div>`;
   }
   function dashView() {
@@ -105,14 +105,14 @@
       try { const r = await api("POST", "/api/partner/signin", { email: S.email }); S.dev = r.devCode || ""; draw(signinCodeView()); }
       catch (e) { S.err = e.message; draw(signinView()); }
     };
-    const verifyCode = async () => { S.err = ""; try { const r = await api("POST", "/api/partner/signin/verify", { email: S.email, code: $("scd").value }); ls.set("ctz-pkey", r.partnerKey); S.fresh = null; S.dev = ""; await load(); } catch (e) { S.err = e.message; draw(signinCodeView()); } };
+    const verifyCode = async () => { S.err = ""; try { const r = await api("POST", "/api/partner/signin/verify", { email: S.email, code: $("scd").value }); ls.set("cbz-pkey", r.partnerKey); S.fresh = null; S.dev = ""; await load(); } catch (e) { S.err = e.message; draw(signinCodeView()); } };
     if ($("scdgo")) $("scdgo").onclick = verifyCode;
     if ($("suse")) $("suse").onclick = () => { $("scd").value = S.dev; verifyCode(); };
     if ($("sresend")) $("sresend").onclick = async () => { try { const r = await api("POST", "/api/partner/signin", { email: S.email }); S.dev = r.devCode || ""; S.err = ""; draw(signinCodeView()); } catch (e) { S.err = e.message; draw(signinCodeView()); } };
     if ($("back2")) $("back2").onclick = (e) => { e.preventDefault(); S.err = ""; draw(signinView()); };
     if ($("lgo")) $("lgo").onclick = async () => {
       $("lgo").disabled = true;
-      try { const r = await api("POST", "/api/partner/signin/link", { token: S.linkToken }); ls.set("ctz-pkey", r.partnerKey); history.replaceState(null, "", location.pathname); S.linkToken = ""; await load(); }
+      try { const r = await api("POST", "/api/partner/signin/link", { token: S.linkToken }); ls.set("cbz-pkey", r.partnerKey); history.replaceState(null, "", location.pathname); S.linkToken = ""; await load(); }
       catch (e) { S.err = e.message; draw(linkView()); }
     };
     if ($("pclose")) $("pclose").onclick = async (e) => { e.preventDefault(); if (!confirm("Close your partner account? Your details are deleted. Payment records stay, as the law requires.")) return; try { await api("POST", "/api/partner/close", {}, ls.get("cbz-pkey")); } catch (er) { S.err = er.message; return; } ls.del("cbz-pkey"); S.me = null; S.fresh = null; $dash.innerHTML = ""; draw(enrollView()); };
