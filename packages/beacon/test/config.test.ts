@@ -84,7 +84,7 @@ describe("brand breaks and moments", () => {
     bad({ opening: [{ kind: "speech", title: "A one", seconds: 90 }, { kind: "speech", title: "A two", seconds: 90 }] });
   });
   test("the company brand is a name, one of the listed colours and an optional small logo", () => {
-    expect(ok({ brand: { name: "Acme", color: BRAND_COLORS[1] } }).brand).toEqual({ name: "Acme", color: BRAND_COLORS[1] });
+    expect(ok({ brand: { name: "Acme", color: BRAND_COLORS[1] } }).brand).toEqual({ name: "Acme", color: BRAND_COLORS[1]! });
     bad({ brand: { name: "Acme", color: "#123456" } }); bad({ brand: { color: BRAND_COLORS[0] } });
     expect(ok({ brand: null }, ok({ brand: { name: "Acme", color: BRAND_COLORS[1] } })).brand).toBeUndefined();
   });
@@ -96,4 +96,20 @@ describe("who decides, ids", () => {
     expect(votersFor(10)).toBe(10); expect(votersFor(1000)).toBe(100);
   });
   test("a game has one round id", () => { expect(roundEid("G", 1)).toBe("G"); expect(roundEid("G", 2)).toBe("G~r2"); });
+});
+
+describe("what a person must give to get in (verify) and employees only", () => {
+  test("verify takes mobile / id / both; mobile is the default and is not stored; anything else is refused", () => {
+    expect((validateCfg({}) as any).cfg.verify).toBeUndefined();
+    expect((validateCfg({ verify: "both" }) as any).cfg.verify).toBe("both");
+    expect((validateCfg({ verify: "mobile" }, (validateCfg({ verify: "id" }) as any).cfg) as any).cfg.verify).toBeUndefined();
+    expect((validateCfg({ verify: "passport" }) as any).ok).toBe(false);
+  });
+  test("employees only is a yes/no, switches guest invitations off and asks for a mobile number or ID (never a nickname); it is kept when other settings change", () => {
+    const on = (validateCfg({ employeesOnly: true, invites: { on: true, per: 3, cats: ["family"] } }) as any).cfg;
+    expect(on.employeesOnly).toBe(true); expect(on.invites.on).toBe(false); expect(on.join).toBe("phone");
+    expect((validateCfg({ name: "Diwali" }, on) as any).cfg.employeesOnly).toBe(true);
+    expect((validateCfg({ employeesOnly: false }, on) as any).cfg.employeesOnly).toBeUndefined();
+    expect((validateCfg({ employeesOnly: "yes" }) as any).ok).toBe(false);
+  });
 });
