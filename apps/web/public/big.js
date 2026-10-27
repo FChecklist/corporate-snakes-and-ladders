@@ -18,19 +18,23 @@
   const hms = (s) => { s = Math.max(0, Math.round(s)); return [Math.floor(s / 3600), Math.floor((s % 3600) / 60), s % 60].map((n) => String(n).padStart(2, "0")).join(":"); };
   const mmss = (s) => { s = Math.max(0, Math.round(s)); const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), x = s % 60; return (h ? h + ":" + String(m).padStart(2, "0") : m) + ":" + String(x).padStart(2, "0"); };
   const GRACE_SECS = ZG.GRACE_ROUNDS * 3;
-  const S = { info: null, ctl: null, infoAt: -Infinity, bootAt: -Infinity };
+  const S = { info: null, ctl: null, infoAt: -Infinity, bootAt: -Infinity, lastOk: Date.now(), noAnswer: false };
+  /** Connection lost: no answer at all from our site for 15 seconds (a refusal is an answer). The numbers on the screen may then be late, and the screen says so. */
+  const answered = () => { S.lastOk = Date.now(); S.noAnswer = false; };
+  const unanswered = () => { S.noAnswer = true; };
+  const lostBar = () => (S.noAnswer && Date.now() - S.lastOk > (window.__lostMs ?? 15000) ? `<div class="lostbar" role="alert">Connection lost. What is on this screen may be late. Reconnecting...</div>` : "");
 
   // a read-only line to our store, and a silent onlooker's identity (a seat that never exists; nothing is ever sent with it)
   const api = async (method, path) => {
     if (method !== "GET") throw new Error("read only");
     let r;
-    try { r = await fetch(path, { cache: "no-store" }); } catch { throw new Error("offline"); }
+    try { r = await fetch(path, { cache: "no-store" }); answered(); } catch { unanswered(); throw new Error("offline"); }
     const j = await r.json().catch(() => ({}));
     if (!r.ok) throw Object.assign(new Error(j.error || "http " + r.status), { status: r.status, code: j.code, body: j });
     if (/\/info$/.test(path)) S.info = j;
     return j;
   };
-  const getPublic = async (url) => { let r; try { r = await fetch(url, { cache: "no-store" }); } catch { throw new Error("offline"); } if (!r.ok) throw Object.assign(new Error("http " + r.status), { status: r.status }); return r.json(); };
+  const getPublic = async (url) => { let r; try { r = await fetch(url, { cache: "no-store" }); answered(); } catch { unanswered(); throw new Error("offline"); } if (!r.ok) throw Object.assign(new Error("http " + r.status), { status: r.status }); return r.json(); };
   const mem = new Map([["cbz:" + EID + ":pid", "1x00000000"]]);
   const store = { get: (k) => (mem.has(k) ? mem.get(k) : null), set: (k, v) => { mem.set(k, String(v)); } };
   const rt = new ZG.PhoneRuntime(EID, { api, getPublic, beacon: {}, mono: () => performance.now(), store });
@@ -39,7 +43,7 @@
   async function refresh() {
     const m = performance.now(); if (m - S.infoAt < 20000) return; S.infoAt = m;
     try { await api("GET", `/api/z/${EID}/info`); } catch { /* the runtime reports a missing game itself */ }
-    try { const r = await fetch(`/api/z/${EID}/control`, { cache: "no-store" }); S.ctl = r.ok ? await r.json() : null; } catch { /* kept as it was */ }
+    try { const r = await fetch(`/api/z/${EID}/control`, { cache: "no-store" }); answered(); S.ctl = r.ok ? await r.json() : null; } catch { unanswered(); /* kept as it was */ }
   }
   const cancelled = () => !!((S.info && S.info.cancelled) || (S.ctl && S.ctl.cancelled));
   const dns = () => !!((S.info && S.info.didNotStart === true) || (S.ctl && S.ctl.didNotStart));
@@ -124,13 +128,13 @@
   function frame(inner, v, extra) {
     const bd = S.info && S.info.brand && typeof S.info.brand === "object" ? S.info.brand : null, bLogo = bd && typeof bd.logo === "string" && /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(bd.logo) ? bd.logo : ""; // the organizer's own logo and name, or ours in writing
     const ann = v && v.announcement ? `<div class="annbar" role="alert">${esc(v.announcement.text)}</div>` : "";
-    return `<header>${ann}<div class="top"><div class="brand">${bLogo ? `<img class="blogo" alt="" src="${esc(bLogo)}">` : ""}${esc(bd && bd.name ? bd.name : "Corporate Snakes and Ladders")}</div><div class="meta">${extra || ""}</div></div></header><div class="stage">${inner}</div><div class="foot">Join: ${esc(location.host)}/z?e=${esc(EID)}</div>`;
+    return `<header>${lostBar()}${ann}<div class="top"><div class="brand">${bLogo ? `<img class="blogo" alt="" src="${esc(bLogo)}">` : ""}${esc(bd && bd.name ? bd.name : "Corporate Snakes and Ladders")}</div><div class="meta">${extra || ""}</div></div></header><div class="stage">${inner}</div><div class="foot">Join: ${esc(location.host)}/z?e=${esc(EID)}</div>`;
   }
   const plain = (title, text) => `<header><div class="top"><div class="brand"><a href="/" aria-label="Corporate Snakes and Ladders home" style="display:inline-flex;line-height:0"><img src="/logo-mark.svg" alt="Corporate Snakes and Ladders logo" width="26" height="26" style="border-radius:6px"></a>Corporate Snakes and Ladders</div></div></header><div class="stage"><div class="big"><h1>${esc(title)}</h1><p>${esc(text)}</p></div></div><div class="foot">${esc(location.host)}/z?e=${esc(EID)}</div>`;
 
   function draw() {
     const v = rt.view();
-    if (v.phase === "missing" || v.phase === "boot") return ($app.innerHTML = `<p class="msg">${esc(v.error || "Loading…")}</p>`);
+    if (v.phase === "missing" || v.phase === "boot") return ($app.innerHTML = `${lostBar()}<p class="msg">${esc(v.error || "Loading…")}</p>`);
     if (dns()) return ($app.innerHTML = plain("This game did not start", "This game did not start. Your details have been erased."));
     if (cancelled()) return ($app.innerHTML = plain("This game was cancelled", "This game was cancelled by the organizer."));
     if (v.locked) return ($app.innerHTML = plain("Waiting for the Organizer or Host", "Waiting for the Organizer or Host to start the game.")); // held for non-payment: nothing is shown

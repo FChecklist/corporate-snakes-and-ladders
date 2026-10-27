@@ -2,8 +2,8 @@
 // which starts the session (the same kind of key the 6-digit code gives) and goes to the AI-link page or the console.
 (() => {
   const app = document.getElementById("app");
-  const q = new URLSearchParams(location.search), t = q.get("t") || "", go = q.get("go") === "ai" ? "/ai-link.html" : "/zc.html";
-  try { history.replaceState(null, "", location.pathname); } catch {} // the token leaves the address bar at once
+  const q = new URLSearchParams(location.search), hs = (() => { try { return history.state || {}; } catch { return {}; } })(), t = q.get("t") || hs.t || "", go = (q.get("go") || hs.go) === "ai" ? "/ai-link.html" : "/zc.html";
+  try { history.replaceState({ t, go: go === "/ai-link.html" ? "ai" : "" }, "", location.pathname); } catch {} // the token leaves the address bar at once
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
   // K2: the sign-in boxes. Never pre-ticked; the Continue and Google buttons stay off until both are ticked; the server refuses without them. The wording comes from the server.
   let info = null, loadErr = ""; const state = {};
@@ -36,7 +36,7 @@
         if (!r.ok) throw new Error(j.error || "Something went wrong. Please try again.");
         try { CTK.set("cbz-org", j.token); } catch {}
         location.replace(go);
-      } catch (e) { draw(e.message); }
+      } catch (e) { draw(e && e.name === "TypeError" ? "We could not reach the service. Please check your internet and try again." : e && e.message ? e.message : "Something went wrong. Please try again."); }
     };
   };
   draw("");

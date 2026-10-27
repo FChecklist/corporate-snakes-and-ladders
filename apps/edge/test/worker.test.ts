@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, test } from "bun:test";
-import { deviceOf, withDevice } from "./device";
+import { SEEN_DEVICES, deviceOf, withDevice } from "./device";
 import { settleByPhones } from "./settle";
 import { handle, type Env } from "../src/worker";
 import { makeD1 } from "./d1-sqlite";
@@ -123,7 +123,7 @@ describe("claims", () => {
 describe("winners are decided by the software", () => {
   let pids: string[] = [];
   beforeEach(async () => { await create(); pids = []; for (let i = 1; i <= 8; i++) pids.push(((await (await join(i)).json()) as any).pid); });
-  const vote = (pid: string, results: unknown[]) => call("POST", "/api/z/ENG1/vote", { pid, results });
+  const vote = async (pid: string, results: unknown[]) => { let r!: Response; for (const device of SEEN_DEVICES) { r = await call("POST", "/api/z/ENG1/vote", { pid, device, results }); if (r.status !== 403) break; } return r; }; // the phone's own device id goes with its vote
   const res = (idx: number, winners: string[]) => ({ pattern: "climb", ordinal: 1, round: 1, idx, pids: winners });
   test("nobody can post a result: not the organizer, not the AI, not a stranger", async () => {
     const body = { results: [{ pattern: "finish", idx: 20, pids: [pids[0]!] }] };
@@ -153,19 +153,20 @@ describe("free-plan guard and scale", () => {
     expect((raw.query("SELECT COUNT(*) c FROM participant").get() as any).c).toBeLessThanOrEqual(11);
   });
   test("the budget resets on the next UTC day", async () => {
-    env.DAILY_WRITE_BUDGET = "3";
+    env.DAILY_WRITE_BUDGET = "18"; // a join is charged JOIN_WRITES (9) units: two joins fit, the third is refused
     await create();
     await join(1); await join(2);
     expect((await join(3)).status).toBe(503);
     expect((await join(3, "ENG1", T + 86_400_000)).status).toBe(200);
   });
   test("10,000 people join at once: every one gets in, no duplicates, writes stay inside the free daily budget", async () => {
+    env.DAILY_WRITE_BUDGET = "200000"; // the deployed guard is 2,000,000; a join is charged 9 units (what it really writes)
     await create({ cap: 20000 });
     const rs = await Promise.all(Array.from({ length: 10000 }, (_, i) => join(i)));
     expect(rs.every((r) => r.status === 200)).toBe(true);
     expect((raw.query("SELECT COUNT(*) c FROM participant").get() as any).c).toBe(10000);
-    expect((raw.query("SELECT writes w FROM usage").get() as any).w).toBe(30002);
-    expect(30001).toBeLessThan(100000 * 0.4); // one 10,000-person engagement uses ~30% of D1's free daily writes (3 per join: seat, participant, person list row)
+    expect((raw.query("SELECT writes w FROM usage").get() as any).w).toBe(90002);
+    expect(90001).toBeLessThan(2_000_000 * 0.05); // one 10,000-person engagement uses under 5% of the deployed daily guard (9 per join: what a join really writes)
   }, 120_000);
   test("a large engagement stores no per-claim rows (winners come from the public numbers), so 10,000 phones claiming adds no writes", async () => {
     await create({ cap: 20000 });
@@ -175,7 +176,7 @@ describe("free-plan guard and scale", () => {
     for (let round = 0; round < 2; round++)
       await Promise.all(pids.slice(0, 2000).map((pid, i) => call("POST", "/api/z/ENG1/claims", { pid, claims: [{ pattern: pats[i % 7], idx: i % 75 }] })));
     expect((raw.query("SELECT COUNT(*) c FROM claim").get() as any).c).toBe(0);
-    expect((raw.query("SELECT writes w FROM usage").get() as any).w).toBe(30002); // 1 create + 1 entitlement-free + 10,000 joins at 3 units (seat, participant, person)
+    expect((raw.query("SELECT writes w FROM usage").get() as any).w).toBe(79994); // 1 create + 1 entitlement-free + 10,000 joins at what a join really writes (about 8 units, the same figure Corporate Tambola counts)
   }, 300_000);
 });
 

@@ -342,10 +342,12 @@ export class PhoneRuntime {
     void now;
   }
   /** The player taps "Throw" (presence mode). The collector stamps the arrival; the answer carries the crowd count back. */
+  /** Why the last throw was refused (the server code and plain message), for the page: "late-move" = the window had already ended on the server clock. */
+  lastThrowRefusal: { turn: number; code: string; message: string } | null = null;
   async throwNow(): Promise<boolean> {
     const t = this.currentTurn();
     if (this.cfg.play !== "presence" || !this.pid || t.state !== "open" || this.pingedTurns.has(t.index)) return false;
-    try { await this.deps.api("POST", `/api/z/${this.eid}/throw`, { pid: this.pid, device: this.device(), turn: t.index }); this.pingedTurns.add(t.index); return true; } catch { return false; }
+    try { await this.deps.api("POST", `/api/z/${this.eid}/throw`, { pid: this.pid, device: this.device(), turn: t.index }); this.pingedTurns.add(t.index); this.lastThrowRefusal = null; return true; } catch (e: any) { const code = e?.code || e?.body?.code || ""; this.lastThrowRefusal = { turn: t.index, code, message: String(e?.message || "") }; if (code === "late-move") this.pingedTurns.add(t.index); /* too late for this turn: no second try */ return false; }
   }
 
   private get localOk(): boolean { return this.seatsFetched && !!this.game && this.seatList.length >= 2; }
@@ -413,7 +415,7 @@ export class PhoneRuntime {
     }
     for (let i = 0; i < send.length; i += 3) {
       const part = send.slice(i, i + 3);
-      try { await this.deps.api("POST", `/api/z/${this.eid}/vote`, { pid: this.pid, results: part.map((x) => x.body) }); for (const x of part) this.voted.add(x.key); }
+      try { await this.deps.api("POST", `/api/z/${this.eid}/vote`, { pid: this.pid, device: this.device(), results: part.map((x) => x.body) }); for (const x of part) this.voted.add(x.key); }
       catch { break; /* kept: the next pass reports it again */ }
     }
   }

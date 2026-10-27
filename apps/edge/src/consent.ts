@@ -62,3 +62,10 @@ export async function hasConsent(db: D1, kind: ConsentKind, subject: string, ref
 export async function eraseParticipantConsent(db: D1, eid: string): Promise<void> {
   await db.prepare("DELETE FROM consent_log WHERE ref=? AND kind='K4'").bind(eid).run();
 }
+
+/** The answer to send (HTTP 400, code consent-required, the boxes to draw) when the request does not carry the current Terms version and every box of this point; null when it does. Same behaviour as checkConsent, in the shape the shared platform code (Corporate Tambola) uses. */
+export function consentMissing(b: any, kind: ConsentKind): Response | null {
+  const k = checkConsent(kind, b?.consent);
+  if (k.ok) return null;
+  return new Response(JSON.stringify(refusalBody(kind, k)), { status: k.status, headers: { "content-type": "application/json", "cache-control": "no-store" } });
+}

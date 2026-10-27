@@ -253,3 +253,19 @@ describe("no code path takes money from a participant", () => {
     expect(rd("terms.html")).toContain("We do not collect any money, deposit, contribution or other consideration from any Participant");
   });
 });
+
+describe("a Co-host who has not accepted the role cannot pay or use credit (found by the permissions scenario family: the payment routes ran before the K5 gate)", () => {
+  test("checkout, proforma and credit are refused with consent-required until the K5 box is ticked", async () => {
+    const key = await organizerWithDraft("CON-PAY"); const id = "CON-PAY";
+    const co = (await j(await call("POST", "/api/org/cohost", { label: "Ravi", phone: "9876500001", e: id }, { "x-organizer": key }))).cohostKey as string;
+    const coH = { "x-organizer": co };
+    for (const [p, b] of [["/api/checkout", { eid: id, email: "x@acme.com", consent: { v: TERMS_VERSION, boxes: ["A", "B"] } }], ["/api/proforma", { eid: id }], ["/api/org/credit", {}], [`/api/z/${id}/pay-with-credit`, {}]] as const) {
+      const r = await call("POST", p, b, coH); const x = await j(r);
+      expect([p, r.status, x.code]).toEqual([p, 400, "consent-required"]);
+      expect(x.kind).toBe("K5");
+    }
+    expect((await call("POST", "/api/org/role/accept", { consent: { v: TERMS_VERSION, boxes: ["A", "B"] } }, coH)).status).toBe(200);
+    const after = await call("POST", "/api/checkout", { eid: id, email: "x@acme.com", consent: { v: TERMS_VERSION, boxes: ["A", "B"] } }, coH);
+    expect((await j(after)).code).not.toBe("consent-required"); // after the tick the normal payment rules apply
+  });
+});

@@ -118,10 +118,12 @@
     if (vm === "both") return phone("Your mobile number", "") + emp(eo ? "Your employee ID" : "Your employee ID (employees only)", eo ? "This game is for employees only." : "Not an employee? Leave this empty.");
     return phone("Your mobile number", "");
   };
+  const BUSY_TRIES = 15;
   const joinView = (msg) => {
     if (J.mode === "removed") return `${brandStrip()}${head}<div class="zcard" role="status"><h2>You are not on this game's list</h2><p class="zsmall zflush">You were removed from this game, so there is no board for you here. If you think this is a mistake, please ask the person who invited you.</p></div>`;
     if (J.mode === "gone") return `${brandStrip()}${head}<div class="zcard" role="status"><h2>This link is not active any more</h2><p class="zsmall zflush">Please ask the person who invited you for a new link.</p></div>`;
     if (J.mode === "closed") return `${brandStrip()}${head}<div class="zcard" role="status"><h2>Sign-up has closed</h2><p class="zsmall zflush">Sign-up for this game has closed. The game is already running.</p></div>`;
+    if (J.mode === "busy") return `${brandStrip()}${head}<div class="zcard zwait" role="status"><h2>Many people are joining right now</h2><p class="zflush zgap">Your request is safe. We are trying again for you every few seconds. Keep this page open.</p><p class="zsmall zflush">Try ${J.busyTries} of ${BUSY_TRIES}.</p></div><div class="zagain"><button class="zbtn s alt" id="again" type="button">Stop and try myself</button></div>`; // a whole office joins from one address: the server asks for a short wait, or the answer never comes: the page asks again by itself
     if (J.mode === "waiting") return `${brandStrip()}${head}<div class="zcard zwait" role="status"><h2>Please wait a moment</h2><p class="zflush zgap">${J.note ? esc(J.note) : `Your request to join has gone to ${J.who ? esc(J.who) : "the organizer"}.`}</p><p class="zsmall zflush">Keep this page open. As soon as you are let in, your board appears here.</p></div>`;
     if (J.mode === "declined" || J.mode === "lapsed") return `${brandStrip()}${head}<div class="zcard" role="status"><h2>${J.mode === "declined" ? "Your request was not accepted" : "This request has run out"}</h2><p class="zsmall zflush zgap">${J.mode === "declined" ? "You are not on the list for this game. Please ask the person who invited you." : "Nobody answered in time. You can ask again."}</p>${J.mode === "lapsed" ? `<button class="zbtn s" id="again" type="button">Ask again</button>` : ""}</div>`;
     const personal = !!TOKEN && J.mode !== "needPhone"; // a personal link is made for one person: nothing to type unless the server asks
@@ -203,7 +205,8 @@
     else if (code === "declined" || b.declined) { J.mode = "declined"; rt.error = null; clearInterval(J.timer); }
     else if (code === "link-used" || b.needPhone) { J.mode = "needPhone"; J.note = ""; rt.error = null; }
     else if (code === "link-gone" || /link-gone/.test(l.message || "")) { J.mode = "gone"; rt.error = null; }
-    else if (J.mode === "waiting") J.mode = ""; // let in, but the join failed another way: show the usual message
+    else if ((code === "busy" || (!l.status && !code && !b.error && !b.waiting)) && (J.busyTries || 0) < BUSY_TRIES) { /* a join that timed out or lost its connection (no answer at all) is asked again by itself like a busy answer: joining is safe to repeat, the same phone gets the same card */ J.busyTries = (J.busyTries || 0) + 1; J.mode = "busy"; rt.error = null; clearTimeout(J.retry); J.retry = setTimeout(() => { if (J.mode === "busy") doJoin(); }, Math.round((4 + Math.min(26, J.busyTries * 2)) * 1000 * (0.7 + Math.random() * 0.6))); }
+    else if (J.mode === "waiting" || J.mode === "busy") J.mode = ""; // let in, but the join failed another way: show the usual message
     paint(); return false;
   }
 
@@ -287,7 +290,7 @@
   function bindFolds() { document.querySelectorAll("details[data-fold]").forEach((d) => { d.ontoggle = () => { if (d.open) OPENED.add(d.dataset.fold); else OPENED.delete(d.dataset.fold); }; }); }
 
   // ---------- the dice card: countdown ring, the last throw, the Throw button (presence mode) ----------
-  const THROW = { busy: false, note: "" };
+  const THROW = { busy: false, note: "", turn: -1, lateTurn: -1 };
   const FLASH = { turn: -1, until: 0, first: true }; // a short colour pulse on the dice card when a new turn begins (not on the first look at the page)
   const PIPS = { 1: [4], 2: [0, 8], 3: [0, 4, 8], 4: [0, 2, 6, 8], 5: [0, 2, 4, 6, 8], 6: [0, 2, 3, 5, 6, 8] };
   const pipsOf = (face) => Array.from({ length: 9 }, (_, i) => `<i class="pip${(PIPS[face] || []).includes(i) ? " on" : ""}"></i>`).join("");
@@ -376,7 +379,8 @@
     if (home && tone !== "end") { tone = "home"; chip = "You are home"; }
     if (v.paused) { tone = "pause"; chip = "Paused"; }
     if (rolling) { state = "Rolling the dice…"; chip = "Rolling"; tone = "go"; sub = ""; }
-    const canThrow = presence && t.state === "open" && !t.thrown && !home && !tableOther && !THROW.busy && !v.paused;
+    if (THROW.turn !== t.index) { THROW.note = ""; THROW.turn = -1; } // a message about an earlier turn goes away with the next event
+    const canThrow = presence && t.state === "open" && !t.thrown && !home && !tableOther && !THROW.busy && !v.paused && THROW.lateTurn !== t.index;
     const throwBtn = presence && !v.ended ? `<button class="zbtn zroll" id="throw" type="button"${canThrow ? "" : " disabled"}>${THROW.busy ? "Rolling…" : thrownWait ? "Rolled. Wait for the result" : "Roll the dice"}</button>${THROW.note ? `<div class="zbanner bad" role="alert">${esc(THROW.note)}</div>` : ""}` : "";
     const dieMode = rolling ? "rolling" : (THROW.busy || thrownWait) ? "wait" : s ? "" : "idle";
     const die = v.ended && !s ? "" : `<div class="zdieblk">${dieHtml(s ? s.roll : 0, dieMode)}<div class="dnum${landedRecently() ? " pop" : ""}" aria-hidden="true">${rolling ? "&hellip;" : s ? s.roll : ""}</div></div>`;
@@ -532,7 +536,7 @@
     try {
       if (v.phase === "ended" && !store.get(overKey) && !overPending) {
         overPending = true; // spread over a little time so a big crowd does not ask at the same second
-        setTimeout(async () => { try { await api("POST", `/api/z/${EID}/over`, { pid: v.pid }); store.set(overKey, "1"); } catch { /* tried again later */ } overPending = false; }, Math.floor(Math.random() * 45000));
+        setTimeout(async () => { try { await api("POST", `/api/z/${EID}/over`, { pid: v.pid, device: myDevice() }); store.set(overKey, "1"); } catch { /* tried again later */ } overPending = false; }, Math.floor(Math.random() * 45000));
       }
     } catch { /* never in the way of the game */ }
   }
@@ -691,8 +695,8 @@
     const cp = document.getElementById("invcopy"); if (cp) cp.onclick = async () => { try { await navigator.clipboard.writeText(inviteLink(v)); cp.textContent = "Copied"; } catch { cp.textContent = "Press and hold the link above to copy"; } };
   }
   // ---------- My invites: for a guest who may invite (level 1) only. Their own small list: add, send on WhatsApp, resend, remove. A guest invited by a guest sees nothing. ----------
-  const MI = { people: [], limit: 0, used: 0, loaded: false, at: -Infinity, busy: false, note: "", bad: false, ask: "", name: "", phone: "" };
-  const miQ = (v) => `?me=${encodeURIComponent(v.pid)}`;
+  const MI = { k6: {}, people: [], limit: 0, used: 0, loaded: false, at: -Infinity, busy: false, note: "", bad: false, ask: "", name: "", phone: "" };
+  const miQ = (v) => `?me=${encodeURIComponent(v.pid)}&device=${encodeURIComponent(myDevice())}`; // the card id is public: the people calls also carry the phone's own device id
   async function loadMine(v, force) {
     if (DEMO || !ME.canInvite || !v.pid || MI.busy) return;
     if (!force && performance.now() - MI.at < 60000) return;
@@ -860,7 +864,10 @@
       if (THROW.busy) return;
       THROW.busy = true; THROW.note = ""; tb.disabled = true;
       let ok = false; try { ok = await rt.throwNow(); } catch { ok = false; }
-      THROW.busy = false; THROW.note = ok ? "" : "Your throw could not be sent. Please try again while the window is open.";
+      THROW.busy = false; const lr = rt.lastThrowRefusal;
+      if (!ok && lr && lr.code === "late-move") { THROW.lateTurn = lr.turn; THROW.note = lr.message || "Ohooo! \u{1F60A} Sorry, you moved after your turn ended. This move cannot be made."; } // too late on the server clock: the button stays off for this turn, nothing was recorded
+      else THROW.note = ok ? "" : "Your throw could not be sent. Please try again while the window is open.";
+      THROW.turn = ok ? -1 : (lr ? lr.turn : -1);
       paint();
     };
     speakStep(v);
@@ -872,7 +879,7 @@
     const st = document.getElementById("soundtest"); if (st) st.onclick = async () => { if (window.TBAudio) { TBAudio.enabled = true; await TBAudio.unlock(); TBAudio.test(); } };
   }
   function bindJoin() {
-    const again = document.getElementById("again"); if (again) again.onclick = () => { J.mode = ""; J.wid = ""; clearWait(); paint(); };
+    const again = document.getElementById("again"); if (again) again.onclick = () => { clearTimeout(J.retry); J.busyTries = 0; J.mode = ""; J.wid = ""; clearWait(); paint(); };
     const go = document.getElementById("go"); if (!go) return;
     const nm = document.getElementById("nm"), ph = document.getElementById("ph"), em = document.getElementById("emp");
     if (nm) nm.oninput = () => { J.name = nm.value; };

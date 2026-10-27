@@ -61,7 +61,9 @@
         "cbz-name",
         "cbz-pl",
         "cbz-shield",
-        "ct-auto-done"
+        "cbz-alt",
+        "cbz-cap",
+        "cb-auto-done"
       ]
     },
     {
@@ -71,7 +73,8 @@
       "keys": [
         "cbz-org",
         "cbz-alt",
-        "cbz-email"
+        "cbz-email",
+        "cbz-pass"
       ]
     },
     {

@@ -1,9 +1,13 @@
-# Corporate Snakes and Ladders on Cloudflare Pages + Functions + D1: free plan only, custom domain https://snakes.corporatetambola.com; the old pages.dev address redirects pages and keeps /api working.
+# Corporate Snakes and Ladders on Cloudflare Pages + Functions + D1 (paid Workers plan), custom domain https://snakes.corporatetambola.com; the old pages.dev address redirects pages and keeps /api working.
 # Deploy with:  bun run pages:deploy   (see README.md in this folder). Secrets are NOT in this file.
 name = "corporate-snakes-and-ladders"
 pages_build_output_dir = "public"
 compatibility_date = "2026-09-01"
 compatibility_flags = ["nodejs_compat"]   # billing uses node:crypto HMAC
+
+# Smart Placement: run the Function close to the D1 database instead of close to each visitor. One join makes about 26 database calls in a row; from a far-away edge each call costs a long round trip, from next to the database it costs almost nothing
+[placement]
+mode = "smart"
 
 [[d1_databases]]
 binding = "DB"
@@ -11,7 +15,10 @@ database_name = "corporate-snakes-and-ladders"
 database_id = "3ed0dc2c-c3ab-489c-9e99-71c3644ff30a"
 
 [vars]
-DAILY_WRITE_BUDGET = "80000"
+DAILY_WRITE_BUDGET = "2000000"   # a runaway guard only: the account is on the paid Workers plan (owner, 2026-10-27), which has no daily limit on D1 writes
+JOIN_PER_IP_MINUTE = "600"   # new places one network address may open a minute: a whole office shares one address, so a crowd joining together must not be turned away
+JOIN_PER_IP_DAY = "20000"    # and in a day (the game size is the real limit)
+AI_LINK_MAIL_AT_SIGNUP = "0"   # the AI work link is hidden in the console, so its welcome e-mail is not sent
 PUBLIC_ORIGIN = "https://snakes.corporatetambola.com"
 PAY_HOP_URL = "https://itservices-rajat-agarwal.pages.dev/payframe/"   # Option 1: the Razorpay window runs on the website registered with Razorpay
 MAIL_FROM = "Corporate Snakes and Ladders <hello@corporatetambola.com>"

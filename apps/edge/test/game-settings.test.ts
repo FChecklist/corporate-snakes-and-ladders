@@ -1,7 +1,7 @@
 // The server side of a Snakes and Ladders game: what a join returns, the game settings (type, play mode, board, milestones, prizes), sign-up closing at the start,
 // and winners decided only when enough different phones report the same result.
 import { beforeEach, describe, expect, test } from "bun:test";
-import { withDevice } from "./device";
+import { SEEN_DEVICES, withDevice } from "./device";
 import { handle, type Env } from "../src/worker";
 import { settleByPhones } from "./settle";
 import { makeD1 } from "./d1-sqlite";
@@ -19,7 +19,7 @@ async function game(id = "SL-1", over: Record<string, unknown> = {}, publish = t
   expect(r.status).toBe(200);
   if (publish) expect((await call("POST", `/api/z/${id}/publish`, pubBody, h)).status).toBe(200);
 }
-const join = (i: number, id = "SL-1", now = T + 1000) => call("POST", `/api/z/${id}/join`, { name: "Player" + i, device: String(i).padStart(32, "0") }, {}, now);
+const join = (i: number, id = "SL-1", now = T + 1000) => call("POST", `/api/z/${id}/join`, { name: "Player" + i, device: (() => { const d = String(i).padStart(32, "0"); SEEN_DEVICES.add(d); return d; })() }, {}, now);
 beforeEach(async () => {
   const d = makeD1(); raw = d.raw;
   env = { DB: d.db, ORGANIZER_SECRET: "plat", DAILY_WRITE_BUDGET: "1000000", JOIN_PER_IP_DAY: "1000000", JOIN_PER_IP_MINUTE: "1000000", DATA_KEY: "k", TEST_MODE: "1" } as any;
@@ -100,7 +100,7 @@ describe("winners are decided by the software", () => {
   const pids: string[] = [];
   beforeEach(async () => { await game(); pids.length = 0; for (let i = 1; i <= 8; i++) pids.push((await j(await join(i))).pid); });
   const res = (idx: number, winners: string[], pattern = "finish", ordinal = 1) => ({ pattern, ordinal, round: 1, idx, pids: winners });
-  const vote = (pid: string, results: any[]) => call("POST", "/api/z/SL-1/vote", { pid, results });
+  const vote = async (pid: string, results: any[]) => { let r!: Response; for (const device of SEEN_DEVICES) { r = await call("POST", "/api/z/SL-1/vote", { pid, device, results }); if (r.status !== 403) break; } return r; }; // a vote carries the phone's own device id
   test("one phone's word is not enough; the result stands once enough different phones report exactly the same winner", async () => {
     await vote(pids[0]!, [res(11, [pids[3]!])]);
     expect(raw.prepare("SELECT COUNT(*) c FROM settled").get()).toEqual({ c: 0 });

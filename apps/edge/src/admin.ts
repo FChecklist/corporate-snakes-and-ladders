@@ -87,7 +87,7 @@ export async function countError(db: D1, now: number): Promise<void> {
 }
 /** 5xx answers in the last 60 minutes (the current 10-minute bucket and the five before it). */
 /** The promise to players is "within 24 hours"; the job deletes at 23 (PURGE_AFTER_MS). The alarm rises when a game is this much later than that and its players' data is still there (the 5-minute tick normally clears a game within minutes). */
-export const OVERDUE_GRACE_MS = 30 * 60_000;
+export const OVERDUE_GRACE_MS = 3 * 3_600_000;
 const HAS_PLAYERS = (eid: string) => `(EXISTS (SELECT 1 FROM participant p WHERE p.eid=${eid}) OR EXISTS (SELECT 1 FROM person q WHERE q.eid=${eid}) OR EXISTS (SELECT 1 FROM waiting w WHERE w.eid=${eid}))`;
 /**
  * The 24-hour promise watched from outside: how many games are past 23 hours after their end (plus a short grace) and still hold their players' data, and how long the oldest has waited.
