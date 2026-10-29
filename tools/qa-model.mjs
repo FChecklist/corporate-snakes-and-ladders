@@ -3,7 +3,7 @@
 // (packages/beacon/src/board.ts, play.ts, race.ts, table.ts, game.ts, config.ts) and the REAL worker (apps/edge/src/worker.ts on an in-memory SQLite stand-in for D1),
 // then compares the result with an independent re-statement of docs/boss/RULES_snakesladders.md written here from the rules text, not from the engine.
 //
-//   bun run tools/qa-model.mjs                 full run (all parts)          about 3 to 6 minutes
+//   bun run tools/qa-model.mjs                 full run (all parts)          about 6 to 10 minutes (15,000 games); --exhaustive: the whole product (230,000 games, over an hour)
 //   bun run tools/qa-model.mjs --quick         fewer seeds / smaller grids   under 1 minute
 //   bun run tools/qa-model.mjs --part=board    one part: board | game | config | worker | wording
 //   bun run tools/qa-model.mjs --json=out.json also write the findings as JSON
@@ -150,14 +150,17 @@ function partGame() {
     incompleteFinish: mk(), noResult: mk(), allLines: mk(), tableLines: mk(), tableExcl: mk(), teamEnd: mk(), teamRank: mk(), tableEnd: mk(), noOneHome: mk(), cap225: mk(), winnerMilestone: mk(), finishOrder: mk(), finLines: mk(),
   };
   const ex = { stableMilestone: "", rankPrize: "" };
-  const layouts = QUICK ? [[9, 9], [6, 12]] : [[9, 9], [6, 6], [12, 12], [6, 12], [12, 6]];
+  // QUICK: a small grid (under a minute). Default: every board size, both finish rules, race / team (5 teams) / table, automatic and players-throw play, 6 head-counts, 3 turn limits,
+  // 3 end-when-N settings, one prize per person on and off, 2 prize sets (about 15,000 games, 5 to 8 minutes). --exhaustive: the whole product of every value below (about 230,000 games, an hour or more).
+  const EXH = argv.includes("--exhaustive");
+  const layouts = QUICK ? [[9, 9], [6, 12]] : EXH ? [[9, 9], [6, 6], [12, 12], [6, 12], [12, 6]] : [[9, 9], [6, 12]];
   const sizes = QUICK ? [100, 225] : [100, 144, 225];
   const finishes = ["exact", "pass"];
-  const modes = QUICK ? [["race", 0], ["team", 3], ["table", 0]] : [["race", 0], ["team", 2], ["team", 5], ["team", 10], ["table", 0]];
-  const plays = QUICK ? [["fate", "all"], ["presence", "most"]] : [["fate", "all"], ["presence", "all"], ["presence", "none"], ["presence", "most"]];
-  const playerList = QUICK ? [2, 10, 21] : [2, 3, 5, 10, 11, 20, 21, 40];
+  const modes = QUICK ? [["race", 0], ["team", 3], ["table", 0]] : EXH ? [["race", 0], ["team", 2], ["team", 5], ["team", 10], ["table", 0]] : [["race", 0], ["team", 5], ["table", 0]];
+  const plays = QUICK ? [["fate", "all"], ["presence", "most"]] : EXH ? [["fate", "all"], ["presence", "all"], ["presence", "none"], ["presence", "most"]] : [["fate", "all"], ["presence", "most"]];
+  const playerList = QUICK ? [2, 10, 21] : EXH ? [2, 3, 5, 10, 11, 20, 21, 40] : [2, 5, 10, 11, 21, 40];
   const caps = QUICK ? [10, 60] : [10, 60, 150];
-  const endPs = QUICK ? [1, 5] : [1, 2, 3, 5];
+  const endPs = QUICK ? [1, 5] : EXH ? [1, 2, 3, 5] : [1, 3, 5];
   const excls = [false, true];
   const rewardKinds = QUICK ? ["default"] : ["default", "all"];
   let games = 0, refused = 0, out20 = null;
