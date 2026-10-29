@@ -128,7 +128,8 @@
   function frame(inner, v, extra) {
     const bd = S.info && S.info.brand && typeof S.info.brand === "object" ? S.info.brand : null, bLogo = bd && typeof bd.logo === "string" && /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(bd.logo) ? bd.logo : ""; // the organizer's own logo and name, or ours in writing
     const ann = v && v.announcement ? `<div class="annbar" role="alert">${esc(v.announcement.text)}</div>` : "";
-    return `<header>${lostBar()}${ann}<div class="top"><div class="brand">${bLogo ? `<img class="blogo" alt="" src="${esc(bLogo)}">` : ""}${esc(bd && bd.name ? bd.name : "Corporate Snakes and Ladders")}</div><div class="meta">${extra || ""}</div></div></header><div class="stage">${inner}</div><div class="foot">Join: ${esc(location.host)}/z?e=${esc(EID)}</div>`;
+    const demo = S.info && S.info.demo ? `<div class="annbar" role="status"><b>DEMO GAME</b> &middot; free &middot; up to 10 people</div>` : ""; // a free demo says so on every screen
+    return `<header>${lostBar()}${demo}${ann}<div class="top"><div class="brand">${bLogo ? `<img class="blogo" alt="" src="${esc(bLogo)}">` : ""}${esc(bd && bd.name ? bd.name : "Corporate Snakes and Ladders")}</div><div class="meta">${extra || ""}</div></div></header><div class="stage">${inner}</div><div class="foot">Join: ${esc(location.host)}/z?e=${esc(EID)}</div>`;
   }
   const plain = (title, text) => `<header><div class="top"><div class="brand"><a href="/" aria-label="Corporate Snakes and Ladders home" style="display:inline-flex;line-height:0"><img src="/logo-mark.svg" alt="Corporate Snakes and Ladders logo" width="26" height="26" style="border-radius:6px"></a>Corporate Snakes and Ladders</div></div></header><div class="stage"><div class="big"><h1>${esc(title)}</h1><p>${esc(text)}</p></div></div><div class="foot">${esc(location.host)}/z?e=${esc(EID)}</div>`;
 

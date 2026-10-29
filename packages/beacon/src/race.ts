@@ -17,6 +17,7 @@ export interface RaceCfg {
   endPrizes: number;            // the game ends when this many players have landed on the last square (1 to 5)
   play: Play;                   // fate: every throw is automatic; presence: a player who does not throw in the window misses the turn
   exclusive: boolean;           // true = nobody wins two prizes
+  milestonePrizes?: number;     // with one prize per person: how many milestone prizes the organizer gave (a holder cannot also take a 'reach the end' prize, so the game waits for one more player home per holder)
   teams?: number;               // team race: number of teams (2 to 10); absent = group race
 }
 export const defaultRaceCfg = (gameId: string, players: number): RaceCfg => ({ gameId, players, board: defaultBoardCfg(), milestones: [DEFAULT_MILESTONE], turnCap: DEFAULT_TURN_CAP, endPrizes: DEFAULT_END_PRIZES, play: "fate", exclusive: false });
@@ -70,10 +71,19 @@ export function playRace(cfg: RaceCfg, input: RaceInput): RaceState {
     st.turnsPlayed = t + 1;
     st.finishedCount = runs.reduce((n, r) => n + (r.finishedTurn !== null ? 1 : 0), 0);
     if (cfg.teams) { if (teamsFinished(cfg, st).length > 0) { st.ended = true; st.endReason = "finishers"; } }
-    else if (st.finishedCount >= cfg.endPrizes) { st.ended = true; st.endReason = "finishers"; }
+    else if (homeCount(st) >= cfg.endPrizes) { st.ended = true; st.endReason = "finishers"; }
     if (!st.ended && st.turnsPlayed >= cfg.turnCap) { st.ended = true; st.endReason = "cap"; }
   }
   return st;
+}
+
+/** Players home who can still take a 'reach the end' prize. With one prize per person a player who holds a milestone prize cannot also take one, so the game waits for `endPrizes` players WITHOUT a milestone prize (otherwise it would end with a 'reach the end' prize unawarded). */
+function homeCount(st: RaceState): number {
+  const cfg = st.cfg, home = st.runs.filter((r) => r.finishedTurn !== null);
+  if (!cfg.exclusive || !cfg.milestonePrizes || home.length < cfg.endPrizes) return home.length;
+  const holders = new Set<number>();
+  for (let i = 1; i <= Math.min(cfg.milestonePrizes, cfg.milestones.length); i++) { const w = candidates(st, "milestone", i).find((c) => !holders.has(c.seat)); if (w) holders.add(w.seat); }
+  return home.filter((r) => !holders.has(r.seat)).length;
 }
 
 /* ---------------- ranking (no ties, ever) ---------------- */
@@ -135,14 +145,15 @@ function candidates(st: RaceState, pattern: string, ordinal: number): { seat: nu
   const g = st.cfg.gameId, runs = st.runs;
   const endTurn = Math.max(0, st.turnsPlayed - 1);
   if (pattern === "finish") {
-    const fin = runs.filter((r) => r.finishedTurn !== null).sort((a, b) => compareChain(g, a, b, "finish").order);
+    const fin = runs.filter((r) => r.finishedTurn !== null).sort((a, b) => compareChain(g, a, b, "rank").order); // the same order the ranking table shows (same fate label), so the prize list and the table never disagree
     if (ordinal > st.cfg.endPrizes) return [];
     return fin.map((r) => { const same = fin.filter((x) => x.finishedTurn === r.finishedTurn).length; return { seat: r.seat, idx: r.finishedTurn!, ...(same > 1 ? { tied: same } : {}) }; });
   }
   if (pattern === "milestone") {
     const ms = [...st.cfg.milestones].sort((a, b) => a - b), m = ms[ordinal - 1]; if (m === undefined) return [];
     const reached = runs.map((r) => ({ r, t: reachTurn(r, m) })).filter((x) => x.t >= 0);
-    reached.sort((a, b) => a.t - b.t || squareOf(b.r) - squareOf(a.r) || (fateOf(g, a.r.seat, `milestone${ordinal}`) < fateOf(g, b.r.seat, `milestone${ordinal}`) ? -1 : 1));
+    reached.sort((a, b) => a.t - b.t || b.r.pos[b.t]! - a.r.pos[a.t]! || // same turn: the higher square ON THAT TURN wins (never the square now, which changes with later snakes and ladders: a prize shown on a phone is never taken back)
+       (fateOf(g, a.r.seat, `milestone${ordinal}`) < fateOf(g, b.r.seat, `milestone${ordinal}`) ? -1 : 1));
     return reached.map((x) => { const same = reached.filter((y) => y.t === x.t).length; return { seat: x.r.seat, idx: x.t, ...(same > 1 ? { tied: same } : {}) }; });
   }
   if (!st.ended) return [];
@@ -168,7 +179,9 @@ export function settleRace(st: RaceState, lines: readonly RewardLike[], pidOf: (
   if (st.cfg.teams) return settleTeams(st, lines, pidOf, round);
   const out: Settled[] = [], won = new Set<number>();
   if (st.cfg.exclusive && !st.ended) return out;
-  for (const l of lines) {
+  // The lines are worked through in the order of the houses (PRIZE_IDS, the same as config.ts HOUSE_ORDER) and by winner number, whatever order they were sent in: with one prize per person the order decides who gets what.
+  const ordered = [...lines].sort((a, b) => PRIZE_IDS.indexOf(a.pattern as (typeof PRIZE_IDS)[number]) - PRIZE_IDS.indexOf(b.pattern as (typeof PRIZE_IDS)[number]) || a.ordinal - b.ordinal);
+  for (const l of ordered) {
     if (l.pattern === "team") continue;
     const cand = candidates(st, l.pattern, l.ordinal);
     let pick: { seat: number; idx: number; tied?: number } | undefined;

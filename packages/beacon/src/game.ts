@@ -21,7 +21,7 @@ export function raceCfgOf(eid: string, cfg: EngagementCfg, players: number, roun
   const board: BoardCfg = cfg.board ? { size: cfg.board.size, snakes: cfg.board.snakes, ladders: cfg.board.ladders, finish: cfg.board.finish } : defaultBoardCfg();
   return {
     ...defaultRaceCfg(roundEid(eid, round), players), board, milestones: cfg.milestones ?? [DEFAULT_MILESTONE], turnCap: cfg.turnCap ?? DEFAULT_TURN_CAP,
-    endPrizes: cfg.endPrizes ?? DEFAULT_END_PRIZES, play: cfg.play ?? "fate", exclusive: cfg.exclusive === true, ...(cfg.mode === "team" && cfg.teams ? { teams: cfg.teams } : {}),
+    endPrizes: cfg.endPrizes ?? DEFAULT_END_PRIZES, play: cfg.play ?? "fate", exclusive: cfg.exclusive === true, ...(cfg.exclusive === true ? { milestonePrizes: cfg.rewards.filter((l) => l.pattern === "milestone").length } : {}), ...(cfg.mode === "team" && cfg.teams ? { teams: Math.min(cfg.teams, players) } : {}), // fewer people than teams: one team each, the game still works
   };
 }
 export function tableCfgOf(eid: string, cfg: EngagementCfg, players: number, round = 1): TableCfg {

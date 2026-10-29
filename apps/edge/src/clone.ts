@@ -55,6 +55,9 @@ export async function cloneGame(env: Env, e: any, b: any, now: number, origin: s
     if (n >= MAX_DRAFTS) return json({ error: `You have ${MAX_DRAFTS} unpublished drafts. Publish one, or delete one you do not need (open Your games, then press Delete next to it). An unpublished draft is also forgotten after 30 days.`, code: "draft-limit" }, 409);
   }
   if (!(await spend(6))) return json({ error: "It is very busy right now. Please try again in a few minutes." }, 503);
+  // A DEMO GAME is not copied as a demo: "Create a new game like this one" is how an organizer gets a bigger game, so the copy is an ordinary draft with the same settings, to publish and pay for like any other.
+  let copyConfig = e.config; let wasDemo = false;
+  try { const c0 = e.config ? JSON.parse(e.config) : null; if (c0 && c0.demo) { wasDemo = true; delete c0.demo; copyConfig = JSON.stringify(c0); } } catch { /* a config that cannot be read is copied as it is */ }
   const base = String(e.id).replace(/-[A-Z2-9]{4}$/, "").slice(0, 34);
   let id = "", made = false;
   const pending = startRound === null;
@@ -63,7 +66,7 @@ export async function cloneGame(env: Env, e: any, b: any, now: number, origin: s
   for (let i = 0; i < 6 && !made; i++) {
     id = `${base}-${suffix()}`;
     const r = await db.prepare("INSERT OR IGNORE INTO engagement(id,start_round,call_seconds,cap,created_ms,org,closed,pack,tickets,config,is_test,cohost_limit) VALUES(?,?,?,?,?,?,?,0,?,?,?,?)")
-      .bind(id, sr, e.call_seconds, e.cap, now, org, e.closed ? 1 : 0, e.tickets, e.config, test, e.cohost_limit ?? null).run();
+      .bind(id, sr, e.call_seconds, e.cap, now, org, e.closed ? 1 : 0, e.tickets, copyConfig, test, e.cohost_limit ?? null).run();
     made = (r.meta?.changes ?? 0) > 0;
   }
   if (!made) return json({ error: "Could not make a new game code. Please try again." }, 503);
@@ -80,6 +83,6 @@ export async function cloneGame(env: Env, e: any, b: any, now: number, origin: s
     ...(cfg.rounds ? ["Rounds"] : []), ...(cfg.invites ? ["Guest invites"] : []), ...(Array.isArray(cfg.rewards) && cfg.rewards.length ? ["Prizes (all of them, with their texts)"] : []),
     ...(cfg.brand ? ["Brand strip"] : []), ...((cfg.breaks?.length || cfg.opening || cfg.closing) ? ["Brand moments and lucky draw"] : []),
   ];
-  return json({ ok: true, id, openUrl: `${origin}/zc.html?e=${id}`, copied, peopleCopied, ...(peopleNote ? { peopleNote } : {}), needsStart: pending, startRound: sr, from: e.id, message: "Your new game is ready to check. Pick the date and time, then publish. This is a new game. Nothing is paid or published yet." });
+  return json({ ok: true, id, openUrl: `${origin}/zc.html?e=${id}`, copied, peopleCopied, ...(peopleNote ? { peopleNote } : {}), needsStart: pending, startRound: sr, from: e.id, ...(wasDemo ? { fromDemo: true } : {}), message: wasDemo ? "Your new game is ready to check. It is not a demo: pick the date and time and the number of people, then publish and pay. Nothing is paid or published yet." : "Your new game is ready to check. Pick the date and time, then publish. This is a new game. Nothing is paid or published yet." });
 }
 

@@ -4,13 +4,15 @@ import { generateBoard, defaultBoardCfg, type Board, type BoardCfg } from "./boa
 import { advance, fateOf, newRun, rollFor, squareOf, type Run } from "./play";
 import type { RewardLike, Settled } from "./race";
 
+/** The most people one shared board can hold. The server refuses a table game for more people (worker.ts), because phones cannot play it. */
+export const TABLE_MAX_PLAYERS = 20;
 export interface TableCfg { gameId: string; players: number; board: BoardCfg; winners: number; maxThrows: number; milestone?: number }
 export const defaultTableCfg = (gameId: string, players: number): TableCfg => ({ gameId, players, board: defaultBoardCfg(), winners: Math.min(3, players - 1), maxThrows: 600 });
 export interface TableInput { b0: string; betas: readonly string[]; absent?: (seat: number, throwIndex: number) => boolean }
 export interface TableState { cfg: TableCfg; board: Board; order: number[]; runs: Run[]; throws: number; finishedOrder: number[]; finishThrow: Map<number, number>; milestoneIdx: Map<number, number>; whoseTurn: number | null; ended: boolean; endReason: "winners" | "cap" | "running" }
 
 export function validateTableCfg(c: TableCfg): string | null {
-  if (!Number.isInteger(c.players) || c.players < 2 || c.players > 20) return "A table game has 2 to 20 players.";
+  if (!Number.isInteger(c.players) || c.players < 2 || c.players > TABLE_MAX_PLAYERS) return "A table game has 2 to 20 players.";
   if (!Number.isInteger(c.winners) || c.winners < 1 || c.winners > Math.min(3, c.players - 1)) return "1 to 3 players win, and at least one player is left over.";
   if (!Number.isInteger(c.maxThrows) || c.maxThrows < c.players * 5) return "The throw limit is too small.";
   return null;
