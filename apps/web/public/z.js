@@ -62,8 +62,12 @@
   const howLine = (key) => (HOW[key] ? `<small class="zsmall zhow">${esc(HOW[key])}</small>` : "");
   const getPublic = DEMO ? DEMO.getPublic : async (url) => { let r; try { r = await fetch(url, { cache: "no-store" }); } catch { throw new Error("offline"); } if (!r.ok) throw Object.assign(new Error("http " + r.status), { status: r.status }); return r.json(); };
   const rt = new ZG.PhoneRuntime(EID, DEMO ? { api, getPublic, beacon: DEMO.beacon, verify: DEMO.verify, mono: DEMO.mono, store } : { api, getPublic, beacon: {}, mono: () => performance.now(), store });
-  let firstPaint = true, sound = store.get("cbz-sound") !== "off", timer = null, lastStepKey = "";
+  let firstPaint = true, sound = store.get("cbz-sound") === "on", timer = null, lastStepKey = "";
   if (window.TBAudio) TBAudio.enabled = sound;
+  // SL-11: ask the phone to keep the screen on while the game page is open (it lets go when the page is hidden, so it is asked again when the page comes back)
+  let wakeLock = null;
+  const keepAwake = async () => { try { if (navigator.wakeLock && document.visibilityState === "visible" && !wakeLock) { wakeLock = await navigator.wakeLock.request("screen"); wakeLock.addEventListener("release", () => { wakeLock = null; }); } } catch { wakeLock = null; /* not allowed (low battery, old browser): the game still plays */ } };
+  keepAwake(); document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") keepAwake(); });
   const clock = (s) => { s = Math.max(0, Math.round(s)); return [Math.floor(s / 3600), Math.floor((s % 3600) / 60), s % 60].map((n) => String(n).padStart(2, "0")).join(":"); }; // 00:12:34
   const GRACE_SECS = ZG.GRACE_ROUNDS * 3;
   const nickOf = (seat) => "Player " + seat; // nicknames are not available to the page yet: this is the one place to change when they are
@@ -470,6 +474,9 @@
   }
   /** True while the first turn has not opened yet (and no break or hold is showing): the waiting room is shown instead of the dice. */
   const isWaiting = (v) => v.phase === "play" && !v.locked && !v.brk && v.turnsPlayed === 0 && v.turn.state === "wait" && v.turn.secondsLeft !== null && v.turn.secondsLeft > 0;
+  /** SL-21: the rules in five lines. Shown before the game (waiting room) and, folded away, during and after it. The finish line follows the organizer's choice. */
+  const ruleLines = (v) => { const secs = v.callSeconds || 20, pass = !!(v.cfg && v.cfg.board && v.cfg.board.finish === "pass"); return [v.kind === "table" ? "1. Everyone plays on one shared board and takes turns." : "1. You have your own board. Nobody else has the same one.", `2. Every turn lasts about ${secs} seconds. Your throw is the dice for that turn.`, "3. Snakes take you down. Ladders take you up.", pass ? "4. To finish you reach or pass the last square." : "4. To finish you need the exact number to land on the last square.", "5. The software checks everything. Nobody can change a result."]; };
+  const rulesFold = (v) => `<details class="zcard zrulesfold" id="rulesfold"><summary>Rules in five lines</summary><ul class="zlist zrules">${ruleLines(v).map((r) => `<li>${esc(r)}</li>`).join("")}</ul></details>`;
   /** Before the first turn: what to expect, what can be won, the rules, a sound check and a calendar entry. Everything here is known at boot, so it costs no extra requests. */
   function waitingRoom(v) {
     if (!isWaiting(v)) return "";
@@ -480,10 +487,10 @@
     const top = setup
       ? `<h2>Your game is setting up</h2><div class="zsetup">Sign-up has closed. The first turn comes in a moment.</div><div class="zcount" aria-live="off" id="cd">${clock(toFirst)}</div><p class="zsmall zflush">until the first turn. Keep this page open: the game moves by itself.</p>`
       : `<h2>You are in. See you at ${esc(when)}</h2><div class="zsmall zflush">Starting in</div><div class="zcount" aria-live="off" id="cd">${clock(toFirst - GRACE_SECS)}</div><p class="zsmall zflush">hours : minutes : seconds. Keep this page open: the game moves by itself.</p>`;
-    const secs = v.callSeconds || 20;
-    const rules = [v.kind === "table" ? "1. Everyone plays on one shared board and takes turns." : "1. You have your own board. Nobody else has the same one.", `2. Every turn lasts about ${secs} seconds. Your throw is the dice for that turn.`, "3. Snakes take you down. Ladders take you up.", "4. To finish you need the exact number to land on the last square.", "5. The software checks everything. Nobody can change a result."];
+    const rules = ruleLines(v);
     return `<div class="zcard zwait">${top}
       <div class="zdo"><b>What to do:</b> nothing yet. Keep this page open. ${v.cfg.play === "presence" ? "When the first turn opens, tap the Roll button." : "Your rolls happen by themselves."}</div>
+      <p class="zsmall zflush">Tip: switch your phone to Do not disturb, so calls and messages do not cover the game. We ask your phone to keep the screen on while this page is open. Sound is off until you turn it on.</p>
       ${prizes ? `<h3>What you can win</h3><div class="zprizes2">${prizes}</div>` : ""}
       <h3>The rules</h3><ul class="zlist zrules">${rules.map((r) => `<li>${esc(r)}</li>`).join("")}</ul>
       <button class="zbtn s alt" id="soundtest" type="button">Check my sound</button><a class="zbtn s alt" id="addcal" download="game.ics" href="${icsFor(v)}">Add to my calendar</a></div>`;
@@ -831,6 +838,7 @@
       ${standingsCard(v)}
       ${waiting ? "" : prizesStatusCard(v)}
       ${v.phase === "ended" ? "" : prizesCard()}
+      ${waiting ? "" : rulesFold(v)}
       ${mineCard(v)}${inviteCard(v)}
       ${luckyCard(v)}
       ${chk}<a class="zref" href="/partner.html?from=card">Refer &amp; earn</a>`;
