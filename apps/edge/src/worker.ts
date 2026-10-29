@@ -37,6 +37,7 @@ import { PAY_SCHEMA, payRoute, retryOutbox, sendMail, freeLaunch, payMode, FREE_
 import { PACKS, price } from "../../../packages/shared/src/pricing";
 import { turnRounds } from "../../../packages/beacon/src/schedule";
 import { DEFAULT_TURN_CAP } from "../../../packages/beacon/src/race";
+import { TABLE_MAX_PLAYERS } from "../../../packages/beacon/src/table";
 import { PARTNER_SCHEMA, partnerRoute } from "./partners";
 import { HELPDESK_SCHEMA, HELPER_MANUAL_NOTE, helpdeskCloseStatements, helpdeskRoute, helpdeskSweep, isDeskKeyId, isHelperKey, noteHelperGame } from "./helpdesk";
 import { normEmp, empHashOf, verifyOf, keptPhone, phoneDigits, cleanName as cleanPersonName, PEOPLE_SCHEMA, COHOST_FROM, HOST_FROM, ORG_FROM, COHOST_LIMIT_DEFAULT, COHOST_LIMIT_MIN, COHOST_LIMIT_MAX, WAITING_MAX, addWaiting, chainOf, cleanPhone, fromCodeOf, inviterOf, joinLinkPage, limitOfInviter, listCount, parseFrom, peopleRoute, personByPhone, personByToken, srcOf, waitingWho, type PersonRow } from "./people";
@@ -293,6 +294,7 @@ export const OWNER_TEST_FREE: { email: string; maxCap: number; until: number }[]
 const DEMO_CAP_MSG = `A demo game is for up to ${DEMO_CAP} people. To invite more people, make a copy and choose a bigger size.`;
 const DEMO_STAYS_MSG = `A published demo game stays a demo game (up to ${DEMO_CAP} people). To invite more people, make a copy and choose a bigger size.`;
 const isDemo = (e: { tickets?: number; config?: string | null }) => !!cfgOf(e).demo;
+const TABLE_CAP_MSG = `A table game is for 2 to ${TABLE_MAX_PLAYERS} people. Choose a smaller number of people, or play a race.`; // phones cannot play a table of more than 20: it would break for everybody
 /**
  * Demo passes (owner order 2026-10-26): a long secret link that gives the account that opens it ONE free game (Rs 0) of up to `cap` people, for a prospect the owner chose, one to one.
  * Nothing is shown to the public and the size list and prices stay the same for everybody. Only the hashes of the links are here; the links themselves are given by hand and are not in this repository.
@@ -1370,6 +1372,7 @@ async function route0(req: Request, env: Env, now: number, a: Auth): Promise<Res
     const vc = validateCfg({ tickets: b.tickets, rewards: b.rewards, breaks: b.breaks, rounds: b.rounds, opening: b.opening, closing: b.closing, name: b.name, brand: b.brand, mark: b.mark, join: b.join, tz: b.tz, verify: b.verify, employeesOnly: b.employeesOnly, ...gameFields(b) });
     if (!vc.ok) return json({ error: vc.error }, 400);
     if (vc.cfg.demo && b.cap > DEMO_CAP) return json({ error: DEMO_CAP_MSG, code: "demo-cap" }, 400); // a demo game is small; a bigger one is an ordinary game
+    if (vc.cfg.mode === "table" && b.cap > TABLE_MAX_PLAYERS) return json({ error: TABLE_CAP_MSG, code: "table-cap" }, 400);
     const have = await env.DB.prepare("SELECT org FROM engagement WHERE id=?").bind(b.id).first<{ org: string | null }>();
     if (have) return json({ ok: true, existed: true }); // creating twice never overwrites (and never reveals whose it is)
     // an organizer needs a purchased engagement (entitlement) big enough for the limit they ask for; we (platform) do not. A demo game never uses up a bought pack.
@@ -2016,6 +2019,7 @@ async function route0(req: Request, env: Env, now: number, a: Auth): Promise<Res
     if (!Number.isInteger(next.call_seconds)) return json({ error: GAP_MSG }, 400);
     if (!Number.isInteger(next.cap) || next.cap < 1 || next.cap > 100000) return json({ error: "The number of people must be a whole number from 1 up. Please check it." }, 400);
     if (vc.cfg.demo && next.cap > DEMO_CAP) return json({ error: DEMO_CAP_MSG, code: "demo-cap" }, 400); // the one size rule of a demo game, before and after publishing
+    if (vc.cfg.mode === "table" && next.cap > TABLE_MAX_PLAYERS && (b.cap !== undefined || b.mode !== undefined)) return json({ error: TABLE_CAP_MSG, code: "table-cap" }, 400); // only when this change makes it so: an older table game that is already bigger keeps its other settings editable
     if (roundMs(next.start_round) <= now) return json({ error: "Pick a start time in the future." }, 400);
     if (next.start_round !== e.start_round) { const mx = await maxAheadFor(env, e, now); if (roundMs(next.start_round) > now + mx) return json({ error: e.pack ? PAID_TOO_FAR : TOO_FAR, code: "too-far" }, 400); }
     const have = await env.DB.prepare("SELECT COUNT(*) AS c FROM participant WHERE eid=?").bind(eid).first<{ c: number }>();
