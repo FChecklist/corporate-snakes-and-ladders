@@ -27,7 +27,7 @@ describe("the console", () => {
     expect(zc).toContain('["pdf", "Upload a PDF"]'); expect(zc).toContain("vendor/pdfjs/pdf.min.mjs"); expect(zc).toContain('id="pdfgo"'); expect(zc).toContain("found in your PDF");
     expect(zc).toContain("Employee ID,Personal link"); expect(zc).toContain("p.empId"); expect(zc).toContain("w.empId");
     for (const f of ["pdf.min.mjs", "pdf.worker.min.mjs", "LICENSE.txt"]) expect(existsSync(join(PUB, "vendor/pdfjs", f))).toBe(true);
-    expect(readFileSync(join(import.meta.dir, "../../../pages/build.mjs"), "utf8")).toMatch(/\["fonts", "img", "vendor"\]/); // the library is shipped with the site
+    expect(readFileSync(join(import.meta.dir, "../../../pages/build.mjs"), "utf8")).toMatch(/\["fonts", "vendor"\]/); // the library is shipped with the site
   });
 });
 

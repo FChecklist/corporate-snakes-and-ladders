@@ -14,6 +14,8 @@
     "build:report": "bun build apps/edge/src/report-browser.ts --target browser --format iife --minify --outfile apps/web/public/reportgen.js",
     "build:zgame": "bun build packages/beacon/src/zgame-browser.ts --target browser --format iife --minify --outfile apps/web/public/zgame.js",
     "zlocal": "bun run apps/edge/src/local.ts",
+    "site:shell": "bun tools/make-site-shell.mjs",
+    "site:pdfs": "bun tools/make-pdfs.mjs",
     "pages:build": "bun run pages/build.mjs",
     "pages:deploy": "bun run pages/build.mjs && cd pages && bunx wrangler@3 pages deploy public --project-name corporate-snakes-and-ladders --branch main --commit-dirty=true",
     "sim": "bun test tools/sim2/snakes-crowd.test.ts --timeout 900000",

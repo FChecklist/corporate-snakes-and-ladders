@@ -27,7 +27,7 @@ describe("the document pages", () => {
   };
   for (const [f, needles] of Object.entries(DOCS)) test(`${f}: brand header and footer, title pattern, the right statements, no draft mark, no tick box, short lines`, () => {
     const h = rd(f);
-    expect(h).toMatch(/<title>[^<]+ \| Corporate Snakes and Ladders<\/title>/); expect(h).toContain('class="legaltop"'); expect(h).toContain('<footer class="uf"'); expect(h).toContain('rel="icon"');
+    expect(h).toMatch(/<title>[^<]+ \| Corporate Snakes and Ladders<\/title>/); expect(h).toContain('<header class="ck-top">'); expect(h).toContain('<footer class="ck-foot">'); // the brand kit's header (six-item menu) and footer expect(h).toContain('rel="icon"');
     for (const n of needles) expect(h).toContain(n);
     expect(h).not.toMatch(/DRAFT|lawyer review|type="checkbox"/i);
     expect(h).not.toMatch(/\bcompliant\b|certified by/i);

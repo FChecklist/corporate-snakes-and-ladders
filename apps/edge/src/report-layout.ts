@@ -47,13 +47,20 @@ export function layoutReport(d: ReportData): Uint8Array {
   pdf.footer = `Corporate Snakes and Ladders  |  Game ${d.engagementId}  |  sent ${istFull(d.sentAtMs, d.tz)}`;
 
   // ---- title band
-  pdf.rect(0, pdf.H, pdf.W, 92, NAVY); pdf.rect(0, pdf.H - 92, pdf.W, 3, GOLD);
+  pdf.rect(0, pdf.H, pdf.W, 104, NAVY); pdf.rect(0, pdf.H - 104, pdf.W, 3, GOLD);
   if (d.logoPix) pdf.logo(d.logoPix, pdf.W - pdf.M - 64, pdf.H - 14, 64, 64); // the organizer's logo, on a white tile at the right of the band
-  pdf.y = pdf.H - 28;
-  pdf.para(d.brand && d.brand.name ? `${d.brand.name} | Corporate Snakes and Ladders` : "Corporate Snakes and Ladders", { font: "F2", size: 11, color: GOLD, gap: 2 });
-  pdf.para("Complete game report", { font: "F2", size: 22, color: WHITE, gap: 2 });
-  pdf.para(`Game ${d.engagementId}   |   ${d.people.length} people   |   ${d.prizes.reduce((n, p) => n + p.winners.length, 0)} prize wins`, { size: 9.5, color: WHITE });
-  pdf.y = pdf.H - 92 - 16;
+  pdf.badge(pdf.M, pdf.H - 14, 56); // the brand badge at the left of the band, the organizer's own logo (if any) at the right
+  pdf.y = pdf.H - 28; const tx = pdf.M + 70; // the words sit to the right of the badge
+  if (d.brand && d.brand.name) { // the organizer's own name first, then ours, then the title
+    pdf.para(`${d.brand.name} | Corporate Snakes and Ladders`, { font: "F2", size: 11, color: GOLD, gap: 2, x: tx });
+    pdf.para("Complete game report", { font: "F2", size: 22, color: WHITE, gap: 2, x: tx });
+  } else { // our name as the brand kit writes it: a small CORPORATE line above the proper name
+    pdf.para("CORPORATE", { font: "F2", size: 9, color: GOLD, gap: 0, x: tx });
+    pdf.para("Snakes and Ladders", { font: "F2", size: 19, color: WHITE, gap: 1, x: tx });
+    pdf.para("Complete game report", { font: "F2", size: 11, color: WHITE, gap: 3, x: tx });
+  }
+  pdf.para(`Game ${d.engagementId}   |   ${d.people.length} people   |   ${d.prizes.reduce((n, p) => n + p.winners.length, 0)} prize wins`, { size: 9.5, color: WHITE, x: tx });
+  pdf.y = pdf.H - 104 - 16;
 
   pdf.box("Sent to you", [
     `E-mail address: ${d.organizerEmail}`,

@@ -1,12 +1,7 @@
-/* Refer & Earn marketing page. Mobile first, brand colours: navy #0B5D5B, gold #FFC93C, cream #FFFDF9. */
-:root{--rn:#0B5D5B;--rg:#FFC93C;--rc:#FFFDF9;--ri:#1b2433;--rm:#5b6577;--rl:#e5e0d3}
+/* Refer & Earn marketing page (and Help Desk). Mobile first. The colours come from the brand kit through site.css (body.ck sets --rn, --rg, --rc ...); the old header and footer of this page are now the kit's. */
 body{background:var(--rc);color:var(--ri);margin:0;font-family:var(--sans,Inter,system-ui,sans-serif);-webkit-text-size-adjust:100%}
 .rin{max-width:1040px;margin:0 auto;padding:0 16px}
-.rhead{display:flex;align-items:center;justify-content:space-between;max-width:1040px;margin:0 auto;padding:14px 16px}
-.rbrand{font:700 20px var(--serif,Georgia,serif);color:var(--rn);text-decoration:none}.rbrand i{color:var(--rg);font-style:normal}
-.rhome{color:var(--rn);font-weight:600;text-decoration:none;font-size:14px}
-.rbrand,.rhome{display:inline-flex;align-items:center;min-height:40px}.rhome{padding:0 8px}
-.rhero{background:linear-gradient(165deg,#0B5D5B 0%,#0a2f70 60%,#08265a 100%);color:#fff;padding:28px 0 36px}
+.rhero{background:linear-gradient(165deg,var(--bar-a) 0%,var(--bar-b) 60%,var(--bar-deep) 100%);color:#fff;padding:28px 0 36px}
 .rhero .rin{display:grid;gap:22px}
 .reyebrow{display:inline-block;background:rgba(201,162,74,.18);color:#f1d98f;border:1px solid rgba(201,162,74,.5);border-radius:99px;padding:4px 12px;font:700 12px var(--sans,inherit);letter-spacing:.12em;text-transform:uppercase}
 .rhero h1{font:700 clamp(30px,8vw,52px)/1.08 var(--serif,Georgia,serif);margin:12px 0 10px}
@@ -19,11 +14,11 @@ body{background:var(--rc);color:var(--ri);margin:0;font-family:var(--sans,Inter,
 .rcard .zhead{display:none}
 .rcard h2{font:700 20px var(--serif,Georgia,serif)!important;letter-spacing:0!important;text-transform:none!important;color:var(--rn)!important}
 .rcard .zbtn{width:100%;min-height:50px;font-size:17px;background:var(--rg);color:#1b1b1b;border:0;border-radius:12px;font-weight:800}
-.rband{background:#fff;border-bottom:1px solid var(--rl)}
+.rband{background:var(--paper);border-bottom:1px solid var(--rl)}
 .rstats{display:grid;grid-template-columns:1fr 1fr;gap:0}
 .rstats div{padding:16px 10px;text-align:center;border-right:1px solid var(--rl);border-bottom:1px solid var(--rl)}
 .rstats b{display:block;font:800 26px var(--serif,Georgia,serif);color:var(--rn)}.rstats span{font-size:13px;color:var(--rm)}
-.rsec{padding:36px 0}.rsec.ralt{background:#f6f2e8}
+.rsec{padding:36px 0}.rsec.ralt{background:var(--wash-gold)}
 .rsec h2{font:700 clamp(24px,5.5vw,34px)/1.15 var(--serif,Georgia,serif);color:var(--rn);margin:0 0 8px}
 .rsub{color:var(--rm);margin:0 0 16px;font-size:16px}
 .rtable{display:grid;gap:8px;margin:12px 0 22px}
@@ -48,16 +43,14 @@ body{background:var(--rc);color:var(--ri);margin:0;font-family:var(--sans,Inter,
 .rfaq summary{cursor:pointer;padding:14px 0;font-weight:700;list-style:none;display:flex;justify-content:space-between;gap:10px}
 .rfaq summary:after{content:"+";color:var(--rg);font-size:22px;line-height:1}.rfaq details[open] summary:after{content:"\2212"}
 .rfaq p{margin:0 0 14px;color:var(--rm);line-height:1.55}
-.rfinal{background:linear-gradient(165deg,#0B5D5B,#08265a);color:#fff;text-align:center;padding:40px 0 90px}
+.rfinal{background:linear-gradient(165deg,var(--bar-a),var(--bar-deep));color:#fff;text-align:center;padding:40px 0 90px}
 .rfinal h2{font:700 clamp(24px,6vw,36px) var(--serif,Georgia,serif);margin:0 0 8px}.rfinal p{color:#CFEDEA;margin:0 0 18px}
 .rsticky{position:fixed;left:0;right:0;bottom:0;z-index:20;padding:10px 14px calc(10px + env(safe-area-inset-bottom));background:rgba(255,253,249,.96);border-top:1px solid var(--rl);backdrop-filter:blur(6px)}
 .rsticky a{display:flex;align-items:center;justify-content:center;min-height:48px;border-radius:12px;background:var(--rg);color:#1b1b1b;font-weight:800;text-decoration:none}
-.rfoot{text-align:center;padding:16px 16px 70px;color:var(--rm);font-size:13px}.rfoot a{color:var(--rn)}
 /* signed in: only the partner's own page shows */
 body.signed .mk,body.signed .rsticky{display:none}
 .rsticky.off{display:none}
-body.signed .rhead{border-bottom:1px solid var(--rl)}
-body.signed main{max-width:760px;margin:0 auto;padding:0 12px}
+body.signed body.signed main{max-width:760px;margin:0 auto;padding:0 12px}
 body.signed #dash{display:block}
 #dash{display:none}
 @media (min-width:760px){
@@ -65,7 +58,6 @@ body.signed #dash{display:block}
   .rstats{grid-template-columns:repeat(4,1fr)}.rstats div{border-bottom:0}
   .rsteps{grid-template-columns:repeat(3,1fr)}.rgrid{grid-template-columns:repeat(2,1fr)}
   .rtable{grid-template-columns:1fr 1fr}.rtable .rh{display:none}
-  .rsticky{display:none}.rfinal{padding-bottom:48px}.rfoot{padding-bottom:20px}
+  .rsticky{display:none}.rfinal{padding-bottom:48px}
 }
 @media (prefers-reduced-motion:no-preference){.rcta,.rsticky a,.rcard .zbtn{transition:transform .12s}.rcta:hover,.rcard .zbtn:hover{transform:translateY(-1px)}}
-.rbrand{display:inline-flex;align-items:center;gap:10px}.rlogo{border-radius:8px;display:block}
