@@ -239,7 +239,7 @@ const TOO_FAR = "A game can be set at most 30 days ahead. Please pick a day with
 const PAID_TOO_FAR = "A paid game can be moved to any date within 365 days of the payment. Please pick an earlier day.";
 /** How far ahead a game time may be set: 30 days for a game nobody has paid for; for a PAID game up to 365 days from the date of payment. */
 async function maxAheadFor(env: Env, e: any, now: number): Promise<number> {
-  if (!e || !e.pack) return MAX_AHEAD_MS;
+  if (!e || !e.pack || isDemo(e)) return MAX_AHEAD_MS; // a free demo is dated like a game nobody has paid for
   let paid: number | null = null;
   try { paid = (await env.DB.prepare("SELECT MIN(paid_ms) AS p FROM payment WHERE eid=? AND status='paid'").bind(e.id).first<{ p: number | null }>())?.p ?? null; } catch { /* fall through */ }
   if (paid === null) { try { paid = (await env.DB.prepare("SELECT MIN(created_ms) AS p FROM entitlement WHERE eid=?").bind(e.id).first<{ p: number | null }>())?.p ?? null; } catch { /* fall through */ } }
@@ -2024,7 +2024,7 @@ async function route0(req: Request, env: Env, now: number, a: Auth): Promise<Res
     if (vc.cfg.demo && next.cap > DEMO_CAP) return json({ error: DEMO_CAP_MSG, code: "demo-cap" }, 400); // the one size rule of a demo game, before and after publishing
     if (vc.cfg.mode === "table" && next.cap > TABLE_MAX_PLAYERS && (b.cap !== undefined || b.mode !== undefined)) return json({ error: TABLE_CAP_MSG, code: "table-cap" }, 400); // only when this change makes it so: an older table game that is already bigger keeps its other settings editable
     if (roundMs(next.start_round) <= now) return json({ error: "Pick a start time in the future." }, 400);
-    if (next.start_round !== e.start_round) { const mx = await maxAheadFor(env, e, now); if (roundMs(next.start_round) > now + mx) return json({ error: e.pack ? PAID_TOO_FAR : TOO_FAR, code: "too-far" }, 400); }
+    if (next.start_round !== e.start_round) { const mx = await maxAheadFor(env, e, now); if (roundMs(next.start_round) > now + mx) return json({ error: e.pack && !isDemo(e) ? PAID_TOO_FAR : TOO_FAR, code: "too-far" }, 400); }
     const have = await env.DB.prepare("SELECT COUNT(*) AS c FROM participant WHERE eid=?").bind(eid).first<{ c: number }>();
     if (!a.plat && e.pack !== 0 && next.cap > (e.pack ?? e.cap)) return json({ error: `Your pack allows up to ${e.pack ?? e.cap} people. For more people, make a new game like this one.` }, 402);
     const listed = await env.DB.prepare("SELECT COUNT(*) AS c FROM person WHERE eid=? AND status<>'removed'").bind(eid).first<{ c: number }>().catch(() => null); // people on the lists who have not come in yet count too
