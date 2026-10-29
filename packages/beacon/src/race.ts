@@ -135,7 +135,7 @@ function candidates(st: RaceState, pattern: string, ordinal: number): { seat: nu
   const g = st.cfg.gameId, runs = st.runs;
   const endTurn = Math.max(0, st.turnsPlayed - 1);
   if (pattern === "finish") {
-    const fin = runs.filter((r) => r.finishedTurn !== null).sort((a, b) => compareChain(g, a, b, "finish").order);
+    const fin = runs.filter((r) => r.finishedTurn !== null).sort((a, b) => compareChain(g, a, b, "rank").order); // the same order the ranking table shows (same fate label), so the prize list and the table never disagree
     if (ordinal > st.cfg.endPrizes) return [];
     return fin.map((r) => { const same = fin.filter((x) => x.finishedTurn === r.finishedTurn).length; return { seat: r.seat, idx: r.finishedTurn!, ...(same > 1 ? { tied: same } : {}) }; });
   }
