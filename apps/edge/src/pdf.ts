@@ -70,6 +70,21 @@ export class PdfDoc {
     this.cur.push(`1 1 1 rg ${num(x)} ${num(top - h)} ${num(w)} ${num(h)} re f`);
     this.cur.push(`q ${num(dw)} 0 0 ${num(dh)} ${num(x + (w - dw) / 2)} ${num(top - h + (h - dh) / 2)} cm /Im1 Do Q`);
   }
+  /** The Corporate Snakes and Ladders badge of the brand kit (logos/snakes.svg), drawn as vector shapes: a brown tile, a 5 x 5 board, a ladder and a snake. Top-left corner (x, top), `size` points square. */
+  badge(x: number, top: number, size: number) {
+    const k = size / 64, X = (v: number) => num(x + v * k), Y = (v: number) => num(top - v * k), hex = (h: string): Rgb => [parseInt(h.slice(1, 3), 16) / 255, parseInt(h.slice(3, 5), 16) / 255, parseInt(h.slice(5, 7), 16) / 255];
+    const r = 14 * k, c = r * 0.5523, L = x, R = x + size, T = top, B = top - size; // the rounded tile
+    this.cur.push(`${col(hex("#9C3D1E"))} rg ${num(L + r)} ${num(T)} m ${num(R - r)} ${num(T)} l ${num(R - r + c)} ${num(T)} ${num(R)} ${num(T - r + c)} ${num(R)} ${num(T - r)} c ${num(R)} ${num(B + r)} l ${num(R)} ${num(B + r - c)} ${num(R - r + c)} ${num(B)} ${num(R - r)} ${num(B)} c ${num(L + r)} ${num(B)} l ${num(L + r - c)} ${num(B)} ${num(L)} ${num(B + r - c)} ${num(L)} ${num(B + r)} c ${num(L)} ${num(T - r)} l ${num(L)} ${num(T - r + c)} ${num(L + r - c)} ${num(T)} ${num(L + r)} ${num(T)} c f`);
+    const sq = ["#FFD43B", "#FF6B6B", "#4DABF7", "#69DB7C", "#FFFFFF", "#FF6B6B", "#4DABF7", "#69DB7C", "#FFFFFF", "#FFD43B", "#4DABF7", "#69DB7C", "#FFFFFF", "#FFD43B", "#FF6B6B", "#69DB7C", "#FFFFFF", "#FFD43B", "#FF6B6B", "#4DABF7", "#FFFFFF", "#FFD43B", "#FF6B6B", "#4DABF7", "#69DB7C"];
+    sq.forEach((h, i) => this.cur.push(`${col(hex(h))} rg ${X(5 + (i % 5) * 10.8)} ${Y(5 + Math.floor(i / 5) * 10.8 + 10.8)} ${num(10.8 * k)} ${num(10.8 * k)} re f`));
+    const stroke = (d: string, h: string, w: number, dash = "") => this.cur.push(`1 J 1 j ${col(hex(h))} RG ${num(w * k)} w ${dash ? `[${dash}] 0 d ` : "[] 0 d "}${d} S`);
+    const seg = (x1: number, y1: number, x2: number, y2: number) => `${X(x1)} ${Y(y1)} m ${X(x2)} ${Y(y2)} l`;
+    stroke(seg(9, 54, 20, 12) + " " + seg(17, 56, 28, 14), "#7A4A12", 2.4);
+    for (const [a, b, c2, d] of [[11, 46.4, 19, 48.4], [13, 38.9, 21, 40.9], [14.9, 31.3, 22.9, 33.3], [16.9, 23.8, 24.9, 25.8], [18.9, 16.2, 26.9, 18.2]] as const) stroke(seg(a, b, c2, d), "#7A4A12", 1.8);
+    const snake = `${X(47)} ${Y(13)} m ${X(58)} ${Y(19)} ${X(35)} ${Y(25)} ${X(44)} ${Y(34)} c ${X(53)} ${Y(43)} ${X(35)} ${Y(47)} ${X(45)} ${Y(55)} c`;
+    stroke(snake, "#1B5E20", 6.6); stroke(snake, "#40C057", 4.6); stroke(snake, "#FFE066", 1.6, `${num(1.5 * k)} ${num(4 * k)}`);
+    this.cur.push(`${col(hex("#40C057"))} rg ${X(40.5)} ${Y(15.5)} ${num(10 * k)} ${num(8 * k)} re f`, `${col(hex("#1B5E20"))} rg ${X(43)} ${Y(11.6)} ${num(1.6 * k)} ${num(1.6 * k)} re f ${X(46.6)} ${Y(11.6)} ${num(1.6 * k)} ${num(1.6 * k)} re f`);
+  }
   h1(text: string) { this.need(40); this.gap(8); this.y -= 18; this.put(text, this.M, this.y, { font: "F2", size: 15, color: NAVY }); this.line(this.M, this.y - 5, this.W - this.M, this.y - 5, GOLD, 1.2); this.y -= 12; }
   h2(text: string) { this.need(28); this.gap(4); this.y -= 14; this.put(text, this.M, this.y, { font: "F2", size: 11, color: INK }); this.y -= 4; }
   /** A tinted box with a bold title and wrapped lines. */
