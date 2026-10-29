@@ -55,11 +55,12 @@ export async function run({ add, mk, hit, log, QUICK }) {
           const free = body.draft === false;
           if (mail === "demo1@xyz.in") { if (mode === "LIVE") hit(C.grant, !free, `LIVE mode: demo1@xyz.in got a free 250-person game (draft=${body.draft})`); else hit(C.testOk, free, `TEST mode: demo1@xyz.in did not get its free test game (draft=${body.draft})`); }
           else hit(C.others, !free, `${mode}: ${mail} got a free 250-person game`);
-        } else hit(C.others, false, `${mode}: /api/start for ${mail} gave no key (HTTP ${o.status})`);
+        } else if (isDemoMail && mode === "LIVE") hit(C.grant, true, ""); // refused at the start: nobody can open the owner's test addresses on the live site
+        else hit(C.others, false, `${mode}: /api/start for ${mail} gave no key (HTTP ${o.status})`);
       }
     }
     add("W-01", "worker", "the demo1/demo2/demo3@xyz.in sign-in (code 123456) works ONLY while the site is in TEST mode", C.login.cases, C.login.bad, C.login.ex, "apps/edge/src/worker.ts:973 (`TEST_LOGINS.has(email) && code === TEST_LOGIN_CODE` has no mode check) and :882 (`/api/auth/email`)", "FAIL");
-    add("W-02", "worker", "the free 250-person test game of demo1@xyz.in exists ONLY while the site is in TEST mode (a public address with a public code must not give free games on the live site)", C.grant.cases, C.grant.bad, C.grant.ex, "apps/edge/src/worker.ts:1370 and :334 ownerTestGrant (no mode check; anyone can create demo1@xyz.in with POST /api/start)", "FAIL");
+    add("W-02", "worker", "the free 250-person test game of demo1@xyz.in exists ONLY while the site is in TEST mode, and nobody can open the three test addresses as accounts on the live site", C.grant.cases, C.grant.bad, C.grant.ex, "apps/edge/src/worker.ts:1370 and :334 ownerTestGrant (no mode check; anyone can create demo1@xyz.in with POST /api/start)", "FAIL");
     add("W-03", "worker", "in TEST mode the three test sign-ins and the demo1 free test game keep working; ordinary addresses never get either", C.testOk.cases + C.others.cases, C.testOk.bad + C.others.bad, C.testOk.ex || C.others.ex, "apps/edge/src/worker.ts:973");
   }
 
@@ -110,6 +111,31 @@ export async function run({ add, mk, hit, log, QUICK }) {
     add("W-07", "worker", "a demo game cannot be made bigger than 10 people (create or settings)", C.demoCap.cases + C.settingsCap.cases, C.demoCap.bad + C.settingsCap.bad, C.demoCap.ex || C.settingsCap.ex, "apps/edge/src/worker.ts POST /api/z, PATCH settings", "FAIL");
     add("W-08", "worker", "only the demo is free: an ordinary game of 10 people (or fewer) still needs payment", C.notFreeOther.cases, C.notFreeOther.bad, C.notFreeOther.ex, "apps/edge/src/worker.ts publish");
     add("W-09", "worker", "'Make a copy' of a demo game gives an ordinary draft (the upgrade path in the console spec 5.2 step 8)", C.copy.cases, C.copy.bad, C.copy.ex, "apps/edge/src/clone.ts", "GAP");
+  }
+
+  /* ---------------- W-B2: the demo as a state machine (every route that could make it free by mistake, or stuck) ---------------- */
+  {
+    const C = { late: mk(), dates: mk(), pack: mk(), link: mk(), stays: mk(), table: mk() };
+    const w = world(); const o = await w.organizer("states@acme.com"); const pubBody = { email: "boss@acme.com", phone: "98765 43210" };
+    const far = startIn(200 * 24 * HOUR);
+    // an ordinary published game cannot become a demo
+    await w.call("POST", "/api/z", mkGame("QA-S-ORD", { cap: 8 }), o.h); await w.call("POST", "/api/z/QA-S-ORD/publish", pubBody, o.h);
+    const late = await w.call("PATCH", "/api/z/QA-S-ORD/settings", { demo: true }, o.h); hit(C.late, late.status === 409, () => `a published ordinary game was switched to a demo (HTTP ${late.status})`);
+    // a published demo: dates like an unpaid game, room for 10 whatever the size it was made with, never switched back, no pay link
+    await w.call("POST", "/api/z", mkGame("QA-S-DEMO", { cap: 3, demo: true }), o.h);
+    const pl0 = await w.call("POST", "/api/z/QA-S-DEMO/paylink", {}, o.h); hit(C.link, pl0.status === 409, () => `a pay link was made for a demo draft (HTTP ${pl0.status})`);
+    await w.call("POST", "/api/z/QA-S-DEMO/publish", pubBody, o.h);
+    hit(C.pack, w.one("SELECT pack FROM engagement WHERE id='QA-S-DEMO'").pack === 10, () => `a demo made for 3 people is published with pack ${w.one("SELECT pack FROM engagement WHERE id='QA-S-DEMO'").pack}`);
+    const raise = await w.call("PATCH", "/api/z/QA-S-DEMO/settings", { cap: 10 }, o.h); hit(C.pack, raise.status === 200, () => `raising a published demo from 3 to 10 gave HTTP ${raise.status}`);
+    const farMove = await w.call("PATCH", "/api/z/QA-S-DEMO/settings", { startRound: far }, o.h); hit(C.dates, farMove.status === 400, () => `a published demo was moved 200 days ahead (HTTP ${farMove.status})`);
+    const off = await w.call("PATCH", "/api/z/QA-S-DEMO/settings", { demo: false }, o.h); hit(C.stays, off.status === 409, () => `a published demo was switched back to an ordinary game (HTTP ${off.status})`);
+    // a table game cannot be set up for more people than the table can play
+    for (const cap of [2, 20, 21, 100]) { const r = await w.call("POST", "/api/z", mkGame("QA-S-TBL" + cap, { cap, mode: "table" }), o.h); hit(C.table, (cap <= 20) === (r.status === 200), () => `a table game for ${cap} people gave HTTP ${r.status}`); }
+    await w.call("POST", "/api/z", mkGame("QA-S-RACE", { cap: 100 }), o.h);
+    const toTable = await w.call("PATCH", "/api/z/QA-S-RACE/settings", { mode: "table" }, o.h); hit(C.table, toTable.status === 400, () => `a 100-person race was switched to a table (HTTP ${toTable.status})`);
+    add("W-19", "worker", "a table game cannot be set up for more people than the table can play (create, switch to table, make bigger)", C.table.cases, C.table.bad, C.table.ex, "apps/edge/src/worker.ts POST /api/z and settings (TABLE_MAX_PLAYERS)", "FAIL");
+    add("W-20", "worker", "a published game cannot become a demo; a published demo cannot be switched back", C.late.cases + C.stays.cases, C.late.bad + C.stays.bad, C.late.ex || C.stays.ex, "apps/edge/src/worker.ts settings", "FAIL");
+    add("W-21", "worker", "a demo is dated like an unpaid game, is published with room for 10, and has no pay link", C.dates.cases + C.pack.cases + C.link.cases, C.dates.bad + C.pack.bad + C.link.bad, C.dates.ex || C.pack.ex || C.link.ex, "apps/edge/src/worker.ts maxAheadFor / publish / paylink", "FAIL");
   }
 
   /* ---------------- W-C: head-count and guest-list shapes ---------------- */

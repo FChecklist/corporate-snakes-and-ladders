@@ -14,10 +14,11 @@ import { GRACE_ROUNDS, DEMO_CAP } from "../../packages/beacon/src/config";
 // @ts-ignore plain JS module shared with the other harnesses
 import { fakeFetcher, fakeVerify, randomnessOf, roundAt } from "./lib/beacon.mjs";
 
-const SEED = "demo10", WINDOW = 20;
+const WINDOW = 20;
 
-describe("the free 10-person demo, played whole", () => {
-  test("10 phones join a customer's demo game (Rs 0), the 11th is refused, the game is played to the end, every phone agrees and the winners are the independent ones", async () => {
+/** The whole proof for one seed. `exclusive` switches one prize per person on (the new end rule of the game then runs on the real phones). */
+async function proveDemo(SEED: string, exclusive: boolean) {
+  {
     const d = makeD1(); const raw = d.raw;
     const env = { DB: d.db, ORGANIZER_SECRET: "plat", DAILY_WRITE_BUDGET: "100000000", JOIN_PER_IP_DAY: "1000000", JOIN_PER_IP_MINUTE: "1000000", DATA_KEY: "k", PUBLIC_ORIGIN: "https://snakes.example" } as unknown as Env; // LIVE mode, no payment gateway, no test switch
     let vt = Date.UTC(2026, 9, 20, 10, 0, 0);
@@ -28,7 +29,7 @@ describe("the free 10-person demo, played whole", () => {
     const org = await j(await req("POST", "/api/start", { email: "customer@acme.com", consent: TICKS }, { "cf-connecting-ip": "1.1.1.1" }));
     const h = { "x-organizer": org.token as string };
     const startMs = vt + 10 * 60_000, startRound = roundAt(startMs);
-    const made = await req("POST", "/api/z", { id: "DEMO-SIM", startRound, callSeconds: WINDOW, cap: DEMO_CAP, demo: true }, h);
+    const made = await req("POST", "/api/z", { id: "DEMO-SIM", startRound, callSeconds: WINDOW, cap: DEMO_CAP, demo: true, ...(exclusive ? { exclusive: true } : {}) }, h);
     expect(made.status).toBe(200); expect((await j(made)).demo).toBe(true);
     const tooBig = await req("POST", "/api/z", { id: "DEMO-BIG", startRound, callSeconds: WINDOW, cap: 11, demo: true }, h);
     expect(tooBig.status).toBe(400); expect((await j(tooBig)).code).toBe("demo-cap");
@@ -78,7 +79,8 @@ describe("the free 10-person demo, played whole", () => {
     // 4. every phone shows the same standings, and they are the independent ones
     const b0 = randomnessOf(startRound + 1, SEED), first = startRound + GRACE_ROUNDS, stride = turnRounds(WINDOW);
     const betas = Array.from({ length: 150 }, (_, t) => randomnessOf(first + t * stride + betaOffset(WINDOW), SEED));
-    const ref = playRace({ ...defaultRaceCfg("DEMO-SIM", 10) }, { b0, betas });
+    // the reference uses the same pure engine code on the public values, so this checks the plumbing (join, schedule, votes, store), not the rules: the rules are checked by tools/qa-model.mjs
+    const ref = playRace({ ...defaultRaceCfg("DEMO-SIM", 10), ...(exclusive ? { exclusive: true, milestonePrizes: 1 } : {}) }, { b0, betas });
     expect(ref.ended).toBe(true);
     const views = phones.map((p) => p.rt.view());
     for (const v of views) { expect(v.turnsPlayed).toBe(ref.turnsPlayed); expect(v.top.map((r) => r.seat)).toEqual(rankPlayers(ref, 10).map((r) => r.seat)); expect(v.crowd!.players).toBe(10); }
@@ -95,6 +97,19 @@ describe("the free 10-person demo, played whole", () => {
     for (let k = 0; k < 8 && !sentReports.length; k++) { vt += 5 * 60_000; await lifecycleTick(env as any, vt); }
     expect(sentReports.some((m) => m.to === "customer@acme.com")).toBe(true);
     expect((raw.prepare("SELECT COUNT(*) c FROM payment").get() as any).c).toBe(0);
-    console.log(`DEMO10 PROOF: 10 joined, 11th refused ("${eleventh.rt.error}"), ${ref.turnsPlayed} turns, ${settled.length} prizes awarded and equal to the independent result, report mailed, payments: 0`);
+    console.log(`DEMO10 PROOF (${SEED}${exclusive ? ", one prize per person" : ""}): 10 joined, 11th refused ("${eleventh.rt.error}"), ${ref.turnsPlayed} turns, ${settled.length} prizes awarded and equal to the recomputed result, report mailed, payments: 0`);
+    return { turns: ref.turnsPlayed, prizes: settled.length, finishers: ref.finishedCount };
+  }
+}
+
+describe("the free 10-person demo, played whole", () => {
+  test("10 phones join a customer's demo game (Rs 0), the 11th is refused, the game is played to the end, every phone agrees and the accepted winners are the recomputed ones", async () => {
+    const r = await proveDemo("demo10", false);
+    expect(r.prizes).toBeGreaterThanOrEqual(2);
+  }, 600000);
+  test("the same with one prize per person: the game waits for five players without a milestone prize and all six prizes are given", async () => {
+    let full = 0;
+    for (const seed of ["demo10x1", "demo10x2", "demo10x3"]) { const r = await proveDemo(seed, true); if (r.finishers >= 5) { expect(r.prizes).toBe(6); full++; } }
+    expect(full).toBeGreaterThanOrEqual(1);
   }, 600000);
 });

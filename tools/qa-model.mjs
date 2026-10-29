@@ -146,7 +146,7 @@ function mkRewards(kind, ms, mode, play, endPrizes) {
 
 function partGame() {
   const C = {
-    accepted: mk(), noThrow: mk(), tableBig: mk(), teamsMany: mk(), other: mk(), climb: mk(), comeback: mk(), teamNoPrize: mk(), tableOrder: mk(), ends: mk(), endsWhy: mk(), moves: mk(), rank: mk(), rankPrize: mk(), prizeUnique: mk(), excl: mk(), stable: mk(), prefix: mk(), crowd: mk(), det: mk(),
+    accepted: mk(), noThrow: mk(), tableBig: mk(), teamsMany: mk(), other: mk(), climb: mk(), comeback: mk(), teamNoPrize: mk(), tableOrder: mk(), endTurn: mk(), ends: mk(), endsWhy: mk(), moves: mk(), rank: mk(), rankPrize: mk(), prizeUnique: mk(), excl: mk(), stable: mk(), prefix: mk(), crowd: mk(), det: mk(),
     incompleteFinish: mk(), noResult: mk(), allLines: mk(), tableLines: mk(), tableExcl: mk(), teamEnd: mk(), teamRank: mk(), tableEnd: mk(), noOneHome: mk(), cap225: mk(), winnerMilestone: mk(), finishOrder: mk(), finLines: mk(),
   };
   const ex = { stableMilestone: "", rankPrize: "" };
@@ -178,7 +178,12 @@ function partGame() {
         // organizer-side sanity: does the configuration the product accepted make sense for the people who will play?
         games++;
         let g;
-        if (mode === "table" && players > 20) C.tableBig.cases++; else if (mode === "team" && teams > players) C.teamsMany.cases++; else C.other.cases++;
+        if (mode === "table" && players > 20) { // the engine's contract: refuse a table of more than 20 in a plain sentence. That the server never lets one be set up is checked in W-19.
+          let msg = ""; try { playGame(gid, cfg, players, { b0, betas: bt, thrown: threw, absent: (s, t) => play === "presence" && !threw(s, t) }); } catch (e) { msg = e.message; }
+          C.tableBig.cases++; if (!/2 to 20 players/.test(msg)) { C.tableBig.bad++; if (!C.tableBig.ex) C.tableBig.ex = `table game of ${players} players was played instead of refused`; }
+          continue;
+        }
+        if (mode === "team" && teams > players) C.teamsMany.cases++; else C.other.cases++;
         try { g = playGame(gid, cfg, players, { b0, betas: bt, thrown: threw, absent: (s, t) => play === "presence" && !threw(s, t) }); hit(C.noThrow, true, ""); }
         catch (e) { const kind = /table game has 2 to 20/.test(e.message) ? "tableBig" : /no more teams than players/.test(e.message) ? "teamsMany" : "other"; C[kind].bad++; if (!C[kind].ex) C[kind].ex = `${mode}${teams || ""}/${size}/${sn}-${ld}/${finish}/${play}/${players} players/cap ${cap}: ${e.message}`; hit(C.noThrow, false, e.message); continue; }
         if (g.kind === "table") { tableChecks(C, ex, g, cfg, gid, players, rk, exclusive, ep, cap, bt, size, finish, threw); continue; }
@@ -192,6 +197,21 @@ function partGame() {
           if (JSON.stringify(r.pos) !== JSON.stringify(rr.pos) || r.finishedTurn !== rr.fin || r.ladders !== rr.ladders || r.missed !== rr.missed) { okMove = false; bad = `seat ${s}: engine ${r.pos.slice(0, 12)} vs rules ${rr.pos.slice(0, 12)}`; }
         }
         hit(C.moves, okMove, () => `${mode}/${size}/${players}p ${bad}`);
+        // the END of the game, worked out independently from the positions (RULES 2.3 and the end-when-N-home setting): the first turn on which N players that can still take a 'reach the end' prize are home, else the turn limit
+        if (!cfg.teams) {
+          const rrs = st.runs.map((r) => refRun(st.boards[r.seat - 1], gid, r.seat, cap, bt, finish, threw)); // one pawn each, every turn up to the limit
+          const msq = [...(cfg.milestones ?? [75])].sort((a, b) => a - b), mLines = exclusive ? cfg.rewards.filter((l) => l.pattern === "milestone").length : 0;
+          const holdersAt = (t) => { const hs = new Set(); for (let i = 1; i <= Math.min(mLines, msq.length); i++) { const reached = rrs.map((x, k) => ({ seat: k + 1, t: x.pos.findIndex((p, u) => u <= t && p >= msq[i - 1]) })).filter((x) => x.t >= 0).sort((a, b) => a.t - b.t || rrs[b.seat - 1].pos[b.t] - rrs[a.seat - 1].pos[a.t] || (fateOf(gid, a.seat, `milestone${i}`) < fateOf(gid, b.seat, `milestone${i}`) ? -1 : 1)); const w = reached.find((x) => !hs.has(x.seat)); if (w) hs.add(w.seat); } return hs; };
+          let endTurns = cap;
+          for (let t = 0; t < cap; t++) { const home = rrs.map((x, k) => ({ k: k + 1, f: x.fin })).filter((x) => x.f !== null && x.f <= t); if (home.length < ep) continue; const hold = exclusive ? holdersAt(t) : new Set(); if (home.filter((x) => !hold.has(x.k)).length >= ep) { endTurns = t + 1; break; } }
+          hit(C.endTurn, st.turnsPlayed === endTurns, () => `${mode}/${size}/${sn}-${ld}/${finish}/${players}p ${play} cap ${cap} ends-when ${ep} exclusive ${exclusive}: the engine stops after ${st.turnsPlayed} turns, the rules say ${endTurns}`);
+          // 'reach the end' prize k goes to the k-th finisher in the order of RULES 2.2 (earlier turn, more ladders, fewer missed turns, fate), when nobody holds two prizes
+          if (!exclusive) {
+            const fin = rrs.map((x, k) => ({ seat: k + 1, ...x })).filter((x) => x.fin !== null && x.fin < st.turnsPlayed).sort((a, b) => a.fin - b.fin || b.ladders - a.ladders || a.missed - b.missed || (fateOf(gid, a.seat, "rank") < fateOf(gid, b.seat, "rank") ? -1 : 1));
+            const sd = settleGame(g, cfg, Array.from({ length: players }, (_, i) => `${i + 1}x00000000`));
+            for (const l of cfg.rewards.filter((x) => x.pattern === "finish" && x.ordinal <= ep)) { const w = sd.find((x) => x.pattern === "finish" && x.ordinal === l.ordinal), want1 = fin[l.ordinal - 1]; hit(C.finishOrder, (!w && !want1) || (w && want1 && w.pids[0] === `${want1.seat}x00000000`), () => `${size}/${players}p: finish #${l.ordinal} went to ${w ? w.pids[0] : "nobody"}, the rules say seat ${want1 ? want1.seat : "nobody"}`); }
+          }
+        }
         // crowd
         const cr = crowdOf(st); hit(C.crowd, cr.bands.reduce((a, b) => a + b, 0) === players && cr.finished === st.finishedCount, () => `bands do not add up to ${players}`);
         // ranking: strict order, independent comparator (RULES 2.2)
@@ -335,11 +355,13 @@ function partGame() {
   log(`[game] board 100, default turn limit 60: ${stats100}`);
   log(`[game] board 144, turn limit 60: ${medNone}`);
   log(`[game] board 225, turn limit 60: ${bigNone}`);
-  add("G-01", "game", "a table game played by more than 20 people does not break (every phone would show 'A table game has 2 to 20 players.')", C.tableBig.cases, C.tableBig.bad, C.tableBig.ex, "packages/beacon/src/table.ts validateTableCfg is only checked when phones work the game out; apps/edge/src/worker.ts POST /api/z and PATCH settings never compare cap with 20 for mode=table", "FAIL");
-  add("G-01b", "game", "a team race with more teams than people who joined does not break (e.g. 4 teams chosen, 3 people join)", C.teamsMany.cases, C.teamsMany.bad, C.teamsMany.ex, "packages/beacon/src/game.ts raceCfgOf passes cfg.teams through; race.ts validateRaceCfg throws 'no more teams than players'", "FAIL");
+  add("G-01", "game", "the engine refuses a table of more than 20 players in a plain sentence instead of playing it badly (the server must never let one be set up: W-19)", C.tableBig.cases, C.tableBig.bad, C.tableBig.ex, "packages/beacon/src/table.ts validateTableCfg", "FAIL");
+  add("G-01b", "game", "a team race with more teams than people who joined does not break (e.g. 4 teams chosen, 3 people join)", C.teamsMany.cases, C.teamsMany.bad, C.teamsMany.ex, "packages/beacon/src/game.ts raceCfgOf must use no more teams than players (fixed: Math.min(cfg.teams, players))", "FAIL");
   add("G-01c", "game", "no other setting combination makes the engine throw", C.other.cases, C.other.bad, C.other.ex, "packages/beacon/src/race.ts", "FAIL");
   add("G-02", "game", "every game terminates: it always ends, at or before the turn limit", C.ends.cases, C.ends.bad, C.ends.ex, "race.ts playRace");
   add("G-03", "game", "end reason is true (turn limit reached exactly, or enough players home)", C.endsWhy.cases, C.endsWhy.bad, C.endsWhy.ex, "race.ts playRace");
+  add("G-03b", "game", "the game ends on the turn the rules say (independent count of players home, with one prize per person: players without a milestone prize)", C.endTurn.cases, C.endTurn.bad, C.endTurn.ex, "packages/beacon/src/race.ts playRace / homeCount", "FAIL");
+  add("G-24", "game", "'reach the end' prizes go to the finishers in the order of RULES 2.2 (independent order)", C.finishOrder.cases, C.finishOrder.bad, C.finishOrder.ex, "packages/beacon/src/race.ts candidates / compareChain", "FAIL");
   add("G-04", "game", "RULES 1: every pawn moves exactly as the rules say (independent re-statement; snakes, ladders, exact/pass finish, missed turns, home stays home)", C.moves.cases, C.moves.bad, C.moves.ex, "packages/beacon/src/play.ts step/advance");
   add("G-05", "game", "the ranking lists every player once, earlier finishers first, strictly ordered (RULES 2.2: never tied)", C.rank.cases, C.rank.bad, C.rank.ex, "race.ts orderPlayers");
   add("G-06", "game", "the prize for 'reach the end #k' goes to the player the ranking table shows in place k", C.rankPrize.cases, C.rankPrize.bad, ex.rankPrize || C.rankPrize.ex, "packages/beacon/src/race.ts: orderPlayers breaks the last tie with fate label \"rank\" (line ~97) while candidates()/settleRace break it with label \"finish\" (line ~139): two players who finish on the same turn with the same ladders and misses are put in opposite order", "FAIL");
@@ -380,13 +402,7 @@ function tableChecks(C, ex, g, cfg, gid, players, rk, exclusive, ep, cap, bt, si
    PART 3. CONFIG: what validateCfg lets through versus what the engine can play
    ===================================================================================================================================== */
 function partConfig() {
-  const C = { tableCap: mk(), teamCap: mk(), msSize: mk(), fin: mk(), defaults: mk(), epLines: mk(), oneDef: mk() };
-  // a table game: the head-count the organizer may set (cap) versus the 2..20 the engine can play
-  const tbl = validateCfg({ mode: "table" });
-  hit(C.tableCap, !(tbl.ok), "validateCfg accepts a table game with no head-count limit: the cap (up to 100,000) is a separate field that the server never compares with 20");
-  // team race: teams versus the people who actually join
-  const tm = validateCfg({ mode: "team", teams: 10 });
-  hit(C.teamCap, !(tm.ok), "validateCfg accepts a 10-team race; the engine refuses it when fewer than 10 people join");
+  const C = { msSize: mk(), fin: mk(), defaults: mk(), epLines: mk(), oneDef: mk() };
   // milestones versus board size when the board is changed afterwards
   const base = validateCfg({ board: { size: 225, snakes: 9, ladders: 9, finish: "exact" }, milestones: [200] }).cfg;
   const back = validateCfg({ board: { size: 100, snakes: 9, ladders: 9, finish: "exact" } }, base);
@@ -396,8 +412,6 @@ function partConfig() {
   const def = validateCfg({}).cfg;
   hit(C.oneDef, def.exclusive === true, "RULES 2.4 and OPTIONS_TABLES say one prize per person is ON by default; a new game has it OFF (config.ts defaultCfg has no exclusive; console zc.js sets ex:false)");
   hit(C.defaults, (def.endPrizes ?? 5) === 1, "OPTIONS_TABLES row 'Game ends when N players are home': hide at default 1 (?); the code default is 5 (config.ts DEFAULT_END_PRIZES)");
-  add("C-01", "config", "a table game cannot be set up for more people than the table can play (2 to 20)", C.tableCap.cases, C.tableCap.bad, C.tableCap.ex, "apps/edge/src/worker.ts POST /api/z and POST settings never compare cap with the table limit (config.ts validateCfg does not know the cap); a 21st joiner makes every phone show 'A table game has 2 to 20 players.'", "FAIL");
-  add("C-02", "config", "a team race cannot break when fewer people join than there are teams", C.teamCap.cases, C.teamCap.bad, C.teamCap.ex, "packages/beacon/src/game.ts raceCfgOf passes cfg.teams straight through; race.ts validateRaceCfg then throws when players < teams (6 joiners, 10 teams)", "FAIL");
   add("C-03", "config", "changing the board size keeps the milestone squares legal", C.msSize.cases, C.msSize.bad, C.msSize.ex, "config.ts validateCfg");
   add("C-04", "config", "RULES 2.4 / OPTIONS_TABLES: one prize per person is ON by default for a new game", C.oneDef.cases, C.oneDef.bad, C.oneDef.ex, "packages/beacon/src/config.ts defaultCfg; apps/web/public/zc.js:1091 (ex:false) and :215", "GAP");
   add("C-05", "config", "OPTIONS_TABLES: 'Game ends when N players are home' default (the table says 1 (?), the code says 5); the console spec 5.4 keeps it visible, the options table hides it: owner decision", C.defaults.cases, C.defaults.bad, C.defaults.ex, "packages/beacon/src/race.ts DEFAULT_END_PRIZES = 5; apps/web/public/zc.js:307", "GAP");
