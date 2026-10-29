@@ -179,7 +179,9 @@ export function settleRace(st: RaceState, lines: readonly RewardLike[], pidOf: (
   if (st.cfg.teams) return settleTeams(st, lines, pidOf, round);
   const out: Settled[] = [], won = new Set<number>();
   if (st.cfg.exclusive && !st.ended) return out;
-  for (const l of lines) {
+  // The lines are worked through in the order of the houses (PRIZE_IDS, the same as config.ts HOUSE_ORDER) and by winner number, whatever order they were sent in: with one prize per person the order decides who gets what.
+  const ordered = [...lines].sort((a, b) => PRIZE_IDS.indexOf(a.pattern as (typeof PRIZE_IDS)[number]) - PRIZE_IDS.indexOf(b.pattern as (typeof PRIZE_IDS)[number]) || a.ordinal - b.ordinal);
+  for (const l of ordered) {
     if (l.pattern === "team") continue;
     const cand = candidates(st, l.pattern, l.ordinal);
     let pick: { seat: number; idx: number; tied?: number } | undefined;
