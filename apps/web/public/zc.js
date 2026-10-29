@@ -290,23 +290,28 @@
   // the turn window (the time to throw): 15, 20, 25 or 30 seconds (an older game that uses another value keeps its own so it never disappears)
   const spdOpts = (cur) => { const o = [["15", "15 seconds"], ["20", "20 seconds"], ["25", "25 seconds"], ["30", "30 seconds"]]; const c = String(cur || ""); if (c && !o.some((x) => x[0] === c)) { o.push([c, c + " seconds"]); o.sort((a, b) => Number(a[0]) - Number(b[0])); } return o; };
   const nums = (a, b) => Array.from({ length: b - a + 1 }, (_, i) => [String(a + i), String(a + i)]);
+  /** SL-07: how long a game can last, from the settings themselves (no guess): the turn limit times the turn window, and it ends sooner when enough players are home. */
+  const durationLine = (f) => { const secs = Number(f.spd) || 20, tc = Number(f.tc) || 60, ep = Number(f.ep) || 5; return `A game lasts at most ${Math.ceil(tc * secs / 60)} minutes (${tc} turns of ${secs} seconds), plus any brand moments you add. It ends sooner, as soon as ${ep} ${ep === 1 ? "player is" : "players are"} home. The first turn comes 2 minutes after the start time.`; };
   /** The game settings (game type, throws, board, milestones, turn limit, one prize per person, look). Shared by step 2 and the Quick setup form. */
   function gameBlock() {
     const f = S.f;
+    let adv = grp("gm", "Game type", [["race", "Race: everyone has their own board"], ["team", "Team race"], ["table", "Table: 2 to 20 players share one board"]]);
+    if (f.gm === "team") adv += grp("tm", "How many teams?", nums(2, 10)) + small("Players are dealt into teams by chance. A team finishes when all its players are home.");
+    else if (f.gm === "table") adv += small("Players take turns on one shared board. The first players home win. Best for 2 to 20 people.");
+    else adv += small("Every player moves a pawn on their own board. The first players home win.");
     let h = `<span class="zc-lbl zc-sec zc-sub">The game</span>`
-      + grp("gm", "Game type", [["race", "Race: everyone has their own board"], ["team", "Team race"], ["table", "Table: 2 to 20 players share one board"]]);
-    if (f.gm === "team") h += grp("tm", "How many teams?", nums(2, 10)) + small("Players are dealt into teams by chance. A team finishes when all its players are home.");
-    else if (f.gm === "table") h += small("Players take turns on one shared board. The first players home win. Best for 2 to 20 people.");
-    else h += small("Every player moves a pawn on their own board. The first players home win.");
-    h += grp("pl", "Throws", [["fate", "Automatic: every throw happens by itself"], ["presence", "Players throw: a player who does not throw in the window misses the turn"]])
-      + grp("bs", "Board size", [["100", "100 squares"], ["144", "144 squares (longer)"], ["225", "225 squares (longest)"]])
+      + grp("pl", "Throws", [["fate", "Automatic: every throw happens by itself"], ["presence", "Players throw: a player who does not throw in the window misses the turn"]])
+      + `${lbl("f-ms", "Milestone squares (1 to 3, separated by commas)")}${inp("ms", { max: 24, ph: "75", attrs: 'inputmode="numeric" autocomplete="off"' })}` + small("The first player on or past a milestone square wins the milestone prize. Each milestone prize needs its own square.");
+    // SL-06: the rarely used choices sit in one fold-away block (hidden when they are all at their defaults, open when the saved game uses any other)
+    adv += grp("bs", "Board size", [["100", "100 squares"], ["144", "144 squares (longer)"], ["225", "225 squares (longest)"]])
       + grp("sn", "Snakes", nums(6, 12)) + grp("ld", "Ladders", nums(6, 12))
       + grp("fin", "How a player finishes", [["exact", "Exact throw to land on the last square"], ["pass", "Reach or pass the last square"]])
-      + `${lbl("f-ms", "Milestone squares (1 to 3, separated by commas)")}${inp("ms", { max: 24, ph: "75", attrs: 'inputmode="numeric" autocomplete="off"' })}` + small("The first player on or past a milestone square wins the milestone prize. Each milestone prize needs its own square.")
       + `<div class="zc-hide" data-hidden="1">${lbl("f-tc", "Turn limit (10 to 150 turns)")}${inp("tc", { type: "number", ph: "60", attrs: 'inputmode="numeric" min="10" max="150" step="1"' })}` + small("The game ends at the turn limit even if nobody is home. Then the players are ranked by square.") + `</div>`
       + grp("ep", "The game ends when this many players are home", nums(1, 5))
       + `<div class="zc-chips zc-gap">${bchip("ex", "One prize per person")}</div>` + small("When it is on, nobody wins two prizes.")
       + grp("th", "Look of the board", [["jungle", "Jungle"], ["career", "Career ladder"]]);
+    const plain = f.gm === "race" && f.bs === "100" && f.sn === "9" && f.ld === "9" && f.fin === "exact" && f.th === "jungle" && f.ep === "5" && !f.ex;
+    h += `<details class="zc-more" id="more-game"${plain && !S.moreGame ? "" : " open"}><summary>More game choices: team race, table, board, snakes and ladders, finish rule, look</summary>${adv}</details>`;
     return h;
   }
   /** The game settings of the form, as the server wants them. Throws an Error with a plain sentence when something is out of range. */
@@ -334,6 +339,7 @@
     return `<span class="zc-lbl zc-sec zc-sub">How many players</span><span class="zc-lbl" id="gl-cap">How many people at most?</span><div class="zc-chips" role="group" aria-labelledby="gl-cap">${caps}</div>` + own + small("Invited guests count too. The price is shown when you pay.")
       + `<span class="zc-lbl zc-sec zc-sub">How the game runs</span>` + grp("spd", "Length of each turn", spdOpts(f.spd))
       + small("Every turn lasts this long. In \"Players throw\" play, a player must throw inside the window. In automatic play the throw happens by itself when the window closes.")
+      + small(durationLine(f))
       + gameBlock()
       + `<span class="zc-lbl zc-sec zc-sub">Who is this game for?</span><div class="zc-chips">${bchip("emp", "Only my employees (nobody can invite anyone)")}</div>`
       + small(f.emp ? "Only the employees on your list can play. Guests cannot invite anyone. Anyone else who opens your link waits for you to say yes." : "Employees, vendors, customers, families: everyone can play. Put the people you know on your list; others can still come in with the link.")
@@ -1469,6 +1475,7 @@
       window.open("/preview.html#" + h.toString(), "_blank", "noopener");
     }));
     // publish and pay
+    if ($("more-game")) $("more-game").ontoggle = () => { S.moreGame = $("more-game").open; }; // SL-06: the fold-away game choices stay as the organizer left them when the page redraws
     if ($("publishopen")) $("publishopen").onclick = () => { S.pubOpen = true; S.pubNote = ""; redraw(); };
     if ($("pubcancel")) $("pubcancel").onclick = () => { S.pubOpen = false; redraw(); };
     if ($("pubEmail")) $("pubEmail").oninput = (e) => { S.contact.email = e.target.value; };
