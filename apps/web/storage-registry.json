@@ -123,9 +123,10 @@
     {
       "id": "theme",
       "store": "localStorage",
-      "say": "The colour choice.",
+      "say": "The header colour you pick and whether the page is light or dark.",
       "keys": [
-        "cb-theme"
+        "ct-theme",
+        "cg-theme"
       ]
     },
     {

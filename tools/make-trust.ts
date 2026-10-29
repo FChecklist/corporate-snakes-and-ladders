@@ -2,8 +2,9 @@
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { llmsTxt, trustHtml } from "../apps/edge/src/trust-page";
+import { PAGES, apply } from "./make-site-shell.mjs";
 
 const out = join(import.meta.dir, "..", "apps", "web", "public");
-writeFileSync(join(out, "trust.html"), trustHtml());
+writeFileSync(join(out, "trust.html"), apply(PAGES.find((p) => p.f === "trust.html")!, trustHtml())); // the words come from the facts, the head, header and footer from the shared shell
 writeFileSync(join(out, "llms.txt"), llmsTxt());
 console.log("wrote trust.html and llms.txt");

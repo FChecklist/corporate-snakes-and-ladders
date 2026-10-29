@@ -9,6 +9,7 @@ Plain, checked answers about safety, privacy, law, cost and what the software do
 - [Rules and privacy](https://snakes.corporatetambola.com/legal.html): the privacy and data policy and the game rules
 - [Terms](https://snakes.corporatetambola.com/terms.html)
 - [Data processing](https://snakes.corporatetambola.com/dpa.html) and [sub-processors](https://snakes.corporatetambola.com/subprocessors.html)
+- [How it works](https://snakes.corporatetambola.com/how-it-works.html): the game in five steps, in plain words
 - [Organizer guide](https://snakes.corporatetambola.com/organizer-guide.html): how to set up, share, run and close a game
 - [Free demo](https://snakes.corporatetambola.com/demo.html): a practice game on a real board, about a minute; tap Roll the dice, nothing to type
 - [Home, prices and how to start](https://snakes.corporatetambola.com/): price list by size; building and publishing are free, the organizer pays before the start
