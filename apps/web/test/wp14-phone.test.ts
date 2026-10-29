@@ -66,3 +66,17 @@ describe("SL-12: the join page says to stay in the same app", () => {
     expect(p.text()).toContain("keep using Teams");
   });
 });
+
+describe("SL-09: the page does not redraw under a finger", () => {
+  test("while a finger is down the screen is not rebuilt (the same element stays); after it lifts the page redraws again", async () => {
+    const o = await organizer(); await publishedGame(o, "FINGER-1");
+    const p = await phone(o, "FINGER-1");
+    await join(p);
+    const card = p.$(".zwait") as any; expect(!!card).toBe(true);
+    p.win.document.dispatchEvent(new p.win.Event("pointerdown", { bubbles: true }));
+    await new Promise((r) => setTimeout(r, 2300)); // more than two redraw ticks
+    expect(p.$(".zwait") === card).toBe(true); // the very same element: nothing was rebuilt under the finger
+    p.win.document.dispatchEvent(new p.win.Event("pointerup", { bubbles: true }));
+    await p.waitFor(() => p.$(".zwait") !== card, 10000); // redraws resume
+  });
+});

@@ -64,6 +64,11 @@
   const rt = new ZG.PhoneRuntime(EID, DEMO ? { api, getPublic, beacon: DEMO.beacon, verify: DEMO.verify, mono: DEMO.mono, store } : { api, getPublic, beacon: {}, mono: () => performance.now(), store });
   let firstPaint = true, sound = store.get("cbz-sound") === "on", timer = null, lastStepKey = "";
   if (window.TBAudio) TBAudio.enabled = sound;
+  // SL-09: the page redraws itself every second; a redraw between a finger going down and coming up swallows the tap (the Roll button "does nothing" and the screen flickers). No redraw while a finger is down.
+  let fingerOn = false, fingerAt = 0;
+  document.addEventListener("pointerdown", () => { fingerOn = true; fingerAt = Date.now(); }, true);
+  ["pointerup", "pointercancel", "touchend", "touchcancel"].forEach((ev) => document.addEventListener(ev, () => { fingerOn = false; }, true));
+  const fingerDown = () => fingerOn && Date.now() - fingerAt < 4000; // 4 s at most, so a missed "up" can never freeze the page
   // SL-11: ask the phone to keep the screen on while the game page is open (it lets go when the page is hidden, so it is asked again when the page comes back)
   let wakeLock = null;
   const keepAwake = async () => { try { if (navigator.wakeLock && document.visibilityState === "visible" && !wakeLock) { wakeLock = await navigator.wakeLock.request("screen"); wakeLock.addEventListener("release", () => { wakeLock = null; }); } } catch { wakeLock = null; /* not allowed (low battery, old browser): the game still plays */ } };
@@ -862,6 +867,7 @@
     if (ME.removed) { if (timer) { clearInterval(timer); timer = null; } mediaHost.style.display = "none"; $app.innerHTML = removedView(); paintBrand(); return; } // taken off the list: the phone stops
     const fresh = syncPrizes(v); reportToStore(v); loadCf(v); pollMe(v); loadK6();
     if (focusGuard(["cfnm", "cfph", "mi-name", "mi-phone"])) return; // never wipe a form someone is typing in
+    if (fingerDown()) return; // SL-09: never redraw under a finger that is pressing
     noteRoll(v);
     $app.innerHTML = playView(v);
     paintBrand(); syncDie(); syncTimer(); slidePawn(v); bindFolds(); syncMedia(v); bindShare(); bindConfirm(v); loadInvites(v); bindInvite(v); loadMine(v); bindMine(v);
