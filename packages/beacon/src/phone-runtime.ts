@@ -152,7 +152,7 @@ export class PhoneRuntime {
 
   /** Board, prizes and brand breaks come from the game's public settings; anything malformed falls back to the plain game. */
   private readCfg(info: any) {
-    const v = validateCfg({ tickets: info?.tickets, rewards: info?.rewards, breaks: info?.breaks, rounds: info?.rounds, invites: info?.invites, opening: info?.opening, closing: info?.closing, mode: info?.mode, play: info?.play, board: info?.board, milestones: info?.milestones, turnCap: info?.turnCap, endPrizes: info?.endPrizes, exclusive: info?.exclusive, teams: info?.teams, theme: info?.theme }, undefined, { stored: true });
+    const v = validateCfg({ tickets: info?.tickets, rewards: info?.rewards, breaks: info?.breaks, rounds: info?.rounds, invites: info?.invites, opening: info?.opening, closing: info?.closing, mode: info?.mode, play: info?.play, board: info?.board, milestones: info?.milestones, turnCap: info?.turnCap, endPrizes: info?.endPrizes, exclusive: info?.exclusive, teams: info?.teams, theme: info?.theme, demo: info?.demo }, undefined, { stored: true });
     this.cfg = v.ok ? v.cfg : defaultCfg();
   }
   private adopt(pid: string) { this.pid = pid; this.phase = "play"; }

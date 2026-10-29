@@ -94,6 +94,8 @@ export function checkBrandLogo(v: unknown): { ok: true; bytes: number } | { ok: 
   if (long > short * LOGO_MAX_RATIO) return { ok: false, error: `The logo is too long and thin. It may be at most ${LOGO_MAX_RATIO} times wider than tall.` };
   return { ok: true, bytes: raw.length };
 }
+/** A free demo game: a real game for up to this many people, published with no payment. */
+export const DEMO_CAP = 10;
 export const MAX_INVITES_PER_PERSON = 10;
 export const defaultInvites = (): InviteCfg => ({ on: false, per: 4, cats: ["family", "colleagues"] });
 export type VerifyMode = "mobile" | "id" | "either" | "both";
@@ -107,7 +109,8 @@ export interface EngagementCfg { /** What a person must give to get in: their mo
   /** The game ends when this many players are home (1 to 5). Absent = 5. */ endPrizes?: number;
   /** True = nobody wins two prizes. Absent = a player may win several. */ exclusive?: true;
   /** Team race: how many teams (2 to 10). */ teams?: number;
-  /** The look of the board: "jungle" (default) or "career" (Career Ladder). Cosmetic only. */ theme?: "jungle" | "career" }
+  /** The look of the board: "jungle" (default) or "career" (Career Ladder). Cosmetic only. */ theme?: "jungle" | "career";
+  /** A free demo game for up to DEMO_CAP people (Rs 0, never held for payment). The size rule is checked by the server. */ demo?: true }
 /**
  * Who decides the winners: the software, never a person. Every phone works out the winners from the public numbers and reports them; our store accepts a result
  * only when this many DIFFERENT phones (one ticket per phone) reported exactly the same winners. Tiny games need half their people; larger ones 5% (3 to 25).
@@ -172,8 +175,8 @@ export const SITE_MEDIA = /^\/[A-Za-z0-9._-]{1,80}\.(mp4|webm|m4a|mp3)$/i;
 export const DEFAULT_TZ = "Asia/Kolkata";
 /** True for a real IANA time zone name this runtime knows. */
 export const isTimeZone = (z: unknown): z is string => { if (typeof z !== "string" || z.length > 64 || !/^[A-Za-z][A-Za-z0-9_+-]*(\/[A-Za-z0-9_+-]+){0,2}$/.test(z)) return false; try { new Intl.DateTimeFormat("en-US", { timeZone: z }); return true; } catch { return false; } };
-export function validateCfg(input: { verify?: unknown; employeesOnly?: unknown; tz?: unknown; join?: unknown; mark?: unknown; tickets?: unknown; rewards?: unknown; breaks?: unknown; rounds?: unknown; invites?: unknown; opening?: unknown; closing?: unknown; name?: unknown; brand?: unknown; mode?: unknown; play?: unknown; board?: unknown; milestones?: unknown; turnCap?: unknown; endPrizes?: unknown; exclusive?: unknown; teams?: unknown; theme?: unknown }, base: EngagementCfg = defaultCfg(), opts: { stored?: boolean } = {}): { ok: true; cfg: EngagementCfg } | { ok: false; error: string } {
-  const cfg: EngagementCfg & { opening: BrandSlot[]; closing: BrandSlot[] } = { tickets: base.tickets, rewards: base.rewards, breaks: base.breaks, rounds: base.rounds ?? 1, invites: base.invites ?? defaultInvites(), opening: base.opening ?? [], closing: base.closing ?? [], ...(base.verify ? { verify: base.verify } : {}), ...(base.employeesOnly ? { employeesOnly: true as const } : {}), ...(base.name ? { name: base.name } : {}), ...(base.brand ? { brand: base.brand } : {}), ...(base.mark ? { mark: base.mark } : {}), ...(base.join ? { join: base.join } : {}), ...(base.tz ? { tz: base.tz } : {}), ...(base.mode ? { mode: base.mode } : {}), ...(base.play ? { play: base.play } : {}), ...(base.board ? { board: base.board } : {}), ...(base.milestones ? { milestones: base.milestones } : {}), ...(base.turnCap ? { turnCap: base.turnCap } : {}), ...(base.endPrizes ? { endPrizes: base.endPrizes } : {}), ...(base.exclusive ? { exclusive: base.exclusive } : {}), ...(base.teams ? { teams: base.teams } : {}), ...(base.theme ? { theme: base.theme } : {}) };
+export function validateCfg(input: { verify?: unknown; employeesOnly?: unknown; tz?: unknown; join?: unknown; mark?: unknown; tickets?: unknown; rewards?: unknown; breaks?: unknown; rounds?: unknown; invites?: unknown; opening?: unknown; closing?: unknown; name?: unknown; brand?: unknown; mode?: unknown; play?: unknown; board?: unknown; milestones?: unknown; turnCap?: unknown; endPrizes?: unknown; exclusive?: unknown; teams?: unknown; theme?: unknown; demo?: unknown }, base: EngagementCfg = defaultCfg(), opts: { stored?: boolean } = {}): { ok: true; cfg: EngagementCfg } | { ok: false; error: string } {
+  const cfg: EngagementCfg & { opening: BrandSlot[]; closing: BrandSlot[] } = { tickets: base.tickets, rewards: base.rewards, breaks: base.breaks, rounds: base.rounds ?? 1, invites: base.invites ?? defaultInvites(), opening: base.opening ?? [], closing: base.closing ?? [], ...(base.verify ? { verify: base.verify } : {}), ...(base.employeesOnly ? { employeesOnly: true as const } : {}), ...(base.name ? { name: base.name } : {}), ...(base.brand ? { brand: base.brand } : {}), ...(base.mark ? { mark: base.mark } : {}), ...(base.join ? { join: base.join } : {}), ...(base.tz ? { tz: base.tz } : {}), ...(base.mode ? { mode: base.mode } : {}), ...(base.play ? { play: base.play } : {}), ...(base.board ? { board: base.board } : {}), ...(base.milestones ? { milestones: base.milestones } : {}), ...(base.turnCap ? { turnCap: base.turnCap } : {}), ...(base.endPrizes ? { endPrizes: base.endPrizes } : {}), ...(base.exclusive ? { exclusive: base.exclusive } : {}), ...(base.teams ? { teams: base.teams } : {}), ...(base.theme ? { theme: base.theme } : {}), ...(base.demo ? { demo: true as const } : {}) };
   if (input.rounds !== undefined) {
     if (!Number.isInteger(input.rounds) || (input.rounds as number) < 1 || (input.rounds as number) > MAX_ROUNDS) return { ok: false, error: "A game has one round. To play again, use Play again: it makes a new game with the same settings." };
     cfg.rounds = input.rounds as number;
@@ -309,6 +312,7 @@ export function validateCfg(input: { verify?: unknown; employeesOnly?: unknown; 
   if (input.endPrizes !== undefined) { const v = input.endPrizes as any; if (v === null || v === DEFAULT_END_PRIZES) delete cfg.endPrizes; else if (!Number.isInteger(v) || v < 1 || v > MAX_END_PRIZES) return { ok: false, error: `The game can end when 1 to ${MAX_END_PRIZES} players are home.` }; else cfg.endPrizes = v; }
   if (input.exclusive !== undefined) { if (input.exclusive === true) cfg.exclusive = true; else if (input.exclusive === false || input.exclusive === null) delete cfg.exclusive; else return { ok: false, error: "One prize per person is on (true) or off (false)." }; }
   if (input.teams !== undefined) { const v = input.teams as any; if (v === null) delete cfg.teams; else if (!Number.isInteger(v) || v < 2 || v > 10) return { ok: false, error: "A team race has 2 to 10 teams." }; else cfg.teams = v; }
+  if (input.demo !== undefined) { if (input.demo === true) cfg.demo = true; else if (input.demo === false || input.demo === null) delete cfg.demo; else return { ok: false, error: "Demo game: yes (true) or no (false)." }; }
   if (input.theme !== undefined) { if (input.theme !== "jungle" && input.theme !== "career") return { ok: false, error: "The look is \"jungle\" or \"career\"." }; if (input.theme === "career") cfg.theme = "career"; else delete cfg.theme; }
   if ((cfg.mode === "team") !== (cfg.teams !== undefined) && (input.mode !== undefined || input.teams !== undefined)) return { ok: false, error: cfg.mode === "team" ? "A team race needs the number of teams (2 to 10)." : "Teams only exist in a team race." };
   if (cfg.rewards.some((l) => l.pattern === "team") && cfg.mode !== "team") return { ok: false, error: "The team prize belongs to a team race." };
@@ -344,7 +348,7 @@ export function validateCfg(input: { verify?: unknown; employeesOnly?: unknown; 
 }
 
 /** The game-specific settings, picked out of any object (a request body, stored JSON) so every place that reads or writes settings handles them the same way. */
-export const GAME_FIELDS = ["mode", "play", "board", "milestones", "turnCap", "endPrizes", "exclusive", "teams", "theme"] as const;
+export const GAME_FIELDS = ["mode", "play", "board", "milestones", "turnCap", "endPrizes", "exclusive", "teams", "theme", "demo"] as const;
 export const gameFields = (src: any): Record<string, unknown> => { const o: Record<string, unknown> = {}; if (src && typeof src === "object") for (const k of GAME_FIELDS) if (src[k] !== undefined) o[k] = src[k]; return o; };
 /** The same settings out of a validated config, only those that differ from the defaults (validateCfg already drops the defaults). */
 export const gameOut = (c: EngagementCfg): Record<string, unknown> => { const o: Record<string, unknown> = {}; for (const k of GAME_FIELDS) if ((c as any)[k] !== undefined) o[k] = (c as any)[k]; return o; };

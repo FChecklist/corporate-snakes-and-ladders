@@ -806,6 +806,7 @@
   function playView(v) {
     const banners = [];
     if (v.error) banners.push(`<div class="zbanner warn" role="alert">${esc(v.error)}</div>`);
+    if (v.cfg && v.cfg.demo) banners.push(`<div class="zbanner info" role="status"><b>DEMO GAME</b> &middot; free &middot; up to 10 people</div>`); // a free demo says so on every screen
     if (v.locked) banners.push(ME.role === "organizer" || ME.role === "host" ? `<div class="zbanner warn" role="status"><b>Payment pending for this game.</b> The game starts 2 minutes after the payment is confirmed. Open your console to pay. Your place is safe. Keep this page open.</div>` : `<div class="zbanner warn" role="status"><b>Waiting for the Organizer or Host to start the game.</b> Your place is safe. Keep this page open: it begins as soon as they are done.</div>`);
     else if (v.stopped) banners.push(`<div class="zbanner info">The organizer has ended this game.</div>`);
     else if (v.paused) banners.push(`<div class="zbanner info">Paused by the organizer. It will carry on shortly.</div>`);

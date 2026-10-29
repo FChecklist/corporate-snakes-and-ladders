@@ -76,6 +76,9 @@ async function reportToCentral(env: PayEnv, b: any): Promise<any | null> {
   const c = centralOf(env); if (!c) return null;
   try { const r = await fetch(`${c.url}/api/pay/verify`, { method: "POST", headers: { "content-type": "application/json", "x-site-key": c.key }, body: JSON.stringify({ site: c.site, razorpay_order_id: String(b.razorpay_order_id), razorpay_payment_id: String(b.razorpay_payment_id), razorpay_signature: String(b.razorpay_signature) }), signal: AbortSignal.timeout(4000) }); return r.ok ? await r.json().catch(() => null) : null; } catch { return null; /* the webhook records it */ }
 }
+/** A DEMO GAME (worker.ts): config.demo is true. Free, up to 10 people, nothing to pay: for more people the organizer makes a copy and chooses a bigger size. */
+const isDemoCfg = (config: string | null | undefined): boolean => { try { return !!(config && JSON.parse(config).demo === true); } catch { return false; } };
+const DEMO_NO_PAY = "This is a free demo game, so there is nothing to pay. To invite more people, make a copy and choose a bigger size.";
 /** Optional switch (env FREE_LAUNCH="1"): small engagements (up to FREE_CAP participants) may be published without a purchase. Building a draft is always free. */
 export const FREE_CAP = 100, MAX_DRAFTS = 10;
 /** A game held for payment begins this many rounds (3 s each = 2 minutes) after the payment is confirmed. */
@@ -331,6 +334,7 @@ export async function payRoute(req: Request, env: PayEnv, now: number, spend: (n
       const pv = await lookupPayLink(db, plm[1]!, now);
       if (!pv) return json({ error: "Not found" }, 404);
       if (pv.status !== "open") return json({ error: pv.status === "paid" ? "This game has already been paid for." : pv.status === "cancelled" ? "This game was cancelled by the organizer. It cannot be paid for." : pv.status === "closed" ? "This game did not start and is closed. It cannot be paid for." : pv.status === "confirming" ? "A payment for this game is being confirmed. Please wait a few minutes." : "This pay link has run out or was replaced. Ask for the newest link.", status: pv.status }, 409);
+      if (isDemoCfg(pv.e.config)) return json({ error: DEMO_NO_PAY, code: "demo-free" }, 409);
       boundPack = packFor(pv.e.cap);
       if (!boundPack) return json({ error: "That many participants needs a custom arrangement. Please write to us." }, 400);
       boundOrg = pv.link.org; boundEid = pv.link.eid; paidBy = "link";
@@ -344,11 +348,12 @@ export async function payRoute(req: Request, env: PayEnv, now: number, spend: (n
       const k = await db.prepare("SELECT org, kind, eid FROM organizer_key WHERE hash=? AND revoked=0 AND (expires_ms IS NULL OR expires_ms>?)").bind(await sha("key|" + presented), now).first<{ org: string; kind: string; eid: string | null }>();
       if (!k || !(k.kind in PAYER)) return json({ error: "Please sign in again." }, 403); // the Organizer, a Host or a Co-host of this account may pay; one payment is enough for the game
       paidBy = PAYER[k.kind]!;
-      const eg = await db.prepare("SELECT org, cap, pack, cancelled_ms, unplayed_ms FROM engagement WHERE id=?").bind(b.eid).first<{ org: string | null; cap: number; pack: number | null; cancelled_ms: number | null; unplayed_ms: number | null }>();
+      const eg = await db.prepare("SELECT org, cap, pack, config, cancelled_ms, unplayed_ms FROM engagement WHERE id=?").bind(b.eid).first<{ org: string | null; cap: number; pack: number | null; config: string | null; cancelled_ms: number | null; unplayed_ms: number | null }>();
       if (!eg || eg.org !== k.org) return json({ error: "No such game." }, 404);
       if (k.kind === "cohost" && k.eid && k.eid !== b.eid) return json({ error: "Your Co-host link is for a different game." }, 403); // a Co-host belongs to one game
       if (eg.cancelled_ms) return json({ error: "This game was cancelled by the organizer. It cannot be paid for." }, 409);
       if (eg.unplayed_ms) return json({ error: "This game did not start and is closed. It cannot be paid for.", code: "did-not-start" }, 409);
+      if (isDemoCfg(eg.config)) return json({ error: DEMO_NO_PAY, code: "demo-free" }, 409);
       if (eg.pack !== 0) return json({ error: "This game is already published." }, 409);
       if (await db.prepare("SELECT 1 AS x FROM payment WHERE eid=? AND status<>'paid' AND confirming_ms IS NOT NULL AND confirming_ms>?").bind(b.eid, now - 30 * 60_000).first()) return json({ error: "A payment for this game is being confirmed. Please wait a few minutes.", code: "confirming" }, 409); // a second order while one is being confirmed could charge twice
       if (await db.prepare("SELECT 1 AS x FROM kv WHERE k=?").bind(`startpending/${b.eid}`).first()) return json({ error: "Pick the date and time of this game first.", code: "start-pending" }, 400);
