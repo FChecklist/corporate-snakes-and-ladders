@@ -199,7 +199,7 @@
     return b;
   }
   const dayOpts = () => { const base = istNow(), out = []; for (let i = 0; i < 5; i++) { const d = new Date(base.getTime() + i * 86400000); out.push([istDateStr(d), i === 0 ? "Today" : i === 1 ? "Tomorrow" : DOW[d.getUTCDay()] + " " + d.getUTCDate() + " " + MON[d.getUTCMonth()]]); } return out; };
-  const whoNow = () => { const w = (S.sum && S.sum.whoCanJoin) || S.whoCanJoin; return w === "anyone" ? "anyone" : "list"; };
+  const whoNow = () => { const w = (S.sum && S.sum.whoCanJoin) || S.whoCanJoin || (S.closed ? "list" : "anyone"); return w === "list" ? "list" : "anyone"; }; // SL-03: the default is anyone with the link; a saved "list" is kept
   const maxFor = (t) => ({ op: t, mid: 3 * t, cl: t });
 
   /** Builds the form from what the server holds. */
@@ -739,6 +739,7 @@
     let h = `<span class="zc-lbl">Check your game</span>` + readBack();
     if (S.draft) {
       h += `<div class="zc-block"><h3>Publish (free)</h3>${small("Set it up first (by hand or with your AI). Participants cannot see or join a draft. Publishing is free: you confirm your details, get your link and send it to everyone. You pay before the start time, and it begins the moment you have.")}`
+        + (whoNow() === "list" && !(S.people && S.people.length) ? `<p class="zc-small zc-warnt" id="pub-emptylist"><b>Your game is set to 'Only people on a list', and your list is empty.</b> Everyone who opens your link will have to wait for you to say yes. To let them in at once, open step 2 and choose 'Anyone with the link'.</p>` : "")
         + (S.pubOpen ? `${lbl("pubEmail", "Your e-mail (for the invoice)")}<input id="pubEmail" data-need="1" class="zc-in" type="email" value="${S.shield ? "" : esc(S.contact.email)}" autocomplete="email">${lbl("pubPhone", "Your mobile number")}<input id="pubPhone" data-need="1" class="zc-in" type="tel" value="${S.shield ? "" : esc(S.contact.phone)}" autocomplete="tel" placeholder="415 555 0132">${consHtml("K1", "#pubgo")}<div class="zc-foot"><button class="zc-btn" type="button" id="pubgo"${consOff("K1")}>Confirm and publish</button> <button class="zc-btn zc-btn-alt" type="button" id="pubcancel">Back</button></div>`
           : `<div class="zc-foot"><button class="zc-btn" type="button" id="publishopen">Publish my game, free</button></div>`)
         + (S.pubNote ? `<p class="zc-small"><b>${esc(S.pubNote)}</b></p>` : "") + `</div>`;
@@ -1088,7 +1089,7 @@
   // ---------- Quick setup: the first three steps as one form, with a real date and time picker (the AI route and the browser-AI route use it) ----------
   function quickDefault() {
     const t = new Date(istNow().getTime() + 86400000);
-    const f = { occ: "Team event", oname: "", day: "other", dayo: istDateStr(t), time: "other", timeo: "16:00", cap: "250", tix: "1", gj: "name", spd: "20", join: "list", gm: "race", tm: "4", pl: "fate", bs: "100", sn: "9", ld: "9", fin: "exact", ms: "75", tc: "60", ep: "5", ex: false, th: "jungle", inv: false, per: "4", cats: ["family", "colleagues"], bundle: "Classic", hs: {}, ph: "" };
+    const f = { occ: "Team event", oname: "", day: "other", dayo: istDateStr(t), time: "other", timeo: "16:00", cap: "250", tix: "1", gj: "name", spd: "20", join: "anyone", gm: "race", tm: "4", pl: "fate", bs: "100", sn: "9", ld: "9", fin: "exact", ms: "75", tc: "60", ep: "5", ex: false, th: "jungle", inv: false, per: "4", cats: ["family", "colleagues"], bundle: "Classic", hs: {}, ph: "" };
     for (const [k] of HS) f.hs[k] = { on: false, n: 1, pt: "later", pd: "", orig: [] };
     applyBundleTo(f, "Classic");
     return f;
