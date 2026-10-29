@@ -44,6 +44,7 @@ describe("joining", () => {
   });
   test("R43 sign-up closes at the start time: a new player after the start is told the game is running; a player who joined before can still open it", async () => {
     await game();
+    raw.prepare("UPDATE engagement SET pack=200 WHERE id='SL-1'").run(); // R43 is about a PAID game; an unpaid one is refused earlier with "locked" (SL-05)
     const first = await j(await join(1));
     const late = await join(2, "SL-1", T + 2 * 86_400_000 + 10_000);
     expect(late.status).toBe(410); const b = await j(late); expect(b.code).toBe("closed"); expect(b.error).toContain("closed");

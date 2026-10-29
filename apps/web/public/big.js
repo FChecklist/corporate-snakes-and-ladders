@@ -148,7 +148,7 @@
     }
     const paused = v.paused ? `<div class="big note"><h1>Paused</h1><p>The organizer has paused the game. It will resume shortly.</p></div>` : "";
     const c = v.crowd, home = c ? c.finished : 0;
-    const meta = `${c ? plural(c.players, "player", "players") + " &middot; " + home + " home &middot; " : ""}Turn ${Math.min(v.turnsPlayed + (v.ended ? 0 : 1), v.turnCap)} of at most ${v.turnCap}`;
+    const meta = `${c ? plural(c.players, "player", "players") + " &middot; " + home + " home &middot; " : ""}Turn ${Math.min(v.turnsPlayed + (v.ended ? 0 : 1), v.turnCap)}${v.kind === "table" ? ` of at most ${v.turnCap}` : ` &middot; ends when ${v.endPrizes} ${v.endPrizes === 1 ? "player is" : "players are"} home`}`;
     const viz = v.kind === "table" && v.board && v.table ? tableBoard(v) : c ? crowdChart(v) : `<div class="crowd"><p class="quiet">The picture appears after the first turn.</p></div>`;
     const teams = v.kind === "team" && v.team && v.team.rows && v.team.rows.length ? `<div class="panel"><div class="lbl">Teams</div><ol class="topten">${v.team.rows.slice().sort((a, b) => a.rank - b.rank).slice(0, 5).map((r) => `<li><span class="r">${r.rank}</span><span class="n">Team ${r.team + 1}</span><span class="q">${r.finishedTurn !== null ? "home" : "average " + (Math.round(r.avgSquare * 10) / 10).toFixed(1)}</span></li>`).join("")}</ol></div>` : "";
     $app.innerHTML = frame(`${paused}<div class="main">${turnBox(v)}<div class="viz">${viz}</div></div><div class="lists">${topTen(v)}${teams}${winners(v)}</div>`, v, meta);
