@@ -82,3 +82,10 @@ describe("SL-29: 'Create a new game like this one' does not wait for the report"
     expect(!!p.$("[data-clonebtn]")).toBe(true);
   });
 });
+
+describe("SL-34: the console says which e-mail is signed in", () => {
+  test("the role pill names the Organizer's e-mail address", async () => {
+    const { p } = await consoleFor("EMAIL-1");
+    expect(String(p.$("#rolepill").textContent)).toBe("Signed in as Organizer (boss@acme.com)");
+  });
+});

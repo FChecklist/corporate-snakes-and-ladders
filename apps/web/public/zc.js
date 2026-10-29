@@ -907,7 +907,7 @@
     const r = role();
     if (r === "partner") return /^refer/.test(S.kind) ? "Refer and Earn Partner" : /^sales/.test(S.kind) ? "Sales Partner" : "Partner";
     if (r === "host" && S.hostN) return `Signed in as Host ${S.hostN} of ${(S.team && S.team.maxHosts) || 5}`;
-    return `Signed in as ${ROLE_LABEL[r]}`;
+    return `Signed in as ${ROLE_LABEL[r]}${r === "organizer" && S.email ? " (" + S.email + ")" : ""}`; // SL-34: say WHICH e-mail is signed in
   }
   /** A person who is both an Organizer and a Host holds two keys (the sign-in gave both): the one in use is `secret`, the other waits here. */
   const altRole = () => { try { const a = JSON.parse(ss.get("cbz-alt") || "null"); return a && typeof a.token === "string" && (a.kind === "host" || a.kind === "organizer") ? a : null; } catch { return null; } };
@@ -1749,7 +1749,7 @@
   let inited = false;
   async function bootstrap() {
     inited = true;
-    if (secret) { try { S.kind = (await call("GET", "/api/whoami")).kind || ""; } catch { /* an old or wrong key is handled by the screens below */ } if (!isOrg()) S.shield = false; } // only the Organizer has the AI helper switch
+    if (secret) { try { const wh = await call("GET", "/api/whoami"); S.kind = wh.kind || ""; S.email = typeof wh.email === "string" ? wh.email : ""; } catch { /* an old or wrong key is handled by the screens below */ } if (!isOrg()) S.shield = false; } // only the Organizer has the AI helper switch
     loadPacks(); loadAuthConfig();
     if (!secret) return redraw();
     const r = role();
