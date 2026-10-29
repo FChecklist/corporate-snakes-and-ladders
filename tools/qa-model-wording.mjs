@@ -28,10 +28,12 @@ export async function run({ add, mk, hit, log }) {
     if (/^apps\/edge\/src\/(legal|consent-text)\./.test(f) && false) continue;
     const lines = t.split("\n");
     lines.forEach((line, i) => {
+      const tl = line.trim(); if (tl.startsWith("//") || tl.startsWith("*") || tl.startsWith("/*") || tl.startsWith("<!--")) return; // a comment is not text people read
       for (const m of line.matchAll(/\bprivate\b/gi)) {
+        const bf = line.slice(0, m.index); if (/(^|\s)\/\/\s/.test(bf) || (bf.lastIndexOf("/*") > bf.lastIndexOf("*/") && line.slice(m.index).includes("*/"))) continue;
         // code keywords are not words anybody reads: "private key", "private static", "private readonly", "private:" in TypeScript, JSON "private": true
         const ctx = line.slice(Math.max(0, m.index - 24), m.index + 40);
-        if (/\bprivate (key|static|readonly|constructor|get|set|async|field|method)\b/i.test(ctx) || /^\s*private\s+[a-zA-Z_]/.test(line) && /\.ts$/.test(f) && !/["'`].*\bprivate\b/.test(line)) continue;
+        if (/\bprivate (key|browsing)\b/i.test(ctx) || (f.endsWith(".ts") && /^private\s+(readonly\s+|static\s+|async\s+|get\s+|set\s+)?[A-Za-z_$][\w$]*\s*[:=(<?!;]/.test(line.slice(m.index)))) continue; // a TypeScript member marker, not a word
         if (/"private"\s*:\s*(true|false)/.test(line)) continue;
         found.push(`${f}:${i + 1}: ${line.trim().slice(0, 160)}`);
       }
@@ -54,7 +56,7 @@ export async function run({ add, mk, hit, log }) {
   add("X-03", "wording", "the pay page, terms, refund policy and pricing page name the seller 'IT Services by Rajat Agarwal'", sellerFiles.length, missingSeller.length, `missing in ${missingSeller.join(", ")}`, missingSeller.join(", "), "GAP");
   // ---- money words ----
   const cashHits = [];
-  for (const f of files) { if (/(legal|terms|privacy|trust|refund|subprocessors|dpa|partner-terms|llms|facts)/.test(f)) continue; /* legal pages name these words to deny them */ const t = text[f]; for (const m of t.matchAll(/\b(cash prize|cash reward|betting|bet on|gambl\w*|jackpot|lottery|wager|stake money|real money)\b/gi)) cashHits.push(`${f}: ${m[0]}`); }
+  for (const f of files) { if (/(legal|terms|privacy|trust|refund|subprocessors|dpa|partner-terms|llms|facts)/.test(f)) continue; /* legal pages name these words to deny them */ const t = text[f].split("\n").filter((l) => !/^\s*(\/\/|\*|\/\*|<!--)/.test(l)).join("\n"); /* comments are not text people read */ for (const m of t.matchAll(/\b(cash prize|cash reward|betting|bet on|gambl\w*|jackpot|lottery|wager|stake money|real money)\b/gi)) cashHits.push(`${f}: ${m[0]}`); }
   // sentences that DENY money ("no cash prize", "never stake money") are the rule itself, not a breach
   const real = cashHits.filter((h) => { const [f, w] = h.split(": "); const t = text[f]; const i = t.toLowerCase().indexOf(w.toLowerCase()); const ctx = t.slice(Math.max(0, i - 40), i + w.length + 20).toLowerCase(); return !/\b(no|not|never|nor|without|isn't|is not|don't|does not|cannot|can't)\b/.test(ctx); });
   add("X-04", "wording", "no cash prize / betting / gambling wording (RULES 9: players never pay and never stake money)", Object.keys(text).length, real.length, real.slice(0, 3).join("; "), real.slice(0, 6).join("; "), "GAP");
@@ -74,5 +76,19 @@ export async function run({ add, mk, hit, log }) {
     if (!norm(player).includes(norm(probe).slice(0, 28))) miss.push(`${when}: "${msg}"`);
   }
   add("X-06", "wording", `every message of docs/boss/RULES_snakesladders.md section 10 (${table.length} rows) is in the player screens`, table.length, miss.length, miss.slice(0, 3).join(" || "), "apps/web/public/z.js (the phone page words these differently or not at all; player wording is the owner's separate track, handover 50)", "GAP", miss.length ? `${miss.length} of ${table.length} differ: ${miss.map((m) => m.split(":")[0]).join("; ")}` : "");
+  // ---- Step 2 of the organizer console: how many choices are visible, against docs/boss/100-console-spec section 5.4 ----
+  const zc = text["apps/web/public/zc.js"] ?? "";
+  const body = zc.slice(zc.indexOf("function gameBlock()"), zc.indexOf("// ---------- step 3: prizes"));
+  const hiddenPart = (body.match(/<div class="zc-hide" data-hidden="1">[\s\S]*?<\/div>/g) ?? []).join("");
+  const SPEC = { cap: ["Size (the demo first)", "visible"], who: ["Who can join", "visible"], emp: ["Only my employees (tick)", "visible"], ver: ["What must a person give (only when the tick is on)", "visible"], ex: ["One prize per person (tick)", "visible"], ep: ["Ends when N players are home", "visible"],
+    spd: ["Turn window", "hide, 20 s"], gm: ["Game type (Race / Team race / Table)", "hide, Race"], tm: ["How many teams", "hide"], pl: ["Throws (automatic / players throw)", "hide, automatic"], bs: ["Board size", "hide, 100"], sn: ["Snakes", "hide, 9"], ld: ["Ladders", "hide, 9"], fin: ["How a player finishes", "hide, exact"],
+    ms: ["Milestone squares", "hide, 75"], tc: ["Turn limit", "already hidden"], th: ["Look of the board", "hide, Jungle"], gj: ["What guests type to join", "hide, name only"], inv: ["Guests bring their own people (tick)", "hide, off"], per: ["How many each guest can invite", "hide"], cats: ["Who they can invite (10 kinds)", "hide"] };
+  const ids = [...new Set([...body.matchAll(/(?:grp|bchip|inp|lbl)\("(?:f-)?(\w+)"/g)].map((m) => m[1]))].filter((k) => SPEC[k]);
+  const shownToday = ids.filter((k) => !hiddenPart.includes(`"${k}"`) && !hiddenPart.includes(`f-${k}`));
+  const toHide = shownToday.filter((k) => SPEC[k][1].startsWith("hide"));
+  const keep = shownToday.filter((k) => SPEC[k][1] === "visible");
+  const stepNote = `shown today: ${shownToday.length} choices (${keep.length} the spec keeps + ${toHide.length} it hides). To hide at a fixed default: ${toHide.map((k) => `${SPEC[k][0]} -> ${SPEC[k][1].replace("hide, ", "")}`).join("; ")}. Kept: ${keep.map((k) => SPEC[k][0]).join("; ")}. Not recorded by the spec: Day, Time, Prize set (steps 1 and 3).`;
+  add("S-01", "console", "Step 2 shows only the choices of the console spec 5.4 (Size, Who can join, Only my employees, One prize per person, Ends when N are home); the rest sit at a fixed default", shownToday.length, toHide.length, `Step 2 shows ${shownToday.length} choices; ${toHide.length} of them are meant to be hidden`, "apps/web/public/zc.js gameBlock() lines ~294-326 and stepPlay() ~328-362 (not changed: owner said record only)", "GAP", stepNote);
+  log(`[wording] Step 2: ${stepNote}`);
   log(`[wording] ${files.length} customer-facing files read; 'private' in ${found.length} places`);
 }
