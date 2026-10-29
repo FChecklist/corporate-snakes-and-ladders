@@ -25,6 +25,7 @@ describe("the console offers the free demo", () => {
   test("an ordinary draft: the size list starts with the free demo, and choosing it saves a 10-person demo", async () => {
     const s = await setup(250, false);
     expect(s.p.text()).toMatch(/Free demo: 10 people, Rs 0/);
+    s.p.click("[data-demo]"); expect(s.p.text()).not.toMatch(/Up to 10 people/); // the demo chip stands for 10 people: no second chip for the same thing
     expect(s.p.text().indexOf("Free demo: 10 people")).toBeLessThan(s.p.text().indexOf("Up to 100 people"));
     s.p.click("[data-demo]");
     await s.p.waitFor((t) => /A free demo is a real game for up to 10 people/.test(t));

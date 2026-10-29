@@ -327,7 +327,7 @@
   const capOptions = () => {
     const packs = (S.packs || []).map((k) => ({ n: k.upTo, price: k.inr })), cur = Number(S.f.cap);
     const list = packs.length ? packs : [100, 250, 500, 1000].map((n) => ({ n, price: 0 }));
-    if (cur && !list.some((p) => p.n === cur)) list.push({ n: cur, price: 0 }), list.sort((a, b) => a.n - b.n);
+    if (cur && !list.some((p) => p.n === cur) && !(isDemoF(S.f) && cur === DEMO_CAP)) list.push({ n: cur, price: 0 }), list.sort((a, b) => a.n - b.n); // the free demo chip already stands for 10 people
     return list;
   };
   function stepPlay() {
