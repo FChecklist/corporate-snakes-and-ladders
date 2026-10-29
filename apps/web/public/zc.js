@@ -857,7 +857,7 @@
   }
 
   // ---------- step 10: after the game ----------
-  const afterClone = () => (didNotStart() || isCancelled() || (S.life && (S.life.purged || S.life.reportSent)) ? cloneButton() : "");
+  const afterClone = () => (didNotStart() || isCancelled() || startedNow() || (S.life && (S.life.purged || S.life.reportSent)) ? cloneButton() : ""); // SL-29: a new game like this one can be made as soon as the game has started, not only after the report
   function stepAfter() {
     const l = S.life;
     const when2 = l ? `${rowl("Names, mobile numbers, seats and invitations of participants and Co-hosts", `<b>deleted by ${esc(ist(l.personalDeleteAtMs))}${l.purged ? " (done)" : ""}</b>`)}

@@ -56,3 +56,13 @@ describe("SL-21: the rules stay in reach after the game has started", () => {
     for (const n of ["1.", "2.", "3.", "4.", "5."]) expect(t).toContain(n);
   });
 });
+
+describe("SL-12: the join page says to stay in the same app", () => {
+  test("before joining, the page tells the person to stay in the app or browser they join in", async () => {
+    const o = await organizer(); await publishedGame(o, "STAY-1");
+    const p = await phone(o, "STAY-1");
+    await p.waitFor((x) => /Join the game/.test(x), 20000);
+    expect(p.text()).toContain("Stay in this app.");
+    expect(p.text()).toContain("keep using Teams");
+  });
+});

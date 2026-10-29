@@ -1,6 +1,6 @@
 // WP-14 console items (gap plan 2026-10-29): SL-06 fewer choices in step 2. The real console (zc.js) runs in a DOM against the REAL Worker and an in-memory database.
 import { afterEach, describe, expect, setDefaultTimeout, test } from "bun:test";
-import { newWorld, openPage, roundAt, T, type Page } from "./harness";
+import { newWorld, openPage, roundAt, roundMs, T, type Page } from "./harness";
 
 setDefaultTimeout(60_000);
 let open: Page[] = [];
@@ -63,5 +63,22 @@ describe("SL-13: the publish step names the prizes that have no gift written", (
     open.push(q); await q.waitFor((x) => /Check and publish/.test(x), 20000);
     await openStep(q, 7, /Publish my game, free/);
     expect(!!q.$("#no-gift-note")).toBe(false);
+  });
+});
+
+describe("SL-29: 'Create a new game like this one' does not wait for the report", () => {
+  test("not offered before the game starts; offered as soon as it has started (no report yet)", async () => {
+    const before = await consoleFor("CLONE-1");
+    await openStep(before.p, 10, /After the game|Delete all participant data/);
+    expect(!!before.p.$("[data-clonebtn]")).toBe(false);
+    const w = newWorld(); w.world.now = T;
+    const s = await w.json(await w.api("POST", "/api/start", { email: "boss@acme.com" }));
+    const start = roundAt(T) + 1200;
+    expect((await w.api("POST", "/api/z", { id: "CLONE-2", startRound: start, callSeconds: 20, cap: 100 }, s.aiKey)).status).toBe(200);
+    w.world.now = roundMs(start) + 10 * 60_000; // ten minutes after the start; the report has not been sent
+    const p = await openPage(w.world, { url: "http://localhost/zc.html?e=CLONE-2", html: "zc.html", scripts: ["zgame.js", "zc.js"], session: { "cbz-org": s.token } });
+    open.push(p); await p.waitFor((x) => /Check and publish/.test(x), 20000);
+    await openStep(p, 10, /After the game|Delete all participant data/);
+    expect(!!p.$("[data-clonebtn]")).toBe(true);
   });
 });
