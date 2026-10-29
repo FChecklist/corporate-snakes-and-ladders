@@ -99,11 +99,11 @@ describe("pages: one title pattern, icons, manifest, theme colour", () => {
     test(`${f}: title names Corporate Snakes and Ladders exactly; favicon, touch icon, manifest and theme colour`, () => {
       const s = read("apps/web/public", f); const title = (s.match(/<title>([^<]*)<\/title>/) ?? [])[1]!;
       expect(title).toMatch(/(^Corporate Snakes and Ladders|\| Corporate Snakes and Ladders$)/); expect(title).not.toMatch(/CORPORATE|Bingo Corporate/);
-      for (const needle of ['rel="icon"', "apple-touch-icon", 'rel="manifest"', 'name="theme-color" content="#0B5D5B"']) expect(s).toContain(needle);
+      for (const needle of ['rel="icon"', "apple-touch-icon", 'rel="manifest"', 'name="theme-color" content="#0B3D91"']) expect(s).toContain(needle);
     });
   }
   test("the PWA manifest and the build ship the brand", () => {
-    const m = JSON.parse(read("apps/web/public/manifest.webmanifest")); expect(m.name).toBe("Corporate Snakes and Ladders"); expect(m.short_name).toBe("Corporate Snakes and Ladders"); expect(m.theme_color).toBe("#0B5D5B");
+    const m = JSON.parse(read("apps/web/public/manifest.webmanifest")); expect(m.name).toBe("Corporate Snakes and Ladders"); expect(m.short_name).toBe("Snakes and Ladders"); expect(m.theme_color).toBe("#0B3D91"); expect(m.background_color).toBe("#FFFAF2"); // the brand kit's colours and short name
     expect(read("pages/build.mjs")).toContain('"404.html"');
   });
   test("every page header uses the Corporate Snakes and Ladders name; the report PDF names it and carries the support address and legal link", () => {
@@ -129,5 +129,23 @@ describe("claims register: customer-facing text never says what the build does n
     expect(h).toContain(`"lowPrice":"${Math.min(...PACKS.map((p) => p[1]))}"`); expect(h).toContain(`"highPrice":"${Math.max(...PACKS.map((p) => p[1]))}"`); expect(h).toContain(`"offerCount":"${PACKS.length}"`);
     const site = read("apps/web/public/site.js"); expect(site).toContain("Festive offer: 50% off"); expect(site).toContain("Regular price after the festive offer"); expect(h).toContain("Festive offer: 50% off"); // owner decision: keep the offer, worded as a festive offer
     expect(`${h}${site}`).not.toMatch(/Most popular|2nd most popular/); // the offer price is what is charged, and equals the structured-data price (lowPrice above)
+  });
+});
+
+describe("the brand kit look in every e-mail and in the report PDF (owner order 2026-10-29)", () => {
+  test("the e-mail header is the kit's badge, a small CORPORATE line above the proper name, in studio blue; the footer says who takes payments", async () => {
+    const { headerHtml, footerHtml, PAY_LINE } = await import("../src/brand");
+    const h = headerHtml(ORIGIN), f = footerHtml(ORIGIN);
+    expect(h).toContain(`${ORIGIN}/icon-192.png?v=3`); expect(h).toMatch(/text-transform:uppercase[^>]*>Corporate<\/div>/); expect(h).toContain(">Snakes and Ladders</div>"); expect(h).toContain("#0B3D91");
+    expect(f).toContain("Online games for company events"); expect(f).toContain(PAY_LINE); expect(PAY_LINE).toBe("All payments are taken only by IT Services by Rajat Agarwal, through Razorpay.");
+    expect(h + f).not.toMatch(/0B5D5B|Live engagements/); expect(footerText(ORIGIN)).toContain(PAY_LINE);
+  });
+  test("every built e-mail carries the payee sentence in its footer, in the HTML and the plain text", () => {
+    for (const name of Object.keys(SAMPLES)) { const m = SAMPLES[name]!(); expect([name, m.html.includes("All payments are taken only by IT Services by Rajat Agarwal, through Razorpay."), m.text.includes("All payments are taken only by IT Services by Rajat Agarwal, through Razorpay.")]).toEqual([name, true, true]); }
+  });
+  test("the report PDF's title band draws the badge (a brown tile, the board, the ladder, the snake) and our name as CORPORATE over Snakes and Ladders", async () => {
+    const { layoutReport } = await import("../src/report-layout");
+    const t = Buffer.from(layoutReport({ engagementId: "B-1", organizerEmail: "a@b.in", sentAtMs: 1_800_000_000_000, scheduledMs: 1_799_990_000_000, firstNumberMs: 1_799_990_100_000, endMs: 1_799_995_000_000, endReason: "x", wasHeld: false, rounds: 1, callSeconds: 20, ticketsPerPerson: 1, cap: 10, inviteOnly: false, numbersCalled: 1, people: [], prizes: [], lucky: [], timeline: [], breaks: [], personalDeleteAtMs: 1_800_050_000_000, fullDeleteAtMs: 1_830_000_000_000 } as any)).toString("latin1");
+    expect(t).toContain("0.61 0.24 0.12 rg"); expect(t).toContain("0.25 0.75 0.34 RG"); expect(t).toContain("(CORPORATE)"); expect(t).toContain("(Snakes and Ladders)"); expect(t).toContain("(Complete game report)");
   });
 });
