@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, test } from "bun:test";
 import { type Env } from "../src/worker";
 import { handle } from "./with-terms";
 import { makeD1 } from "./d1-sqlite";
+import { setMode } from "../src/mode";
 
 const T = Date.UTC(2026, 9, 1, 10, 0, 0), GEN = 1692803367;
 const START = Math.floor((T / 1000 - GEN) / 3) + 1 + 1200;
@@ -12,7 +13,7 @@ const call = (method: string, path: string, body?: unknown, headers: Record<stri
   handle(new Request("http://x" + path, { method, headers: { "content-type": "application/json", ...headers }, body: body === undefined ? undefined : JSON.stringify(body) }), env, T);
 const j = async (r: Response) => (await r.json()) as any;
 const dev = (i: number) => String(i).padStart(2, "0").repeat(16);
-beforeEach(() => { const d = makeD1(); env = { DB: d.db, ORGANIZER_SECRET: "plat", DAILY_WRITE_BUDGET: "1000000", PUBLIC_ORIGIN: "https://snakesladders.test", PHONE_SALT: "salt", DATA_KEY: "k" } as any; });
+beforeEach(async () => { const d = makeD1(); env = { DB: d.db, ORGANIZER_SECRET: "plat", DAILY_WRITE_BUDGET: "1000000", PUBLIC_ORIGIN: "https://snakesladders.test", PHONE_SALT: "salt", DATA_KEY: "k" } as any; await setMode(env, "TEST", "the owner test account is TEST mode only", T); });
 
 describe("10-player demo game at Rs 0", () => {
   test("make, publish with no payment, 10 join by name, the 11th is refused, the same phone gets the same card", async () => {
