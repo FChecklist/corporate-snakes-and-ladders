@@ -336,7 +336,7 @@
     const f = S.f, cats = ZG.INVITE_CATEGORIES || [];
     const sizeChips = capOptions().map((p) => `<button type="button" class="zc-chip${String(f.cap) === String(p.n) && !isDemoF(f) ? " on" : ""}" data-ck="cap" data-v="${p.n}" aria-pressed="${String(f.cap) === String(p.n) && !isDemoF(f)}"><span>Up to ${p.n} people</span></button>`).join("");
     const keepDemo = isDemoF(f) && !S.draft; // a published demo stays a demo: more people means a copy with a bigger size
-    const caps = demoChip(f) + (keepDemo ? "" : sizeChips);
+    const caps = (S.draft || isDemoNow() ? demoChip(f) : "") + (keepDemo ? "" : sizeChips); // a published game cannot become a demo
     const own = keepDemo ? "" : `<div class="zc-gap">${lbl("f-cap", "Or type your own number of players")}${inp("cap", { type: "number", ph: "For example 180", attrs: 'inputmode="numeric" min="1" max="10000" step="1"' })}</div>`;
     return `<span class="zc-lbl zc-sec zc-sub">How many players</span><span class="zc-lbl" id="gl-cap">How many people at most?</span><div class="zc-chips" role="group" aria-labelledby="gl-cap">${caps}</div>` + own + small(isDemoF(f) ? `A free demo is a real game for up to ${DEMO_CAP} people. Nothing to pay. Need more people? Make a copy and choose a bigger size.` : "Invited guests count too. The price is shown when you pay.")
       + `<span class="zc-lbl zc-sec zc-sub">How the game runs</span>` + grp("spd", "Turn window (time to throw)", spdOpts(f.spd))

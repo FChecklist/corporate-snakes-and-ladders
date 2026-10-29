@@ -292,6 +292,7 @@ export const OWNER_TEST_FREE: { email: string; maxCap: number; until: number }[]
 ];
 /** A DEMO GAME (config.demo): a real game for up to DEMO_CAP people, free (Rs 0). It publishes without payment and is never held for payment at its start time. It cannot be made bigger and a published demo stays a demo: for more people the organizer makes a copy and chooses a bigger size. */
 const DEMO_CAP_MSG = `A demo game is for up to ${DEMO_CAP} people. To invite more people, make a copy and choose a bigger size.`;
+const DEMO_LATE_MSG = "A game that is already published cannot become a demo. To try a free demo, create a new game like this one and choose the free demo.";
 const DEMO_STAYS_MSG = `A published demo game stays a demo game (up to ${DEMO_CAP} people). To invite more people, make a copy and choose a bigger size.`;
 const isDemo = (e: { tickets?: number; config?: string | null }) => !!cfgOf(e).demo;
 const TABLE_CAP_MSG = `A table game is for 2 to ${TABLE_MAX_PLAYERS} people. Choose a smaller number of people, or play a race.`; // phones cannot play a table of more than 20: it would break for everybody
@@ -2013,6 +2014,7 @@ async function route0(req: Request, env: Env, now: number, a: Auth): Promise<Res
     const vc = validateCfg({ tickets: b.tickets, rewards: b.rewards, breaks: b.breaks, rounds: b.rounds, invites: b.invites !== undefined ? b.invites : b.guestInvites, opening: b.opening, closing: b.closing, name: b.name, brand: b.brand, mark: b.mark, join: b.join, tz: b.tz, verify: b.verify, employeesOnly: b.employeesOnly, ...gameFields(b) }, cfgOf(e)); // guestInvites is the console's name for invites
     if (!vc.ok) return json({ error: vc.error }, 400);
     if (isDemo(e) && !vc.cfg.demo && e.pack !== 0 && !a.plat) return json({ error: DEMO_STAYS_MSG, code: "demo-stays" }, 409); // a published demo becomes a bigger game only through "Make a copy", never by switching the mark off
+    if (vc.cfg.demo && !isDemo(e) && !a.plat && (e.pack !== 0 || !isDraft)) return json({ error: DEMO_LATE_MSG, code: "demo-late" }, 409); // only a draft can become a demo: a published game is already waiting for payment (or paid)
     const next = { start_round: b.startRound ?? e.start_round, call_seconds: b.callSeconds ?? e.call_seconds, cap: b.cap ?? e.cap, closed: vc.cfg.employeesOnly ? 1 : b.whoCanJoin !== undefined ? (b.whoCanJoin === "list" ? 1 : 0) : b.closed === undefined ? e.closed : b.closed ? 1 : 0, cohost_limit: b.coHostLimit ?? e.cohost_limit ?? null }; // whoCanJoin "list" is the same switch as the older `closed`
     if (Number.isInteger(next.call_seconds) && !GAPS.includes(next.call_seconds)) return json({ error: GAP_MSG }, 400);
     if (!Number.isInteger(next.start_round)) return json({ error: "Pick the day and time the game starts." }, 400);
