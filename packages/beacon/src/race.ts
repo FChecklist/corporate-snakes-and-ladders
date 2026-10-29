@@ -142,7 +142,8 @@ function candidates(st: RaceState, pattern: string, ordinal: number): { seat: nu
   if (pattern === "milestone") {
     const ms = [...st.cfg.milestones].sort((a, b) => a - b), m = ms[ordinal - 1]; if (m === undefined) return [];
     const reached = runs.map((r) => ({ r, t: reachTurn(r, m) })).filter((x) => x.t >= 0);
-    reached.sort((a, b) => a.t - b.t || squareOf(b.r) - squareOf(a.r) || (fateOf(g, a.r.seat, `milestone${ordinal}`) < fateOf(g, b.r.seat, `milestone${ordinal}`) ? -1 : 1));
+    reached.sort((a, b) => a.t - b.t || b.r.pos[b.t]! - a.r.pos[a.t]! || // same turn: the higher square ON THAT TURN wins (never the square now, which changes with later snakes and ladders: a prize shown on a phone is never taken back)
+       (fateOf(g, a.r.seat, `milestone${ordinal}`) < fateOf(g, b.r.seat, `milestone${ordinal}`) ? -1 : 1));
     return reached.map((x) => { const same = reached.filter((y) => y.t === x.t).length; return { seat: x.r.seat, idx: x.t, ...(same > 1 ? { tied: same } : {}) }; });
   }
   if (!st.ended) return [];
