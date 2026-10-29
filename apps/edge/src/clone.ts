@@ -55,7 +55,7 @@ export async function cloneGame(env: Env, e: any, b: any, now: number, origin: s
     if (n >= MAX_DRAFTS) return json({ error: `You have ${MAX_DRAFTS} unpublished drafts. Publish one, or delete one you do not need (open Your games, then press Delete next to it). An unpublished draft is also forgotten after 30 days.`, code: "draft-limit" }, 409);
   }
   if (!(await spend(6))) return json({ error: "It is very busy right now. Please try again in a few minutes." }, 503);
-  // A DEMO GAME is not copied as a demo: "Make a copy" is how an organizer gets a bigger game, so the copy is an ordinary draft with the same settings, to publish and pay for like any other.
+  // A DEMO GAME is not copied as a demo: "Create a new game like this one" is how an organizer gets a bigger game, so the copy is an ordinary draft with the same settings, to publish and pay for like any other.
   let copyConfig = e.config; let wasDemo = false;
   try { const c0 = e.config ? JSON.parse(e.config) : null; if (c0 && c0.demo) { wasDemo = true; delete c0.demo; copyConfig = JSON.stringify(c0); } } catch { /* a config that cannot be read is copied as it is */ }
   const base = String(e.id).replace(/-[A-Z2-9]{4}$/, "").slice(0, 34);

@@ -338,7 +338,7 @@
     const keepDemo = isDemoF(f) && !S.draft; // a published demo stays a demo: more people means a copy with a bigger size
     const caps = (S.draft || isDemoNow() ? demoChip(f) : "") + (keepDemo ? "" : sizeChips); // a published game cannot become a demo
     const own = keepDemo ? "" : `<div class="zc-gap">${lbl("f-cap", "Or type your own number of players")}${inp("cap", { type: "number", ph: "For example 180", attrs: 'inputmode="numeric" min="1" max="10000" step="1"' })}</div>`;
-    return `<span class="zc-lbl zc-sec zc-sub">How many players</span><span class="zc-lbl" id="gl-cap">How many people at most?</span><div class="zc-chips" role="group" aria-labelledby="gl-cap">${caps}</div>` + own + small(isDemoF(f) ? `A free demo is a real game for up to ${DEMO_CAP} people. Nothing to pay. Need more people? Make a copy and choose a bigger size.` : "Invited guests count too. The price is shown when you pay.")
+    return `<span class="zc-lbl zc-sec zc-sub">How many players</span><span class="zc-lbl" id="gl-cap">How many people at most?</span><div class="zc-chips" role="group" aria-labelledby="gl-cap">${caps}</div>` + own + small(isDemoF(f) ? `A free demo is a real game for up to ${DEMO_CAP} people. Nothing to pay. Need more people? Press Create a new game like this one and choose a bigger size.` : "Invited guests count too. The price is shown when you pay.")
       + `<span class="zc-lbl zc-sec zc-sub">How the game runs</span>` + grp("spd", "Turn window (time to throw)", spdOpts(f.spd))
       + small("Every turn lasts this long. In \"Players throw\" play, a player must throw inside the window. In automatic play the throw happens by itself when the window closes.")
       + gameBlock()
@@ -745,13 +745,13 @@
     if (!S.f) return small("Loading…");
     let h = `<span class="zc-lbl">Check your game</span>` + readBack();
     if (S.draft) {
-      h += `<div class="zc-block"><h3>Publish (free)</h3>${isDemoNow() ? small("This is a free demo game: it starts without any payment.") : ""}${small("Set it up first (by hand or with your AI). Participants cannot see or join a draft. Publishing is free: you confirm your details, get your link and send it to everyone. You pay before the start time, and it begins the moment you have.")}`
+      h += `<div class="zc-block"><h3>Publish (free)</h3>${isDemoNow() ? small("This is a free demo game: it starts without any payment.") : ""}${small("Set it up first (by hand or with your AI). Participants cannot see or join a draft. Publishing is free: you confirm your details, get your link and send it to everyone." + (isDemoNow() ? "" : " You pay before the start time, and it begins the moment you have."))}`
         + (S.pubOpen ? `${lbl("pubEmail", "Your e-mail (for the invoice)")}<input id="pubEmail" data-need="1" class="zc-in" type="email" value="${S.shield ? "" : esc(S.contact.email)}" autocomplete="email">${lbl("pubPhone", "Your mobile number")}<input id="pubPhone" data-need="1" class="zc-in" type="tel" value="${S.shield ? "" : esc(S.contact.phone)}" autocomplete="tel" placeholder="415 555 0132">${consHtml("K1", "#pubgo")}<div class="zc-foot"><button class="zc-btn" type="button" id="pubgo"${consOff("K1")}>Confirm and publish</button> <button class="zc-btn zc-btn-alt" type="button" id="pubcancel">Back</button></div>`
           : `<div class="zc-foot"><button class="zc-btn" type="button" id="publishopen">Publish my game, free</button></div>`)
         + (S.pubNote ? `<p class="zc-small"><b>${esc(S.pubNote)}</b></p>` : "") + `</div>`;
     } else {
       h += rowl(`<b>Published</b><br><span class="zc-small zc-nomargin">Your link is live.</span>`, `<span aria-hidden="true">&#10003;</span>`);
-      h += isCancelled() ? "" : small(isDemoNow() ? `Nothing to pay: this is a free demo game for up to ${DEMO_CAP} people. Need more people? Make a copy and choose a bigger size.` : "Next: pay in step 8. One payment is enough.");
+      h += isCancelled() ? "" : small(isDemoNow() ? `Nothing to pay: this is a free demo game for up to ${DEMO_CAP} people. Need more people? Press Create a new game like this one and choose a bigger size.` : "Next: pay in step 8. One payment is enough.");
     }
     return h + (S.cloneNew === eid && S.draft ? `<div class="zc-box" id="newgamenote2">This is a new game. Nothing is paid or published yet.</div>` : "") + previewButton() + cancelBlock() + (S.draft || isCancelled() ? "" : cloneButton()) + cont(7);
   }
@@ -788,7 +788,7 @@
   /** Step 8: the only place a price is shown (and the Co-host's own Payment step, and the pay pages). */
   function stepPay() {
     if (!S.f) return small("Loading…");
-    if (isDemoNow() && !isCancelled()) return rowl(`<b>Free demo game</b><br><span class="zc-small zc-nomargin">Up to ${DEMO_CAP} people. Rs 0. ${S.draft ? "Publish it in step 7 and it starts without payment." : "Nothing to pay."}</span>`, `<span aria-hidden="true">&#10003;</span>`) + small("Need more than " + DEMO_CAP + " people? Make a copy and choose a bigger size.");
+    if (isDemoNow() && !isCancelled()) return rowl(`<b>Free demo game</b><br><span class="zc-small zc-nomargin">Up to ${DEMO_CAP} people. Rs 0. ${S.draft ? "Publish it in step 7 and it starts without payment." : "Nothing to pay."}</span>`, `<span aria-hidden="true">&#10003;</span>`) + small("Need more than " + DEMO_CAP + " people? Press Create a new game like this one and choose a bigger size.");
     if (S.draft) return `<div class="zc-block" id="paynotpub"><h3>Publish first</h3>${small("You pay after you publish. Publishing is free. Check your game in step 7 and publish it. Then come back here.")}<div class="zc-chips"><button type="button" class="zc-mini" data-open="7">Go to step 7</button></div></div>`;
     if (isCancelled()) return small("This game was cancelled, so there is nothing to pay.");
     const price = S.sum && S.sum.priceInr ? `<div class="zc-rowl" id="pricerow"><span>Price for your game</span><b>${esc(priceText(S.sum))}</b></div>` : "";
@@ -945,11 +945,11 @@
       <div class="zc-jump"><span>Jump to</span>${st.map((s) => `<button type="button" class="zc-dot" data-open="${s[0]}" aria-label="Step ${s[0]}: ${esc(s[1])}" style="background:var(--bg-tint-${s[2]});color:var(--text-tint-${s[2]})${S.open === s[0] ? `;outline:2px solid var(--text-tint-${s[2]})` : ""}">${s[0]}</button>`).join("")}<button type="button" class="zc-pillbtn" data-act="help">Help</button></div></div>`;
   }
   function sum(n) {
-    if (role() === "cohost") { const c = S.coh; if (!c) return ""; return [c.startMs ? when(c.startMs) : "", `${Number(c.brought) || 0} ${Number(c.brought) === 1 ? "person" : "people"} brought`, payState().paid ? "Paid" : "Payment pending for this game"][n - 1] || ""; }
+    if (role() === "cohost") { const c = S.coh; if (!c) return ""; return [c.startMs ? when(c.startMs) : "", `${Number(c.brought) || 0} ${Number(c.brought) === 1 ? "person" : "people"} brought`, payState().paid ? (S.coh && S.coh.demo ? "Free demo. Nothing to pay" : "Paid") : "Payment pending for this game"][n - 1] || ""; }
     const c = S.cfg, inf = S.info; if (!c || !inf) return "";
     const t = 1, used = (c.opening || []).length + (c.breaks || []).length + (c.closing || []).length, T = S.team;
     return [`${c.name || "Your game"}, ${when(inf.startMs)}`, `Up to ${inf.cap}, ${c.mode === "team" ? "team race" : c.mode === "table" ? "table game" : "race"}, ${inf.callSeconds} seconds a turn`, `${(c.rewards || []).length} prizes`, `${used} of ${5 * t} moments`,
-      T ? `${pl((T.hosts || []).length, "Host", "Hosts")}, ${pl((T.cohosts || []).length, "Co-host", "Co-hosts")}` : "", S.draft ? "Guest link ready after publishing" : "Guest link ready", S.draft ? "Not published yet" : "Published", S.draft ? "Publish first" : isCancelled() ? "Cancelled" : payState().paid ? "Paid. The game is on" : payState().confirming ? "Confirming your payment..." : "Payment pending", S.started ? (gameEnded() ? "The game is over" : "The game is on") : "Opens when the game starts", S.life && S.life.purged ? "Report sent, data erased" : S.life && S.life.reportSent ? "Report sent. Data is erased 24 h after the end" : "Your report, then erasing data"][n - 1] || "";
+      T ? `${pl((T.hosts || []).length, "Host", "Hosts")}, ${pl((T.cohosts || []).length, "Co-host", "Co-hosts")}` : "", S.draft ? "Guest link ready after publishing" : "Guest link ready", S.draft ? "Not published yet" : "Published", S.draft ? "Publish first" : isCancelled() ? "Cancelled" : payState().paid ? (isDemoNow() ? "Free demo. Nothing to pay" : "Paid. The game is on") : payState().confirming ? "Confirming your payment..." : "Payment pending", S.started ? (gameEnded() ? "The game is over" : "The game is on") : "Opens when the game starts", S.life && S.life.purged ? "Report sent, data erased" : S.life && S.life.reportSent ? "Report sent. Data is erased 24 h after the end" : "Your report, then erasing data"][n - 1] || "";
   }
   // "About this step": a short, always-visible write-up under each talking line (docs/ROLES_AND_CONSOLE_SPEC_4.md, A). At most 5 short lines each.
   const ABOUT = {
@@ -1198,7 +1198,7 @@
     if (!v || !v.t) return; if (Date.now() - (Number(v.at) || 0) > 14 * 86400000) { ls.set("cbz-pass", ""); return; }
     if (!isOrg() || !secret) return;
     ls.set("cbz-pass", ""); // used or refused, it is not tried again
-    try { const r = await call("POST", "/api/pass", { token: v.t }); S.passMsg = r.again ? "This demo link is already yours: press Create a new game." : `Your free demo is ready: one game of up to ${r.cap} people at Rs 0. In step 2 choose "Up to ${r.cap} people".`; }
+    try { const r = await call("POST", "/api/pass", { token: v.t }); S.passMsg = r.again ? "This demo link is already yours: press Create a new game." : `Your free demo is ready: one game of up to ${r.cap} people at Rs 0. ${r.cap <= DEMO_CAP ? `In step 2 choose "Free demo: ${DEMO_CAP} people, Rs 0".` : `In step 2 choose "Up to ${r.cap} people".`}`; }
     catch (e) { S.passMsg = e && e.message ? e.message : "This demo link could not be used. Please ask us for a new one."; }
   }
   async function refreshHome() {

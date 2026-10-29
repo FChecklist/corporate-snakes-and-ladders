@@ -45,7 +45,7 @@ describe("the console offers the free demo", () => {
   test("a published demo shows a free, nothing-to-pay Pay step and no other size to choose", async () => {
     const s = await setup(10, true, true);
     expect(s.p.text()).not.toMatch(/Up to 100 people/);
-    expect(s.p.text()).toMatch(/Make a copy and choose a bigger size/);
+    expect(s.p.text()).toMatch(/Create a new game like this one and choose a bigger size/);
     s.p.click('[data-open="8"]');
     const t = await s.p.waitFor((x) => /Free demo game/.test(x));
     expect(t).toMatch(/Rs 0/); expect(t).toMatch(/Nothing to pay/); expect(t).not.toMatch(/Pay before the start|Waiting for the payment/);

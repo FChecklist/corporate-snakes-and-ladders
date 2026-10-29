@@ -66,7 +66,7 @@ describe("the free 10-person demo game", () => {
   test("a published demo cannot be turned into a real game by switching the mark off; a draft demo can still be changed into an ordinary game", async () => {
     const o = await organizer(); const draft = uid("DEMO"), live = uid("DEMO");
     await create(o.key, draft, { cap: 10, demo: true }); await create(o.key, live, { cap: 10, demo: true }); await publish(o.key, live);
-    const off = await call("PATCH", `/api/z/${live}/settings`, { demo: false }, o.h); expect(off.status).toBe(409); expect((await j(off)).error).toMatch(/make a copy/i);
+    const off = await call("PATCH", `/api/z/${live}/settings`, { demo: false }, o.h); expect(off.status).toBe(409); expect((await j(off)).error).toMatch(/create a new game like this one/i);
     expect((await call("PATCH", `/api/z/${draft}/settings`, { demo: false, cap: 250 }, o.h)).status).toBe(200); // a draft is not a demo any more: an ordinary draft of 250 people
     expect(one("SELECT pack FROM engagement WHERE id=?", draft).pack).toBe(0);
   });

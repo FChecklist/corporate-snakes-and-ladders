@@ -381,7 +381,7 @@
     if (rolling) { state = "Rolling the dice…"; chip = "Rolling"; tone = "go"; sub = ""; }
     if (THROW.turn !== t.index) { THROW.note = ""; THROW.turn = -1; } // a message about an earlier turn goes away with the next event
     const canThrow = presence && t.state === "open" && !t.thrown && !home && !tableOther && !THROW.busy && !v.paused && THROW.lateTurn !== t.index;
-    const throwBtn = presence && !v.ended ? `<button class="zbtn zroll" id="throw" type="button"${canThrow ? "" : " disabled"}>${THROW.busy ? "Rolling…" : thrownWait ? "Rolled. Wait for the result" : "Roll the dice"}</button>${THROW.note ? `<div class="zbanner bad" role="alert">${esc(THROW.note)}</div>` : ""}` : "";
+    const throwBtn = presence && !v.ended ? `<button class="zbtn zroll" id="throw" type="button"${canThrow ? "" : " disabled"}>${THROW.busy ? "Rolling…" : thrownWait ? "Rolled. Wait for the result" : "Roll the dice"}</button>${THROW.note ? `<div class="zbanner bad" role="alert" data-ctg-seen="1" data-ctg-done="1">${esc(THROW.note)}</div>` : ""}` : "";
     const dieMode = rolling ? "rolling" : (THROW.busy || thrownWait) ? "wait" : s ? "" : "idle";
     const die = v.ended && !s ? "" : `<div class="zdieblk">${dieHtml(s ? s.roll : 0, dieMode)}<div class="dnum${landedRecently() ? " pop" : ""}" aria-hidden="true">${rolling ? "&hellip;" : s ? s.roll : ""}</div></div>`;
     const outcome = s && !rolling ? (s.kind === "ladder" ? "up" : s.kind === "snake" ? "down" : s.kind === "finish" ? "win" : "") : "";

@@ -76,7 +76,7 @@ async function reportToCentral(env: PayEnv, b: any): Promise<any | null> {
   const c = centralOf(env); if (!c) return null;
   try { const r = await fetch(`${c.url}/api/pay/verify`, { method: "POST", headers: { "content-type": "application/json", "x-site-key": c.key }, body: JSON.stringify({ site: c.site, razorpay_order_id: String(b.razorpay_order_id), razorpay_payment_id: String(b.razorpay_payment_id), razorpay_signature: String(b.razorpay_signature) }), signal: AbortSignal.timeout(4000) }); return r.ok ? await r.json().catch(() => null) : null; } catch { return null; /* the webhook records it */ }
 }
-/** A DEMO GAME (worker.ts): config.demo is true. Free, up to 10 people, nothing to pay: for more people the organizer makes a copy and chooses a bigger size. */
+/** A DEMO GAME (worker.ts): config.demo is true. Free, up to 10 people, nothing to pay: for more people the organizer creates a new game like this one and chooses a bigger size. */
 export const isDemoCfg = (config: string | null | undefined): boolean => { try { return !!(config && JSON.parse(config).demo === true); } catch { return false; } };
 export const DEMO_NO_PAY = "This is a free demo game, so there is nothing to pay. To invite more people, create a new game like this one and choose a bigger size.";
 /** Optional switch (env FREE_LAUNCH="1"): small engagements (up to FREE_CAP participants) may be published without a purchase. Building a draft is always free. */
