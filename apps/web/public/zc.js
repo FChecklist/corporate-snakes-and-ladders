@@ -457,6 +457,8 @@
   }
 
   /** The read-back of steps 1 to 4: what is saved, with a Change button for each. */
+  /** SL-13: the prizes whose gift text is still empty, named one by one (for example "Milestone, Reach the end 1st, Reach the end 2nd"). */
+  const blankPrizeNames = (rewards) => { const all = rewards || [], ord = (n) => (n % 100 >= 11 && n % 100 <= 13 ? n + "th" : n + (["th", "st", "nd", "rd"][n % 10] || "th")); return all.filter((r) => !String(r.text || "").trim()).map((r) => { const h = HOUSES.find((x) => x.id === r.pattern), many = all.filter((x) => x.pattern === r.pattern).length > 1; return (h ? h.label : r.pattern) + (many ? " " + ord(r.ordinal || 1) : ""); }).join(", "); };
   function readBack() {
     const f = S.f, c = S.cfg, inf = S.info; if (!f || !c || !inf) return "";
     const name = c.name || (f.occ === "Other" ? f.oname || "Your game" : f.occ);
@@ -466,7 +468,7 @@
     const bd = c.board || {}, kind = c.mode === "team" ? `team race, ${c.teams || "?"} teams` : c.mode === "table" ? "table game" : "race";
     const rows = [["Game", blankDate ? `${name}, date and time still to pick` : `${name}, ${when(inf.startMs)}`, 1], ["People and play", `Up to ${inf.cap}, ${kind}, ${bd.size || 100} squares, ${c.play === "presence" ? "players throw" : "automatic throws"}, ${inf.callSeconds} seconds a turn, ${whoNow() === "anyone" ? "anyone with the link" : "only people on a list"}`, 2], ["Prizes", `${prizes} prize${prizes === 1 ? "" : "s"}${wait ? ` (${wait} to decide)` : ""}`, 3], ["Brand moments", `${used} of ${5 * t}`, 4]];
     return rows.map((r) => `<div class="zc-rowl"><span><span class="zc-small zc-nomargin">${r[0]}</span><br>${esc(r[1])}</span>${lockedGame() ? "" : `<button type="button" class="zc-mini" data-open="${r[2]}" aria-label="Change ${esc(r[0])}">Change</button>`}</div>`).join("")
-      + (wait ? `<p class="zc-small zc-warnt">${wait} prize${wait === 1 ? " says" : "s say"} "decide later". You can still publish.</p>` : "");
+      + (wait ? `<p class="zc-small zc-warnt" id="no-gift-note"><b>These prizes have no gift written yet:</b> ${esc(blankPrizeNames(c.rewards))}. Players will see "decided later". Open step 3 to add them. You can still publish.</p>` : "");
   }
 
   // ---------- step 5: your team ----------

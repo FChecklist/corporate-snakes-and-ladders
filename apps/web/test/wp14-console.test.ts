@@ -45,3 +45,23 @@ describe("SL-07: the organizer is told how long a game can last", () => {
     expect(t).toContain("The first turn comes 2 minutes after the start time");
   });
 });
+
+describe("SL-13: the publish step names the prizes that have no gift written", () => {
+  test("a new game has blank prizes: step 7 lists them by name; once every prize has a gift the note is gone", async () => {
+    const { p, w, s } = await consoleFor("THIRTEEN-1");
+    await openStep(p, 7, /Publish my game, free/);
+    const note = p.$("#no-gift-note");
+    expect(!!note).toBe(true);
+    expect(note.textContent).toContain("These prizes have no gift written yet:");
+    expect(note.textContent).toMatch(/Milestone/);
+    expect(note.textContent).toMatch(/Reach the end 1st/);
+    // fill every prize through the Worker, then look again
+    const cur = await w.json(await w.api("GET", "/api/z/THIRTEEN-1/participants", undefined, s.token));
+    const rewards = cur.rewards.map((r: any) => ({ ...r, text: "Gift " + r.pattern + r.ordinal }));
+    expect((await w.api("PATCH", "/api/z/THIRTEEN-1/settings", { rewards }, s.token)).status).toBe(200);
+    const q = await openPage(w.world, { url: "http://localhost/zc.html?e=THIRTEEN-1", html: "zc.html", scripts: ["zgame.js", "zc.js"], session: { "cbz-org": s.token } });
+    open.push(q); await q.waitFor((x) => /Check and publish/.test(x), 20000);
+    await openStep(q, 7, /Publish my game, free/);
+    expect(!!q.$("#no-gift-note")).toBe(false);
+  });
+});
