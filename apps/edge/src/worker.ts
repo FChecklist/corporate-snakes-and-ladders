@@ -152,7 +152,7 @@ export const SCHEMA: string[] = [
   ...VISIT_SCHEMA,
   // TEST / LIVE mode (mode.ts): the mode row, the owner's e-mail allow-list, the mail event log and the is_test flags
   ...MODE_SCHEMA,
-  // roles (Organizer / Host / Co-host): a short private label on each Host and Co-host key (0014_roles.sql)
+  // roles (Organizer / Host / Co-host): a short label on each Host and Co-host key (0014_roles.sql)
   `ALTER TABLE organizer_key ADD COLUMN label TEXT`,
   // cancel a game, refund, credit note, Host e-mail, Co-host bound to one game (0015_cancel_refund.sql)
   `ALTER TABLE engagement ADD COLUMN cancelled_ms INTEGER`,
@@ -438,7 +438,7 @@ export async function remindUnpaid(env: Env, now: number): Promise<void> {
     const due = await env.DB.prepare("SELECT e.id, e.start_round, (SELECT v FROM kv WHERE k='pub/'||e.id) AS pub FROM engagement e WHERE e.pack=0 AND EXISTS (SELECT 1 FROM kv WHERE k='pub/'||e.id)").all<{ id: string; start_round: number; pub: string }>();
     for (const x of due.results ?? []) {
       const at = roundMs(x.start_round);
-      if (at > now && at - now < 36 * 3_600_000 && now - (Number(x.pub) || 0) >= 2 * 3_600_000) await nudge(env, x.id, "remind", now, `Payment pending for your game ${x.id}: it starts ${istTime(at)}`, `Your game ${x.id} starts ${istTime(at)}. It is not paid yet, and a game that is not paid for does not begin.\n\nYou can pay at any time until the guest data is erased (23 hours after the game was meant to end). If you pay late, the first turn opens 2 minutes after the payment is confirmed.\n\nPay now (about 2 minutes): ${(env as PayEnv).PUBLIC_ORIGIN ?? ""}/pay.html?e=${x.id}`);
+      if (at > now && at - now < 36 * 3_600_000 && now - (Number(x.pub) || 0) >= 2 * 3_600_000) await nudge(env, x.id, "remind", now, `Payment pending for your game ${x.id}: it starts ${istTime(at)}`, `Your game ${x.id} starts ${istTime(at)}. It is not paid yet, and a game that is not paid for does not begin.\n\nYou can pay at any time until the guest data is erased (20 hours after the game was meant to end). If you pay late, the first turn opens 2 minutes after the payment is confirmed.\n\nPay now (about 2 minutes): ${(env as PayEnv).PUBLIC_ORIGIN ?? ""}/pay.html?e=${x.id}`);
     }
   } catch { /* tried again at the next tick */ }
 }
@@ -613,7 +613,7 @@ async function createOrganizer(env: Env, req: Request, email: string, now: numbe
   const eh = await sha("email|" + email);
     const ipk = `start/${day(now)}/${(await sha("ip|" + (req.headers.get("cf-connecting-ip") ?? "local"))).slice(0, 16)}`;
     const used = Number((await env.DB.prepare("SELECT v FROM kv WHERE k=?").bind(ipk).first<{ v: string }>())?.v ?? 0);
-    if (used >= STARTS_PER_DAY) return { error: "Too many new engagements from this network today. Please try again tomorrow.", status: 429 };
+    if (used >= STARTS_PER_DAY) return { error: "Too many new games from this network today. Please try again tomorrow.", status: 429 };
     if (!(await spend(env, now, 6))) return { error: "busy", status: 503 };
     const org = randHex(8), token = "cbk_" + randHex(24), aiKey = "cba_" + randHex(24), test = await testFlag(env); // an account made in TEST mode is flagged is_test
     await env.DB.batch([
@@ -746,7 +746,7 @@ export const AI_MANIFEST = {
     "Building and publishing are free. Only the organizer publishes (they confirm their e-mail and mobile number), and only the organizer pays; you never do either.",
     "Price is per engagement, by size: the smallest pack that covers the limit (see `packs`, the price in rupees is the whole amount: no GST is added). The limit does not have to match a pack size; people beyond the limit cannot join.",
     "The organizer pays on the payment page, online through Razorpay (the page shows the methods available). It takes about 2 minutes, and an invoice is e-mailed. The payment page names the seller, IT Services by Rajat Agarwal. Credit from an earlier cancelled game can pay for it (the Pay step offers it first).",
-    "No payment, no game. There is no separate payment cut-off: the game can be paid at any time until the guests' data is erased (23 hours after the game was meant to end). Until it is paid the Organizer and Hosts see \"Payment pending for this game\" and everyone else sees \"Waiting for the Organizer or Host to start the game.\" Nothing is charged and there is no penalty.",
+    "No payment, no game. There is no separate payment cut-off: the game can be paid at any time until the guests' data is erased (20 hours after the game was meant to end). Until it is paid the Organizer and Hosts see \"Payment pending for this game\" and everyone else sees \"Waiting for the Organizer or Host to start the game.\" Nothing is charged and there is no penalty.",
     "If the organizer pays late, even hours later, the first number comes 2 minutes after the payment is confirmed, for everyone already waiting, and they can also choose a new start time first (at most 30 days ahead). After the guest data is erased the game is closed (\"This game did not start. Your details have been erased.\"): nobody can join or pay, and the Organizer can create a new game like it.",
     "If they never pay, nothing is owed. They can create a new engagement whenever they like. The settings of a game that did not start stay for 30 days, then they are forgotten (as unpublished drafts are).",
     "We do not give refunds. If you cancel a paid game before it starts, your payment stays as credit for your next game for 365 days. Unused credit lapses at the end of day 365. The credit stays in the organizer's account. Unused places are not credited once the game has started. Rules and privacy are at /legal.html.",
@@ -1077,7 +1077,7 @@ async function route0(req: Request, env: Env, now: number, a: Auth): Promise<Res
       if (a.kind === "ai") return json({ error: "A pay link is for people to make themselves. It is not available through an AI link. Ask the owner to make it in the console (Check, publish and pay)." }, 403);
       if (!a.org || a.viaLink || (a.kind !== "master" && a.kind !== "host" && a.kind !== "cohost")) return deny(a);
       const pe = await env.DB.prepare("SELECT id, org, cap, pack, cancelled_ms FROM engagement WHERE id=?").bind(plm[1]!).first<{ id: string; org: string | null; cap: number; pack: number | null; cancelled_ms: number | null }>();
-      if (!pe || pe.org !== a.org) return json({ error: "No such engagement." }, 404);
+      if (!pe || pe.org !== a.org) return json({ error: "No such game." }, 404);
       if (a.kind === "cohost" && a.eid && a.eid !== pe.id) return json({ error: "Your Co-host link is for a different game." }, 403);
       if (pe.cancelled_ms) return json({ error: "This game was cancelled. It cannot be paid for." }, 409);
       if (pe.pack !== 0) return json({ error: "This game is already paid for.", code: "already-paid" }, 409);
@@ -1261,14 +1261,14 @@ async function route0(req: Request, env: Env, now: number, a: Auth): Promise<Res
       return r.ok ? json(r) : json({ error: r.error }, r.status);
     }
     const ce = await env.DB.prepare("SELECT id, org, cap FROM engagement WHERE id=?").bind(cid).first<{ id: string; org: string | null; cap: number }>();
-    if (!ce) return json({ error: "No such engagement." }, 404);
+    if (!ce) return json({ error: "No such game." }, 404);
     if (sub === "/key" && req.method === "PUT") { // only the organizer's own console registers the key that signs pauses
       if (!can(a, ce, true)) return deny(a);
       const b = await body(req);
       if (!b || typeof b.publicKey !== "string") return json({ error: "Bad key." }, 400);
       if (!(await spend(env, now))) return BUSY();
       const safety = safetyForCap(ce.cap, b.profile === "fast");
-      if (!safety) return json({ error: `Pause is available for engagements of up to ${PAUSE_MAX_PARTICIPANTS.toLocaleString("en-IN")} participants. Larger ones run without it, which keeps every phone's traffic off the free plan's daily allowance.` }, 409);
+      if (!safety) return json({ error: `Pause is available for games of up to ${PAUSE_MAX_PARTICIPANTS.toLocaleString("en-IN")} participants. Larger ones run without it, which keeps every phone's traffic off the free plan's daily allowance.` }, 409);
       const r = await registerKey(kv, cid!, b.publicKey, safety);
       if (r.ok) await mirrorControl(env, cid!);
       return r.ok ? json({ ok: true }) : json({ error: r.error }, 409);
@@ -1446,7 +1446,7 @@ async function route0(req: Request, env: Env, now: number, a: Auth): Promise<Res
     const pm = p.match(/^\/api\/z\/([A-Za-z0-9_-]{4,40})\/(people|waiting|me)((?:\/[A-Za-z0-9_-]+){0,2})$/);
     if (pm) {
       const pe = await env.DB.prepare("SELECT * FROM engagement WHERE id=?").bind(pm[1]!).first<any>();
-      if (!pe) return json({ error: "No such engagement." }, 404);
+      if (!pe) return json({ error: "No such game." }, 404);
       const presented = req.headers.get("x-organizer") || (req.headers.get("authorization") ?? "").replace(/^Bearer\s+/i, "");
       const isDraftP = pe.pack === 0 && !(await isPublished(env, pe));
       return peopleRoute({
@@ -1461,7 +1461,7 @@ async function route0(req: Request, env: Env, now: number, a: Auth): Promise<Res
   if (!m) return json({ error: "Not found", hint: "Read the list of what you can do at /api/z/ai-manifest. Engagement routes look like /api/z/{id}/summary, /settings, /roster, /participants, /results, /publish." }, 404);
   const [, eid, action] = m;
   const e = await env.DB.prepare("SELECT * FROM engagement WHERE id=?").bind(eid).first<any>();
-  if (!e) return json({ error: "No such engagement." }, 404);
+  if (!e) return json({ error: "No such game." }, 404);
   const digitsOf = (raw: unknown): string | null => { // a number typed with its country code (+65 ..., 0044 ...) may be as short as 8 digits in all: some countries have 5-digit numbers; a number typed without a code is 10 to 15 digits as before
     const s = String(raw ?? ""), d = s.replace(/\D/g, ""), withCode = /^\s*(\+|00)/.test(s), n = withCode && !/^(00)?91/.test(d) ? d.replace(/^00/, "") : d;
     if (n.length < (withCode ? 8 : 10) || n.length > 15) return null;
@@ -1494,7 +1494,7 @@ async function route0(req: Request, env: Env, now: number, a: Auth): Promise<Res
   const isDraft = unpaid && !(await isPublished(env, e));
   const payment = await paymentOf(env, e, unpaid, now);
   const cancelled = !!e.cancelled_ms; // a cancelled game can only be read (and its guests' data erased on request): nobody joins, nothing is changed, published or paid
-  const didNotStart = !!e.unplayed_ms; // a game nobody paid for whose time and 23 hours went by: its guest data is erased and it is closed. Nobody joins, nobody pays; settings stay 30 days so a new game can be made like it.
+  const didNotStart = !!e.unplayed_ms; // a game nobody paid for whose time and 20 hours went by: its guest data is erased and it is closed. Nobody joins, nobody pays; settings stay 30 days so a new game can be made like it.
   const DNS_MSG = "This game did not start. Your details have been erased.";
   if (didNotStart && req.method === "POST" && action === "join") return json({ error: DNS_MSG, code: "did-not-start", didNotStart: true }, 403);
   if (didNotStart && req.method !== "GET" && !["erase", "forget", "person", "cancel", "clone", "leave", "datareq"].includes(action!)) return json({ error: DNS_MSG, code: "did-not-start", didNotStart: true }, 409);
@@ -1758,7 +1758,7 @@ async function route0(req: Request, env: Env, now: number, a: Auth): Promise<Res
     const list = Array.isArray(b?.claims) ? b.claims.slice(0, 7) : null;
     if (!b || typeof b.pid !== "string" || !list) return json({ error: "Bad claim." }, 400);
     const who = await env.DB.prepare("SELECT p.pid AS pid, s.blocked AS blocked FROM participant p LEFT JOIN seat s ON s.eid=p.eid AND s.pid=p.pid WHERE p.eid=? AND p.pid=?").bind(eid, b.pid).first<{ pid: string; blocked: number | null }>();
-    if (!who) return json({ error: "Not a participant of this engagement." }, 403);
+    if (!who) return json({ error: "Not a participant of this game." }, 403);
     if (who.blocked) return json({ error: "You were removed from this game by the organizer.", code: "removed", removed: true }, 403); // the seat stays in the public list, the phone stops
     if (checkinRequired(e)) { const st = seatOfPidText(b.pid); if (!st || (await presentMsOf(env.DB, eid!, st)) === null) return json({ error: "Mark yourself present first: the check-in is on your board page.", code: "not-present" }, 403); } if (checkinRequired(e) && !(await deviceMatches(env, eid!, b.pid, b.device))) return json({ error: "This board belongs to another phone.", code: "other-phone" }, 403); // the participant id is public: only the board's own phone may act for it
     // only a person who checked in can win
@@ -1785,7 +1785,7 @@ async function route0(req: Request, env: Env, now: number, a: Auth): Promise<Res
   // everything below is for the organizer (or their AI, where allowed)
   if (action === "announce" && req.method === "POST") { // a message to every phone and the big screen. Organizer, their AI or a co-host; never a stranger
     if (!can(a, e)) return deny(a);
-    if (isDraft) return json({ error: "Publish the engagement first. Nobody can see a draft." }, 400);
+    if (isDraft) return json({ error: "Publish the game first. Nobody can see a draft." }, 400);
     const b = await body(req, 2_048);
     const text = typeof b?.text === "string" ? b.text.replace(/[<>`]/g, "").replace(/\s+/g, " ").trim() : null;
     if (text === null) return json({ error: "Write the message to send." }, 400);
@@ -1894,7 +1894,7 @@ async function route0(req: Request, env: Env, now: number, a: Auth): Promise<Res
   if (action === "invites" && req.method === "GET") { // how many people this participant has invited so far (their own id is the key to ask)
     const pid = url.searchParams.get("pid") ?? "";
     const me = await env.DB.prepare("SELECT seq, role, inv, blocked FROM seat WHERE eid=? AND pid=?").bind(eid, pid).first<{ seq: number; role: string | null; inv: number | null; blocked: number | null }>();
-    if (!me) return json({ error: "Not a participant of this engagement." }, 403);
+    if (!me) return json({ error: "Not a participant of this game." }, 403);
     const c = cfgOf(e).invites;
     const used = Math.max((await env.DB.prepare("SELECT COUNT(*) AS c FROM seat WHERE eid=? AND inv=?").bind(eid, me.seq).first<{ c: number }>())?.c ?? 0, await listCount(env.DB, eid!, "s:" + me.seq)); // people on their list (joined or not) or seats under them
     return json({ on: !!c?.on, per: c?.per ?? 0, used, unlimited: !!me.role, canInvite: !me.blocked && (!!me.role || me.inv === null), seat: me.seq, cats: c?.cats ?? [], removed: !!me.blocked, whoCanJoin: e.closed ? "list" : "anyone" });
@@ -1951,13 +1951,13 @@ async function route0(req: Request, env: Env, now: number, a: Auth): Promise<Res
     if (!can(a, e)) return deny(a);
     const b = await body(req);
     { const k = checkConsent("K6", b?.consent); if (!k.ok) return consentRefusal("K6", k); await recordConsent(env.DB, "K6", e.org ?? a.kind ?? "platform", eid!, now); }
-    if (!b || !ID.test(b.from ?? "") || b.from === eid) return json({ error: "Pick an earlier engagement." }, 400);
+    if (!b || !ID.test(b.from ?? "") || b.from === eid) return json({ error: "Pick an earlier game." }, 400);
     const src = await env.DB.prepare("SELECT org FROM engagement WHERE id=?").bind(b.from).first<{ org: string | null }>();
-    if (!src || !can(a, src)) return json({ error: "Pick an earlier engagement." }, 400); // someone else's roster is never reachable
+    if (!src || !can(a, src)) return json({ error: "Pick an earlier game." }, 400); // someone else's roster is never reachable
     const old = await env.DB.prepare("SELECT phone_hash, pii FROM participant WHERE eid=? ORDER BY joined_ms, pid").bind(b.from).all<any>();
     const rows = old.results ?? [];
-    if (!rows.length) return json({ error: "That engagement's people list has already been deleted (personal data is deleted within 24 hours of a game ending). Upload your list again.", code: "gone" }, 410);
-    if (rows.length > e.cap) return json({ error: "This engagement is smaller than the earlier roster." }, 409);
+    if (!rows.length) return json({ error: "That game's people list has already been deleted (personal data is deleted within 24 hours of a game ending). Upload your list again.", code: "gone" }, 410);
+    if (rows.length > e.cap) return json({ error: "This game is smaller than the earlier roster." }, 409);
     if (!(await spend(env, now, rows.length * 2))) return BUSY();
     let copied = 0; const jr = lateNow();
     for (const r of rows) {
@@ -1989,7 +1989,7 @@ async function route0(req: Request, env: Env, now: number, a: Auth): Promise<Res
   }
   if (action === "settings" && (req.method === "PATCH" || req.method === "POST")) { // only before the first number can possibly have been called
     if (!can(a, e)) return deny(a);
-    if (!unpaid && roundMs(e.start_round) <= now) return json({ error: "The engagement has already started, so it can no longer be changed." }, 409);
+    if (!unpaid && roundMs(e.start_round) <= now) return json({ error: "The game has already started, so it can no longer be changed." }, 409);
     const b = await body(req, BRAND_BODY_MAX);
     if (!b) return json({ error: "Check the details." }, 400);
     if (b.whoCanJoin !== undefined && b.whoCanJoin !== "list" && b.whoCanJoin !== "anyone") return json({ error: "Who can join: choose \"list\" (only people on a list) or \"anyone\" (anyone with the link)." }, 400);

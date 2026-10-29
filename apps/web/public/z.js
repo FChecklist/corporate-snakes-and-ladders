@@ -22,7 +22,7 @@
   };
   // ---------- what the game's public settings say besides the plan: the brand strip, a cancelled game; and a personal invite link's token ----------
   const TOKEN = (q.get("t") || "").trim().slice(0, 80); // a personal link: sent as `token` when joining, so no mobile number is needed
-  const INFO = { brand: null, cancelled: null, dns: false, joinPhone: false, verify: "mobile", empOnly: false }; // dns = "this game did not start": nobody paid, the time and 23 hours passed, the guest data was erased
+  const INFO = { brand: null, cancelled: null, dns: false, joinPhone: false, verify: "mobile", empOnly: false }; // dns = "this game did not start": nobody paid, the time and 20 hours passed, the guest data was erased
   const cleanBrand = (b) => {
     if (!b || typeof b !== "object") return null;
     const name = String(b.name == null ? "" : b.name).replace(/\s+/g, " ").trim().slice(0, 60);
@@ -440,7 +440,7 @@
     const list = prizeList(v); if (!list.length) return "";
     const rows = list.map((p) => {
       const res = (v.results || []).find((r) => r.pattern === p.key && r.ordinal === p.line.ordinal);
-      const right = res && res.winners && res.winners.length ? ((res.winners || []).includes(v.pid) ? `<em class="zwonchip">You won!${res.tied > 1 ? " &middot; decided by fate" : ""}</em>` : `<i class="zdonechip">Awarded</i>`) : `<i class="zopenchip">Up for grabs</i>`;
+      const right = res && res.winners && res.winners.length ? ((res.winners || []).includes(v.pid) ? `<em class="zwonchip">You won!${res.tied > 1 ? " &middot; decided by chance" : ""}</em>` : `<i class="zdonechip">Awarded</i>`) : `<i class="zopenchip">Up for grabs</i>`;
       return `<div class="zrow zprize"><span class="ztrophy" aria-hidden="true">&#127942;</span><span class="zpname"><b>${p.text ? esc(p.text) : esc(p.name)}</b>${p.text ? `<small class="zsmall zflush">${esc(p.name)}</small>` : ""}${p.how ? `<small class="zsmall zflush zhow">${esc(p.how)}</small>` : ""}</span>${right}</div>`;
     }).join("");
     return `<div class="zcard zprizecard"><h2>What you can win</h2>${rows}</div>`;

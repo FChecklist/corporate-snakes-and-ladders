@@ -3,7 +3,7 @@
 //     Paid: only BEFORE the start time. Once the start time has passed a paid game has started, so it cannot be cancelled.
 //   - Cancelling a PAID game turns what was paid into CREDIT for the account, valid 365 days from the date of the original payment (credit.ts). Credit that had been used to pay for the game
 //     comes back to the same credit with the same expiry. There is no refund, no gateway call, no refund fee, no credit note, and the partner's commission on the sale stays as earned.
-//   - The guests' names and numbers are erased 23 hours after the cancel time by the normal lifecycle tick (lifecycle.ts); a Co-host's name and number go at once.
+//   - The guests' names and numbers are erased 20 hours after the cancel time by the normal lifecycle tick (lifecycle.ts); a Co-host's name and number go at once.
 // Nothing here may carry an AI link (mails.ts is the only place that builds those).
 import { zoneStamp, tzOfRow } from "./tz";
 import { creditExpiryMs, creditFromPayment, creditLastDay, mailTeam, NO_REFUND_LINE, restoreCreditUses, rs, teamEmails, type CreditRow } from "./credit";
@@ -84,7 +84,7 @@ async function reopenBlocker(db: D1, e: any, now: number): Promise<{ reason?: st
 
 /**
  * Moves a cancelled PAID game to a new date (owner order 2026-10-09). The game keeps its payment: the credit that the cancel made is taken back out of the account (marked `revived`, so the money can never be
- * spent twice), credit that had paid for the game goes back onto the game, the cancel mark is cleared and the new start time is set. Guests must join again (their data was erased 23 hours after the cancel).
+ * spent twice), credit that had paid for the game goes back onto the game, the cancel mark is cleared and the new start time is set. Guests must join again (their data was erased 20 hours after the cancel).
  * `maxAheadMs` = how far ahead a game time may be set. Every step that changes money is guarded and undone if a later step fails.
  */
 export async function reopenGame(env: PayEnv, e: any, startRound: unknown, now: number, by: string, maxAheadMs: number): Promise<{ status: number; body: any }> {

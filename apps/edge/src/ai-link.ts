@@ -143,7 +143,7 @@ export function manualText(origin: string, key: string, role: LinkRole, now: num
       "6. PAYMENT FACTS (explain these honestly)",
       "- Only the organizer publishes (confirming their e-mail and mobile number) and only the organizer pays; you never do either.",
       "- The price depends on the limit (section 1). They pay on the payment page, online, in about 2 minutes; an invoice is e-mailed. Credit from a cancelled game pays first (the organizer taps Use my credit).",
-      "- No payment, no game. There is no separate payment cut-off: they can pay any time until the guests' data is erased (23 hours after the game was meant to end). Until then the Organizer and Hosts see Payment pending and everyone else sees Waiting for the Organizer or Host to start the game. If they pay late the first number comes 2 minutes after the payment is confirmed. After the erasure the game is closed (This game did not start. Your details have been erased.).",
+      "- No payment, no game. There is no separate payment cut-off: they can pay any time until the guests' data is erased (20 hours after the game was meant to end). Until then the Organizer and Hosts see Payment pending and everyone else sees Waiting for the Organizer or Host to start the game. If they pay late the first number comes 2 minutes after the payment is confirmed. After the erasure the game is closed (This game did not start. Your details have been erased.).",
       "- We do not give refunds. If you cancel a paid game before it starts, your payment stays as credit for your next game for 365 days. Unused credit lapses at the end of day 365. Once the start time has passed a paid game cannot be cancelled. Only the Organizer or a Host can cancel (never an AI). Unused places are not credited. A game that is not paid for can be set at most 30 days ahead, and a paid game can be moved to any date within 365 days of the payment. The settings of a game that did not start stay for 30 days.",
       "",
       "7. HOW TO TALK",
@@ -230,7 +230,7 @@ export function frontDoorText(origin: string, key: string, role: LinkRole): stri
     `1. Start a new game: ${base}/go/new`,
     `2. Change a game that has not started yet: ${base}/go/games`,
     `3. Show the links of a game: ${base}/go/games?then=links`,
-    `4. Is the software safe, private, legal? (the 10 facts): ${base}/facts`,
+    `4. Is the software safe, secure, legal? (the 10 facts): ${base}/facts`,
     `5. Everything you can do for them: ${base}/map`,
     `6. Try the free demo first (a practice game of about a minute; the organizer opens it and taps Roll the dice): ${origin}/demo.html`,
     "",
@@ -251,7 +251,7 @@ export function nextHint(status: number, error: string, _base: string, origin: s
   if (/https:\/\/|must start with/i.test(error)) return "Ask the organizer for a link that starts with https:// and has no spaces (a YouTube link, or a direct link to a video or audio file).";
   if (/Names and mobile numbers are handled by the owner/i.test(error)) return `Tell the organizer kindly that this one is theirs: they do it in their console: ${consolePage}`;
   if (/may not do this/i.test(error) || status === 403) return `This step is for the organizer. Give them the hand-over link and say what to press: ${consolePage}`;
-  if (/Publish the engagement first/i.test(error)) return `Messages need a published game. Give the organizer the publish hand-over: ${consolePage}&do=publish`;
+  if (/Publish the (?:engagement|game) first/i.test(error)) return `Messages need a published game. Give the organizer the publish hand-over: ${consolePage}&do=publish`;
   if (/draft|10 games|waiting/i.test(error) && status === 409) return `Ask the organizer to finish or delete one of their waiting games in the console: ${origin}/zc.html`;
   if (status === 404) return "Check the game code with GET history (on your keyed address) or use the guided path: the /go/games step link in your instructions.";
   if (status === 429 || status === 503) return "It is busy: wait a minute and try once more; if it still fails, tell the organizer and offer the console.";

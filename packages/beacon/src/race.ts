@@ -79,7 +79,7 @@ export function playRace(cfg: RaceCfg, input: RaceInput): RaceState {
 /* ---------------- ranking (no ties, ever) ---------------- */
 
 export interface RankRow { rank: number; seat: number; finishedTurn: number | null; square: number; ladders: number; missed: number; note: string }
-const KEYS = ["finished earlier", "a higher square", "more ladders climbed", "fewer turns missed", "fate"] as const;
+const KEYS = ["finished earlier", "a higher square", "more ladders climbed", "fewer turns missed", "chance"] as const;
 
 /** Compares two players by the chain of section 6: earlier finish, higher square, more ladders, fewer missed turns, then fate. Returns the order and the index of the key that decided it. */
 function compareChain(gameId: string, a: Run, b: Run, label: string): { order: number; key: number } {

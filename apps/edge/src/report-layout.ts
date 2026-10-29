@@ -105,7 +105,7 @@ export function layoutReport(d: ReportData): Uint8Array {
     const flat = d.prizes.flatMap((p) => p.winners.map((w) => ({ p, w })));
     if (flat.length) {
       pdf.h2("Ranking: top winners");
-      const rows = flat.slice(0, 10).map((x, i) => { const tied = flat.some((y) => y !== x && base(y.p.label) === base(x.p.label) && y.w.callNo !== null && y.w.callNo === x.w.callNo); return [String(i + 1), x.p.label, x.w.seat === null ? "-" : String(x.w.seat), x.w.name || "(no name)", x.w.callNo === null ? "-" : String(x.w.callNo), tied ? "tied on the same turn; decided by fate" : ""]; });
+      const rows = flat.slice(0, 10).map((x, i) => { const tied = flat.some((y) => y !== x && base(y.p.label) === base(x.p.label) && y.w.callNo !== null && y.w.callNo === x.w.callNo); return [String(i + 1), x.p.label, x.w.seat === null ? "-" : String(x.w.seat), x.w.name || "(no name)", x.w.callNo === null ? "-" : String(x.w.callNo), tied ? "tied on the same turn; decided by chance" : ""]; });
       pdf.table([{ head: "Rank", width: 5, align: "r" }, { head: "Prize", width: 17 }, { head: "Seat", width: 5, align: "r" }, { head: "Name", width: 18 }, { head: "At turn", width: 7, align: "r" }, { head: "How decided", width: 24 }], rows);
     }
   }

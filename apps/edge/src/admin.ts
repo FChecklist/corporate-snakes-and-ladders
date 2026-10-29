@@ -90,7 +90,7 @@ export async function countError(db: D1, now: number): Promise<void> {
 export const OVERDUE_GRACE_MS = 3 * 3_600_000;
 const HAS_PLAYERS = (eid: string) => `(EXISTS (SELECT 1 FROM participant p WHERE p.eid=${eid}) OR EXISTS (SELECT 1 FROM person q WHERE q.eid=${eid}) OR EXISTS (SELECT 1 FROM waiting w WHERE w.eid=${eid}))`;
 /**
- * The 24-hour promise watched from outside: how many games are past 23 hours after their end (plus a short grace) and still hold their players' data, and how long the oldest has waited.
+ * The 24-hour promise watched from outside: how many games are past 20 hours after their end (plus a short grace) and still hold their players' data, and how long the oldest has waited.
  * Two sources: games the tick already knows (a `life` row that is not purged) and games it has not looked at at all (no `life` row yet: their end is worked out from their schedule, as the tick does), so a dead clock is seen too.
  * A game under an owner's legal hold is left out: its data is kept on purpose.
  */

@@ -120,7 +120,7 @@
       if (!r.winners || !r.winners.length) continue;
       const names = r.winners.map((p) => nickOf(seatOf(p))).join(", ");
       const nm = r.pattern === "lucky" ? ((v.lucky[r.ordinal - 1] && v.lucky[r.ordinal - 1].title) || "Lucky draw") : lineName(v.cfg, r.pattern, r.ordinal);
-      out.push(`<span><b>${esc(nm)}</b> &middot; ${esc(names)}${r.tied > 1 ? " &middot; decided by fate" : ""}</span>`);
+      out.push(`<span><b>${esc(nm)}</b> &middot; ${esc(names)}${r.tied > 1 ? " &middot; decided by chance" : ""}</span>`);
     }
     return out.length ? `<div class="wins" aria-label="Winners so far">${out.join("")}</div>` : "";
   }
