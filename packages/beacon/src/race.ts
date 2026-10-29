@@ -17,6 +17,7 @@ export interface RaceCfg {
   endPrizes: number;            // the game ends when this many players have landed on the last square (1 to 5)
   play: Play;                   // fate: every throw is automatic; presence: a player who does not throw in the window misses the turn
   exclusive: boolean;           // true = nobody wins two prizes
+  milestonePrizes?: number;     // with one prize per person: how many milestone prizes the organizer gave (a holder cannot also take a 'reach the end' prize, so the game waits for one more player home per holder)
   teams?: number;               // team race: number of teams (2 to 10); absent = group race
 }
 export const defaultRaceCfg = (gameId: string, players: number): RaceCfg => ({ gameId, players, board: defaultBoardCfg(), milestones: [DEFAULT_MILESTONE], turnCap: DEFAULT_TURN_CAP, endPrizes: DEFAULT_END_PRIZES, play: "fate", exclusive: false });
@@ -70,10 +71,19 @@ export function playRace(cfg: RaceCfg, input: RaceInput): RaceState {
     st.turnsPlayed = t + 1;
     st.finishedCount = runs.reduce((n, r) => n + (r.finishedTurn !== null ? 1 : 0), 0);
     if (cfg.teams) { if (teamsFinished(cfg, st).length > 0) { st.ended = true; st.endReason = "finishers"; } }
-    else if (st.finishedCount >= cfg.endPrizes) { st.ended = true; st.endReason = "finishers"; }
+    else if (homeCount(st) >= cfg.endPrizes) { st.ended = true; st.endReason = "finishers"; }
     if (!st.ended && st.turnsPlayed >= cfg.turnCap) { st.ended = true; st.endReason = "cap"; }
   }
   return st;
+}
+
+/** Players home who can still take a 'reach the end' prize. With one prize per person a player who holds a milestone prize cannot also take one, so the game waits for `endPrizes` players WITHOUT a milestone prize (otherwise it would end with a 'reach the end' prize unawarded). */
+function homeCount(st: RaceState): number {
+  const cfg = st.cfg, home = st.runs.filter((r) => r.finishedTurn !== null);
+  if (!cfg.exclusive || !cfg.milestonePrizes || home.length < cfg.endPrizes) return home.length;
+  const holders = new Set<number>();
+  for (let i = 1; i <= Math.min(cfg.milestonePrizes, cfg.milestones.length); i++) { const w = candidates(st, "milestone", i).find((c) => !holders.has(c.seat)); if (w) holders.add(w.seat); }
+  return home.filter((r) => !holders.has(r.seat)).length;
 }
 
 /* ---------------- ranking (no ties, ever) ---------------- */
