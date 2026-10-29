@@ -29,10 +29,19 @@ describe("owner test sign-ins work only in TEST mode", () => {
     await setMode(W.env as any, "LIVE", "back", T);
     expect((await signIn("demo2@xyz.in")).status).toBe(400);
   });
-  test("LIVE mode: a stranger who types demo1@xyz.in at the start gets an ordinary account: the 250-person game is a draft that needs payment", async () => {
+  test("LIVE mode: nobody can open an account with one of the three addresses (a stranger could otherwise claim them before the owner)", async () => {
+    for (const mail of ["demo1@xyz.in", "demo2@xyz.in", "demo3@xyz.in"]) {
+      const r = await call("POST", "/api/start", { email: mail }, IP); expect(r.status).toBe(400); expect((await j(r)).token).toBeUndefined();
+    }
+    expect(one("SELECT COUNT(*) c FROM organizer_email").c).toBe(0);
+  });
+  test("an account made in TEST mode gets no free game once the site is LIVE", async () => {
+    await setMode(W.env as any, "TEST", "walk-through", T);
     const o = await organizer("demo1@xyz.in");
-    const r = await j(await create(o.key, uid("OT"), { cap: 250 })); expect(r.draft).toBe(true);
-    expect(one("SELECT COUNT(*) c FROM entitlement WHERE payment_id='owner-test'").c).toBe(0);
+    expect((await j(await create(o.key, uid("OT"), { cap: 250 }))).draft).toBe(false); // TEST mode: free
+    await setMode(W.env as any, "LIVE", "back", T);
+    const r = await j(await create(o.key, uid("OT"), { cap: 250 })); expect(r.draft).toBe(true); // LIVE mode: an ordinary game that needs payment
+    expect(one("SELECT COUNT(*) c FROM entitlement WHERE payment_id='owner-test'").c).toBe(1); // only the one made in TEST mode
   });
   test("TEST mode: demo1 still gets its free test game, demo2 and an ordinary address do not", async () => {
     await setMode(W.env as any, "TEST", "walk-through", T);
