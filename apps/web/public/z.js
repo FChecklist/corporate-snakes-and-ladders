@@ -123,7 +123,7 @@
     const vm = INFO.verify || "mobile", eo = !!INFO.empOnly, pv = esc(J.phone || ""), ev = esc(J.emp || "");
     const phone = (label, hint) => `<label for="ph">${label}</label><input id="ph" inputmode="tel" autocomplete="tel" placeholder="+1 555 010 0100" value="${pv}">${hint ? `<p class="zsmall zflush">${hint}</p>` : ""}`;
     const EM = INFO.idKind === "email", idw = (t) => EM ? t.replace(/employee ID/g, "Email ID") : t;
-    const emp = (label, hint) => `<label for="emp">${idw(label)}</label><input id="emp" ${EM ? 'type="email" inputmode="email" autocomplete="email" autocapitalize="none" maxlength="254"' : 'autocomplete="off" autocapitalize="characters" maxlength="30"'} value="${ev}"><p class="zsmall zflush" id="empread" aria-live="polite"></p>${hint ? `<p class="zsmall zflush">${hint}</p>` : ""}`;
+    const emp = (label, hint) => `<label for="emp">${idw(label)}</label><input id="emp" ${EM ? 'type="text" inputmode="email" autocomplete="email" spellcheck="false" autocapitalize="none" maxlength="254"' : 'autocomplete="off" autocapitalize="characters" maxlength="30"'} value="${ev}"><p class="zsmall zflush" id="empread" aria-live="polite"></p>${hint ? `<p class="zsmall zflush">${hint}</p>` : ""}`;
     if (vm === "id") return emp("Your employee ID", eo ? "This game is for employees only." : "") + (eo ? "" : phone("No employee ID? Type your mobile number instead", "Vendors, customers and families use their mobile number."));
     if (vm === "both") return phone("Your mobile number", "") + emp(eo ? "Your employee ID" : "Your employee ID (employees only)", eo ? "This game is for employees only." : "Not an employee? Leave this empty.");
     return phone("Your mobile number", "");

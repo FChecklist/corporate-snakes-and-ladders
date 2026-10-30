@@ -125,7 +125,9 @@
       "store": "localStorage",
       "say": "The colour choice.",
       "keys": [
-        "cb-theme"
+        "cb-theme",
+        "ct-theme",
+        "cg-theme"
       ]
     },
     {
