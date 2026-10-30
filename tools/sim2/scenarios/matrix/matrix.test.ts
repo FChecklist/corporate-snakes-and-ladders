@@ -18,7 +18,9 @@ describe("scenario matrix: real product, streamed", () => {
   test("M4 wire: mode x era x payment x ID or phone x listed x device x time x approval, real requests", async () => { results.M4 = await runWire(); expect(results.M4.fail).toBe(0); expect(results.M4.scenarios).toBeGreaterThan(500); });
   test("the total is at least 1,000,000 distinct scenarios with zero failures; exact counts are saved to results/matrix-counts.json", () => {
     const total = Object.values(results).reduce(merge, newCounts());
-    const independent = A.ID_SPELLING_COUNT * 2 + A.MAIL_SPELLING_COUNT + A.verifyCases().length + results.M2!.scenarios + results.M3!.scenarios + results.M4!.scenarios;
+    // "independent inputs": an axis whose values do not interact with the other axes of its group is counted once, by its own size (M1 e-mail, M1 setting, M3 states, M3 themes), not multiplied
+    const links = A.ROLES.reduce((n, r) => n + A.inviterIds(r).length, 0) + A.personalTokens().length;
+    const independent = A.ID_SPELLING_COUNT * 2 + A.MAIL_SPELLING_COUNT + A.verifyCases().length + results.M2!.scenarios + (links + A.STATES.length + A.THEMES.length + 1) + results.M4!.scenarios;
     mkdirSync(RESULTS, { recursive: true });
     writeFileSync(join(RESULTS, "matrix-counts.json"), JSON.stringify({ groups: Object.fromEntries(Object.entries(results).map(([k, v]) => [k, { scenarios: v.scenarios, checks: v.checks, pass: v.pass, fail: v.fail }])), total: { scenarios: total.scenarios, checks: total.checks, pass: total.pass, fail: total.fail }, independentInputs: independent, byDimension: total.byDimension, firstFailures: total.firstFailures }, null, 1));
     expect(total.scenarios).toBeGreaterThanOrEqual(1_000_000); expect(total.fail).toBe(0); expect(total.pass).toBe(total.scenarios);

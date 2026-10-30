@@ -63,7 +63,7 @@ describe("employee ID through the real Worker, game made after the switch (new r
     const g = await setupGame(w, { verify: "id", employeesOnly: true, era: "new" });
     const r = await json(await addPeople(w, g.key, g.id, [{ name: "A", empId: "１Ｂ－６７８" }, { name: "B", empId: "2C​-9😀9" }, { name: "C", empId: "3d 4e" }]));
     expect(r.added).toBe(3); expect(r.invalid).toEqual([]);
-    for (const [spell, clean] of [["1b/678", "1B678"], ["2c 99", "2C99"], ["3D-4E", "3D4E"]]) { expect(cleanEmpId(spell)).toBe(clean); expect((await json(await who(w, g.id, spell))).known).toBe(true); }
+    for (const [spell, clean] of [["1b/678", "1B678"], ["2c 99", "2C99"], ["3D-4E", "3D4E"]] as [string, string][]) { expect(cleanEmpId(spell)).toBe(clean); expect((await json(await who(w, g.id, spell))).known).toBe(true); }
   });
   test("list upload refuses symbols-only and over-30 with the plain words, and does not store them", async () => {
     const g = await setupGame(w, { verify: "id", employeesOnly: true, era: "new" });

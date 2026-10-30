@@ -1,29 +1,34 @@
-BREAKCHECK email  (scratch copy: /tmp/claude-0/-home-user-corporate-snakes-and-ladders/117805c9-be35-5a9a-b7a1-0275cf74a649/scratchpad/breakcheck-XnYwOs; tests: apps/edge/test/t30-m2-email.test.ts)
-  baseline: GREEN  18 pass, 0 fail
-  break 1: the cleaner no longer lower-cases  [apps/edge/src/emailclean.ts]  -> RED  9 pass, 9 fail
-      failing: email cleaner (unit) > RAJAT1＠DEMO.COM, with the full-width at-sign, is rajat1@demo.com
-      failing: email cleaner (unit) > EVERY case mix of demo1@demo-test.invalid (2^19 = 524,288 strings, all distinct) cleans to the one address
-      failing: email cleaner (unit) > full-width and compatibility forms: ＠, ．, full-width letters and digits, ideographic space
-  break 2: the cleaner no longer folds the full-width at-sign  [apps/edge/src/emailclean.ts]  -> RED  11 pass, 7 fail
-      failing: email cleaner (unit) > RAJAT1＠DEMO.COM, with the full-width at-sign, is rajat1@demo.com
-      failing: email cleaner (unit) > full-width and compatibility forms: ＠, ．, full-width letters and digits, ideographic space
-      failing: one address, one person, at every place it is read > host setup link: the hash of the address is the same for every variant and different for another address
-  break 3: the cleaner no longer removes inner spaces  [apps/edge/src/emailclean.ts]  -> RED  13 pass, 5 fail
+BREAKCHECK email  (scratch copy: /tmp/claude-0/-home-user-corporate-snakes-and-ladders/117805c9-be35-5a9a-b7a1-0275cf74a649/scratchpad/breakcheck-pNpFGN; tests: apps/edge/test/t30-m2-email.test.ts, apps/edge/test/t30-m2-email-routes.test.ts)
+  baseline: GREEN  22 pass, 0 fail
+  break 1: the cleaner no longer lower-cases  [apps/edge/src/emailclean.ts]  -> RED  9 pass, 13 fail
+      failing: organizer e-mail-code sign-in: any spelling asks for the code and any spelling confirms it > one account; the code asked for with one spelling is accepted with another; a different address is refused
+      failing: Host setup: the address on file and the address typed are compared as one address > the link made for Priya@Acme.com: every spelling of that address is accepted and gets a code; another address gets 'email-mismatch' (409) and the masked address on file
+      failing: Host setup: the address on file and the address typed are compared as one address > the code asked for with one spelling confirms the address (then the Host is a verified person)
+  break 2: the cleaner no longer folds the full-width at-sign  [apps/edge/src/emailclean.ts]  -> RED  11 pass, 11 fail
+      failing: organizer e-mail-code sign-in: any spelling asks for the code and any spelling confirms it > one account; the code asked for with one spelling is accepted with another; a different address is refused
+      failing: Host setup: the address on file and the address typed are compared as one address > the link made for Priya@Acme.com: every spelling of that address is accepted and gets a code; another address gets 'email-mismatch' (409) and the masked address on file
+      failing: Host setup: the address on file and the address typed are compared as one address > the code asked for with one spelling confirms the address (then the Host is a verified person)
+  break 3: the cleaner no longer removes inner spaces  [apps/edge/src/emailclean.ts]  -> RED  17 pass, 5 fail
       failing: email cleaner (unit) > spaces, tabs and newlines at the ends and inside are removed
       failing: one address, one person, at every place it is read > host setup link: the hash of the address is the same for every variant and different for another address
       failing: one address, one person, at every place it is read > visits: the keyed hash of the address is the same for every variant and different for another address
-  break 4: sign-in (start, e-mail code, verify) reads the address as typed  [apps/edge/src/worker.ts]  -> RED  16 pass, 2 fail
+  break 4: sign-in (start, e-mail code, verify) reads the address as typed  [apps/edge/src/worker.ts]  -> RED  19 pass, 3 fail
+      failing: organizer e-mail-code sign-in: any spelling asks for the code and any spelling confirms it > one account; the code asked for with one spelling is accepted with another; a different address is refused
       failing: one address, one person, at every place it is read > organizer sign-in (/api/start): the first variant makes the account and gives a key; every other variant is told the account exists and gets no key; one account row
       failing: test sign-ins count in every spelling (TEST mode only) > in TEST mode DEMO2@XYZ.IN with the fixed code signs in with a key; in LIVE mode the same is refused
-  break 5: the Host setup link hashes the address as typed  [apps/edge/src/hostsetup.ts]  -> RED  17 pass, 1 fail
+  break 5: the Host setup link hashes the address as typed  [apps/edge/src/hostsetup.ts]  -> RED  21 pass, 1 fail
       failing: one address, one person, at every place it is read > host setup link: the hash of the address is the same for every variant and different for another address
-  break 6: the visits hash uses the address as typed  [apps/edge/src/visits.ts]  -> RED  17 pass, 1 fail
+  break 6: the visits hash uses the address as typed  [apps/edge/src/visits.ts]  -> RED  21 pass, 1 fail
       failing: one address, one person, at every place it is read > visits: the keyed hash of the address is the same for every variant and different for another address
-  break 7: test logins are matched case-sensitively  [apps/edge/src/testlogins.ts]  -> RED  17 pass, 1 fail
+  break 7: test logins are matched case-sensitively  [apps/edge/src/testlogins.ts]  -> RED  21 pass, 1 fail
       failing: test sign-ins count in every spelling (TEST mode only) > isTestLogin ignores case, full-width and spaces for the listed test addresses, and is false for any other address
-  break 8: the employee ID cleaner is applied to e-mail in sign-in (merges a.b-c with abc)  [apps/edge/src/worker.ts]  -> RED  16 pass, 2 fail
-      failing: one address, one person, at every place it is read > organizer sign-in (/api/start): the first variant makes the account and gives a key; every other variant is told the account exists and gets no key; one account row
-      failing: one address, one person, at every place it is read > organizer sign-in: two addresses that differ only by a dot, dash or digit are TWO accounts (the ID cleaner would have merged them)
-  restored: GREEN  18 pass, 0 fail
+  break 8: the employee ID cleaner is applied to e-mail in sign-in (merges a.b-c with abc)  [apps/edge/src/worker.ts]  -> RED  17 pass, 5 fail
+      failing: organizer e-mail-code sign-in: any spelling asks for the code and any spelling confirms it > one account; the code asked for with one spelling is accepted with another; a different address is refused
+      failing: Host setup: the address on file and the address typed are compared as one address > the link made for Priya@Acme.com: every spelling of that address is accepted and gets a code; another address gets 'email-mismatch' (409) and the masked address on file
+      failing: Host setup: the address on file and the address typed are compared as one address > the code asked for with one spelling confirms the address (then the Host is a verified person)
+  break 9: Host setup compares the address on file with the address typed case-sensitively  [apps/edge/src/hostsetup.ts]  -> STILL GREEN (the tests did not notice)  22 pass, 0 fail
+  break 10: Refer & earn reads the address as typed (a second spelling becomes a second partner)  [apps/edge/src/partners.ts]  -> RED  21 pass, 1 fail
+      failing: Refer & earn enrolment: one address is one partner > the same address in another spelling, with another mobile number, is told apart from a new person only by the e-mail it gets: no second partner, no code on screen
+  restored: GREEN  22 pass, 0 fail
   branch product code untouched: yes
-RESULT email: every planted break was caught
+RESULT email: 1 problem(s)

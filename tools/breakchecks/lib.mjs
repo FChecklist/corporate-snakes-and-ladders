@@ -41,9 +41,10 @@ export async function breakcheck({ id, tests, mutations }) {
       const counts = edits.map((e, k) => originals[k].split(e.from).length - 1);
       const badEdit = counts.findIndex((n, k) => n === 0 || (n > 1 && !edits[k].all));
       if (badEdit >= 0) { bad++; say(`  break ${i + 1} [${m.note}] NOT PLANTED: ${edits[badEdit].file} has ${counts[badEdit]} copies of the text to change`); continue; }
-      edits.forEach((e, k) => writeFileSync(join(scratch, e.file), e.all ? originals[k].split(e.from).join(e.to) : originals[k].replace(e.from, () => e.to)));
+      const cur = new Map(); // edits to the same file are applied one after the other on the current text
+      edits.forEach((e, k) => { const text = cur.get(e.file) ?? originals[k]; const next = e.all ? text.split(e.from).join(e.to) : text.replace(e.from, () => e.to); cur.set(e.file, next); writeFileSync(join(scratch, e.file), next); });
       const r = runTests(scratch, tests);
-      edits.forEach((e, k) => writeFileSync(join(scratch, e.file), originals[k])); // put the files back
+      edits.forEach((e, k) => writeFileSync(join(scratch, e.file), readFileSync(join(REPO, e.file), "utf8"))); // put the files back (from the branch)
       const red = r.fail > 0;
       if (!red) bad++;
       say(`  break ${i + 1}: ${m.note}  [${edits.map((e) => e.file).join(" + ")}]  -> ${red ? "RED" : "STILL GREEN (the tests did not notice)"}  ${r.pass} pass, ${r.fail} fail`);

@@ -51,7 +51,7 @@ describe("landing: kit header behaviour (the real brandkit.js)", () => {
     b.click(); expect(d.documentElement.getAttribute("data-mode")).toBe("dark"); expect(b.textContent).toBe("Light"); expect(b.getAttribute("aria-pressed")).toBe("true");
     b.click(); expect(d.documentElement.getAttribute("data-mode")).toBe("light"); expect(b.textContent).toBe("Dark");
   });
-  test("storage blocked (private window, cleared data) does not stop the buttons", () => {
+  test("storage blocked (a window that keeps no data, or cleared data) does not stop the buttons", () => {
     const win = doc(); win.matchMedia = () => ({ matches: false }); Object.defineProperty(win, "localStorage", { get() { throw new Error("blocked"); }, configurable: true });
     new Function("window", `with (window) { ${KIT}\n}`).call(win, win); (win.document.querySelectorAll(".ck-dots button")[1] as any).click(); expect(win.document.documentElement.getAttribute("data-theme")).toBe("maroon");
   });

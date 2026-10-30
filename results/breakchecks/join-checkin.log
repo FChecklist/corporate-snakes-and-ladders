@@ -1,4 +1,4 @@
-BREAKCHECK join-checkin  (scratch copy: /tmp/claude-0/-home-user-corporate-snakes-and-ladders/117805c9-be35-5a9a-b7a1-0275cf74a649/scratchpad/breakcheck-Tibp5R; tests: apps/edge/test/t30-regress-join.test.ts)
+BREAKCHECK join-checkin  (scratch copy: /tmp/claude-0/-home-user-corporate-snakes-and-ladders/117805c9-be35-5a9a-b7a1-0275cf74a649/scratchpad/breakcheck-YqF0cr; tests: apps/edge/test/t30-regress-join.test.ts)
   baseline: GREEN  21 pass, 0 fail
   break 1: a second phone can take over a board  [apps/edge/src/worker.ts]  -> RED  20 pass, 1 fail
       failing: join with a mobile number > one phone, one board: the same number on another device is refused (423 other-phone); another number on a device that already holds a board is refused (409 device-used)
@@ -8,8 +8,8 @@ BREAKCHECK join-checkin  (scratch copy: /tmp/claude-0/-home-user-corporate-snake
       failing: who can come in and when > after the start time a NEW person is told sign-up closed (410, code closed); a person who joined earlier still gets back in
   break 4: a draft game accepts guests  [apps/edge/src/worker.ts]  -> RED  20 pass, 1 fail
       failing: who can come in and when > a draft game is not open (403); a published game opens
-  break 5: a bad mobile number is accepted  [apps/edge/src/worker.ts]  -> STILL GREEN (the tests did not notice)  21 pass, 0 fail
-  break 6: the game has no cap  [apps/edge/src/worker.ts]  -> STILL GREEN (the tests did not notice)  21 pass, 0 fail
+  break 5: a mobile number of any digits is accepted (the 6-9 rule is gone)  [apps/edge/src/phonekit.ts]  -> STILL GREEN (the tests did not notice)  21 pass, 0 fail
+  break 6: the game has no cap (both guards removed)  [apps/edge/src/worker.ts + apps/edge/src/worker.ts]  -> STILL GREEN (the tests did not notice)  21 pass, 0 fail
   break 7: the Terms version is not checked  [apps/edge/src/consent.ts]  -> RED  20 pass, 1 fail
       failing: consent is required by the server > no tick, one box only, and an old Terms version are each refused with consent-required and the boxes to draw; nothing is stored
   break 8: not every consent box is needed  [apps/edge/src/consent.ts]  -> RED  20 pass, 1 fail

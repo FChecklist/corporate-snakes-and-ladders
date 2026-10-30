@@ -4,7 +4,7 @@ await breakcheck({ id: "join-checkin", tests: ["apps/edge/test/t30-regress-join.
   { note: "a game that is not paid does not lock after its start", file: "apps/edge/src/worker.ts", from: "if (locked) return json({ error: \"This game has not begun", to: "if (false) return json({ error: \"This game has not begun" },
   { note: "sign-up stays open after the start", file: "apps/edge/src/worker.ts", from: "if (now >= roundMs(e.start_round)) return json({ error: \"Sign-up for this game has closed", to: "if (false) return json({ error: \"Sign-up for this game has closed" },
   { note: "a draft game accepts guests", file: "apps/edge/src/worker.ts", from: "if (isDraft && (((action === \"join\"", to: "if (false && isDraft && (((action === \"join\"" },
-  { note: "a mobile number of any digits is accepted (the 6-9 rule is gone)", file: "apps/edge/src/phonekit.ts", from: "/^[6-9]\\d{9}$/.test(ten)", to: "/^\\d{10}$/.test(ten)" },
+  { note: "an Indian mobile number may start with any digit (the 6-9 rule is gone)", file: "apps/edge/src/worker.ts", from: "return ind !== null && !/^[6-9]/.test(ind) ? null : n;", to: "return n;" },
   { note: "the game has no cap (both guards removed)", edits: [{ file: "apps/edge/src/worker.ts", from: "if ((n?.c ?? 0) >= e.cap) return json({ error: \"This game is full.\" }, 409);", to: "" }, { file: "apps/edge/src/worker.ts", from: "eid, eid, e.cap, eid, ph, eid, eid, e.cap,", to: "eid, eid, e.cap + 100000, eid, ph, eid, eid, e.cap + 100000," }] },
   { note: "the Terms version is not checked", file: "apps/edge/src/consent.ts", from: "c.v !== TERMS_VERSION", to: "false" },
   { note: "not every consent box is needed", file: "apps/edge/src/consent.ts", from: "boxesFor(kind).every((b) => got.includes(b.id))", to: "true" },

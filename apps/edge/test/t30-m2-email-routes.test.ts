@@ -5,6 +5,7 @@ import { handle, type Env } from "../src/worker";
 import type { PayEnv } from "../src/pay";
 import { makeD1 } from "./d1-sqlite";
 import { withDevice, TICKS } from "./device";
+import { sealText } from "../src/pii";
 
 const T = Date.UTC(2026, 9, 8, 10, 0, 0);
 const FAR_START = Math.floor(((T + 2 * 86_400_000) / 1000 - 1692803367) / 3) + 1;
@@ -42,6 +43,12 @@ describe("Host setup: the address on file and the address typed are compared as 
     for (const typed of ["priya@acme.com", "PRIYA@ACME.COM", "Priya＠Acme.com", "  priya@acme.com "]) { const r = await call("POST", "/api/host/setup/email", { email: typed }, key); const b = await j(r); expect([typed, r.status, String(b.devCode ?? "").length]).toEqual([typed, 200, 6]); }
     const other = await call("POST", "/api/host/setup/email", { email: "someone.else@acme.com" }, key); const ob = await j(other);
     expect([other.status, ob.code, ob.error]).toEqual([409, "email-mismatch", "This link is for p***@acme.com"]);
+  });
+  test("RISK from TEST_HANDOFF: a Host link made before 1.4.0 has the address on file in MIXED case; the typed lower-case address must still match it, and another address must still not", async () => {
+    const key = await host();
+    raw.prepare("UPDATE organizer_key SET email_sealed=? WHERE kind='host' AND email_sealed IS NOT NULL").run(await sealText(env as any, "Priya@ACME.com"));
+    for (const typed of ["priya@acme.com", "PRIYA@acme.com", "Priya＠Acme.com"]) { const r = await call("POST", "/api/host/setup/email", { email: typed }, key); const b = await j(r); expect([typed, r.status, b.code ?? "-"]).toEqual([typed, 200, "-"]); }
+    const other = await call("POST", "/api/host/setup/email", { email: "priyanka@acme.com" }, key); expect([other.status, (await j(other)).code]).toEqual([409, "email-mismatch"]);
   });
   test("the code asked for with one spelling confirms the address (then the Host is a verified person)", async () => {
     const key = await host(); const s = await j(await call("POST", "/api/host/setup/email", { email: "PRIYA＠acme.com" }, key));
