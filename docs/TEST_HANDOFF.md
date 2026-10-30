@@ -35,3 +35,14 @@ Files: apps/web/public/{index.html, tokens.css, components.css, brandkit.js, the
 Not done: game pages, console, new look.
 
 ## Not built yet (nothing to test): Email ID list criterion, new organizer screens, Retro/Modern player look, thank-you strip, Game completed page, consent version, game log 365 days.
+
+## Milestone 4: Email ID criterion (idKind), same design as Bingo 8d1609a
+Files: packages/beacon/src/config.ts (idKind "email" stored; "emp" = absent; PATCH accepts "emp"|"email", anything else refused "What the ID is: an employee ID or an Email ID."), apps/edge/src/people.ts (normId, badIdMessage, looksLikeEmail, verifyOf.idKind), apps/edge/src/worker.ts (idKind in cfg in/out, /info idKind, join and "who" use normId), apps/web/public/z.js (label/hint/input type follow idKind), apps/web/public/zc.js (step 2 "Which ID?" shown when a person must give an ID; saved with the settings).
+Behaviours:
+1. Default game and every old game: idKind "emp" in /info; behaviour as before.
+2. Settings PATCH idKind:"email" then GET /info shows idKind "email"; PATCH "emp" returns it; PATCH "x" is a 400.
+3. Email game: join with RAJAT1＠DEMO.COM, Rajat1@Demo.com and rajat1@demo.com is the same person and board; a half address ("rajat1@", "rajat1", "a@b") is refused with "Please check your Email ID. It looks incomplete."; list upload does the same per row and counts case duplicates as duplicates.
+4. Employee-ID game (new games): typing "a@b.com" is refused with "This looks like an Email ID. This game asks for an employee ID: letters and numbers only."; 1B-678 etc. still clean to 1B678. Games before the threshold keep the old reading.
+5. Join page in an Email game says "Your Email ID" (not employee ID), uses an email keyboard and shows "The system will read this as rajat1@demo.com" when cleaning changes the text; the box accepts up to 254 characters.
+6. Console step 2: "Which ID?" appears only when "What must a person give" is not "Mobile number"; choice survives save and reload.
+Not done: list template, CSV/PDF/Excel headers and the people list viewer still say "Employee ID" for email games; gamerecord export does not carry idKind; Host/Co-host sign-in is not by Email ID in this game.

@@ -8,7 +8,7 @@ Branch: release/snakes-1.4.0. Last updated: 2026-10-30.
 | 1 | Gap wave 1 (17 items) | ADOPTED | merged, cloud run pending |
 | 2 | Uniform employee ID (NFKC, A-Z 0-9, 30 cap, EMP_CLEAN_FROM_MS) | ADOPTED | people.ts cleanEmpId; EMP_CLEAN_FROM_MS is a placeholder (year 2100) until deploy; browser hint on join page |
 | 3 | Email ID case-insensitive cleaner | ADOPTED | emailclean.ts used at every email read (sign-in, Host setup, payments, partners, helpdesk, visits, test logins) |
-| 4 | Email ID as a list criterion (Employee ID or Email ID, list decides) | TODO | next milestone; gives the cleaner its player path |
+| 4 | Email ID as a list criterion (Employee ID or Email ID, list decides) | ADOPTED (untested) | config idKind emp/email, PATCH settings, /info, join and list cleaned per kind, email in an ID game refused, console step 2 "Which ID?", join label follows. Same design as Bingo 8d1609a. List template/CSV headers still say Employee ID |
 | 5 | Open join (Name, Mobile, Email, referred-by from link) | TODO | Snakes today: mobile / employee ID / both |
 | 6 | Brand kit header, footer, logo | ADAPTED | landing page done; game pages and console TODO |
 | 7 | Version + release date/time IST in footer | ADAPTED | release.json + release-line.js; date filled at release |
