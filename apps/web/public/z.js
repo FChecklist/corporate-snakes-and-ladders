@@ -38,7 +38,7 @@
     if (!r || typeof r !== "object") return;
     if ("brand" in r && !(fromJoin && INFO.brand)) { INFO.brand = cleanBrand(r.brand); if (!DEMO && EID && INFO.brand && INFO.brand.logo !== undefined) { try { store.set("cbz:" + EID + ":brand", JSON.stringify(INFO.brand)); } catch { /* storage full or blocked: the strip just is not kept */ } } } // a join answer carries the brand without its logo: never let it replace the full one read from info
     if ("joinPhone" in r) INFO.joinPhone = r.joinPhone === true;
-    if ("verify" in r) { INFO.verify = r.verify === "id" || r.verify === "both" ? r.verify : "mobile"; INFO.empOnly = r.employeesOnly === true; INFO.idKind = r.idKind === "email" ? "email" : "emp"; }
+    if ("verify" in r) { INFO.verify = r.verify === "id" || r.verify === "both" ? r.verify : "mobile"; INFO.empOnly = r.employeesOnly === true; INFO.idKind = r.idKind === "email" ? "email" : "emp"; INFO.idClean = r.idClean === true; }
     if (r.didNotStart === true) INFO.dns = true; else if ("startRound" in r && !fromJoin) INFO.dns = false;
     if ("cancelled" in r || "startRound" in r) INFO.cancelled = r.cancelled ? { message: String(r.message || "").slice(0, 200) } : null;
   };
@@ -62,7 +62,7 @@
   const howLine = (key) => (HOW[key] ? `<small class="zsmall zhow">${esc(HOW[key])}</small>` : "");
   const getPublic = DEMO ? DEMO.getPublic : async (url) => { let r; try { r = await fetch(url, { cache: "no-store" }); } catch { throw new Error("offline"); } if (!r.ok) throw Object.assign(new Error("http " + r.status), { status: r.status }); return r.json(); };
   const rt = new ZG.PhoneRuntime(EID, DEMO ? { api, getPublic, beacon: DEMO.beacon, verify: DEMO.verify, mono: DEMO.mono, store } : { api, getPublic, beacon: {}, mono: () => performance.now(), store });
-  let firstPaint = true, sound = store.get("cbz-sound") === "on", timer = null, lastStepKey = "";
+  let firstPaint = true, sound = store.get("cbz-sound") !== "off", timer = null, lastStepKey = "";
   if (window.TBAudio) TBAudio.enabled = sound;
   // SL-09: the page redraws itself every second; a redraw between a finger going down and coming up swallows the tap (the Roll button "does nothing" and the screen flickers). No redraw while a finger is down.
   let fingerOn = false, fingerAt = 0;
@@ -123,7 +123,7 @@
     const vm = INFO.verify || "mobile", eo = !!INFO.empOnly, pv = esc(J.phone || ""), ev = esc(J.emp || "");
     const phone = (label, hint) => `<label for="ph">${label}</label><input id="ph" inputmode="tel" autocomplete="tel" placeholder="+1 555 010 0100" value="${pv}">${hint ? `<p class="zsmall zflush">${hint}</p>` : ""}`;
     const EM = INFO.idKind === "email", idw = (t) => EM ? t.replace(/employee ID/g, "Email ID") : t;
-    const emp = (label, hint) => `<label for="emp">${idw(label)}</label><input id="emp" ${EM ? 'type="text" inputmode="email" autocomplete="email" spellcheck="false" autocapitalize="none" maxlength="254"' : 'autocomplete="off" autocapitalize="characters" maxlength="30"'} value="${ev}"><p class="zsmall zflush" id="empread" aria-live="polite"></p>${hint ? `<p class="zsmall zflush">${hint}</p>` : ""}`;
+    const emp = (label, hint) => `<label for="emp">${idw(label)}</label><input id="emp" ${EM ? 'type="text" inputmode="email" autocomplete="email" spellcheck="false" autocapitalize="none" maxlength="254"' : 'autocomplete="off" autocapitalize="characters"'} value="${ev}"><p class="zsmall zflush" id="empread" aria-live="polite"></p>${hint ? `<p class="zsmall zflush">${hint}</p>` : ""}`;
     if (vm === "id") return emp("Your employee ID", eo ? "This game is for employees only." : "") + (eo ? "" : phone("No employee ID? Type your mobile number instead", "Vendors, customers and families use their mobile number."));
     if (vm === "both") return phone("Your mobile number", "") + emp(eo ? "Your employee ID" : "Your employee ID (employees only)", eo ? "This game is for employees only." : "Not an employee? Leave this empty.");
     return phone("Your mobile number", "");
@@ -400,7 +400,7 @@
     const missed = presence && me && me.missed ? `<p class="zsmall zmissed">You missed ${plural(me.missed, "turn", "turns")}.</p>` : "";
     const tableLine = v.kind === "table" && v.table && v.table.whoseTurn !== null && !v.ended ? `<p class="zsmall zflush">${v.table.whoseTurn === v.seat ? "It is your turn." : "It is " + esc(nickOf(v.table.whoseTurn)) + "'s turn."}</p>` : "";
     const turnNo = Math.min(v.turnsPlayed + (v.ended ? 0 : 1), v.turnCap);
-    const turnChip = `<span class="zchip2 plain">${v.kind === "table" ? `Turn ${turnNo} of ${v.turnCap}` : `Turn ${turnNo} &middot; ends when ${v.endPrizes} ${v.endPrizes === 1 ? "player is" : "players are"} home`}</span>`; // SL-08: the game ends when the last prize place is filled, not at a fixed turn
+    const turnChip = `<span class="zchip2 plain">${v.kind === "table" ? `Turn ${turnNo} of ${v.turnCap}` : `Turn ${turnNo} of ${v.turnCap} &middot; ends sooner when ${v.kind === "team" ? "the first whole team is" : v.endPrizes + (v.endPrizes === 1 ? " player is" : " players are")} home`}</span>`; // SL-08: the game ends when the last prize place is filled, not at a fixed turn
     const secs = t.state === "open" && t.secondsLeft !== null && !home && !v.paused ? t.secondsLeft : null, pct = secs !== null && t.windowSec > 0 ? Math.max(0, Math.min(100, Math.round((secs / t.windowSec) * 100))) : null;
     const flash = FLASH.turn !== t.index ? (FLASH.turn = t.index, FLASH.until = performance.now() + 450, FLASH.first ? (FLASH.first = false, "") : " zflash") : performance.now() < FLASH.until ? " zflash" : "";
     return `<div class="zcard zdice st-${tone}${flash}"><div class="zchiprow"><span class="zchip2 ${tone}">${esc(chip)}${secs !== null && !rolling ? ` &middot; ${secs}s` : ""}</span>${turnChip}</div>
@@ -899,7 +899,11 @@
     const go = document.getElementById("go"); if (!go) return;
     const nm = document.getElementById("nm"), ph = document.getElementById("ph"), em = document.getElementById("emp");
     const empRead = document.getElementById("empread");
-    const showRead = () => { if (!em || !empRead) return; const c = INFO.idKind === "email" ? String(em.value || "").normalize("NFKC").trim().replace(/\s+/g, "").toLowerCase() : String(em.value || "").normalize("NFKC").toUpperCase().replace(/[^A-Z0-9]/g, ""); empRead.textContent = c && c !== String(em.value || "") ? "The system will read this as " + c : ""; };
+    const showRead = () => { if (!em || !empRead) return; const raw = String(em.value || ""), nf = raw.normalize("NFKC"); let msg = "";
+      if (INFO.idKind === "email") { const c = nf.trim().replace(/\s+/g, "").toLowerCase(); if (c && c !== raw) msg = "The system will read this as " + c; }
+      else if (nf.includes("@")) msg = "This looks like an Email ID. This game asks for an employee ID: letters and numbers only.";
+      else if (INFO.idClean) { const c = nf.toUpperCase().replace(/[^A-Z0-9]/g, ""); if (c.length > 30) msg = "An employee ID has letters and numbers only (up to 30)."; else if (c && c !== raw) msg = "The system will read this as " + c; }
+      empRead.textContent = msg; };
     if (em) { em.addEventListener("input", showRead); showRead(); }
     if (nm) nm.oninput = () => { J.name = nm.value; };
     if (em) em.oninput = () => { J.emp = em.value; };
