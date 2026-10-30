@@ -31,7 +31,7 @@
   "pass": 3722439,
   "fail": 0
  },
- "independentInputs": 14956,
+ "independentInputs": 11394,
  "byDimension": {
   "employee-id-format": {
    "scenarios": 3710056,

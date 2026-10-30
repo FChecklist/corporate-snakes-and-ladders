@@ -15,6 +15,6 @@ await breakcheck({ id: "matrix", tests: ["tools/sim2/scenarios/matrix/matrix.tes
   { note: "(wire) a second phone can take a board", file: "apps/edge/src/worker.ts", from: "if (have.seat && have.dev && have.dev !== dev) {", to: "if (false) {" },
   { note: "(wire) the organizer's 'admit' does nothing", file: "apps/edge/src/people.ts", from: "if (decision === \"decline\") { await db.prepare(\"UPDATE waiting SET status='declined'", to: "if (decision === \"decline\" || decision === \"admit\") { await db.prepare(\"UPDATE waiting SET status='declined'" },
   { note: "(wire) 'decline' lets the person in", file: "apps/edge/src/people.ts", from: "if (decision === \"decline\") { await db.prepare(\"UPDATE waiting SET status='declined'", to: "if (false) { await db.prepare(\"UPDATE waiting SET status='declined'" },
-  { note: "(wire) an Indian mobile number may start with any digit", file: "apps/edge/src/worker.ts", from: "return ind !== null && !/^[6-9]/.test(ind) ? null : n;", to: "return n;" },
+  { note: "(wire) a 5-digit number is accepted as a mobile number", file: "apps/edge/src/worker.ts", from: "if (n.length < (withCode ? 8 : 10) || n.length > 15) return null;", to: "if (n.length < 3 || n.length > 15) return null;" },
   { note: "(wire) an ID that is not on the list gets a card instead of waiting", file: "apps/edge/src/worker.ts", from: "if (e.closed || idMiss) return wait(false, null);", to: "if (false) return wait(false, null);" },
 ] });

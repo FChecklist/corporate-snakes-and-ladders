@@ -1,1 +1,62 @@
-BREAKCHECK matrix  (scratch copy: /tmp/claude-0/-home-user-corporate-snakes-and-ladders/117805c9-be35-5a9a-b7a1-0275cf74a649/scratchpad/breakcheck-NIgzUT; tests: tools/sim2/scenarios/matrix/matrix.test.ts)
+BREAKCHECK matrix  (scratch copy: /tmp/claude-0/-home-user-corporate-snakes-and-ladders/117805c9-be35-5a9a-b7a1-0275cf74a649/scratchpad/breakcheck-3deg4i; tests: tools/sim2/scenarios/matrix/matrix.test.ts)
+  baseline: GREEN  19 pass, 0 fail
+  break 1: employee ID cleaner keeps dashes  [apps/edge/src/people.ts]  -> RED  16 pass, 3 fail
+      failing: scenario matrix: real product, streamed > M1 identity: ID spelling x era x e-mail spelling x verification setting
+      failing: scenario matrix: real product, streamed > M4 wire: mode x era x payment x ID or phone x listed x device x time x approval, real requests
+      failing: scenario matrix: real product, streamed > the total is at least 1,000,000 distinct scenarios with zero failures; exact counts are saved to results/matrix-counts.json
+  break 2: old games read IDs the new way  [apps/edge/src/people.ts]  -> RED  17 pass, 2 fail
+      failing: scenario matrix: real product, streamed > M4 wire: mode x era x payment x ID or phone x listed x device x time x approval, real requests
+      failing: scenario matrix: real product, streamed > the total is at least 1,000,000 distinct scenarios with zero failures; exact counts are saved to results/matrix-counts.json
+  break 3: e-mail cleaner does not lower-case  [apps/edge/src/emailclean.ts]  -> RED  14 pass, 5 fail
+      failing: scenario matrix: real product, streamed > M1 identity: ID spelling x era x e-mail spelling x verification setting
+      failing: scenario matrix: real product, streamed > the total is at least 1,000,000 distinct scenarios with zero failures; exact counts are saved to results/matrix-counts.json
+      failing: every counted dimension can fail (matrix against a broken copy) > employee-id-format: the ID reading keeps dashes and slashes
+  break 4: 'either' is read as 'mobile'  [apps/edge/src/people.ts]  -> RED  13 pass, 6 fail
+      failing: scenario matrix: real product, streamed > M1 identity: ID spelling x era x e-mail spelling x verification setting
+      failing: scenario matrix: real product, streamed > the total is at least 1,000,000 distinct scenarios with zero failures; exact counts are saved to results/matrix-counts.json
+      failing: every counted dimension can fail (matrix against a broken copy) > employee-id-format: the ID reading keeps dashes and slashes
+  break 5: a Co-host link is read as a Host link  [apps/edge/src/people.ts]  -> RED  17 pass, 2 fail
+      failing: scenario matrix: real product, streamed > M3 links and look: role x link type x screen state x theme
+      failing: scenario matrix: real product, streamed > the total is at least 1,000,000 distinct scenarios with zero failures; exact counts are saved to results/matrix-counts.json
+  break 6: a personal link is case-sensitive  [apps/edge/src/people.ts]  -> RED  17 pass, 2 fail
+      failing: scenario matrix: real product, streamed > M3 links and look: role x link type x screen state x theme
+      failing: scenario matrix: real product, streamed > the total is at least 1,000,000 distinct scenarios with zero failures; exact counts are saved to results/matrix-counts.json
+  break 7: the rules row shows in every state  [apps/web/public/screenrules.js]  -> RED  14 pass, 5 fail
+      failing: scenario matrix: real product, streamed > M3 links and look: role x link type x screen state x theme
+      failing: scenario matrix: real product, streamed > the total is at least 1,000,000 distinct scenarios with zero failures; exact counts are saved to results/matrix-counts.json
+      failing: every counted dimension can fail (matrix against a broken copy) > role: a Co-host code is read as a Host
+  break 8: dice 'presence' mode throws for everybody  [packages/beacon/src/race.ts]  -> RED  15 pass, 4 fail
+      failing: scenario matrix: real product, streamed > M2 game: dice mode x press pattern x turn limit x end prizes x finish rule x players x seed
+      failing: scenario matrix: real product, streamed > the total is at least 1,000,000 distinct scenarios with zero failures; exact counts are saved to results/matrix-counts.json
+      failing: every counted dimension can fail (matrix against a broken copy) > end-prizes: the game waits for one more finisher than the organizer chose
+  break 9: the turn limit is one turn late  [packages/beacon/src/race.ts]  -> RED  14 pass, 5 fail
+      failing: scenario matrix: real product, streamed > M2 game: dice mode x press pattern x turn limit x end prizes x finish rule x players x seed
+      failing: scenario matrix: real product, streamed > the total is at least 1,000,000 distinct scenarios with zero failures; exact counts are saved to results/matrix-counts.json
+      failing: every counted dimension can fail (matrix against a broken copy) > dice-mode: manual dice are played as automatic
+  break 10: exact finish is lost  [packages/beacon/src/play.ts]  -> RED  17 pass, 2 fail
+      failing: scenario matrix: real product, streamed > M2 game: dice mode x press pattern x turn limit x end prizes x finish rule x players x seed
+      failing: scenario matrix: real product, streamed > the total is at least 1,000,000 distinct scenarios with zero failures; exact counts are saved to results/matrix-counts.json
+  break 11: (wire) an unpaid game does not lock after its start  [apps/edge/src/worker.ts]  -> RED  17 pass, 2 fail
+      failing: scenario matrix: real product, streamed > M4 wire: mode x era x payment x ID or phone x listed x device x time x approval, real requests
+      failing: scenario matrix: real product, streamed > the total is at least 1,000,000 distinct scenarios with zero failures; exact counts are saved to results/matrix-counts.json
+  break 12: (wire) sign-up stays open after the start  [apps/edge/src/worker.ts]  -> RED  17 pass, 2 fail
+      failing: scenario matrix: real product, streamed > M4 wire: mode x era x payment x ID or phone x listed x device x time x approval, real requests
+      failing: scenario matrix: real product, streamed > the total is at least 1,000,000 distinct scenarios with zero failures; exact counts are saved to results/matrix-counts.json
+  break 13: (wire) a second phone can take a board  [apps/edge/src/worker.ts]  -> RED  17 pass, 2 fail
+      failing: scenario matrix: real product, streamed > M4 wire: mode x era x payment x ID or phone x listed x device x time x approval, real requests
+      failing: scenario matrix: real product, streamed > the total is at least 1,000,000 distinct scenarios with zero failures; exact counts are saved to results/matrix-counts.json
+  break 14: (wire) the organizer's 'admit' does nothing  [apps/edge/src/people.ts]  -> RED  17 pass, 2 fail
+      failing: scenario matrix: real product, streamed > M4 wire: mode x era x payment x ID or phone x listed x device x time x approval, real requests
+      failing: scenario matrix: real product, streamed > the total is at least 1,000,000 distinct scenarios with zero failures; exact counts are saved to results/matrix-counts.json
+  break 15: (wire) 'decline' lets the person in  [apps/edge/src/people.ts]  -> RED  17 pass, 2 fail
+      failing: scenario matrix: real product, streamed > M4 wire: mode x era x payment x ID or phone x listed x device x time x approval, real requests
+      failing: scenario matrix: real product, streamed > the total is at least 1,000,000 distinct scenarios with zero failures; exact counts are saved to results/matrix-counts.json
+  break 16: (wire) a 5-digit number is accepted as a mobile number  [apps/edge/src/worker.ts]  -> RED  17 pass, 2 fail
+      failing: scenario matrix: real product, streamed > M4 wire: mode x era x payment x ID or phone x listed x device x time x approval, real requests
+      failing: scenario matrix: real product, streamed > the total is at least 1,000,000 distinct scenarios with zero failures; exact counts are saved to results/matrix-counts.json
+  break 17: (wire) an ID that is not on the list gets a card instead of waiting  [apps/edge/src/worker.ts]  -> RED  17 pass, 2 fail
+      failing: scenario matrix: real product, streamed > M4 wire: mode x era x payment x ID or phone x listed x device x time x approval, real requests
+      failing: scenario matrix: real product, streamed > the total is at least 1,000,000 distinct scenarios with zero failures; exact counts are saved to results/matrix-counts.json
+  restored: GREEN  19 pass, 0 fail
+  branch product code untouched: yes
+RESULT matrix: every planted break was caught
