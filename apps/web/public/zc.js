@@ -292,7 +292,7 @@
   const spdOpts = (cur) => { const o = [["15", "15 seconds"], ["20", "20 seconds"], ["25", "25 seconds"], ["30", "30 seconds"]]; const c = String(cur || ""); if (c && !o.some((x) => x[0] === c)) { o.push([c, c + " seconds"]); o.sort((a, b) => Number(a[0]) - Number(b[0])); } return o; };
   const nums = (a, b) => Array.from({ length: b - a + 1 }, (_, i) => [String(a + i), String(a + i)]);
   /** SL-07: how long a game can last, from the settings themselves (no guess): the turn limit times the turn window, and it ends sooner when enough players are home. */
-  const durationLine = (f) => { const secs = Number(f.spd) || 20, tc = Number(f.tc) || 60, ep = Number(f.ep) || 5; return `A game lasts at most ${Math.ceil(tc * secs / 60)} minutes (${tc} turns of ${secs} seconds), plus any brand moments you add. It ends sooner, as soon as ${ep} ${ep === 1 ? "player is" : "players are"} home. The first turn comes 2 minutes after the start time.`; };
+  const durationLine = (f) => { const secs = Number(f.spd) || 20, tc = Number(f.tc) || 60, ep = Number(f.ep) || 5; return `A game lasts at most ${Math.ceil(tc * secs / 60)} minutes (${tc} turns of ${secs} seconds), plus any brand moments you add. It ends sooner, as soon as ${f.gm === "team" ? "the first whole team is" : ep + (ep === 1 ? " player is" : " players are")} home. Whatever happens, it stops after ${tc} turns. The first turn comes 2 minutes after the start time.`; };
   /** The game settings (game type, throws, board, milestones, turn limit, one prize per person, look). Shared by step 2 and the Quick setup form. */
   function gameBlock() {
     const f = S.f;
@@ -308,7 +308,7 @@
       + grp("sn", "Snakes", nums(6, 12)) + grp("ld", "Ladders", nums(6, 12))
       + grp("fin", "How a player finishes", [["exact", "Exact throw to land on the last square"], ["pass", "Reach or pass the last square"]])
       + `<div class="zc-hide" data-hidden="1">${lbl("f-tc", "Turn limit (10 to 150 turns)")}${inp("tc", { type: "number", ph: "60", attrs: 'inputmode="numeric" min="10" max="150" step="1"' })}` + small("The game ends at the turn limit even if nobody is home. Then the players are ranked by square.") + `</div>`
-      + grp("ep", "The game ends when this many players are home", nums(1, 5))
+      + grp("ep", (f.gm === "team" ? "The game ends when the first whole team is home" : "The game ends when this many players are home"), nums(1, 5))
       + `<div class="zc-chips zc-gap">${bchip("ex", "One prize per person")}</div>` + small("When it is on, nobody wins two prizes.")
       + grp("th", "Look of the board", [["jungle", "Jungle"], ["career", "Career ladder"]]);
     const plain = f.gm === "race" && f.bs === "100" && f.sn === "9" && f.ld === "9" && f.fin === "exact" && f.th === "jungle" && f.ep === "5" && !f.ex;
@@ -346,7 +346,7 @@
       + small(f.emp ? "Only the employees on your list can play. Guests cannot invite anyone. Anyone else who opens your link waits for you to say yes." : "Employees, vendors, customers, families: everyone can play. Put the people you know on your list; others can still come in with the link.")
       + grp("ver", "What must a person give to get in?", [["mobile", "Mobile number"], ["id", "Employee ID"], ["both", "Mobile number and employee ID"]])
       + small(f.ver === "mobile" ? "Each person types their mobile number. This is the simplest." : f.emp ? "Each employee types " + (f.ver === "id" ? "their employee ID" : "their mobile number and their employee ID") + ". Add the employees to your list with their " + (f.ver === "id" ? "employee ID (a mobile number is optional)." : "mobile number and employee ID.") : "Your employees type " + (f.ver === "id" ? "their employee ID" : "their mobile number and employee ID") + ". Vendors, customers and families have no employee ID, so they type their mobile number only.")
-      + (f.ver === "mobile" ? "" : grp("idk", "Which ID?", [["emp", "Employee ID"], ["email", "Email ID"]]) + small(f.idk === "email" ? "Your list has an Email ID for each person. Capital letters do not matter." : "Your list has an employee ID for each person. Dashes and spaces are ignored."))
+      + (f.ver === "mobile" ? "" : grp("idk", "Which ID?", [["emp", "Employee ID"], ["email", "Email ID"]]) + small(f.idk === "email" ? "Your list has an Email ID for each person. Capital letters do not matter." : "Your list has an employee ID for each person." + (S.info && S.info.idClean ? " Dashes and spaces are ignored." : "") + ""))
       + (f.emp ? "" : `<span class="zc-lbl zc-sec zc-sub">Who can join</span>` + grp("who", "Who can join?", [["list", "Only people on a list"], ["anyone", "Anyone with the link"]])
       + small(f.who === "list" ? "Only people you have added can join straight away. Anyone else who clicks your link has to wait until you or a Host says yes." : "Anyone who clicks your link joins straight away. You can change this until the game starts."))
       + (f.emp || f.ver !== "mobile" ? "" : grp("gj", "What do guests type to join?", [["name", "Just their name (best for teams)"], ["phone", "Name and mobile number"]])
@@ -534,6 +534,8 @@
   /** A short number is a player number (a guest who joined with a nickname has no mobile number); a long one is a mobile number. */
   const whoBody = (v) => { const d = String(v || "").replace(/\D/g, ""); return d.length > 0 && d.length <= 6 && !/^\+/.test(String(v).trim()) ? { seat: Number(d) } : { phone: v }; };
   const vmode = () => (S.sum && S.sum.verify) || (S.cfg && S.cfg.verify) || "mobile";
+  const idLbl = () => ((S.sum && S.sum.idKind) || (S.cfg && S.cfg.idKind)) === "email" ? "Email ID" : "Employee ID", idLow = () => idLbl() === "Email ID" ? "Email ID" : "employee ID"; // the list column name follows the game
+  const idEx = (n) => idLbl() === "Email ID" ? "person" + n + "@example.com" : "E10" + n;
   const empOnlyNow = () => !!((S.sum && S.sum.employeesOnly) || (S.cfg && S.cfg.employeesOnly));
   async function pdfText(file) {
     if (file.size > 8 * 1024 * 1024) throw new Error("This PDF is too big (over 8 MB). Please send fewer people at a time.");
@@ -602,16 +604,16 @@
     const P = S.pp;
     if (!raw.length) { P.sum = "Add a name and a number first."; return redraw(); }
     const consent = consPayload("K6"); if (!consent) { P.sum = "Please tick the box above first."; return redraw(); } // K6: never sent without the tick
-    const { good, dups, wrong } = cleanBatch(raw); let added = good.length, serverDup = 0, got = 0, counted = false; const bad = wrong.slice();
+    const { good, dups, wrong } = cleanBatch(raw); let added = good.length, serverDup = 0, dupNames = [], got = 0, counted = false; const bad = wrong.slice();
     try {
       for (let i = 0; i < good.length; i += 200) {
         const r = await call("POST", `/api/z/${eid}/people`, { people: good.slice(i, i + 200).map((p) => ({ name: p.name, ...(p.phone ? { phone: "+" + p.phone } : {}), ...(p.empId ? { empId: p.empId } : {}) })), consent });
-        serverDup += Number(r.duplicates) || 0; if (typeof r.added === "number") { got += r.added; counted = true; }
+        serverDup += Number(r.duplicates) || 0; for (const x of r.duplicateRows || []) dupNames.push(String(x.raw || "").slice(0, 60)); if (typeof r.added === "number") { got += r.added; counted = true; }
         for (const x of r.invalid || []) { const q = parseList(String(typeof x === "string" ? x : x.raw || ""))[0] || { name: "", phone: "" }; bad.push({ name: q.name, raw: q.phone, why: typeof x === "string" ? "" : x.why || "" }); }
       }
       if (counted) added = got;
       const d = dups + serverDup;
-      P.sum = `${added} good, ${d === 1 ? "1 duplicate" : d + " duplicates"} removed, ${bad.length === 1 ? "1 looks wrong" : bad.length + " look wrong"}`;
+      P.sum = `${added} good, ${d === 1 ? "1 duplicate" : d + " duplicates"} removed${dupNames.length ? " (" + dupNames.slice(0, 5).join("; ") + (dupNames.length > 5 ? "; and " + (dupNames.length - 5) + " more" : "") + ")" : ""}, ${bad.length === 1 ? "1 looks wrong" : bad.length + " look wrong"}`;
       P.wrong = keep ? P.wrong.concat(bad) : bad;
     } catch (e) { P.sum = consFail("K6", e) ? "Please read and tick the box again, then add them." : friendly(e); }
     await loadPeople(); redraw();
@@ -642,15 +644,15 @@
   function addBox() {
     const modes = (canContacts() ? [["contacts", "From my contacts"]] : []).concat([["pdf", "Upload a PDF"], ["type", "Add a name and number"], ["paste", "Paste from Excel"], ["file", "Upload a CSV"]]);
     const m = modes.some((x) => x[0] === S.mode) ? S.mode : "type";
-    const vm = vmode(), idPh = vm === "mobile" ? "" : "Employee ID";
+    const vm = vmode(), idPh = vm === "mobile" ? "" : idLbl();
     const chips = modes.map(([k, l]) => `<button type="button" class="zc-chip${m === k ? " on" : ""}" data-mode="${k}" aria-pressed="${m === k}">${l}</button>`).join("");
     const off = consOff("K6"); // K6: the Add / Upload buttons stay disabled until the box is ticked
-    const tplCols = vm === "mobile" ? "Name, Mobile" : vm === "id" ? "Name, Mobile (optional), Employee ID" : "Name, Mobile, Employee ID";
+    const tplCols = vm === "mobile" ? "Name, Mobile" : vm === "id" ? "Name, Mobile (optional), " + idLbl() : "Name, Mobile, " + idLbl();
     const pdfForm = `<ol class="zc-small zc-steps"><li>Download the Excel sheet.</li><li>Fill it in (${tplCols}).</li><li>In Excel choose <b>File, Save as, PDF</b>.</li><li>Upload the PDF here. You will see the list before anyone is added.</li></ol><div class="zc-inline"><button type="button" class="zc-btn zc-btn-s" id="gtemplate">Download the Excel sheet</button></div>${lbl("gpdf", "Choose your PDF")}<input id="gpdf" class="zc-in" type="file" accept=".pdf,application/pdf" ${off}><p class="zc-small" id="pdfnote" role="status">${esc(S.pdfNote || "")}</p>${S.pdfRows ? `<div class="zc-box" id="pdfprev"><b class="zc-bt">${S.pdfRows.length} ${S.pdfRows.length === 1 ? "person" : "people"} found in your PDF</b>${S.pdfRows.slice(0, 5).map((r) => `<div class="zc-small zc-nomargin">${esc(r.name || "No name")} &middot; ${esc(r.phone ? "******" + String(r.phone).replace(/\D/g, "").slice(-4) : "")} ${esc(r.empId || "")}</div>`).join("")}${S.pdfRows.length > 5 ? `<div class="zc-small zc-nomargin">and ${S.pdfRows.length - 5} more</div>` : ""}<div class="zc-chips zc-gap"><button type="button" class="zc-btn zc-btn-s" id="pdfgo">Add them</button><button type="button" class="zc-mini" id="pdfno">Not these</button></div></div>` : ""}`;
     const form = m === "pdf" ? pdfForm : m === "contacts" ? `<div class="zc-inline"><button type="button" class="zc-btn zc-btn-s" id="gcontacts"${off}>Pick from my contacts</button></div>`
-      : m === "type" ? `<div class="zc-inline"><label class="zc-sr" for="gname">Name</label><input id="gname" class="zc-in" placeholder="Name" autocomplete="off"><label class="zc-sr" for="gphone">Mobile number</label><input id="gphone" class="zc-in" inputmode="tel" placeholder="${vm === "id" ? "Mobile (optional)" : "415 555 0132"}" autocomplete="off">${idPh ? `<label class="zc-sr" for="gemp">Employee ID</label><input id="gemp" class="zc-in" placeholder="${idPh}" autocomplete="off">` : ""}<button type="button" class="zc-btn zc-btn-s" id="gadd"${off}>Add</button></div>`
-      : m === "paste" ? `${lbl("rosterTxt", vm === "mobile" ? "Paste one person per line: name, mobile number" : vm === "id" ? "Paste one person per line: name, employee ID (and a mobile number if you have it)" : "Paste one person per line: name, mobile number, employee ID")}<textarea id="rosterTxt" class="zc-in zc-ta" rows="5" placeholder="Asha, 415 555 0132" autocomplete="off"></textarea><div class="zc-foot"><button type="button" class="zc-btn zc-btn-s" id="rosterGo"${off}>Add them</button></div>`
-      : `${lbl("gfile", vm === "mobile" ? "Choose a CSV file: name, then mobile number" : "Choose a CSV file: name, mobile number, employee ID")}<input id="gfile" class="zc-in" type="file" accept=".csv,.txt,.tsv,text/csv,text/plain"${off}>${small("In Excel, choose Save as CSV first.")}`;
+      : m === "type" ? `<div class="zc-inline"><label class="zc-sr" for="gname">Name</label><input id="gname" class="zc-in" placeholder="Name" autocomplete="off"><label class="zc-sr" for="gphone">Mobile number</label><input id="gphone" class="zc-in" inputmode="tel" placeholder="${vm === "id" ? "Mobile (optional)" : "415 555 0132"}" autocomplete="off">${idPh ? `<label class="zc-sr" for="gemp">${idLbl()}</label><input id="gemp" class="zc-in" placeholder="${idPh}" autocomplete="off">` : ""}<button type="button" class="zc-btn zc-btn-s" id="gadd"${off}>Add</button></div>`
+      : m === "paste" ? `${lbl("rosterTxt", vm === "mobile" ? "Paste one person per line: name, mobile number" : vm === "id" ? "Paste one person per line: name, ${idLow()} (and a mobile number if you have it)" : "Paste one person per line: name, mobile number, employee ID")}<textarea id="rosterTxt" class="zc-in zc-ta" rows="5" placeholder="Asha, 415 555 0132" autocomplete="off"></textarea><div class="zc-foot"><button type="button" class="zc-btn zc-btn-s" id="rosterGo"${off}>Add them</button></div>`
+      : `${lbl("gfile", vm === "mobile" ? "Choose a CSV file: name, then mobile number" : "Choose a CSV file: name, mobile number, " + idLow())}<input id="gfile" class="zc-in" type="file" accept=".csv,.txt,.tsv,text/csv,text/plain"${off}>${small("In Excel, choose Save as CSV first.")}`;
     const k6 = consHtml("K6", "#gcontacts, #gadd, #rosterGo, #gfile, [data-fix]");
     const ccRow = `<span class="zc-lbl">Numbers typed without a country code are from</span><div class="zc-chips" role="group" aria-label="Country of numbers typed without a country code">${[["91", "India (+91)"], ["1", "United States (+1)"]].map(([v, l]) => `<button type="button" class="zc-chip${CC.v === v ? " on" : ""}" data-cc="${v}" aria-pressed="${CC.v === v}">${l}</button>`).join("")}</div>`;
     return `<div class="zc-chips" role="group" aria-label="How to add people">${chips}</div>${ccRow}${k6}${form}${small("Invite only people who would like to play. Guests who join the common link with just a name do not need to be listed.")}`;
@@ -676,7 +678,7 @@
     h += guestTools();
     return h + `</div>`;
   }
-  const localCsv = () => [vmode() === "mobile" ? "Name,Mobile,Personal link,WhatsApp link,Status" : "Name,Mobile,Employee ID,Personal link,WhatsApp link,Status"].concat((S.pp.list || []).map((p) => [p.name, p.maskedPhone].concat(vmode() === "mobile" ? [] : [p.empId || ""]).concat([p.link, waHref(p), stLabel(p.status)]).map((x) => '"' + String(x == null ? "" : x).replace(/"/g, '""') + '"').join(","))).join("\n");
+  const localCsv = () => [vmode() === "mobile" ? "Name,Mobile,Personal link,WhatsApp link,Status" : "Name,Mobile," + idLbl() + ",Personal link,WhatsApp link,Status"].concat((S.pp.list || []).map((p) => [p.name, p.maskedPhone].concat(vmode() === "mobile" ? [] : [p.empId || ""]).concat([p.link, waHref(p), stLabel(p.status)]).map((x) => '"' + String(x == null ? "" : x).replace(/"/g, '""') + '"').join(","))).join("\n");
   /** Organizer and Host play through their own personal link too: their seat is marked for them (POST /people/me), made when they ask. */
   function playBlock() {
     if (S.shield || !canRun()) return "";
@@ -1562,7 +1564,7 @@
     if ($("copy")) $("copy").onclick = async () => { const ok = await copyText(role() === "cohost" ? cohInvite() : guestLink()); $("copy").textContent = ok ? "Copied" : "Select and copy it"; };
     if ($("copybig")) $("copybig").onclick = async () => { const ok = await copyText(bigLink()); $("copybig").textContent = ok ? "Copied" : "Select and copy it"; };
     if ($("gadd")) $("gadd").onclick = () => { const n = $("gname").value.trim(), p = $("gphone").value.trim(), e = ($("gemp") || {}).value || ""; addPeople(p || n || e.trim() ? [{ name: n, phone: p, empId: e }] : []); };
-    if ($("gtemplate")) $("gtemplate").onclick = () => { const vm = vmode(), head = vm === "mobile" ? "Name,Mobile" : vm === "id" ? "Name,Mobile (optional),Employee ID" : "Name,Mobile,Employee ID", ex = vm === "mobile" ? ["Asha Rao,98765 43210", "Ravi Shah,98765 43211"] : vm === "id" ? ["Asha Rao,,E101", "Ravi Shah,98765 43211,E102"] : ["Asha Rao,98765 43210,E101", "Ravi Shah,98765 43211,E102"]; const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob(["\uFEFF" + [head].concat(ex).join("\r\n") + "\r\n"], { type: "text/csv" })); a.download = "people-sheet.csv"; document.body.appendChild(a); a.click(); a.remove(); };
+    if ($("gtemplate")) $("gtemplate").onclick = () => { const vm = vmode(), head = vm === "mobile" ? "Name,Mobile" : vm === "id" ? "Name,Mobile (optional)," + idLbl() : "Name,Mobile," + idLbl(), ex = vm === "mobile" ? ["Asha Rao,98765 43210", "Ravi Shah,98765 43211"] : vm === "id" ? ["Asha Rao,," + idEx(1), "Ravi Shah,98765 43211," + idEx(2)] : ["Asha Rao,98765 43210," + idEx(1), "Ravi Shah,98765 43211," + idEx(2)]; const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob(["\uFEFF" + [head].concat(ex).join("\r\n") + "\r\n"], { type: "text/csv" })); a.download = "people-sheet.csv"; document.body.appendChild(a); a.click(); a.remove(); };
     if ($("gpdf")) $("gpdf").onchange = async () => { const f = $("gpdf").files && $("gpdf").files[0]; if (!f) return; S.pdfRows = null; S.pdfNote = "Reading your PDF…"; redraw(); try { const rows = parseList(await pdfText(f)); S.pdfRows = rows.filter((r) => r.phone || r.empId); S.pdfNote = S.pdfRows.length ? "" : "We could not find any names and numbers in this PDF. Please save it from Excel (File, Save as, PDF), not as a photo or a scan."; } catch (e) { S.pdfNote = (e && e.message) || "We could not read this PDF. Please save it again from Excel, or paste the list instead."; } redraw(); };
     if ($("pdfno")) $("pdfno").onclick = () => { S.pdfRows = null; S.pdfNote = ""; redraw(); };
     if ($("pdfgo")) $("pdfgo").onclick = () => { const r = S.pdfRows || []; S.pdfRows = null; S.pdfNote = ""; addPeople(r); };

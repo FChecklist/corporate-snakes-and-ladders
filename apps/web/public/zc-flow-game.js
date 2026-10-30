@@ -5,7 +5,7 @@ window.ZFLOW_GAME = {
   tickets: [1],
   bumper: false,
   board: false, claims: false, sample: false, boardMax: 100, boardCols: 10, boardTitle: "BOARD",
-  rehearsal: false, feed: true, presence: false, control: true, lucky: false, idKind: true,
+  rehearsal: false, feed: false, presence: false, control: true, lucky: false, idKind: false,
   callSeconds: 20,
   popular: ["finish", "milestone"],
   recommended: ["finish", "milestone"],
