@@ -1,0 +1,27 @@
+== apps/edge/test/branding.test.ts
+(fail) pages: one title pattern, icons, manifest, theme colour > the PWA manifest and the build ship the brand [12.66ms]
+ 30 pass
+ 1 fail
+Ran 31 tests across 1 file. [598.00ms]
+== apps/edge/test/verify.test.ts
+(fail) the owner's three test sign-ins > demo1/2/3@xyz.in sign in with 123456, no e-mail is sent, the same account comes back each time, and a wrong code or another address is refused [19.96ms]
+(fail) the owner's three test sign-ins > the test sign-ins are limited per network per day, record no Terms consent, never send mail, and keep only their latest six keys [13.59ms]
+ 17 pass
+ 2 fail
+Ran 19 tests across 1 file. [653.00ms]
+== apps/edge/test/usecases.test.ts
+(fail) A. organizer: getting in > UC-5 invalid emails are refused everywhere [21.32ms]
+ 54 pass
+ 1 fail
+Ran 55 tests across 1 file. [1.55s]
+== apps/web/test/seo.test.ts
+(fail) each indexable page > quick loading: fonts are self-hosted and swap in, the two main fonts are preloaded, scripts do not block the page, nothing third-party is loaded on the home page [0.55ms]
+ 23 pass
+ 1 fail
+Ran 24 tests across 1 file. [17.00ms]
+== apps/web/test/pwa.test.ts
+(fail) installable app (PWA) > manifest is installable: name, standalone, start url, 192 and 512 icons, one maskable [0.28ms]
+(fail) installable app (PWA) > the game pages (every file the phone screen loads) are all in the saved set [0.39ms]
+ 4 pass
+ 2 fail
+Ran 6 tests across 1 file. [8.00ms]

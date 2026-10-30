@@ -1,0 +1,20 @@
+== apps/edge/test/branding.test.ts
+ 31 pass
+ 0 fail
+Ran 31 tests across 1 file. [599.00ms]
+== apps/edge/test/verify.test.ts
+ 19 pass
+ 0 fail
+Ran 19 tests across 1 file. [751.00ms]
+== apps/edge/test/usecases.test.ts
+ 55 pass
+ 0 fail
+Ran 55 tests across 1 file. [1438.00ms]
+== apps/web/test/seo.test.ts
+ 24 pass
+ 0 fail
+Ran 24 tests across 1 file. [11.00ms]
+== apps/web/test/pwa.test.ts
+ 6 pass
+ 0 fail
+Ran 6 tests across 1 file. [6.00ms]
