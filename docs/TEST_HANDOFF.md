@@ -1,0 +1,37 @@
+# TEST HANDOFF (coder to test author), branch release/snakes-1.4.0
+Coder: product code only from now on. This file is updated at every milestone. Status of each item: written by the coder, NOT yet independently tested.
+
+## Test files the coder created so far (the test author takes them over)
+- apps/web/test/parity-matrix.test.ts (screen-rule matrix, 1,728,000 streamed scenarios, two break checks, file checks)
+- apps/edge/test/empid-clean.test.ts (employee ID cleaner)
+- apps/edge/test/email-clean.test.ts (email cleaner and the guard that every email read uses it)
+- From gap wave 1 (written by an earlier session): apps/web/test/{sl03-default-join,wp14-wording,wp14-console,wp14-phone}.test.ts, apps/edge/test/{wp14-join,wp14-testlogins}.test.ts, packages/beacon/test/sl08-ends-when.test.ts
+Known limits: the matrix covers screen rules only, not the engine; the guard test greps source text.
+
+## How to start the app locally
+`bun run dev` (apps/edge/src/local.ts). Pages are in apps/web/public (z.html player, zc.html organizer console, index.html landing). Test logins: demo1/2/3 with code 123456 in TEST mode only. Node modules: junction or install at the repo root (the worktree needs @noble/curves).
+
+## Milestone 1: files and behaviours (commit ce2b78b)
+Files: apps/web/public/{screenrules.js, release.json, release-line.js, z.js (rules fold line), z.html, index.html}.
+1. Player screen after the game ends (phase ended) must NOT show the "Rules in five lines" fold. During play it must. Waiting room must not (as before).
+2. z.html loads screenrules.js before z.js and release-line.js. If screenrules.js is missing the page still hides the fold after the game.
+3. release-line.js writes "Version 1.4.0" (no date while releasedAtIST starts with "pending") into the footer; with a real IST string it prints ", released <IST> IST". A failed fetch shows nothing and no error.
+
+## Milestone 2: ID and email rules (commits a717293, 9d4ad88)
+Files: apps/edge/src/{people.ts, emailclean.ts, worker.ts, admin.ts, credit.ts, google.ts, helpdesk.ts, hostsetup.ts, mode.ts, partners.ts, pay.ts, testlogins.ts, visits.ts}, apps/web/public/z.js.
+Employee ID (games with created_ms >= EMP_CLEAN_FROM_MS, currently year 2100, so tests must pass an explicit threshold or set the constant):
+1. 1B-678, 1b-678, 1B/678, 1B 678 -> 1B678 on join, "who" check and organizer add-person/list upload; same person gets the same board (hash from the cleaned value).
+2. Full-width, zero-width, emoji, accents are removed. Only symbols -> plain refusal ("An employee ID has letters and numbers only"). More than 30 characters after cleaning -> refused. Duplicates that only match after cleaning count as duplicates.
+3. Older games (created before the threshold): old reading unchanged (dots, dashes and slashes kept).
+4. Join page shows "The system will read this as 1B678" under the ID box only when cleaning changes the text.
+Email (all games): RAJAT1＠DEMO.COM and every case or spacing variant is one address at: organizer sign-in/Google sign-in, helpdesk, Host setup link (hash, sealed address, "different email" check), payment receipts and payer hash, credit, partners, visits hash, test logins (DEMO1@... counts as demo1). Employee ID cleaner is never applied to an email.
+Risk to check: Host setup stores the lowercase form; old hashes made from mixed-case addresses will not match.
+
+## Milestone 3: brand kit and landing (commit 4cb8dfc)
+Files: apps/web/public/{index.html, tokens.css, components.css, brandkit.js, theme-init.js, fonts.css, favicon.*, icons, manifest.webmanifest, og-card.png}.
+1. Landing page shows the kit header (six menu items: How it works, Free demo game, Guide, Brochure, Refer & earn, Log in), theme dots, Menu button on a phone, kit footer with "Version ..." line at the bottom; no horizontal scroll at 360/768/1280, light and dark; no CSP errors in the console.
+2. Menu links go to /#how, /demo.html, /organizer-guide.html, /brochure.html, /partner.html, /zc.html; footer legal links go to this site's own pages.
+3. The old buy box, hero and "games bar" still work. The kit header and the old header are not both visible (check: the old `.snav` was replaced).
+Not done: game pages, console, new look.
+
+## Not built yet (nothing to test): Email ID list criterion, new organizer screens, Retro/Modern player look, thank-you strip, Game completed page, consent version, game log 365 days.
