@@ -1,0 +1,18 @@
+bun test v1.4.4 (38afee6c8)
+
+apps/edge/test/branding.test.ts:
+101 |       expect(title).toMatch(/(^Corporate Snakes and Ladders|\| Corporate Snakes and Ladders$)/); expect(title).not.toMatch(/CORPORATE|Bingo Corporate/);
+102 |       for (const needle of ['rel="icon"', "apple-touch-icon", 'rel="manifest"', 'name="theme-color" content="#0B5D5B"']) expect(s).toContain(needle);
+103 |     });
+104 |   }
+105 |   test("the PWA manifest and the build ship the brand", () => {
+106 |     const m = JSON.parse(read("apps/web/public/manifest.webmanifest")); expect(m.name).toBe("Corporate Snakes and Ladders"); expect(m.short_name).toBe("Corporate Snakes and Ladders"); expect(m.theme_color).toBe("#0B5D5B");
+                         ^
+SyntaxError: JSON Parse error: Unexpected token '.'
+      at <anonymous> (/home/user/corporate-snakes-and-ladders/apps/edge/test/branding.test.ts:106:20)
+(fail) pages: one title pattern, icons, manifest, theme colour > the PWA manifest and the build ship the brand [18.19ms]
+
+ 30 pass
+ 1 fail
+ 441 expect() calls
+Ran 31 tests across 1 file. [858.00ms]

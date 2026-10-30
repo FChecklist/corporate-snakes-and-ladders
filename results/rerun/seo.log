@@ -1,0 +1,18 @@
+bun test v1.4.4 (38afee6c8)
+
+apps/web/test/seo.test.ts:
+69 |     for (const f of [...INDEXABLE, ...NOINDEX]) { let h = ""; try { h = rd(f); } catch { continue; } for (const img of h.match(/<img\b[^>]*>/g) ?? []) { expect([f, /\balt="[^"]+"/.test(img)]).toEqual([f, true]); expect([f, /\bwidth="\d+"/.test(img) && /\bheight="\d+"/.test(img)]).toEqual([f, true]); } }
+70 |     expect(rd("index.html")).toMatch(/<img src="\/img\/card\.png"[^>]*fetchpriority="high"/);
+71 |   });
+72 |   test("quick loading: fonts are self-hosted and swap in, the two main fonts are preloaded, scripts do not block the page, nothing third-party is loaded on the home page", () => {
+73 |     const h = rd("index.html"), f = rd("fonts.css");
+74 |     expect(f.match(/font-display: swap/g)!.length).toBe(f.match(/@font-face/g)!.length);
+                                             ^
+TypeError: null is not an object (evaluating 'f.match(/font-display: swap/g).length')
+      at <anonymous> (/home/user/corporate-snakes-and-ladders/apps/web/test/seo.test.ts:74:41)
+(fail) each indexable page > quick loading: fonts are self-hosted and swap in, the two main fonts are preloaded, scripts do not block the page, nothing third-party is loaded on the home page [0.39ms]
+
+ 23 pass
+ 1 fail
+ 559 expect() calls
+Ran 24 tests across 1 file. [15.00ms]

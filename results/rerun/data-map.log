@@ -1,0 +1,22 @@
+bun test v1.4.4 (38afee6c8)
+
+apps/edge/test/data-map.test.ts:
+56 |   test("the player page asks for exactly the fields the data map lists (a mobile number field exists only if it is listed)", () => {
+57 |     const code = PLAYER_SCRIPTS.map(pub).join("\n");
+58 |     const asksNumber = /id="ph"|type="tel"|name="phone"|id="phone"/.test(code);
+59 |     expect(asksNumber).toBe(always.includes("mobile number") || sometimes.includes("mobile number"));
+60 |     expect(/id="nm"|id="name"|name="name"/.test(code)).toBe(always.includes("name"));
+61 |     expect(/type="email"|id="email"|name="email"/.test(code)).toBe(false);
+                                                                   ^
+error: expect(received).toBe(expected)
+
+Expected: false
+Received: true
+
+      at <anonymous> (/home/user/corporate-snakes-and-ladders/apps/edge/test/data-map.test.ts:61:63)
+(fail) D2: the notice and the data map agree > the player page asks for exactly the fields the data map lists (a mobile number field exists only if it is listed) [0.56ms]
+
+ 7 pass
+ 1 fail
+ 84 expect() calls
+Ran 8 tests across 1 file. [21.00ms]

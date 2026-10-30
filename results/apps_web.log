@@ -1,0 +1,79 @@
+bun test v1.4.4 (38afee6c8)
+
+apps/web/test/seo.test.ts:
+69 |     for (const f of [...INDEXABLE, ...NOINDEX]) { let h = ""; try { h = rd(f); } catch { continue; } for (const img of h.match(/<img\b[^>]*>/g) ?? []) { expect([f, /\balt="[^"]+"/.test(img)]).toEqual([f, true]); expect([f, /\bwidth="\d+"/.test(img) && /\bheight="\d+"/.test(img)]).toEqual([f, true]); } }
+70 |     expect(rd("index.html")).toMatch(/<img src="\/img\/card\.png"[^>]*fetchpriority="high"/);
+71 |   });
+72 |   test("quick loading: fonts are self-hosted and swap in, the two main fonts are preloaded, scripts do not block the page, nothing third-party is loaded on the home page", () => {
+73 |     const h = rd("index.html"), f = rd("fonts.css");
+74 |     expect(f.match(/font-display: swap/g)!.length).toBe(f.match(/@font-face/g)!.length);
+                                             ^
+TypeError: null is not an object (evaluating 'f.match(/font-display: swap/g).length')
+      at <anonymous> (/home/user/corporate-snakes-and-ladders/apps/web/test/seo.test.ts:74:41)
+(fail) each indexable page > quick loading: fonts are self-hosted and swap in, the two main fonts are preloaded, scripts do not block the page, nothing third-party is loaded on the home page [0.36ms]
+
+apps/web/test/storage-notice.test.ts:
+16 |   const { uses, cookies } = scan();
+17 |   const used = new Set(uses.map((u) => `${u.store}|${u.key}`));
+18 | 
+19 |   test("every key the scripts keep on a device is listed in storage-registry.json", () => {
+20 |     const missing = uses.filter((u) => !listed.has(`${u.store}|${u.key}`)).map((u) => `${u.file}: ${u.store} ${u.key}`);
+21 |     expect(missing).toEqual([]);
+                         ^
+error: expect(received).toEqual(expected)
+
+- []
++ [
++   "theme-init.js: localStorage ct-theme",
++   "theme-init.js: localStorage cg-theme",
++ ]
+
+- Expected  - 1
++ Received  + 4
+
+      at <anonymous> (/home/user/corporate-snakes-and-ladders/apps/web/test/storage-notice.test.ts:21:21)
+(fail) R9: the storage notice matches the code > every key the scripts keep on a device is listed in storage-registry.json [150.37ms]
+
+apps/web/test/no-internal-notes.test.ts:
+25 |   const files = DEPLOYED.flatMap((d) => { try { return walk(join(ROOT, d)); } catch { return []; } });
+26 |   test("there are files to scan", () => { expect(files.length).toBeGreaterThan(20); });
+27 |   test("no file contains an internal note, a review or approval remark, a TODO, or the name of another legal entity", () => {
+28 |     const bad: string[] = [];
+29 |     for (const f of files) { const t = readFileSync(f, "utf8"); const m = FORBIDDEN.exec(t); if (m) bad.push(`${f.slice(ROOT.length)}: ${m[0]} ... ${t.slice(Math.max(0, m.index - 40), m.index + 60).replace(/\s+/g, " ")}`); }
+30 |     expect(bad).toEqual([]);
+                     ^
+error: expect(received).toEqual(expected)
+
+- []
++ [
++   "apps/web/public/pack/zc-flow.css: todo ... 3e8; border-color: #1a7a46; } .zf-ready.todo { background: #fff8e1; } .zf-readylist { list-style: no",
++   "apps/web/public/pack/zc-flow.js: todo ... ", { class: "zf-ready " + (ok ? "ok" : "todo"), id: "zf-ready", "aria-labelledby": "zf-rdh" }, el("h",
++ ]
+
+- Expected  - 1
++ Received  + 4
+
+      at <anonymous> (/home/user/corporate-snakes-and-ladders/apps/web/test/no-internal-notes.test.ts:30:17)
+(fail) no internal notes in anything that is deployed > no file contains an internal note, a review or approval remark, a TODO, or the name of another legal entity [18.42ms]
+
+apps/web/test/pwa.test.ts:
+
+# Unhandled error between tests
+-------------------------------
+3 | import { existsSync, readFileSync, statSync } from "node:fs";
+4 | import { join } from "node:path";
+5 | 
+6 | const PUB = join(import.meta.dir, "../public");
+7 | const BUILD = readFileSync(join(import.meta.dir, "../../../pages/build.mjs"), "utf8");
+8 | const manifest = JSON.parse(readFileSync(join(PUB, "manifest.webmanifest"), "utf8"));
+                          ^
+SyntaxError: JSON Parse error: Unexpected token '.'
+      at /home/user/corporate-snakes-and-ladders/apps/web/test/pwa.test.ts:8:23
+-------------------------------
+
+
+ 128 pass
+ 4 fail
+ 1 error
+ 3328 expect() calls
+Ran 132 tests across 24 files. [18.02s]

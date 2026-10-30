@@ -1,0 +1,22 @@
+bun test v1.4.4 (38afee6c8)
+
+apps/web/test/pwa.test.ts:
+
+# Unhandled error between tests
+-------------------------------
+3 | import { existsSync, readFileSync, statSync } from "node:fs";
+4 | import { join } from "node:path";
+5 | 
+6 | const PUB = join(import.meta.dir, "../public");
+7 | const BUILD = readFileSync(join(import.meta.dir, "../../../pages/build.mjs"), "utf8");
+8 | const manifest = JSON.parse(readFileSync(join(PUB, "manifest.webmanifest"), "utf8"));
+                          ^
+SyntaxError: JSON Parse error: Unexpected token '.'
+      at /home/user/corporate-snakes-and-ladders/apps/web/test/pwa.test.ts:8:23
+-------------------------------
+
+
+ 0 pass
+ 1 fail
+ 1 error
+Ran 1 test across 1 file. [8.00ms]
