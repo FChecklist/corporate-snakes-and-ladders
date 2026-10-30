@@ -71,7 +71,7 @@ export const normId = (raw: unknown, kind: "emp" | "email", clean = false): stri
   if (looksLikeEmail(raw)) return null; // one plain refusal for an email in an employee-ID box, in every game
   return normEmp(raw, clean);
 };
-export const badIdMessage = (raw: unknown, kind: "emp" | "email", clean = false): string => kind === "email" ? "Please check your Email ID. It looks incomplete." : looksLikeEmail(raw) ? "This looks like an Email ID. This game asks for an employee ID: letters and numbers only." : "An employee ID has letters and numbers only (up to 30).";
+export const badIdMessage = (raw: unknown, kind: "emp" | "email", clean = false): string => kind === "email" ? "Please check your Email ID. It looks incomplete." : looksLikeEmail(raw) ? "This looks like an Email ID. This game asks for an employee ID: letters and numbers only." : clean && cleanEmpId(raw).length > 30 ? "This ID is too long. An employee ID may be up to 30 characters once cleaned." : "An employee ID has letters and numbers only (up to 30).";
 /** The identity of a person who is known by employee ID alone (no mobile number needed). One hash for the same ID in every game, like the phone hash. */
 export const empHashOf = (env: { PHONE_SALT?: string; ORGANIZER_SECRET?: string }, id: string) => sha(`${env.PHONE_SALT ?? env.ORGANIZER_SECRET ?? "unset"}|emp|${id}`);
 /** What the organizer asked people to give to get in, read from the game's stored settings. */

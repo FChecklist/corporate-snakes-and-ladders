@@ -99,3 +99,11 @@ NOT fixable here (pack is vendored byte for byte, edit in the console repo and r
 - PN-2 release.json version 1.4.1. PN-3 site.js comment removed. PN-4: an email in an employee-ID box is refused with ONE sentence ("This looks like an Email ID. This game asks for an employee ID: letters and numbers only.") by the server in every game (people.ts normId, badIdMessage), as the phone already does.
 - PN-5: cleanAccountEmail refuses \s, U+200B-U+200D, U+2060, U+FEFF, U+0085, U+2028, U+2029; cleanEmail (participant Email ID) removes them (emailclean.ts lines 2 and 5).
 - PN-6: pack/MANIFEST.json and pack/gamelog.* are restored byte for byte from origin/release/snakes-1.4.0 (I cannot run the vendor tool: the console repo is not here). gamelog.* is NOT in pages/build.mjs FILES, so it does not ship; the console repo should drop it, then re-vendor. Item 11 of Milestone 7 is amended accordingly.
+
+## Round 3 (tester v3 PD-1..PD-6; product code only, not run by the coder)
+- PD-1: over-long employee ID (new reading, more than 30 once cleaned) answers "This ID is too long. An employee ID may be up to 30 characters once cleaned." on the server (people.ts badIdMessage) and on the phone (z.js showRead).
+- PD-2: /api/checkout (two doors, pay.ts) also refuses when cleanAccountEmail returns "" (inner space or hidden character): 400 "Enter a valid e-mail address."
+- PD-3: the ID lock applies only when the game's verify kind is not "mobile" (worker.ts id-locked line); in a mobile-number game nobody holds an ID hash, so idKind and verify can change. If the owner wants "anyone listed or joined" locks, say so and this reverts.
+- PD-4: GET /api/z/:id/life carries `endedAtMs` only once the game has really ended: phones-confirmed end or organizer end (not a purge) whatever the clock says; scheduled end (endBoundMs, +60 s included) once now >= bound; never for cancel; never moves (worker.ts, life route). `endMs` is unchanged.
+- PD-5: z.js Email ID hint removes the same invisible characters as the server.
+- PD-6: guide.js id-locked card steps now end with a full stop.

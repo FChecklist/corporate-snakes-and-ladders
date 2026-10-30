@@ -1905,7 +1905,8 @@ async function route0(req: Request, env: Env, now: number, a: Auth): Promise<Res
     if (!can(a, e)) return deny(a);
     const l = await env.DB.prepare("SELECT * FROM life WHERE eid=?").bind(eid).first<any>();
     const end = l && l.end_src === "phones" ? l.end_ms : await endBoundMs(env, e);
-    return json({ endMs: end, endSrc: l?.end_src ?? "schedule", reportSent: !!l?.report_ms, reportState: l?.report_state ?? null, purged: !!l?.purged_ms, personalDeleteAtMs: personalDeleteAt(end), fullDeleteAtMs: fullDeleteAt(end), started: now >= roundMs(e.start_round + GRACE_ROUNDS) });
+    const bound = await endBoundMs(env, e), endedAtMs = l && l.end_src === "phones" ? l.end_ms : l && l.end_src === "organizer" && !l.purged_ms ? l.end_ms : l && l.end_src === "cancel" ? undefined : now >= bound ? bound : undefined; // the real end: absent while the game can be live; a scheduled end shows once the bound (already +60 s) has passed; a purge or a cancel is not an end
+    return json({ ...(endedAtMs !== undefined ? { endedAtMs } : {}), endMs: end, endSrc: l?.end_src ?? "schedule", reportSent: !!l?.report_ms, reportState: l?.report_state ?? null, purged: !!l?.purged_ms, personalDeleteAtMs: personalDeleteAt(end), fullDeleteAtMs: fullDeleteAt(end), started: now >= roundMs(e.start_round + GRACE_ROUNDS) });
   }
   if (action === "won" && req.method === "POST") return acceptWon(env, e, eid!, await body(req), now, json, spend);
   if (action === "over" && req.method === "POST") return acceptOver(env, e, eid!, await body(req), now, json, spend);
@@ -2008,7 +2009,7 @@ async function route0(req: Request, env: Env, now: number, a: Auth): Promise<Res
     const have = await env.DB.prepare("SELECT COUNT(*) AS c FROM participant WHERE eid=?").bind(eid).first<{ c: number }>();
     if (!a.plat && e.pack !== 0 && next.cap > (e.pack ?? e.cap)) return json({ error: `Your pack allows up to ${e.pack ?? e.cap} people. For more people, make a new game like this one.` }, 402);
     const listed = await env.DB.prepare("SELECT COUNT(*) AS c FROM person WHERE eid=? AND status<>'removed'").bind(eid).first<{ c: number }>().catch(() => null); // people on the lists who have not come in yet count too
-    { const cur = verifyOf(e); if ((cur.idKind !== (vc.cfg.idKind ?? "emp") || cur.mode !== (vc.cfg.verify ?? "mobile")) && (have?.c ?? 0) + (listed?.c ?? 0) > 0) return json({ error: cur.idKind !== (vc.cfg.idKind ?? "emp") ? "You already have people listed. Start a new game to use a different kind of ID." : "You already have people listed. Start a new game to use a different way of asking for IDs.", code: "id-locked" }, 409); } // a person's identity hash comes from the ID kind: changing it would orphan everyone
+    { const cur = verifyOf(e); if (cur.mode !== "mobile" && (cur.idKind !== (vc.cfg.idKind ?? "emp") || cur.mode !== (vc.cfg.verify ?? "mobile")) && (have?.c ?? 0) + (listed?.c ?? 0) > 0) return json({ error: cur.idKind !== (vc.cfg.idKind ?? "emp") ? "You already have people listed. Start a new game to use a different kind of ID." : "You already have people listed. Start a new game to use a different way of asking for IDs.", code: "id-locked" }, 409); } // a person's identity hash comes from the ID kind: changing it would orphan everyone
     if (next.cap < Math.max(have?.c ?? 0, listed?.c ?? 0)) return json({ error: "The limit cannot be lower than the people already on the list." }, 409);
     if (!(await spend(env, now))) return BUSY();
     await env.DB.prepare("UPDATE engagement SET start_round=?, call_seconds=?, cap=?, closed=?, tickets=?, config=?, cohost_limit=? WHERE id=?").bind(next.start_round, next.call_seconds, next.cap, next.closed, vc.cfg.tickets, cfgJson(vc.cfg), next.cohost_limit, eid).run();
