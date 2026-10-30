@@ -25,7 +25,7 @@ describe("the console", () => {
   });
   test("the people list: an Employee ID column in the sheet, the ID in the rows and in the waiting list, a PDF upload with a preview before anyone is added", () => {
     expect(zc).toContain('["pdf", "Upload a PDF"]'); expect(zc).toContain("vendor/pdfjs/pdf.min.mjs"); expect(zc).toContain('id="pdfgo"'); expect(zc).toContain("found in your PDF");
-    expect(zc).toContain("Employee ID,Personal link"); expect(zc).toContain("p.empId"); expect(zc).toContain("w.empId");
+    expect(zc).toContain('"Name,Mobile," + idLbl() + ",Personal link'); expect(zc).toContain('idLbl = () =>'); expect(zc).toContain('"Employee ID"'); // the sheet header follows the game's kind of ID (1.4.1): "Employee ID" or "Email ID" expect(zc).toContain("p.empId"); expect(zc).toContain("w.empId");
     for (const f of ["pdf.min.mjs", "pdf.worker.min.mjs", "LICENSE.txt"]) expect(existsSync(join(PUB, "vendor/pdfjs", f))).toBe(true);
     expect(readFileSync(join(import.meta.dir, "../../../pages/build.mjs"), "utf8")).toMatch(/\["fonts", "img", "vendor"\]/); // the library is shipped with the site
   });

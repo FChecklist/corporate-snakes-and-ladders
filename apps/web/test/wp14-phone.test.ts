@@ -31,15 +31,21 @@ const phone = async (o: O, id: string, pre?: (win: any) => void) => {
 };
 const join = async (p: Page) => { await p.waitFor((x) => /Join the game/.test(x), 20000); (p.$("#nm") as any).value = "Asha"; const ph = p.$("#ph") as any; if (ph) ph.value = "9812345678"; p.click("#go"); await p.waitFor((x) => /You are in|Starting in|Your game is setting up/.test(x), 60000); };
 
-describe("SL-11: the phone keeps its screen on, is quiet by default and tells the person to use Do not disturb", () => {
-  test("the page asks for a screen wake lock; sound is off until turned on; the waiting room carries the Do-not-disturb tip", async () => {
+describe("SL-11: the phone keeps its screen on and tells the person to use Do not disturb (the sound default was reverted to ON by the 1.4.1 audit, item 12; see audit141-release.test.ts)", () => {
+  test("the page asks for a screen wake lock; the waiting room carries the Do-not-disturb tip; with no saved choice the sound button says Sound on", async () => {
     const o = await organizer(); await publishedGame(o, "WAKE-1");
     let asked = 0;
     const p = await phone(o, "WAKE-1", (win) => { Object.defineProperty(win.navigator, "wakeLock", { value: { request: async (kind: string) => { if (kind === "screen") asked++; return { addEventListener() {} }; } }, configurable: true }); });
     await join(p);
     expect(asked).toBeGreaterThanOrEqual(1);
-    expect(p.text()).toContain("Sound off");
+    expect(p.text()).toContain("Sound on"); expect(p.text()).not.toContain("Sound off");
     expect(p.text()).toContain("switch your phone to Do not disturb");
+  });
+  // PRODUCT BUG PB-9 (see TESTER_REPORT): item 12 turned the sound ON by default but the waiting-room sentence "Sound is off until you turn it on." (z.js:500) was left, so the page contradicts its own button.
+  test.failing("the waiting room does not say 'Sound is off until you turn it on' while the button says Sound on", async () => {
+    const o = await organizer(); await publishedGame(o, "WAKE-2");
+    const p = await phone(o, "WAKE-2"); await join(p);
+    expect(p.text()).toContain("Sound on"); expect(p.text()).not.toContain("Sound is off until you turn it on");
   });
 });
 

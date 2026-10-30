@@ -7,7 +7,8 @@
 // `withPeople: true` brings the old game's people list (names and numbers stay sealed; each person gets a NEW personal link, the old links stay with the old game). It works only while the
 // old list still exists (before its erasure); otherwise `peopleCopied` is 0 and `peopleNote` says so calmly. The old game's own copy is erased on its own clock as always.
 import { sealText } from "./pii";
-import { newToken, tokenHash, randHex } from "./people";
+import { newToken, tokenHash, randHex, normId, empHashOf, verifyOf, empCleanFor } from "./people";
+import { openPii } from "./pii";
 import { MAX_AHEAD_MS } from "./lifecycle";
 import { MAX_DRAFTS } from "./pay";
 import { orgIsTest, testFlag } from "./mode";
@@ -20,11 +21,20 @@ const ALPHA = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const suffix = () => Array.from(crypto.getRandomValues(new Uint8Array(4)), (b) => ALPHA[b % ALPHA.length]).join("");
 
 /** Copies the people list of `fromEid` into `toEid` as fresh, un-joined invitations with new personal links. Returns how many people were copied. */
-export async function copyPeople(env: Env, fromEid: string, toEid: string, cap: number, now: number, spend: (n: number) => Promise<boolean>): Promise<{ copied: number; busy?: boolean }> {
+export async function copyPeople(env: Env, fromEid: string, toEid: string, cap: number, now: number, spend: (n: number) => Promise<boolean>, target?: { config: string | null; created_ms: number }): Promise<{ copied: number; busy?: boolean }> {
   const db = env.DB;
   const listed = (await db.prepare("SELECT ph, pii, inviter FROM person WHERE eid=? AND status<>'removed' AND role IS NULL ORDER BY added_ms, id").bind(fromEid).all<{ ph: string; pii: string; inviter: string }>()).results ?? [];
   const joined = (await db.prepare("SELECT p.phone_hash AS ph, p.pii AS pii FROM participant p WHERE p.eid=? AND p.pii IS NOT NULL AND p.phone_hash NOT IN (SELECT ph FROM person WHERE eid=? AND status<>'removed') AND NOT EXISTS (SELECT 1 FROM seat s WHERE s.eid=p.eid AND s.pid=p.pid AND (s.role IS NOT NULL OR s.blocked IS NOT NULL)) ORDER BY p.joined_ms, p.pid").bind(fromEid, fromEid).all<{ ph: string; pii: string }>()).results ?? [];
-  const all = [...listed.map((x) => ({ ph: x.ph, pii: x.pii, inviter: /^(o|h:[0-9a-f]+)$/.test(x.inviter) ? x.inviter : "o" })), ...joined.map((x) => ({ ph: x.ph, pii: x.pii, inviter: "o" }))].slice(0, cap);
+  const all0 = [...listed.map((x) => ({ ph: x.ph, pii: x.pii, inviter: /^(o|h:[0-9a-f]+)$/.test(x.inviter) ? x.inviter : "o" })), ...joined.map((x) => ({ ph: x.ph, pii: x.pii, inviter: "o" }))].slice(0, cap);
+  // an ID-known person is re-hashed with the NEW game's rule (a game made after the cleaning date reads IDs the new way); a person whose ID the new rule refuses is left out
+  const all: typeof all0 = [], vf = target ? verifyOf(target) : null, clean = target ? empCleanFor(target) : false;
+  for (const x of all0) {
+    if (!vf || vf.mode === "mobile") { all.push(x); continue; }
+    const pii = await openPii(env as any, x.pii).catch(() => null);
+    const emp = pii?.empId ? normId(pii.empId, vf.idKind, clean) : "";
+    if (pii?.empId && emp === null) continue;
+    if (emp && (vf.mode === "id" || (vf.mode === "either" && !String(pii?.phone ?? "")))) all.push({ ...x, ph: await empHashOf(env as any, emp) }); else all.push(x);
+  }
   if (!all.length) return { copied: 0 };
   if (!(await spend(all.length * 2))) return { copied: 0, busy: true };
   let copied = 0;
@@ -70,7 +80,7 @@ export async function cloneGame(env: Env, e: any, b: any, now: number, origin: s
   if (pending) await db.prepare("INSERT OR REPLACE INTO kv(k,v) VALUES(?,?)").bind(`startpending/${id}`, String(now)).run();
   let peopleCopied = 0, peopleNote: string | undefined;
   if (b?.withPeople === true) {
-    const r = await copyPeople(env, e.id, id, e.cap, now, spend);
+    const r = await copyPeople(env, e.id, id, e.cap, now, spend, { config: e.config ?? null, created_ms: now });
     peopleCopied = r.copied;
     if (!r.copied) peopleNote = r.busy ? "It is very busy right now. Add your people again in a few minutes." : "The old guest list has been erased, so add your people again.";
   }
