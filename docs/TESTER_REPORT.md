@@ -1,168 +1,121 @@
-# TESTER_REPORT: Snakes 1.4.1 audit fixes
-Branch `tests/snakes-1.4.1-2026-10-30` = `origin/tests/snakes-run3-fixes-2026-10-30` (bf97285) + merge of `origin/fix/snakes-1.4.1-audit-2026-10-30` (a4c53dc). **No product code changed.** Only test files, the page-test helper, one new test tool and this report. The previous run-3 report is kept at the end.
+# TESTER_REPORT: Snakes 1.4.1, test run v3 (31 Oct 2026)
 
-## Result (this cloud sandbox, `bun test --isolate <folder>`, one folder at a time, numbers copied from the last summary lines)
+Test branch: `tests/snakes-1.4.1-v3-2026-10-31`
+- Built from the product branch `fix/snakes-1.4.1-audit-2026-10-30` at `3d85dcc` (round 2 included).
+- Plus the earlier test branch `tests/snakes-1.4.1-2026-10-30` (`a7a74a1`). The merge had no conflicts (the two branches touch different files).
+- **No product code was changed.** Final check: `git diff origin/fix/snakes-1.4.1-audit-2026-10-30 --name-only` lists only test files, this report, the old report (renamed) and `tools/breakcheck/run.mjs` (a test runner the earlier author added; it is outside the test folders, so please look at it).
+- The previous author's report is kept as `docs/TESTER_REPORT_previous_author_2026-10-30.md`.
+
+## 1. Result (this cloud sandbox, `bun test --isolate <folder>`, one folder at a time)
 | Folder | pass | fail | files |
 |---|---|---|---|
+| packages/shared | 10 | 0 | 1 |
 | packages/beacon | 115 | 0 | 10 |
 | packages/billing | 26 | 0 | 1 |
-| packages/shared | 10 | 0 | 1 |
+| apps/edge | 1536 | 0 | 83 |
+| apps/web | 203 | **1** | 29 |
 | tools/control-worker | 1 | 0 | 1 |
-| apps/web | 209 | 1 | 28 |
-| apps/edge | 1438 | 0 | 81 |
-| `bun run typecheck` | 0 errors (exit 0) | | |
+| `bun run typecheck` | **0 errors** (exit 0) | | |
 
-- **The one red test is a real product defect, not a test problem:** `apps/web/test/guide.test.ts` "every message the server can send has a guide". The new lock message `worker.ts:2010 [409] You already have people listed. Start a new game to use a different kind of ID.` has no entry in guide.js (PB-10). I left it red on purpose.
-- Pass counts include `test.failing` tests (they pass while the product bug exists and go red the day it is fixed, see below). There are 17 of them.
-- Before this branch: edge 1378, web 138, beacon 115, typecheck 0. New tests: 4 new test files in apps/web, 2 in apps/edge.
-- apps/cron, tools/browser-tests, tools/errorlog have no tests; tools/sim2 (crowd simulation) was not run.
+- The one red test is a **product defect** (PD-6 below). I did not bend it.
+- 9 tests are `test.failing`. They are product defects written down as tests: they pass while the product is wrong and turn red the day it is fixed. They are counted in "pass" above. List: PD-1 (2), PD-2 (1), PD-3 (1), PD-4 (4), PD-5 (1).
+- Not run: apps/cron, tools/browser-tests, tools/errorlog (no test files). `tools/sim2` (crowd simulation) was not run. `tools/breakcheck/run.mjs` (33 older break checks) was not re-run in this pass.
 
-## What I did not have to change vs what I had to
-Six old tests encoded the old behaviour that the audit changed on purpose. I updated them (test code only):
-- `email-clean.test.ts` guard (every account door now imports `cleanAccountEmail`), `usecases.test.ts` UC-5 (an account email with an inner space is now refused, not repaired), `verify.test.ts` nickname test (after someone joined, `verify` is locked: split into two tests), `verify-ui.test.ts` (CSV header now follows the game's kind of ID), `wp14-phone.test.ts` SL-11 (sound default is ON now), `packages/beacon/test/sl08-ends-when.test.ts` (new chip wording).
-- `apps/web/test/harness.ts`: new optional `pub` folder so a break check can run the real page with one changed line.
+## 2. What was red when I first ran the merge, and what I decided
+First run: beacon 1 red, web 18 red, edge 10 red (29 in all). Every one was looked at:
 
-## Items 1 to 12: what is tested and where
-| # | Item | Result | Tests |
-|---|---|---|---|
-| 1 | Account / sign-in / Google / host / add-Host emails refuse an inner space; `isTestLogin('demo 1＠xyz.in')` false; participant Email IDs still remove inner spaces | **Done, one product bug (PB-1)** | `apps/edge/test/audit141-email.test.ts` (34 tests) |
-| 2 | `EMP_CLEAN_FROM_MS` placeholder: promises only where the server cleans the new way; release build fails with the placeholder | **Done** | `audit141-screens`, `audit141-console`, `audit141-release` |
-| 3 | Email in an employee-ID box: no "read this as", plain refusal; Email-ID tables | **Done; the table part fails (PB-8)** | `audit141-screens`, `audit141-ids`, `audit141-flow` |
-| 4 | `idKind` / `verify` locked once anyone is listed or joined | **Done, found PB-4** | `audit141-ids` |
-| 5 | "Which ID?" and "Your Employee ID" preview only where effective | **Done** | `audit141-flow`, `audit141-console` |
-| 6 | "Ends when N players are home" true for team games and shows the cap | **Done for the phone and the console; the projector page is still untrue (PB-3)** | `audit141-console` |
-| 7 | Dice-game words, feed hidden, no gamelog | **Feed and gamelog done; words are NOT clean (PN-1)** | `audit141-flow` |
-| 8 | Clone re-hashes people with the new game's rule | **Done** | `audit141-ids` |
-| 9 | No maxlength on the ID box; over-long IDs refused after cleaning | **Done** | `audit141-screens`, `audit141-ids` |
-| 10 | Duplicates after cleaning named row by row | **Done, with a gap (PB-2)** | `audit141-ids`, `audit141-console` |
-| 11 | release.json and public files hold no internal notes; gamelog removed or unlinked | **Done** (one source comment, PN-3) | `audit141-release`, `audit141-flow` |
-| 12 | Sound default for players with no saved choice | **Done; the page text contradicts it (PB-9)** | `audit141-release`, `wp14-phone` |
+**Test encoded OLD behaviour, product is right: test fixed (test code only)**
+- `beacon sl08-ends-when`: projector page now says "ends sooner when ..." (round 2). Test updated.
+- `edge audit141-ids` (lock): sentence now follows what was changed. Kind of ID changed: "...different kind of ID." Only the way of asking (verify) changed: "...different way of asking for IDs." Test now checks both.
+- `edge audit141-ids` (old reading): an e-mail in an employee-ID box now gets the same plain refusal on every game. Test updated.
+- `edge audit141-ids` (duplicates, 4 tests): duplicates are now named by the ID as typed, and a repeat of someone already listed is named too ("Already on the list."). Tests updated; two old `test.failing` and one "what happens today" test turned into normal tests or were removed.
+- `edge audit141-email` matrix: account e-mails now also refuse invisible characters (round 2). The model in the test only knew spaces. Model rebuilt from code points (no literal invisible characters, no backslash typed). Counts changed from 1,728,000 / 1,728,000 refused/kept to 2,592,000 / 864,000.
+- `edge audit141-email` source check: the cleaner now has a longer character class. Test builds the exact text from code points.
+- `web audit141-console` (7 tests): PB-3, PB-4, PB-5 were fixed in round 2. Their `test.failing` tests turned into normal tests; the two "what happens today" evidence tests were removed; the duplicate summary now shows the typed IDs, not the names.
+- `web audit141-release` (PN-3 comment gone) and `web wp14-phone` (PB-9 sound text fixed): `test.failing` turned into normal tests.
+- `web audit141-flow`: round 2 removed "Try the new screens" and the pack scripts from `zc.html`, and `?flow=new` now draws the ordinary console. The tests that drove the new dashboard (item 7 words, item 3 waiting tables, PB-6 sign-in key) described a page nobody can reach. They are replaced by three reachability checks (no link, no scripts, `?flow=new` shows the ordinary console). The "Which ID?" tests of the unreachable module are kept (they still pass).
+- `web audit141-flow` item 11: `pack/gamelog.*` is back in the pack folder on purpose (vendored byte for byte, in MANIFEST.json). The test now checks what matters: it is not in `pages/build.mjs`, so it does not ship, and no page or script links to it.
 
-### Email matrix (item 1), exact count
-- **3,456,000 distinct addresses**, streamed (generator, one counter, nothing stored). Built from 6,000 distinct cores (letters including `s`, digits) x 3 cases (lower, upper, mixed) x 2 at-signs (`@`, full-width `＠`) x 3 plus tags (none, `+t`, `+s1`) x 2 dot styles x 4 space styles (none, around the ends, inner space, inner tab) x 2 zero-width (none, U+200B) x 2 lengths (normal, 300+ characters).
-- Result: **0 wrong**. 1,728,000 refused (inner space or tab) and 1,728,000 kept, as an independent model says (the model lists white-space characters one by one and uses no regex).
-- Distinctness is proven with a Set on the first 1,100,000 addresses (0 repeats). The rest are distinct by the same construction (the core number is different for each core and the other parts are fixed labels), but I did not hold all 3.4 million in memory.
-- Backslash check by behaviour: tab, newline, no-break space, ideographic space, line separator inside an address are refused; the letters `s`, `d`, the digit `5`, `ss@sss.com` are kept. The regexes written by the coder are `/\s/` and `/\s+/g` (emailclean.ts), `/\s+/g` and `/[^A-Z0-9]/g` (z.js showRead), `/EMP_CLEAN_FROM_MS\s*=\s*(\d+)/` (build.mjs). Each is tested by behaviour (the build gate also with `EMP_CLEAN_FROM_MS=...` written with no spaces). Breaking the first one to `/s/` makes 8 tests red; breaking the build one to `(d+)` makes 4 red.
+**Product is wrong against the rules: NOT bent, listed below as defects.** Only PD-6 stays red; the others are `test.failing`.
 
-## Deliberate-break checks (red then green)
-Two kinds:
-1. **33 real product mutations** (`tools/breakcheck/run.mjs`, run it with `bun tools/breakcheck/run.mjs [id]`). For each: copy the repo to a scratch folder, change ONE piece of product code there, run the test file (red), run the same file on an unchanged copy (green). The repo itself is never edited. All 33 went red then green.
-2. **In-file break tests** (named "DELIBERATE BREAK" in the test files): a copy of the page folder with one line changed, or a broken cleaner passed to the same matrix, and the test expects the check to fail.
+## 3. PRODUCT DEFECTS (file, input, expected, actual)
+**PD-1 Over-long employee ID has the wrong sentence.**
+- Files: `apps/edge/src/people.ts:74` (`badIdMessage`), `apps/web/public/z.js:905` (`showRead`).
+- Input: 31 letters in the ID box of a game on the new reading (`verify:"id"`, `created_ms >= EMP_CLEAN_FROM_MS`).
+- Expected: `This ID is too long. An employee ID may be up to 30 characters once cleaned.`
+- Actual (server join, `400 bad-id`, and the phone's hint): `An employee ID has letters and numbers only (up to 30).` That sentence also appears for a box with only punctuation, where it is fine; for too-long it says nothing about length.
+- Tests: `v3-rules` "31-letter ID ... too-long sentence (server)", `v3-hints` "31 letters: the too-long sentence" (both `test.failing`), plus "evidence" tests of today's words.
 
-| id | what was broken (one line of product code, in a scratch copy) | file | broken: pass/fail | restored: pass/fail | red then green |
+**PD-2 Payment door silently drops an e-mail with a hidden character.**
+- Files: `apps/edge/src/pay.ts:362` and `:404` check the address with `EMAIL = /^[^\s@]{1,64}@.../` (white space only), then `:382` and `:413` clean it with `cleanAccountEmail`, which returns "" for an invisible character.
+- Input: `POST /api/checkout {email:"ab​c@x.com", pack:100}` (same for U+200C, U+200D, U+2060, U+FEFF, U+0085, U+2028, U+2029).
+- Expected: refused, 400 "Enter a valid e-mail address." (the same as an inner space, which IS refused).
+- Actual: **200**, an order is made, and the payment row is stored with `email = ""`.
+- Test: `v3-rules` "PD-2: checkout refuses an invisible character ..." (`test.failing`); the inner-space version is a normal passing test.
+
+**PD-3 The ID lock is wider than the rule.**
+- File: `apps/edge/src/worker.ts:2011` (id-locked line). It counts every participant and every listed person.
+- Rule: locked once anyone **holding an ID hash** is listed or joined.
+- Input: a game with `verify:"mobile"` where one guest joined by mobile number only (no ID), then `PATCH settings {idKind:"email"}`.
+- Expected: 200 (nobody holds an ID hash, nothing is orphaned).
+- Actual: `409 id-locked`, "You already have people listed. Start a new game to use a different kind of ID."
+- Note for the owner: this may be intended safety (changing `verify` for phone-only guests changes how they get back in). If so, the rule text should say "anyone listed or joined". Test: `v3-rules` "a game whose only people joined by mobile number ..." (`test.failing`) and an evidence test of today's 409.
+
+**PD-4 `endedAtMs` does not exist.**
+- Searched every answer: public `info`, organizer `summary`, `life`, `report`, `control`, the organizer's games list, and all of `apps/` and `packages/`: no field called `endedAtMs`.
+- The only end value is `endMs` on `GET /api/z/:id/life` (`worker.ts:1908`). It is **always** returned, with the planned end while the game can still be live. That breaks "absent while the game can be live".
+- Expected: `endedAtMs` absent while live; scheduled end (bound + 60 s) returned only once `now >= bound`; phones-confirmed or organizer end returned whatever the clock says; never moves once returned; purge/erase and cancel are not an end.
+- Actual: none of this is implemented. (The rows `life.end_src` = schedule / phones / organizer / cancel exist; `erasePersonal` writes an `organizer` row with `end_ms = now` for a purge, which would wrongly look like an end if `endedAtMs` were built on `life` as it is.)
+- Tests: 4 `test.failing` (scheduled end at bound, never moves, phones end early, organizer end early) and 3 guards that pass today (absent while live, cancel is not an end, purge/erase of a live game is not an end) so a future implementation cannot break those.
+- I could not tell from the rules which endpoint should carry the field, so the tests look for the key anywhere in the answers above. If it is put somewhere else, the helper `endedAt` in `v3-rules.test.ts` needs that path added.
+
+**PD-5 Phone hint for an Email ID ignores invisible characters.**
+- File: `apps/web/public/z.js:903` (Email branch of `showRead`: trim and remove white space only).
+- Input: `ab​c@x.com` in an Email ID game.
+- Expected: `The system will read this as abc@x.com` (the server removes the hidden character).
+- Actual: no hint at all (the hidden character is invisible, so the text looks unchanged to the phone's check). Small, but the hint is the only warning the person gets. Test: `v3-hints` (`test.failing`).
+
+**PD-6 The new guide card has a step with no ending punctuation.**
+- File: `apps/web/public/guide.js:137` (the id-locked card). Step 1 is `Keep the kind of ID this game uses, or` (ends with "or").
+- The house test (every step ends with a full stop, "!" or ",") fails: `guide.test.ts` "every catalog entry has a short title ...". It is the only red test.
+- Fix is one line of text (join the two steps or finish the sentence).
+
+**Latent (not reachable now, because round 2 hid the new organizer flow):** the pack still has the other game's words ("Ticket number", "Tickets and prizes", "Numbers are called automatically"), a stray "null" in the Ready check, and an "Employee ID" column holding squashed addresses for an Email ID game (earlier PN-1, PB-7, PB-8). No test covers them now. If the new flow is ever switched on again, they come back.
+
+**Things still open from the earlier report that I did not re-test:** none of the rest of the earlier PB/PN items remain except those above (PB-1, PB-2, PB-3, PB-4, PB-5, PB-6, PB-9, PB-10, PN-2, PN-3, PN-4, PN-5, PN-6 were checked and are fixed).
+
+## 4. Gap tests added (all from the owner's rules, not from the code)
+Files: `apps/edge/test/v3-rules.test.ts` (94 tests), `apps/edge/test/v3-matrix.test.ts` (5), `apps/web/test/v3-hints.test.ts` (7).
+- **Employee ID cleaning:** NFKC, upper case, keep A-Z 0-9 (full-width, ligature, sharp s, dotless i, Kelvin sign, circled digits, accents dropped, emoji dropped, invisible characters dropped); 20,000 random inputs against a second copy of the rule with no regex; cap 30 *after* cleaning (30 ok, 31 refused, 41 typed that clean to 28 ok, 70 typed that clean to 30 ok); empty after cleaning refused; nothing typed gives "nothing typed"; all spellings of one listed ID join as that person; a second person with another spelling does not become a second participant; the hash is the same for every spelling.
+- **E-mail in an employee-ID game:** `@` and full-width `＠`, both readings, server join and list door: plain sentence, no letter of the address in the answer.
+- **Participant Email ID:** each of 10 kinds of white space and each of the 8 invisible characters removed inside and at both ends; NFKC; lower case; dots, plus tags untouched; 20,000 random inputs against the second copy; complete/incomplete address rules; a listed address with a hidden character is the same person as the plain one; duplicates by case, space and hidden character in one upload.
+- **Account / sign-in / host / payment e-mails:** each of the 18 characters (10 white space kinds, 8 invisible) refused inside; trim at the ends allowed; `/api/start`, `/api/auth/email`, `/api/auth/verify`, `/api/org/host` (with and without a mobile number), `/api/host/setup/email` all 400 with no account and no mail made; checkout: white space refused (passes), invisible characters accepted (PD-2).
+- **Lock:** sentence follows what changed (kind of ID vs verify only vs both), code `id-locked`, game unchanged, same values still save, a removed person unlocks, joined-with-ID locks (PD-3 for phone-only guests).
+- **endedAtMs:** see PD-4 (4 failing, 3 guards, 1 evidence test).
+- **Guide/hint words:** "The system will read this as ..." only where the server cleans (new reading, Email ID); nothing on old-reading games; e-mail refusal exact sentence; exact lock sentences; too-long sentence (PD-1).
+
+## 5. Matrix
+- **ID matrix (new): `apps/edge/test/v3-matrix.test.ts`.** Streamed (a generator; only one Set of exact strings is kept to prove distinctness).
+  - **Generated 1,060,891; distinct 1,050,000; repeats skipped and not re-checked: 10,891.** The run stops when 1,050,000 distinct inputs have been checked (the owner asked for at least 1,000,000).
+  - Each input goes through six paths: `cleanEmpId`, `normEmp` (new reading), `normId` for an employee game, `normId` for an Email ID game, `cleanEmail`, `cleanAccountEmail`. Each answer is compared with a second copy of the rule (no regex, no product calls). **Wrong answers: 0.**
+  - The stream reaches every kind of answer: 301,195 kept as an employee ID, 450,026 refused because of `@`, 298,707 refused as too long, 72 refused as empty after cleaning, 907,957 refused as account e-mails (inner space or hidden character).
+  - 4 in-file deliberate breaks (no 30 cap, Email ID keeps hidden characters, account cleaner repairs spaces, no upper-case) are each caught.
+  - Shapes: 3 cases, 6 separators, full-width or not, 6 hidden-character choices, 3 edge-space choices, 4 length pads, 14 endings (8 plain, 6 e-mail shapes), 1,050 bodies.
+- **E-mail matrix (existing, rebuilt for round 2): 3,456,000 addresses**, 0 wrong, 0 repeats in the first 1,100,000 (Set); the rest are distinct by construction. 2,592,000 refused, 864,000 kept.
+
+## 6. Deliberate-break proof (product file changed in the working copy, tests run, file restored with `git checkout`)
+| # | Rule broken (one line of product code) | File | v3 tests | older tests | Restored |
 |---|---|---|---|---|---|
-| M1a | 1 account email: inner space accepted | apps/edge/src/emailclean.ts | 27/7 | 34/0 | yes |
-| M1b | 1 account email: regex lost its backslash (/s/) | apps/edge/src/emailclean.ts | 26/8 | 34/0 | yes |
-| M1c | 1 isTestLogin repairs inner spaces again | apps/edge/src/testlogins.ts | 32/2 | 34/0 | yes |
-| M1d | 1 sign-in (/api/start) repairs inner spaces again | apps/edge/src/worker.ts | 33/1 | 34/0 | yes |
-| M1e | 1 participant Email ID stops removing inner spaces | apps/edge/src/people.ts | 32/2 | 34/0 | yes |
-| M3a | 3 email in an employee-ID box no longer refused (new reading) | apps/edge/src/people.ts | 22/2 | 24/0 | yes |
-| M4a | 4 id-locked ignores LISTED people | apps/edge/src/worker.ts | 22/2 | 24/0 | yes |
-| M4b | 4 id-locked ignores JOINED people | apps/edge/src/worker.ts | 23/1 | 24/0 | yes |
-| M4c | 4 id-locked removed | apps/edge/src/worker.ts | 21/3 | 24/0 | yes |
-| M4d | 4 id-locked also refuses unchanged values | apps/edge/src/worker.ts | 23/1 | 24/0 | yes |
-| M6a | idClean not sent by /info | apps/edge/src/worker.ts | 23/1 | 24/0 | yes |
-| M8a | 8 clone does not re-hash with the new game's rule | apps/edge/src/clone.ts | 22/2 | 24/0 | yes |
-| M8b | 8 clone keeps a person the new rule refuses | apps/edge/src/clone.ts | 23/1 | 24/0 | yes |
-| M9a | 9 server accepts IDs longer than 30 after cleaning | apps/edge/src/people.ts | 22/2 | 24/0 | yes |
-| M10a | 10 duplicate rows not named | apps/edge/src/people.ts | 21/3 | 24/0 | yes |
-| M2a | 2 release gate removed from pages/build.mjs | pages/build.mjs | 17/5 | 22/0 | yes |
-| M2b | 2 release gate lets the placeholder through | pages/build.mjs | 18/4 | 22/0 | yes |
-| M2c | 2 release gate ignores an empty releasedAtIST | pages/build.mjs | 21/1 | 22/0 | yes |
-| M2d | 2 gate number pattern loses its backslash | pages/build.mjs | 18/4 | 22/0 | yes |
-| M2e | 2 phone says 'read this as' for any game (no idClean) | apps/web/public/z.js | 8/2 | 10/0 | yes |
-| M2f | 2 console promises 'Dashes and spaces are ignored' for any game | apps/web/public/zc.js | 17/2 | 19/0 | yes |
-| M2g | 2 /info drops idClean for the phone page | apps/web/public/z.js | 8/2 | 10/0 | yes |
-| M3b | 3 email in an employee-ID box falls to 'read this as' | apps/web/public/z.js | 8/2 | 10/0 | yes |
-| M5a | 5 new flow shows 'Which ID?' + preview again | apps/web/public/zc-flow-game.js | 17/3 | 20/0 | yes |
-| M5b | 5 old console shows 'Which ID?' for mobile games | apps/web/public/zc.js | 17/2 | 19/0 | yes |
-| M6b | 6 console duration line: no team rule, no cap | apps/web/public/zc.js | 15/4 | 19/0 | yes |
-| M6c | 6 player chip loses the team rule and the cap | apps/web/public/z.js | 18/1 | 19/0 | yes |
-| M7a | 7 new flow shows the feed and asks for /gamelog | apps/web/public/zc-flow-game.js | 17/3 | 20/0 | yes |
-| M7b | 7 a gamelog link comes back into a page | apps/web/public/z.html | 19/1 | 20/0 | yes |
-| M9b | 9 maxlength=30 back on the ID box | apps/web/public/z.js | 8/2 | 10/0 | yes |
-| M10b | 10 console summary drops the duplicate names | apps/web/public/zc.js | 17/2 | 19/0 | yes |
-| M11a | 11 internal note back in release.json | apps/web/public/release.json | 21/1 | 22/0 | yes |
-| M12a | 12 sound default off again | apps/web/public/z.js | 20/2 | 22/0 | yes |
+| B1 | employee ID no longer upper-cased | `apps/edge/src/people.ts` | v3-rules 78 pass / **16 fail**; v3-matrix 4 / **1 fail** | audit141-ids 21 / **2 fail** | green |
+| B2 | 30 cap removed after cleaning | `apps/edge/src/people.ts` | v3-rules 91 / **3 fail**; v3-matrix 4 / **1 fail** | audit141-ids 21 / **2 fail** | green |
+| B3 | account e-mail repairs inner spaces instead of refusing | `apps/edge/src/emailclean.ts` | v3-rules 73 / **21 fail**; v3-matrix 4 / **1 fail** | audit141-email 20 / **14 fail** | green |
+| B4 | lock sentence always says "kind of ID" | `apps/edge/src/worker.ts` | v3-rules 92 / **2 fail** | audit141-ids 21 / **2 fail** | green |
+| B5 | phone hint promises "read this as" on every game | `apps/web/public/z.js` | v3-hints 6 / **1 fail** | | green |
+- After each break `git checkout -- <file>` restored it. The final runs in section 1 were made after all five, on the restored tree.
+- **Product-code diff at the end: empty** (`git diff origin/fix/snakes-1.4.1-audit-2026-10-30 --name-only` shows no file outside test folders except this report and `tools/breakcheck/run.mjs`).
+- A backslash check: I typed no backslash in any new test string or regex; characters come from `String.fromCharCode`. I re-read the files after writing. The only place the product regex text is compared (`audit141-email` source check) builds `[\s​-‍...]` from code points, and it fails if that text changes.
 
-In-file break tests (all pass, meaning the check caught the break): matrix with `/s/` cleaner, matrix with the old spaces-removed cleaner, matrix with no lower-casing; phone hint without `idClean`; email falling through to "read this as"; `maxlength="30"` back; console promise without `idClean`; "Which ID?" for mobile games; duration line without team rule/cap; old chip; duplicate names dropped; descriptor `idKind: true`; descriptor `feed: true`; build gate removed; gate threshold 2200; gate regex `(d+)`; sound default off; internal note in release.json.
-
-## Product bugs (evidence; NOT fixed)
-Each has a `test.failing` test that turns red when the bug is fixed (then change it to `test`).
-- **PB-1 Add-Host silently drops a bad e-mail.** `POST /api/org/host {email:"ho st@acme.com", mobile:"9876500009"}` returns 200. The route cleans the address to "" and then treats it as "no e-mail typed", so the Host is made from the mobile number alone. With e-mail only it correctly gives 400. (worker.ts ~1095). Test: audit141-email "spaced e-mail AND a mobile number".
-- **PB-2 Duplicate count and names disagree.** Second upload of an already-listed ID: `duplicates: 1`, `duplicateRows: []`. Only duplicates inside one upload are named (people.ts:302/308/312). The ones counted at 325, 359, 360 are not. This is the common case (organizer uploads the sheet again). Also `raw` in duplicateRows is "name phone", not the ID text, so two people with the same name cannot be told apart. Tests: audit141-ids.
-- **PB-3 "Ends when" still untrue in three places.** Projector page `big.js:151` still says "ends when N players are home" for team games and shows no cap. The help line under the choice (`zc.js:246`, fixed text) still says "this many players" in a team game. `legal.html:67` says "The game ends when the fifth place is decided" (not tested). Tests: audit141-console.
-- **PB-4 An Email ID game cannot be re-saved in the old console once it has people.** `zc.js:1244` builds the console settings from the server record but leaves out `idKind`. The form shows "Employee ID" for an Email game, and "Save and continue" in step 2 sends `idKind:"emp"`, which the new lock refuses: the organizer sees "You already have people listed. Start a new game..." although they changed nothing. Evidence: DOM test `CON-P4B` shows the form text "Your list has an employee ID for each person." and the refusal on Save. Test: audit141-console "PB-4".
-- **PB-5 Paste help shows code.** For "ID only" games the paste line is a normal double-quoted string holding `${idLow()}`: the organizer reads `Paste one person per line: name, ${idLow()} (and a mobile number if you have it)` (zc.js, rosterTxt label). PB-5b: for "mobile and ID" games the paste line still says "employee ID" even in an Email ID game.
-- **PB-6 The new organizer flow cannot sign in.** The vendored pack reads the key from storage name `ctz-org` (pack/zc-flow.js:404); the game stores `cbz-org` (google.js:71, keep.js). A person who signs in and presses "Try the new screens" gets a page with no key: the dashboard never opens and the waiting list never loads (test: with only `cbz-org` the dashboard text never appears). My flow tests set both names to get past it. Its key pattern `ct[hcak]_` also does not match the game's `cbk_/cbh_/cbc_` keys in the `?k=` link.
-- **PB-7 Stray "null" in the Ready check** of a normal published free game: "Paymentnull", "Prizes chosennull" (new flow dashboard).
-- **PB-8 Email-ID games in the new-flow tables.** Waiting table of an Email ID game: column "Employee ID", value `ASHARAOACMECOM` for `asha.rao@acme.com` (the pack squashes it with its employee-ID cleaner). Winner details do the same. The coder listed this as not fixable here; it is still wrong and the new flow is reachable (see PB-6 for how far).
-- **PB-9 Sound text contradicts the new default.** The waiting room says "Sound is off until you turn it on." (z.js:500) while the button says "Sound on".
-- **PB-10 No guide entry for the new lock message** (see the red test above).
-
-## Product notes (not bugs in the changed lines, or not confirmed)
-- **PN-1 Tambola words still in the vendored pack (item 7).** Reaching the Snakes organizer: waiting-table column **"Ticket number"**; step 3 called **"Tickets and prizes"**; the report note and the completed note say "(by **ticket number** only)"; prize/claim lines "won by Ticket number N" / "It has been won by Ticket N" (lines 321, 332); live control words **"Numbers are called automatically"** (line 338) and **"Press to Roll Out the Next Number"**; "Tickets" in `readBack`. Housie, Tambola, Bumper, Full House, Lucky draw, Rehearsal and Claim do not appear on the dashboard. Each leftover has its own `test.failing`. The fix is in the console repo plus re-vendor. Until then the new flow should stay opt-in.
-- **PN-2** `release.json` says version `1.4.0` on the 1.4.1 fix branch. If the page footer should say 1.4.1, the release session must change it.
-- **PN-3** `site.js:23` still has a source comment "Boss ruling Q8". The build strips comments, so the built site is clean (tested on a real build); the source folder is not.
-- **PN-4** Wording disagrees on an old-reading game (before the date): typing `a@b.com` shows "This looks like an Email ID..." on the phone, but the server answers "An employee ID has letters and numbers only (up to 30)." (tested both).
-- **PN-5** A zero-width character (U+200B) inside an account email is accepted by the sign-in doors: `a\u200bb@x.com` becomes its own account that looks like `ab@x.com`. It is not white space, so the new rule does not refuse it (the matrix pins this as current behaviour).
-- **PN-6** `pack/MANIFEST.json` was hand-edited (the `pack.css` line has a different indent from the rest, and the file says "Do not edit here"). The seven recorded SHA-256 values still match the files (tested), but `node tools/vendor-pack.mjs --check` in the console repo was not run here.
-- Nothing in these tests sets the real `EMP_CLEAN_FROM_MS`. A game "after the date" is simulated by setting `created_ms` past the placeholder. The release session must set the constant and `releasedAtIST` (the gate test proves the build refuses until then).
-- Cleaning-date risk named earlier is unchanged: Host setup stores the lowercase address, so old hashes made from mixed-case addresses will not match.
-
-## Files added or changed
-- New tests: `apps/edge/test/audit141-email.test.ts`, `audit141-ids.test.ts`; `apps/web/test/audit141-screens.test.ts`, `audit141-console.test.ts`, `audit141-flow.test.ts`, `audit141-release.test.ts`.
-- New tool: `tools/breakcheck/run.mjs` (not part of `bun test`; plain .mjs so typecheck is unaffected).
-- Updated old tests: listed above. Helper: `apps/web/test/harness.ts` (`pub` option).
-
----
-# Previous report (run 3)
-Branch `tests/snakes-run3-fixes-2026-10-30`, from `origin/release/snakes-1.4.0` at 173b6e6. Only test files changed. No product code, no deploy.
-
-## Result (this cloud sandbox, one folder at a time, `bun test --isolate <folder>`, counts from the last summary lines)
-| Folder | pass | fail | files |
-|---|---|---|---|
-| packages/beacon | 115 | 0 | 10 |
-| packages/billing | 26 | 0 | 1 |
-| packages/shared | 10 | 0 | 1 |
-| tools/control-worker | 1 | 0 | 1 |
-| apps/web | 138 | 0 | 24 |
-| apps/edge | 1378 | 0 | 79 |
-| `bun run typecheck` | 0 errors | | |
-
-Not run: apps/cron, tools/browser-tests, tools/errorlog (no `*.test.ts` files). `tools/sim2` (crowd simulation, `bun run sim`, 15 min timeout) is outside the repo's `test` script and was not run in this pass.
-apps/web was run once before the web fixes (135 pass, 2 fail, 137 tests) and again after (138 pass, 0 fail). The one extra test is the new narrow-exemption test in no-internal-notes.test.ts.
-
-## What I changed (all test code)
-1. **verify.test.ts** (the 188/198 tests): the service was in LIVE mode. The tests now call the product's own `setMode(env, "TEST", ...)` (apps/edge/src/mode.ts, same way wp14-testlogins.test.ts does it) before the demo1/2/3 sign-ins. Added a LIVE case that refuses 123456 with 400 and no token.
-2. **Typecheck 68 to 0**: 67 errors came from one wrong return type of the test helper `keyH` in `param-harness.ts` (it returned a union with an optional header). It now returns `Record<string, string>`. This fixed demo-pass, join-gaps, param-people, param-config, param-life and shared-read at once. The last error was `email-clean.test.ts` line 14 comparing two different string literals; they are now typed `string`. No `any` was added.
-3. **Email ID**: `usecases.test.ts` UC-5 expected `"a b@c.com"` to be refused. Under the owner rule (NFKC, trim, remove inner spaces, lowercase) it is the address `ab@c.com`. The old case is removed from the refusal list and a new UC-5 test proves the cleaned form is accepted and is the same account as `ab@c.com`. email-clean.test.ts already checks that the employee ID cleaner is not the email cleaner; no other test expected otherwise.
-4. **shred.test** (see below).
-5. **UC-32** (`usecases.test.ts`, not on your list): found flaky while re-running. 40 joins fire together and only 5 get in, but the test then re-joined phone number 1, which is not always one of the 5. It now re-joins one that really got in. 6 runs in a row green after the fix.
-6. **seo.test**: the font regex now accepts `font-display:swap` with or without a space (the kit file has no space); `theme-init.js` added to the no-defer list (kit rule, it must run first, like theme.js).
-7. **no-internal-notes.test**: the vendored pack (`public/pack/`) uses `todo` as a CSS state class. I blank only those two exact uses (`.zf-ready.todo` and `? "ok" : "todo"`) in pack files. The rest of the pack is still scanned. A new test proves a real `TODO:` note in a pack file and the class outside the pack are still caught.
-
-## shred.test flake (item d)
-- I could not make it fail. The file has no sleeps or timers; the clock is fixed and every test gets a fresh database, so there is no order or time effect to remove. The coder's theory (an audit_log row from an earlier test) does not fit: the database is rebuilt in `beforeEach`.
-- Most likely cause of a rare red: the check "audit data does not contain `Asha`" looks for 4 letters in sealed base64 text, which can appear by chance. I now check the full name `Asha Rao`, which is what a real leak would show. This is a reasoned guess, not a reproduction. If it fails again, send me the output.
-- Three runs alone before the change: 10 pass 0 fail, 10 pass 0 fail, 10 pass 0 fail. Three runs alone after the change: 10 pass 0 fail, 10 pass 0 fail, 10 pass 0 fail.
-
-## Deliberate-break checks (red then green)
-| Rule | Break | Broken | Restored |
-|---|---|---|---|
-| (a) verify TEST mode | remove the setMode TEST line | 19 pass, 1 fail | 20 pass, 0 fail |
-| (b) typecheck | remove the `keyH` return type | 67 errors | 0 errors |
-| (b) typecheck | remove the `string` typing in email-clean | 1 error | 0 errors |
-| (c) Email ID cleaned (UC-5) | second address made different | 55 pass, 1 fail | 56 pass, 0 fail |
-| (d) shred leak check | forbidden list gets a word that is in the dump | 9 pass, 1 fail | 10 pass, 0 fail |
-| seo font regex | old regex put back | 23 pass, 1 fail | 24 pass, 0 fail |
-| notes pack exemption | exemption removed | 3 pass, 2 fail | 5 pass, 0 fail |
-
-## Remaining failures
-None in this run.
-
-## Possible product issues (not fixed, not confirmed)
-- None found. No typecheck error was in product code.
-- Risk the coder already named: Host setup stores the lowercase email, so old hashes made from mixed-case addresses will not match. No test covers an existing mixed-case record. Product owner should decide if old data needs a migration.
-- The vendored pack contains the word `todo` as a class name. It is harmless, but the test now carries an exemption for it; it can be removed if the console repo renames the class.
-- The "who gets in" order in simultaneous joins (UC-32) is not fixed. That is fine for the limit rule, but note it if a fair-order rule is ever promised.
+## 7. Limits and things to know
+- `EMP_CLEAN_FROM_MS` is still the year-2100 placeholder, and `release.json` has `releasedAtIST: ""`. So on this branch **no real game uses the new cleaning rule**; every test simulates "after the date" by setting `created_ms`. The release build gate (tested) refuses until both are set.
+- The rules do not say what to do with an invisible character at the very edge of an account e-mail (U+200B is not trimmed by JavaScript `trim`). The product refuses it. I did not pin that either way.
+- Every number above was copied from the last summary line of the run named. Run time in this sandbox: edge about 4.5 minutes, web under 1 minute, beacon about 35 seconds.
