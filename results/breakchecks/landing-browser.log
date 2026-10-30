@@ -22,3 +22,6 @@ BREAKCHECK landing-browser  (scratch copy: /tmp/claude-0/-home-user-corporate-sn
       failing: landing page in real Chromium > a theme dot changes the colours of the page (the header bar colour --bar-a is blue, then maroon, then emerald)
   break 7: the Menu button no longer opens the links  [apps/web/public/brandkit.js]  -> RED  7 pass, 1 fail
       failing: landing page in real Chromium > the Menu button is visible on a 360px phone and hidden on a 1280px laptop; on the phone it opens the six links
+  restored: GREEN  8 pass, 0 fail
+  branch product code untouched: yes
+RESULT landing-browser: every planted break was caught
