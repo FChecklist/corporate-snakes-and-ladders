@@ -1,0 +1,67 @@
+bun test v1.4.4 (38afee6c8)
+
+apps/edge/test/pay.test.ts:
+central order unreachable Error: down
+
+apps/edge/test/shred.test.ts:
+42 |     expect(p.length).toBe(2);
+43 |     for (const r of p) { expect(r.sealed).toBe(""); expect(r.pdig).toMatch(/^[0-9a-f]{64}$/); expect(r.asn).toBeNull(); }
+44 |     expect(count("SELECT COUNT(*) c FROM audit_pii WHERE eid='EVT1'")).toBe(2);
+45 |     expect(count("SELECT COUNT(*) c FROM eng_key WHERE eid='EVT1'")).toBe(1);
+46 |     const dump = JSON.stringify([raw.prepare("SELECT * FROM audit_log").all(), raw.prepare("SELECT * FROM audit_pii").all()]);
+47 |     for (const bad of [IP, DEV, "Chrome/120", PHONE, "Asha"]) expect(dump).not.toContain(bad);
+                                                                                    ^
+error: expect(received).not.toContain(expected)
+
+Expected to not contain: "Asha"
+Received: "[[{\"id\":1,\"chain\":\"anon\",\"seq\":1,\"eid\":null,\"org\":null,\"at_ms\":1790848800000,\"actor\":\"participant\",\"event\":\"create\",\"target\":null,\"corr\":\"0ca4bff9-7b3c-47d8-b2c5-40a3bd253e72\",\"status\":200,\"country\":null,\"asn\":null,\"ai_vendor\":null,\"key_id\":null,\"proof\":null,\"mismatch\":0,\"sealed\":\"v1.CXyhJzWGlKj77o4w.DMhFNlw5+d4evXeVTLdt5Qjc4/5vWsYj8Qdry7X3Mmg/XgM6S+nsmHi9bmqHrnvPtbfohhkyYrAXID4ppFEvYZrThP8VbDyIqb0oMIf2aTJfbAVyZr8glKnIRiUIipks8SxFDjrd6+c8OQychcC1onVgWJd3WCofmAhC0iE7x5k3QZ2WRU6FJ0g4BbKcLgtg17AlDF13Nc2vxS3r3/2f15n4EV3EBeQE1xC6h+PlN99UYTHwg4A5K4X3bKQ/Nf+GHGSXXaRaNeqGWTh6wxx4K1U4kFyJ3/rh46b/CSIngRMBNmvAMpIc86sX/xtO1EWTGSL0ZSlgs+bz0Z+YK6Npnx8K3w813ZO6kW2X9l7KhVZaBeQvRtM2dTd3buBif+9OZ5jeclrCMme92ZYwS2RNRFdamVWjgX0ZCkuP0nc1nyz+23zp9cc3k3uLTNFTNIHs+5Y96uzMgblYbSszQYgwbLc8xCXPydnRdn7+XsCtLAW1mRsoAeAEiseywYxbPFXz0A==\",\"prev_hash\":\"0000000000000000000000000000000000000000000000000000000000000000\",\"row_hash\":\"320db9be641a07c1870d0507fead7d846ec4fb9b795b1130530f9c9b5792bd5f\",\"pdig\":null},{\"id\":2,\"chain\":\"EVT1\",\"seq\":1,\"eid\":\"EVT1\",\"org\":\"4ccbe2b365545737\",\"at_ms\":1790848800000,\"actor\":\"organizer\",\"event\":\"create\",\"target\":null,\"corr\":\"1bf01b91-51c0-403b-99b5-067cc9737e67\",\"status\":200,\"country\":null,\"asn\":null,\"ai_vendor\":null,\"key_id\":\"08cc6b8ffd\",\"proof\":null,\"mismatch\":0,\"sealed\":\"v1.Xh9YVMXhgXAzXQIy.aBk/TuoosD2xCg3TbkAXAu+TUXudCA8FrfxkC/xMjTHKhQQStQfJkHJLX75qPDtzNVUI71vQjnGhjU8sbab4qLlD5Jo802ox23VdimuMBc5aVwhbnWOjgEzaavY4zvUPwoH+r42k5kdyTSlhLmKnSimXYus56+9jzCJ5XwoZ3bUABmNZIZmrptuF14KlfS2GKuyCNW5od9V6grh4CgX8lEvBfu5K6y/LWAO1LAzabMmZe3GUp4q7RCTiOc1op75xv7jQrzzHv917dEHhtHISb5uuMNpK9p6GG5HsZ9j5KAeu8Nhqrn2A/gKmIjiRdyePNcn/1v7+2eou8K9xS45gkNZDVY6/bVGPOjUMkRsxtj5LQz1fgnGlGtJmghU65sjnrauvNKHQBVIlrApuYCpS0SB8PfdsA/3nk0RuGhM/hMOg949mH+ANcaO7IGjG0NblqcNN9rRG6+nnwPl9YbUSs58xLenoNxwHakKUvC2/CPCsvJ4DV/OKjom8viLnd8pq+bwHzTQl/04F\",\"prev_hash\":\"0000000000000000000000000000000000000000000000000000000000000000\",\"row_hash\":\"27d40f06ab48b2f9c31db7c306ddfa3ecc6f12ac8ace7693933852bcac187369\",\"pdig\":null},{\"id\":3,\"chain\":\"EVT1\",\"seq\":2,\"eid\":\"EVT1\",\"org\":null,\"at_ms\":1790848800000,\"actor\":\"participant\",\"event\":\"join\",\"target\":\"join\",\"corr\":\"ce4671bf-bb0f-4a6a-9bb5-7269a6471c78\",\"status\":200,\"country\":null,\"asn\":null,\"ai_vendor\":null,\"key_id\":null,\"proof\":null,\"mismatch\":0,\"sealed\":\"\",\"prev_hash\":\"27d40f06ab48b2f9c31db7c306ddfa3ecc6f12ac8ace7693933852bcac187369\",\"row_hash\":\"e6e12125bc6ea08e5e8d539dd582c567d5cccfb4652ef9aaed5bfc3341fa75f5\",\"pdig\":\"09279dcbcf2cd45aa338774a93204a1629bdc94b926bfa50ffbe3d4fc59941aa\"},{\"id\":4,\"chain\":\"EVT1\",\"seq\":3,\"eid\":\"EVT1\",\"org\":null,\"at_ms\":1790848800000,\"actor\":\"participant\",\"event\":\"join\",\"target\":\"join\",\"corr\":\"ff72efd6-961e-4fbe-be6e-e527eef31c3f\",\"status\":200,\"country\":null,\"asn\":null,\"ai_vendor\":null,\"key_id\":null,\"proof\":null,\"mismatch\":0,\"sealed\":\"\",\"prev_hash\":\"e6e12125bc6ea08e5e8d539dd582c567d5cccfb4652ef9aaed5bfc3341fa75f5\",\"row_hash\":\"07ce0953da62bdf4228539575ec832536d4f070e4d5e94ce17739f7788309ab2\",\"pdig\":\"41e3894c3e3610be8600874cb0e083cb9212c2d189c67e7550eaec5e016eeb7f\"}],[{\"chain\":\"EVT1\",\"seq\":2,\"eid\":\"EVT1\",\"sealed\":\"e1.Nh4EBorsT2TPrla5.mr5TQLqspijMpSq9XxtpVQGU9EsgWsQLnC/xp0BeMWggawZjKpGOz0fFQBDY3s9DGd+Sk/QOSMw1XLkQRQ93/7O75itIVGH5QJ8fJDwyNjh5py01wlzHo2MF+PWNbx5b/34cCy8jE4Ht1BpVB+v6cNWp5PTo/Hs8KZuQRzL8rT7GoEJ/7yMhMyXBHqwjcfEcsuyKU7x+ezDSYOpB1DUqNa8LEL1LEXgoCWPyphW08Chdd7Uwil44O3YrBCwexKNlKMNOSeqqFXWcoiAI9/TDrNLNhs2t8uvvui3nTAU5TFiO/Dz1e391nSBM5CTgaRYsHNkNmXERFLBzWJfIERn3tF2YoOyRJXnIO0njexR7EbEGFPtI3dJsoq6OJFd5bOAsG8oaBpYjxk3uIwsVT+9Uc7jHydhNWvk7eZ3N6ZcOLaaZ2+rrjWB1sFuHBfj5sQJcfF750njPudTKWJMgoatgeOS8iZxi+u1lwge6x69VLAshampe/hfDg/mixQeuUsjOf4amAP5Zu5ZZuG2DCXJ4lGU5JLaPnGHbiYZ0sxqbNRaEOWpdePeoi8yjoTEHHyR32odnPwVtbHT0GExF9IbvLPVy4BAsIiEfFWvKkdrj/CR2iS7gSnBH2LTok1CUYNuZrJhyFOX+w1/k+d6YX06UPpGs1aLAH5i2Vk2q/8n7XzqZz0DQy2GllmV5ntR5m4OMowIKY5h/z2qqccs=\"},{\"chain\":\"EVT1\",\"seq\":3,\"eid\":\"EVT1\",\"sealed\":\"e1.H8bFbQj4r5gE01KI.bDf8cSpcgk54t6VlGvTKeazxycdTxrj+AEb9JiqXNgu3Z87WEBvEpPiq4LAeYuP9UFLbGmUMuWaLw0vdaxekEXB7X0qV9M8xHRM/96XgPA7XQhGK9mqST+n3Ly0zJxsPgh7LRex76AnX0tb0ZrOLN8j6jIE5BDSvxOFtJezdtnUV26TFFGudlUyFk4SFt9Nur6PnLg8qPQAnJ2ruPvFLXkj4kjIVK0qPBE9/iITgqhvTCu8HRh1vusjNyMCBVigddwRtCkNuibUHUeGZikmteHE8BBrZ7obLsrjdkHRZMCFZSDpsvuWLdTSMfMJBt/IV5pZFCDOC9Bvsb119FcPsJNeKLiJFoVf4G4+HqWC2O9rgY72nV6jRm5m2QBEsKM+JkY9wJ+SXhI5FxtSzl+mhPZ9p7v43RvXlRosziHVEs7HPu9HOcB9zqhNiMDWWIoSa9sQrRXt4ZWmpx09jPV88mJi+GsMtXL2ygZ3Hv45NuMsy3Qg0STHsat1Uch0mClUpR4F1FaoLC/Jh+IZ6nLyubErFe3YSbL8CJsY5JI4aRM57Zur2mUKVrn16CJVv7RMpU1PQA69GG5CzHviM6LsWCwea3GEWtY9LFd1/70iiE6u8h0zJCzVeueQXjrb551HYz0q/MUDIk20ujKNjMLlQbw8r3YVIYEubf2xv++Wz1grntByOChtk642NrflO7X4lhrjYS8M2Bw==\"}]]"
+
+      at <anonymous> (/home/user/corporate-snakes-and-ladders/apps/edge/test/shred.test.ts:47:80)
+(fail) participant crypto-shredding > a participant's personal part is stored apart, sealed under the engagement's own key, never in audit_log [40.23ms]
+
+apps/edge/test/verify.test.ts:
+183 | 
+184 | describe("the owner's three test sign-ins", () => {
+185 |   test("demo1/2/3@xyz.in sign in with 123456, no e-mail is sent, the same account comes back each time, and a wrong code or another address is refused", async () => {
+186 |     for (const em of ["demo1@xyz.in", "demo2@xyz.in", "demo3@xyz.in"]) {
+187 |       expect((await call("POST", "/api/auth/email", { email: em })).status).toBe(200);
+188 |       const a = await j(await call("POST", "/api/auth/verify", { email: em, code: "123456" })); expect(a.token).toMatch(/^cbk_/);
+                                                                                                                      ^
+error: Received value must be a string: undefined
+      at <anonymous> (/home/user/corporate-snakes-and-ladders/apps/edge/test/verify.test.ts:188:113)
+(fail) the owner's three test sign-ins > demo1/2/3@xyz.in sign in with 123456, no e-mail is sent, the same account comes back each time, and a wrong code or another address is refused [22.82ms]
+193 |     expect(rowsOf("SELECT COUNT(*) c FROM organizer_email")[0].c).toBe(3);
+194 |     expect((await call("POST", "/api/auth/verify", { email: "demo4@xyz.in", code: "123456" })).status).toBe(400);
+195 |   });
+196 |   test("the test sign-ins are limited per network per day, record no Terms consent, never send mail, and keep only their latest six keys", async () => {
+197 |     const em = "demo2@xyz.in"; const fire = () => call("POST", "/api/auth/verify", { email: em, code: "123456" });
+198 |     for (let i = 0; i < 30; i++) expect((await fire()).status).toBe(200);
+                                                                     ^
+error: expect(received).toBe(expected)
+
+Expected: 200
+Received: 400
+
+      at <anonymous> (/home/user/corporate-snakes-and-ladders/apps/edge/test/verify.test.ts:198:64)
+(fail) the owner's three test sign-ins > the test sign-ins are limited per network per day, record no Terms consent, never send mail, and keep only their latest six keys [28.59ms]
+
+apps/edge/test/usecases.test.ts:
+84 |     expect(last).toBe(429); // too many codes in an hour
+85 |     expect(o.token).toMatch(/^cbk_/);
+86 |   });
+87 |   test("UC-5 invalid emails are refused everywhere", async () => {
+88 |     for (const email of ["", "nope", "a@b", "a b@c.com", "x".repeat(300) + "@a.com", 42 as any]) {
+89 |       expect((await call("POST", "/api/start", { email })).status).toBe(400);
+                                                                        ^
+error: expect(received).toBe(expected)
+
+Expected: 400
+Received: 200
+
+      at <anonymous> (/home/user/corporate-snakes-and-ladders/apps/edge/test/usecases.test.ts:89:68)
+(fail) A. organizer: getting in > UC-5 invalid emails are refused everywhere [29.68ms]
+
+ 1372 pass
+ 4 fail
+ 10518 expect() calls
+Ran 1376 tests across 79 files. [166.79s]
