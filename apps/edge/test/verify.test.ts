@@ -219,8 +219,13 @@ describe("the owner's three test sign-ins", () => {
 describe("the nickname-only way in (this game's common link)", () => {
   test("by default a nickname is enough; once the organizer asks for an ID, a nickname alone is no way in and the public info says a number or ID is asked", async () => {
     const t = await setup();
-    expect((await join("PPL-1", { name: "Nick", device: dev(21) })).status).toBe(200);
     expect((await j(await call("GET", "/api/z/PPL-1/info"))).joinPhone).toBe(false);
+    expect((await join("PPL-1", { name: "Nick", device: dev(21) })).status).toBe(200);
+    // 1.4.1 (item 4): once anyone has joined, the kind of ID can no longer change
+    const lock = await call("PATCH", "/api/z/PPL-1/settings", { verify: "id" }, t.master); expect(lock.status).toBe(409); expect((await j(lock)).code).toBe("id-locked");
+  });
+  test("a game nobody has joined yet: once the organizer asks for an ID, a nickname alone is no way in and the public info says a number or ID is asked", async () => {
+    const t = await setup();
     expect((await call("PATCH", "/api/z/PPL-1/settings", { verify: "id" }, t.master)).status).toBe(200);
     const r = await join("PPL-1", { name: "Nick2", device: dev(22) }); expect(r.status).toBe(400); expect((await j(r)).error).toMatch(/employee ID/);
     const info = await j(await call("GET", "/api/z/PPL-1/info")); expect(info.joinPhone).toBe(true); expect(info.verify).toBe("id"); expect(info.employeesOnly).toBe(false);

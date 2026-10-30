@@ -90,11 +90,13 @@ describe("A. organizer: getting in", () => {
       expect((await call("POST", "/api/auth/email", { email })).status).toBe(400);
     }
   });
-  test("UC-5 an Email ID is cleaned before it is checked (NFKC, trim, inner spaces removed, lowercase): 'A B@C.com' is the address ab@c.com, so it is accepted and is the same account as ab@c.com", async () => {
-    const a = await organizer("  A B@C.com "), b = await organizer("ab@c.com");
+  test("UC-5 an ACCOUNT e-mail is cleaned at the ends only (NFKC, trim, lowercase); an address with a space INSIDE is refused, never repaired (1.4.1 owner rule; a participant's Email ID still drops inner spaces: audit141-email.test.ts)", async () => {
+    const a = await organizer("  AB@C.com "), b = await organizer("ab@c.com");
     expect((raw.prepare("SELECT COUNT(DISTINCT org) AS c FROM organizer_email").get() as any).c).toBe(1);
     expect(a.token).toBeTruthy(); expect(b.email).toBe("ab@c.com"); // the second sign-up is the same account (no new row)
-    expect((await call("POST", "/api/auth/email", { email: "A b@C.com" })).status).toBe(200);
+    expect((await call("POST", "/api/auth/email", { email: "AB@C.com" })).status).toBe(200);
+    for (const bad of ["A B@C.com", "  A B@C.com ", "ab@c .com", "a\tb@c.com"]) { expect((await call("POST", "/api/start", { email: bad })).status).toBe(400); expect((await call("POST", "/api/auth/email", { email: bad })).status).toBe(400); }
+    expect((raw.prepare("SELECT COUNT(DISTINCT org) AS c FROM organizer_email").get() as any).c).toBe(1);
   });
   test("UC-5 an unknown email asking for a code gets the same answer as a known one (nobody can find out who has an account)", async () => {
     await organizer("known@acme.com");

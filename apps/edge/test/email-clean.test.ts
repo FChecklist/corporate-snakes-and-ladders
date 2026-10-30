@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { cleanEmail, cleanEmpId } from "../src/people";
+import { cleanAccountEmail } from "../src/emailclean";
 
 const variants = (s: string) => { const out: string[] = []; for (let m = 0; m < 1 << 4; m++) out.push([...s].map((ch, i) => (i < 4 && m & (1 << i) ? ch.toUpperCase() : ch)).join("")); return out; };
 describe("email id", () => {
@@ -16,9 +17,10 @@ describe("email id", () => {
 
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-describe("every place an email is read uses the one cleaner", () => {
+describe("every place an ACCOUNT email is read uses the one account cleaner (1.4.1: inner spaces refused)", () => {
   const src = (f: string) => readFileSync(join(import.meta.dir, "../src", f), "utf8");
   for (const f of ["admin.ts", "credit.ts", "google.ts", "helpdesk.ts", "hostsetup.ts", "mode.ts", "partners.ts", "pay.ts", "testlogins.ts", "visits.ts", "worker.ts"])
-    test(f, () => { const s = src(f); expect(s).toContain("cleanEmail("); expect(s).toContain('from "./emailclean"'); expect(/email[^;\n]{0,40}\.trim\(\)\.toLowerCase\(\)/i.test(s)).toBe(false); });
+    test(f, () => { const s = src(f); expect(s).toContain("cleanAccountEmail("); expect(s).toContain('from "./emailclean"'); expect(/email[^;\n]{0,40}\.trim\(\)\.toLowerCase\(\)/i.test(s)).toBe(false); });
+  test("an account address and a participant Email ID are read by different functions", () => { expect(cleanAccountEmail("a b@x.com")).toBe(""); expect(cleanEmail("a b@x.com")).toBe("ab@x.com"); });
   test("cleaner file is self-contained", () => { expect(src("emailclean.ts")).not.toContain("import "); });
 });
