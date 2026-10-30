@@ -5,6 +5,7 @@ import { type Env } from "../src/worker";
 import { handle } from "./cohost-accepted";
 import type { PayEnv } from "../src/pay";
 import { normEmp, empHashOf } from "../src/people";
+import { setMode } from "../src/mode";
 import { makeD1 } from "./d1-sqlite";
 
 const T = Date.UTC(2026, 9, 1, 10, 0, 0);
@@ -182,7 +183,16 @@ describe("the list download carries the ID", () => {
 });
 
 describe("the owner's three test sign-ins", () => {
+  // WP-17: the fixed code 123456 works only while the service is in TEST mode; the test database starts in LIVE.
+  test("LIVE mode (the default): demo1/2/3@xyz.in with 123456 are refused (400) and give no key", async () => {
+    await setMode(env, "LIVE", "test", T);
+    for (const em of ["demo1@xyz.in", "demo2@xyz.in", "demo3@xyz.in"]) {
+      const r = await call("POST", "/api/auth/verify", { email: em, code: "123456" });
+      expect(r.status).toBe(400); expect((await j(r)).token).toBeUndefined();
+    }
+  });
   test("demo1/2/3@xyz.in sign in with 123456, no e-mail is sent, the same account comes back each time, and a wrong code or another address is refused", async () => {
+    await setMode(env, "TEST", "test", T);
     for (const em of ["demo1@xyz.in", "demo2@xyz.in", "demo3@xyz.in"]) {
       expect((await call("POST", "/api/auth/email", { email: em })).status).toBe(200);
       const a = await j(await call("POST", "/api/auth/verify", { email: em, code: "123456" })); expect(a.token).toMatch(/^cbk_/);
@@ -194,6 +204,7 @@ describe("the owner's three test sign-ins", () => {
     expect((await call("POST", "/api/auth/verify", { email: "demo4@xyz.in", code: "123456" })).status).toBe(400);
   });
   test("the test sign-ins are limited per network per day, record no Terms consent, never send mail, and keep only their latest six keys", async () => {
+    await setMode(env, "TEST", "test", T);
     const em = "demo2@xyz.in"; const fire = () => call("POST", "/api/auth/verify", { email: em, code: "123456" });
     for (let i = 0; i < 30; i++) expect((await fire()).status).toBe(200);
     const blocked = await fire(); expect(blocked.status).toBe(429);
