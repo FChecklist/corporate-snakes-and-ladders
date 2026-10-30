@@ -51,6 +51,8 @@ export const phoneHashOf = (env: { PHONE_SALT?: string; ORGANIZER_SECRET?: strin
 /** An employee ID as typed: spaces dropped, upper case. "" = nothing typed, null = not a usable ID. */
 /** UNIFORM EMPLOYEE ID (owner rule, 30 Oct 2026): NFKC, upper case, then everything that is not A-Z or 0-9 is dropped, so 1B-678, 1b-678, 1B/678 and 1B 678 are all 1B678. One function for every path. */
 export const cleanEmpId = (raw: unknown): string => String(raw ?? "").normalize("NFKC").toUpperCase().replace(/[^A-Z0-9]/g, "");
+/** EMAIL ID (owner rule, 30 Oct 2026): case-insensitive. NFKC (full-width ＠ becomes @), trim, inner spaces removed, lower case. Used ONLY for an Email ID criterion, never cleanEmpId. Snakes has no Email ID criterion yet; every future path must use this one function. */
+export const cleanEmail = (raw: unknown): string => String(raw ?? "").normalize("NFKC").trim().replace(/\s+/g, "").toLowerCase();
 /** Games created before this instant keep the old reading of an ID. SET AT DEPLOY (placeholder: year 2100 = nobody gets the new rule until the boss sets it). */
 export const EMP_CLEAN_FROM_MS = 4102444800000;
 /** Does this game (its row has created_ms) use the uniform reading? */
