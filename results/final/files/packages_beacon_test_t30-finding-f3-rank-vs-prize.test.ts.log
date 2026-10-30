@@ -1,0 +1,42 @@
+bun test v1.4.4 (38afee6c8)
+
+packages/beacon/test/t30-finding-f3-rank-vs-prize.test.ts:
+11 | describe("F-3: results table and finish prizes agree on who is 1st to 5th", () => {
+12 |   test("game PRZ1 (20 players, turn limit 150, 5 end prizes): the 5th finisher in the table is the winner of the 5th-place prize", () => {
+13 |     const st = playRace({ ...defaultRaceCfg("PRZ1", 20), turnCap: 150, endPrizes: 5 }, { b0: hex("b1"), betas: betas("r1", 150) });
+14 |     const table = orderPlayers(st).filter((r) => r.finishedTurn !== null).slice(0, 5).map((r) => r.seat);
+15 |     const prizes = settleRace(st, [1, 2, 3, 4, 5].map((o) => ({ pattern: "finish", ordinal: o })), (s) => String(s)).map((w) => Number(w.pids[0]));
+16 |     expect(prizes).toEqual(table);
+                        ^
+error: expect(received).toEqual(expected)
+
+@@ -5,3 +5,3 @@
+    5,
+-   1,
++   14,
+  ]
+
+- Expected  - 1
++ Received  + 1
+
+      at <anonymous> (/home/user/corporate-snakes-and-ladders/packages/beacon/test/t30-finding-f3-rank-vs-prize.test.ts:16:20)
+(fail) F-3: results table and finish prizes agree on who is 1st to 5th > game PRZ1 (20 players, turn limit 150, 5 end prizes): the 5th finisher in the table is the winner of the 5th-place prize [66.14ms]
+21 |       const st = playRace({ ...defaultRaceCfg("PRZ" + g, 20), turnCap: 150, endPrizes: 5 }, { b0: hex("b" + g), betas: betas("r" + g, 150) });
+22 |       const table = orderPlayers(st).filter((r) => r.finishedTurn !== null).slice(0, 5).map((r) => r.seat);
+23 |       const prizes = settleRace(st, [1, 2, 3, 4, 5].map((o) => ({ pattern: "finish", ordinal: o })), (s) => String(s)).map((w) => Number(w.pids[0]));
+24 |       if (JSON.stringify(table) !== JSON.stringify(prizes)) bad++;
+25 |     }
+26 |     expect(bad).toBe(0);
+                     ^
+error: expect(received).toBe(expected)
+
+Expected: 0
+Received: 5
+
+      at <anonymous> (/home/user/corporate-snakes-and-ladders/packages/beacon/test/t30-finding-f3-rank-vs-prize.test.ts:26:17)
+(fail) F-3: results table and finish prizes agree on who is 1st to 5th > over 40 generated games the table and the prizes never disagree [1147.67ms]
+
+ 0 pass
+ 2 fail
+ 2 expect() calls
+Ran 2 tests across 1 file. [1230.00ms]

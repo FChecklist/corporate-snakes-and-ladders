@@ -1,0 +1,29 @@
+BREAKCHECK rules-fold  (scratch copy: /tmp/claude-0/-home-user-corporate-snakes-and-ladders/117805c9-be35-5a9a-b7a1-0275cf74a649/scratchpad/breakcheck-g68kfr; tests: apps/web/test/t30-m1-rules-fold.test.ts)
+  baseline: GREEN  6 pass, 0 fail
+  break 1: the fold also shows after the game  [apps/web/public/z.js]  -> RED  3 pass, 3 fail
+      failing: Rules in five lines: shown in the game only > waiting room: no fold; during play: the fold with five numbered rules; after the game: no fold and the end card is there
+      failing: Rules in five lines: shown in the game only > screenrules.js missing from the page: during play the fold still shows, after the game it is still hidden
+      failing: z.html and screenrules.js > z.js consults the rules file AND the live phase: the fold needs phase to be not 'ended' (so a stale 'playing' answer cannot show it after the game)
+  break 2: the fold also shows in the waiting room  [apps/web/public/z.js]  -> RED  4 pass, 2 fail
+      failing: Rules in five lines: shown in the game only > waiting room: no fold; during play: the fold with five numbered rules; after the game: no fold and the end card is there
+      failing: z.html and screenrules.js > z.js consults the rules file AND the live phase: the fold needs phase to be not 'ended' (so a stale 'playing' answer cannot show it after the game)
+  break 3: the fold never shows  [apps/web/public/z.js]  -> RED  3 pass, 3 fail
+      failing: Rules in five lines: shown in the game only > waiting room: no fold; during play: the fold with five numbered rules; after the game: no fold and the end card is there
+      failing: Rules in five lines: shown in the game only > screenrules.js missing from the page: during play the fold still shows, after the game it is still hidden
+      failing: z.html and screenrules.js > z.js consults the rules file AND the live phase: the fold needs phase to be not 'ended' (so a stale 'playing' answer cannot show it after the game)
+  break 4: screenrules says rules show in every state but the waiting room  [apps/web/public/screenrules.js]  -> RED  5 pass, 1 fail
+      failing: z.html and screenrules.js > screenrules answers for every state: rules only while playing, strip only after the end, board is the only rich element, unknown theme falls back to retro
+  break 5: screenrules shows the thank-you strip in every state  [apps/web/public/screenrules.js]  -> RED  5 pass, 1 fail
+      failing: z.html and screenrules.js > screenrules answers for every state: rules only while playing, strip only after the end, board is the only rich element, unknown theme falls back to retro
+  break 6: an unknown theme is not turned into retro  [apps/web/public/screenrules.js]  -> RED  5 pass, 1 fail
+      failing: z.html and screenrules.js > screenrules answers for every state: rules only while playing, strip only after the end, board is the only rich element, unknown theme falls back to retro
+  break 7: z.html loads screenrules.js after z.js  [apps/web/public/z.html]  -> RED  5 pass, 1 fail
+      failing: z.html and screenrules.js > z.html loads screenrules.js, then z.js, and release-line.js; screenrules.js comes before z.js
+  break 8: z.html stops loading release-line.js  [apps/web/public/z.html]  -> RED  4 pass, 2 fail
+      failing: z.html and screenrules.js > z.html loads screenrules.js, then z.js, and release-line.js; screenrules.js comes before z.js
+      failing: z.html and screenrules.js > z.html loads release-line.js after the page scripts, so the footer line is written once the page exists
+  break 9: with screenrules.js missing the page no longer hides the fold after the game  [apps/web/public/z.js]  -> RED  5 pass, 1 fail
+      failing: Rules in five lines: shown in the game only > screenrules.js missing from the page: during play the fold still shows, after the game it is still hidden
+  restored: GREEN  6 pass, 0 fail
+  branch product code untouched: yes
+RESULT rules-fold: every planted break was caught

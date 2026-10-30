@@ -1,0 +1,27 @@
+BREAKCHECK landing-browser  (scratch copy: /tmp/claude-0/-home-user-corporate-snakes-and-ladders/117805c9-be35-5a9a-b7a1-0275cf74a649/scratchpad/breakcheck-qpAsig; tests: apps/web/test/t30-m3-landing-browser.test.ts)
+  baseline: GREEN  8 pass, 0 fail
+  break 1: a wide element makes the page scroll sideways  [apps/web/public/index.html]  -> RED  2 pass, 6 fail
+      failing: landing page in real Chromium > 360px wide, light: no horizontal scroll, no CSP error (under the _headers file), kit header visible, old header absent, Version line at the bottom
+      failing: landing page in real Chromium > 360px wide, dark: no horizontal scroll, no CSP error (under the _headers file), kit header visible, old header absent, Version line at the bottom
+      failing: landing page in real Chromium > 768px wide, light: no horizontal scroll, no CSP error (under the _headers file), kit header visible, old header absent, Version line at the bottom
+  break 2: the kit header is gone  [apps/web/public/index.html]  -> RED  2 pass, 6 fail
+      failing: landing page in real Chromium > 360px wide, light: no horizontal scroll, no CSP error (under the _headers file), kit header visible, old header absent, Version line at the bottom
+      failing: landing page in real Chromium > 360px wide, dark: no horizontal scroll, no CSP error (under the _headers file), kit header visible, old header absent, Version line at the bottom
+      failing: landing page in real Chromium > 768px wide, light: no horizontal scroll, no CSP error (under the _headers file), kit header visible, old header absent, Version line at the bottom
+  break 3: the old header (.snav) is shown again  [apps/web/public/index.html]  -> RED  2 pass, 6 fail
+      failing: landing page in real Chromium > 360px wide, light: no horizontal scroll, no CSP error (under the _headers file), kit header visible, old header absent, Version line at the bottom
+      failing: landing page in real Chromium > 360px wide, dark: no horizontal scroll, no CSP error (under the _headers file), kit header visible, old header absent, Version line at the bottom
+      failing: landing page in real Chromium > 768px wide, light: no horizontal scroll, no CSP error (under the _headers file), kit header visible, old header absent, Version line at the bottom
+  break 4: the Version slot is removed  [apps/web/public/index.html]  -> RED  2 pass, 6 fail
+      failing: landing page in real Chromium > 360px wide, light: no horizontal scroll, no CSP error (under the _headers file), kit header visible, old header absent, Version line at the bottom
+      failing: landing page in real Chromium > 360px wide, dark: no horizontal scroll, no CSP error (under the _headers file), kit header visible, old header absent, Version line at the bottom
+      failing: landing page in real Chromium > 768px wide, light: no horizontal scroll, no CSP error (under the _headers file), kit header visible, old header absent, Version line at the bottom
+  break 5: the Menu button stays visible on a laptop  [apps/web/public/components.css]  -> RED  7 pass, 1 fail
+      failing: landing page in real Chromium > the Menu button is visible on a 360px phone and hidden on a 1280px laptop; on the phone it opens the six links
+  break 6: a theme dot does not change the theme  [apps/web/public/brandkit.js]  -> RED  7 pass, 1 fail
+      failing: landing page in real Chromium > a theme dot changes the colours of the page (the header bar colour --bar-a is blue, then maroon, then emerald)
+  break 7: the Menu button no longer opens the links  [apps/web/public/brandkit.js]  -> RED  7 pass, 1 fail
+      failing: landing page in real Chromium > the Menu button is visible on a 360px phone and hidden on a 1280px laptop; on the phone it opens the six links
+  restored: GREEN  8 pass, 0 fail
+  branch product code untouched: yes
+RESULT landing-browser: every planted break was caught

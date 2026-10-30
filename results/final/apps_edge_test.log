@@ -1,0 +1,195 @@
+bun test v1.4.4 (38afee6c8)
+
+apps/edge/test/branding.test.ts:
+101 |       expect(title).toMatch(/(^Corporate Snakes and Ladders|\| Corporate Snakes and Ladders$)/); expect(title).not.toMatch(/CORPORATE|Bingo Corporate/);
+102 |       for (const needle of ['rel="icon"', "apple-touch-icon", 'rel="manifest"', 'name="theme-color" content="#0B5D5B"']) expect(s).toContain(needle);
+103 |     });
+104 |   }
+105 |   test("the PWA manifest and the build ship the brand", () => {
+106 |     const m = JSON.parse(read("apps/web/public/manifest.webmanifest")); expect(m.name).toBe("Corporate Snakes and Ladders"); expect(m.short_name).toBe("Corporate Snakes and Ladders"); expect(m.theme_color).toBe("#0B5D5B");
+                                                                                                                                                        ^
+error: expect(received).toBe(expected)
+
+Expected: "Corporate Snakes and Ladders"
+Received: "Snakes and Ladders"
+
+      at <anonymous> (/home/user/corporate-snakes-and-ladders/apps/edge/test/branding.test.ts:106:147)
+(fail) pages: one title pattern, icons, manifest, theme colour > the PWA manifest and the build ship the brand [13.83ms]
+
+apps/edge/test/t30-finding-f4-bidi-names.test.ts:
+2 | // so a guest can type a name that displays reversed or hides text in the organizer's list, the winners list and the report. RED on release/snakes-1.4.0: it states the correct behaviour.
+3 | import { describe, expect, test } from "bun:test";
+4 | import { cleanName } from "../src/people";
+5 | describe("F-4: names carry no bidirectional control characters", () => {
+6 |   for (const [label, cp] of [["LRE", 0x202a], ["RLE", 0x202b], ["PDF", 0x202c], ["LRO", 0x202d], ["RLO", 0x202e], ["LRI", 0x2066], ["RLI", 0x2067], ["FSI", 0x2068], ["PDI", 0x2069]] as const)
+7 |     test(`${label} (U+${cp.toString(16).toUpperCase()}) is removed from a name`, () => { expect(cleanName(`Ash${String.fromCodePoint(cp)}a`)).toBe("Asha"); });
+                                                                                                                                                  ^
+error: expect(received).toBe(expected)
+
+Expected: "Asha"
+Received: "Ash‪a"
+
+      at <anonymous> (/home/user/corporate-snakes-and-ladders/apps/edge/test/t30-finding-f4-bidi-names.test.ts:7:143)
+(fail) F-4: names carry no bidirectional control characters > LRE (U+202A) is removed from a name [0.25ms]
+2 | // so a guest can type a name that displays reversed or hides text in the organizer's list, the winners list and the report. RED on release/snakes-1.4.0: it states the correct behaviour.
+3 | import { describe, expect, test } from "bun:test";
+4 | import { cleanName } from "../src/people";
+5 | describe("F-4: names carry no bidirectional control characters", () => {
+6 |   for (const [label, cp] of [["LRE", 0x202a], ["RLE", 0x202b], ["PDF", 0x202c], ["LRO", 0x202d], ["RLO", 0x202e], ["LRI", 0x2066], ["RLI", 0x2067], ["FSI", 0x2068], ["PDI", 0x2069]] as const)
+7 |     test(`${label} (U+${cp.toString(16).toUpperCase()}) is removed from a name`, () => { expect(cleanName(`Ash${String.fromCodePoint(cp)}a`)).toBe("Asha"); });
+                                                                                                                                                  ^
+error: expect(received).toBe(expected)
+
+Expected: "Asha"
+Received: "Ash‫a"
+
+      at <anonymous> (/home/user/corporate-snakes-and-ladders/apps/edge/test/t30-finding-f4-bidi-names.test.ts:7:143)
+(fail) F-4: names carry no bidirectional control characters > RLE (U+202B) is removed from a name [0.05ms]
+2 | // so a guest can type a name that displays reversed or hides text in the organizer's list, the winners list and the report. RED on release/snakes-1.4.0: it states the correct behaviour.
+3 | import { describe, expect, test } from "bun:test";
+4 | import { cleanName } from "../src/people";
+5 | describe("F-4: names carry no bidirectional control characters", () => {
+6 |   for (const [label, cp] of [["LRE", 0x202a], ["RLE", 0x202b], ["PDF", 0x202c], ["LRO", 0x202d], ["RLO", 0x202e], ["LRI", 0x2066], ["RLI", 0x2067], ["FSI", 0x2068], ["PDI", 0x2069]] as const)
+7 |     test(`${label} (U+${cp.toString(16).toUpperCase()}) is removed from a name`, () => { expect(cleanName(`Ash${String.fromCodePoint(cp)}a`)).toBe("Asha"); });
+                                                                                                                                                  ^
+error: expect(received).toBe(expected)
+
+Expected: "Asha"
+Received: "Ash‬a"
+
+      at <anonymous> (/home/user/corporate-snakes-and-ladders/apps/edge/test/t30-finding-f4-bidi-names.test.ts:7:143)
+(fail) F-4: names carry no bidirectional control characters > PDF (U+202C) is removed from a name [0.03ms]
+2 | // so a guest can type a name that displays reversed or hides text in the organizer's list, the winners list and the report. RED on release/snakes-1.4.0: it states the correct behaviour.
+3 | import { describe, expect, test } from "bun:test";
+4 | import { cleanName } from "../src/people";
+5 | describe("F-4: names carry no bidirectional control characters", () => {
+6 |   for (const [label, cp] of [["LRE", 0x202a], ["RLE", 0x202b], ["PDF", 0x202c], ["LRO", 0x202d], ["RLO", 0x202e], ["LRI", 0x2066], ["RLI", 0x2067], ["FSI", 0x2068], ["PDI", 0x2069]] as const)
+7 |     test(`${label} (U+${cp.toString(16).toUpperCase()}) is removed from a name`, () => { expect(cleanName(`Ash${String.fromCodePoint(cp)}a`)).toBe("Asha"); });
+                                                                                                                                                  ^
+error: expect(received).toBe(expected)
+
+Expected: "Asha"
+Received: "Ash‭a"
+
+      at <anonymous> (/home/user/corporate-snakes-and-ladders/apps/edge/test/t30-finding-f4-bidi-names.test.ts:7:143)
+(fail) F-4: names carry no bidirectional control characters > LRO (U+202D) is removed from a name [0.08ms]
+2 | // so a guest can type a name that displays reversed or hides text in the organizer's list, the winners list and the report. RED on release/snakes-1.4.0: it states the correct behaviour.
+3 | import { describe, expect, test } from "bun:test";
+4 | import { cleanName } from "../src/people";
+5 | describe("F-4: names carry no bidirectional control characters", () => {
+6 |   for (const [label, cp] of [["LRE", 0x202a], ["RLE", 0x202b], ["PDF", 0x202c], ["LRO", 0x202d], ["RLO", 0x202e], ["LRI", 0x2066], ["RLI", 0x2067], ["FSI", 0x2068], ["PDI", 0x2069]] as const)
+7 |     test(`${label} (U+${cp.toString(16).toUpperCase()}) is removed from a name`, () => { expect(cleanName(`Ash${String.fromCodePoint(cp)}a`)).toBe("Asha"); });
+                                                                                                                                                  ^
+error: expect(received).toBe(expected)
+
+Expected: "Asha"
+Received: "Ash‮a"
+
+      at <anonymous> (/home/user/corporate-snakes-and-ladders/apps/edge/test/t30-finding-f4-bidi-names.test.ts:7:143)
+(fail) F-4: names carry no bidirectional control characters > RLO (U+202E) is removed from a name [0.01ms]
+2 | // so a guest can type a name that displays reversed or hides text in the organizer's list, the winners list and the report. RED on release/snakes-1.4.0: it states the correct behaviour.
+3 | import { describe, expect, test } from "bun:test";
+4 | import { cleanName } from "../src/people";
+5 | describe("F-4: names carry no bidirectional control characters", () => {
+6 |   for (const [label, cp] of [["LRE", 0x202a], ["RLE", 0x202b], ["PDF", 0x202c], ["LRO", 0x202d], ["RLO", 0x202e], ["LRI", 0x2066], ["RLI", 0x2067], ["FSI", 0x2068], ["PDI", 0x2069]] as const)
+7 |     test(`${label} (U+${cp.toString(16).toUpperCase()}) is removed from a name`, () => { expect(cleanName(`Ash${String.fromCodePoint(cp)}a`)).toBe("Asha"); });
+                                                                                                                                                  ^
+error: expect(received).toBe(expected)
+
+Expected: "Asha"
+Received: "Ash⁦a"
+
+      at <anonymous> (/home/user/corporate-snakes-and-ladders/apps/edge/test/t30-finding-f4-bidi-names.test.ts:7:143)
+(fail) F-4: names carry no bidirectional control characters > LRI (U+2066) is removed from a name [0.02ms]
+2 | // so a guest can type a name that displays reversed or hides text in the organizer's list, the winners list and the report. RED on release/snakes-1.4.0: it states the correct behaviour.
+3 | import { describe, expect, test } from "bun:test";
+4 | import { cleanName } from "../src/people";
+5 | describe("F-4: names carry no bidirectional control characters", () => {
+6 |   for (const [label, cp] of [["LRE", 0x202a], ["RLE", 0x202b], ["PDF", 0x202c], ["LRO", 0x202d], ["RLO", 0x202e], ["LRI", 0x2066], ["RLI", 0x2067], ["FSI", 0x2068], ["PDI", 0x2069]] as const)
+7 |     test(`${label} (U+${cp.toString(16).toUpperCase()}) is removed from a name`, () => { expect(cleanName(`Ash${String.fromCodePoint(cp)}a`)).toBe("Asha"); });
+                                                                                                                                                  ^
+error: expect(received).toBe(expected)
+
+Expected: "Asha"
+Received: "Ash⁧a"
+
+      at <anonymous> (/home/user/corporate-snakes-and-ladders/apps/edge/test/t30-finding-f4-bidi-names.test.ts:7:143)
+(fail) F-4: names carry no bidirectional control characters > RLI (U+2067) is removed from a name [0.01ms]
+2 | // so a guest can type a name that displays reversed or hides text in the organizer's list, the winners list and the report. RED on release/snakes-1.4.0: it states the correct behaviour.
+3 | import { describe, expect, test } from "bun:test";
+4 | import { cleanName } from "../src/people";
+5 | describe("F-4: names carry no bidirectional control characters", () => {
+6 |   for (const [label, cp] of [["LRE", 0x202a], ["RLE", 0x202b], ["PDF", 0x202c], ["LRO", 0x202d], ["RLO", 0x202e], ["LRI", 0x2066], ["RLI", 0x2067], ["FSI", 0x2068], ["PDI", 0x2069]] as const)
+7 |     test(`${label} (U+${cp.toString(16).toUpperCase()}) is removed from a name`, () => { expect(cleanName(`Ash${String.fromCodePoint(cp)}a`)).toBe("Asha"); });
+                                                                                                                                                  ^
+error: expect(received).toBe(expected)
+
+Expected: "Asha"
+Received: "Ash⁨a"
+
+      at <anonymous> (/home/user/corporate-snakes-and-ladders/apps/edge/test/t30-finding-f4-bidi-names.test.ts:7:143)
+(fail) F-4: names carry no bidirectional control characters > FSI (U+2068) is removed from a name [0.01ms]
+2 | // so a guest can type a name that displays reversed or hides text in the organizer's list, the winners list and the report. RED on release/snakes-1.4.0: it states the correct behaviour.
+3 | import { describe, expect, test } from "bun:test";
+4 | import { cleanName } from "../src/people";
+5 | describe("F-4: names carry no bidirectional control characters", () => {
+6 |   for (const [label, cp] of [["LRE", 0x202a], ["RLE", 0x202b], ["PDF", 0x202c], ["LRO", 0x202d], ["RLO", 0x202e], ["LRI", 0x2066], ["RLI", 0x2067], ["FSI", 0x2068], ["PDI", 0x2069]] as const)
+7 |     test(`${label} (U+${cp.toString(16).toUpperCase()}) is removed from a name`, () => { expect(cleanName(`Ash${String.fromCodePoint(cp)}a`)).toBe("Asha"); });
+                                                                                                                                                  ^
+error: expect(received).toBe(expected)
+
+Expected: "Asha"
+Received: "Ash⁩a"
+
+      at <anonymous> (/home/user/corporate-snakes-and-ladders/apps/edge/test/t30-finding-f4-bidi-names.test.ts:7:143)
+(fail) F-4: names carry no bidirectional control characters > PDI (U+2069) is removed from a name [0.01ms]
+
+apps/edge/test/pay.test.ts:
+central order unreachable Error: down
+
+apps/edge/test/verify.test.ts:
+183 | 
+184 | describe("the owner's three test sign-ins", () => {
+185 |   test("demo1/2/3@xyz.in sign in with 123456, no e-mail is sent, the same account comes back each time, and a wrong code or another address is refused", async () => {
+186 |     for (const em of ["demo1@xyz.in", "demo2@xyz.in", "demo3@xyz.in"]) {
+187 |       expect((await call("POST", "/api/auth/email", { email: em })).status).toBe(200);
+188 |       const a = await j(await call("POST", "/api/auth/verify", { email: em, code: "123456" })); expect(a.token).toMatch(/^cbk_/);
+                                                                                                                      ^
+error: Received value must be a string: undefined
+      at <anonymous> (/home/user/corporate-snakes-and-ladders/apps/edge/test/verify.test.ts:188:113)
+(fail) the owner's three test sign-ins > demo1/2/3@xyz.in sign in with 123456, no e-mail is sent, the same account comes back each time, and a wrong code or another address is refused [23.95ms]
+193 |     expect(rowsOf("SELECT COUNT(*) c FROM organizer_email")[0].c).toBe(3);
+194 |     expect((await call("POST", "/api/auth/verify", { email: "demo4@xyz.in", code: "123456" })).status).toBe(400);
+195 |   });
+196 |   test("the test sign-ins are limited per network per day, record no Terms consent, never send mail, and keep only their latest six keys", async () => {
+197 |     const em = "demo2@xyz.in"; const fire = () => call("POST", "/api/auth/verify", { email: em, code: "123456" });
+198 |     for (let i = 0; i < 30; i++) expect((await fire()).status).toBe(200);
+                                                                     ^
+error: expect(received).toBe(expected)
+
+Expected: 200
+Received: 400
+
+      at <anonymous> (/home/user/corporate-snakes-and-ladders/apps/edge/test/verify.test.ts:198:64)
+(fail) the owner's three test sign-ins > the test sign-ins are limited per network per day, record no Terms consent, never send mail, and keep only their latest six keys [18.09ms]
+
+apps/edge/test/usecases.test.ts:
+84 |     expect(last).toBe(429); // too many codes in an hour
+85 |     expect(o.token).toMatch(/^cbk_/);
+86 |   });
+87 |   test("UC-5 invalid emails are refused everywhere", async () => {
+88 |     for (const email of ["", "nope", "a@b", "a b@c.com", "x".repeat(300) + "@a.com", 42 as any]) {
+89 |       expect((await call("POST", "/api/start", { email })).status).toBe(400);
+                                                                        ^
+error: expect(received).toBe(expected)
+
+Expected: 400
+Received: 200
+
+      at <anonymous> (/home/user/corporate-snakes-and-ladders/apps/edge/test/usecases.test.ts:89:68)
+(fail) A. organizer: getting in > UC-5 invalid emails are refused everywhere [25.94ms]
+
+ 1451 pass
+ 13 fail
+ 555948 expect() calls
+Ran 1464 tests across 85 files. [119.51s]

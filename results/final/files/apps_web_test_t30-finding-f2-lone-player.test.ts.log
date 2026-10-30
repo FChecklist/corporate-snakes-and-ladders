@@ -1,0 +1,22 @@
+bun test v1.4.4 (38afee6c8)
+
+apps/web/test/t30-finding-f2-lone-player.test.ts:
+43 |   test("after the turn limit the page shows 'Game over' and must not show the Rules fold; the ended banner must appear", async () => {
+44 |     const w = await game("T30-LONE"); const p = await phone(w, "T30-LONE", ["audio.js", "zgame.js", "screenrules.js", "z.js"]);
+45 |     goTo(w, roundMs(START) + 3 * 3_600_000);
+46 |     await p.waitFor((x) => /Game over/.test(x), 120000);
+47 |     await new Promise((r) => setTimeout(r, 3000));
+48 |     expect(!!p.$("#rulesfold")).toBe(false);
+                                     ^
+error: expect(received).toBe(expected)
+
+Expected: false
+Received: true
+
+      at <anonymous> (/home/user/corporate-snakes-and-ladders/apps/web/test/t30-finding-f2-lone-player.test.ts:48:33)
+(fail) F-2: a game with one player > after the turn limit the page shows 'Game over' and must not show the Rules fold; the ended banner must appear [6732.58ms]
+
+ 0 pass
+ 1 fail
+ 3 expect() calls
+Ran 1 test across 1 file. [6.91s]

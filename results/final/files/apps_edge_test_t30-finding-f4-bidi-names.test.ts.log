@@ -1,0 +1,134 @@
+bun test v1.4.4 (38afee6c8)
+
+apps/edge/test/t30-finding-f4-bidi-names.test.ts:
+2 | // so a guest can type a name that displays reversed or hides text in the organizer's list, the winners list and the report. RED on release/snakes-1.4.0: it states the correct behaviour.
+3 | import { describe, expect, test } from "bun:test";
+4 | import { cleanName } from "../src/people";
+5 | describe("F-4: names carry no bidirectional control characters", () => {
+6 |   for (const [label, cp] of [["LRE", 0x202a], ["RLE", 0x202b], ["PDF", 0x202c], ["LRO", 0x202d], ["RLO", 0x202e], ["LRI", 0x2066], ["RLI", 0x2067], ["FSI", 0x2068], ["PDI", 0x2069]] as const)
+7 |     test(`${label} (U+${cp.toString(16).toUpperCase()}) is removed from a name`, () => { expect(cleanName(`Ash${String.fromCodePoint(cp)}a`)).toBe("Asha"); });
+                                                                                                                                                  ^
+error: expect(received).toBe(expected)
+
+Expected: "Asha"
+Received: "Ash‪a"
+
+      at <anonymous> (/home/user/corporate-snakes-and-ladders/apps/edge/test/t30-finding-f4-bidi-names.test.ts:7:143)
+(fail) F-4: names carry no bidirectional control characters > LRE (U+202A) is removed from a name [0.75ms]
+2 | // so a guest can type a name that displays reversed or hides text in the organizer's list, the winners list and the report. RED on release/snakes-1.4.0: it states the correct behaviour.
+3 | import { describe, expect, test } from "bun:test";
+4 | import { cleanName } from "../src/people";
+5 | describe("F-4: names carry no bidirectional control characters", () => {
+6 |   for (const [label, cp] of [["LRE", 0x202a], ["RLE", 0x202b], ["PDF", 0x202c], ["LRO", 0x202d], ["RLO", 0x202e], ["LRI", 0x2066], ["RLI", 0x2067], ["FSI", 0x2068], ["PDI", 0x2069]] as const)
+7 |     test(`${label} (U+${cp.toString(16).toUpperCase()}) is removed from a name`, () => { expect(cleanName(`Ash${String.fromCodePoint(cp)}a`)).toBe("Asha"); });
+                                                                                                                                                  ^
+error: expect(received).toBe(expected)
+
+Expected: "Asha"
+Received: "Ash‫a"
+
+      at <anonymous> (/home/user/corporate-snakes-and-ladders/apps/edge/test/t30-finding-f4-bidi-names.test.ts:7:143)
+(fail) F-4: names carry no bidirectional control characters > RLE (U+202B) is removed from a name [0.16ms]
+2 | // so a guest can type a name that displays reversed or hides text in the organizer's list, the winners list and the report. RED on release/snakes-1.4.0: it states the correct behaviour.
+3 | import { describe, expect, test } from "bun:test";
+4 | import { cleanName } from "../src/people";
+5 | describe("F-4: names carry no bidirectional control characters", () => {
+6 |   for (const [label, cp] of [["LRE", 0x202a], ["RLE", 0x202b], ["PDF", 0x202c], ["LRO", 0x202d], ["RLO", 0x202e], ["LRI", 0x2066], ["RLI", 0x2067], ["FSI", 0x2068], ["PDI", 0x2069]] as const)
+7 |     test(`${label} (U+${cp.toString(16).toUpperCase()}) is removed from a name`, () => { expect(cleanName(`Ash${String.fromCodePoint(cp)}a`)).toBe("Asha"); });
+                                                                                                                                                  ^
+error: expect(received).toBe(expected)
+
+Expected: "Asha"
+Received: "Ash‬a"
+
+      at <anonymous> (/home/user/corporate-snakes-and-ladders/apps/edge/test/t30-finding-f4-bidi-names.test.ts:7:143)
+(fail) F-4: names carry no bidirectional control characters > PDF (U+202C) is removed from a name [0.05ms]
+2 | // so a guest can type a name that displays reversed or hides text in the organizer's list, the winners list and the report. RED on release/snakes-1.4.0: it states the correct behaviour.
+3 | import { describe, expect, test } from "bun:test";
+4 | import { cleanName } from "../src/people";
+5 | describe("F-4: names carry no bidirectional control characters", () => {
+6 |   for (const [label, cp] of [["LRE", 0x202a], ["RLE", 0x202b], ["PDF", 0x202c], ["LRO", 0x202d], ["RLO", 0x202e], ["LRI", 0x2066], ["RLI", 0x2067], ["FSI", 0x2068], ["PDI", 0x2069]] as const)
+7 |     test(`${label} (U+${cp.toString(16).toUpperCase()}) is removed from a name`, () => { expect(cleanName(`Ash${String.fromCodePoint(cp)}a`)).toBe("Asha"); });
+                                                                                                                                                  ^
+error: expect(received).toBe(expected)
+
+Expected: "Asha"
+Received: "Ash‭a"
+
+      at <anonymous> (/home/user/corporate-snakes-and-ladders/apps/edge/test/t30-finding-f4-bidi-names.test.ts:7:143)
+(fail) F-4: names carry no bidirectional control characters > LRO (U+202D) is removed from a name [0.02ms]
+2 | // so a guest can type a name that displays reversed or hides text in the organizer's list, the winners list and the report. RED on release/snakes-1.4.0: it states the correct behaviour.
+3 | import { describe, expect, test } from "bun:test";
+4 | import { cleanName } from "../src/people";
+5 | describe("F-4: names carry no bidirectional control characters", () => {
+6 |   for (const [label, cp] of [["LRE", 0x202a], ["RLE", 0x202b], ["PDF", 0x202c], ["LRO", 0x202d], ["RLO", 0x202e], ["LRI", 0x2066], ["RLI", 0x2067], ["FSI", 0x2068], ["PDI", 0x2069]] as const)
+7 |     test(`${label} (U+${cp.toString(16).toUpperCase()}) is removed from a name`, () => { expect(cleanName(`Ash${String.fromCodePoint(cp)}a`)).toBe("Asha"); });
+                                                                                                                                                  ^
+error: expect(received).toBe(expected)
+
+Expected: "Asha"
+Received: "Ash‮a"
+
+      at <anonymous> (/home/user/corporate-snakes-and-ladders/apps/edge/test/t30-finding-f4-bidi-names.test.ts:7:143)
+(fail) F-4: names carry no bidirectional control characters > RLO (U+202E) is removed from a name [0.02ms]
+2 | // so a guest can type a name that displays reversed or hides text in the organizer's list, the winners list and the report. RED on release/snakes-1.4.0: it states the correct behaviour.
+3 | import { describe, expect, test } from "bun:test";
+4 | import { cleanName } from "../src/people";
+5 | describe("F-4: names carry no bidirectional control characters", () => {
+6 |   for (const [label, cp] of [["LRE", 0x202a], ["RLE", 0x202b], ["PDF", 0x202c], ["LRO", 0x202d], ["RLO", 0x202e], ["LRI", 0x2066], ["RLI", 0x2067], ["FSI", 0x2068], ["PDI", 0x2069]] as const)
+7 |     test(`${label} (U+${cp.toString(16).toUpperCase()}) is removed from a name`, () => { expect(cleanName(`Ash${String.fromCodePoint(cp)}a`)).toBe("Asha"); });
+                                                                                                                                                  ^
+error: expect(received).toBe(expected)
+
+Expected: "Asha"
+Received: "Ash⁦a"
+
+      at <anonymous> (/home/user/corporate-snakes-and-ladders/apps/edge/test/t30-finding-f4-bidi-names.test.ts:7:143)
+(fail) F-4: names carry no bidirectional control characters > LRI (U+2066) is removed from a name [0.01ms]
+2 | // so a guest can type a name that displays reversed or hides text in the organizer's list, the winners list and the report. RED on release/snakes-1.4.0: it states the correct behaviour.
+3 | import { describe, expect, test } from "bun:test";
+4 | import { cleanName } from "../src/people";
+5 | describe("F-4: names carry no bidirectional control characters", () => {
+6 |   for (const [label, cp] of [["LRE", 0x202a], ["RLE", 0x202b], ["PDF", 0x202c], ["LRO", 0x202d], ["RLO", 0x202e], ["LRI", 0x2066], ["RLI", 0x2067], ["FSI", 0x2068], ["PDI", 0x2069]] as const)
+7 |     test(`${label} (U+${cp.toString(16).toUpperCase()}) is removed from a name`, () => { expect(cleanName(`Ash${String.fromCodePoint(cp)}a`)).toBe("Asha"); });
+                                                                                                                                                  ^
+error: expect(received).toBe(expected)
+
+Expected: "Asha"
+Received: "Ash⁧a"
+
+      at <anonymous> (/home/user/corporate-snakes-and-ladders/apps/edge/test/t30-finding-f4-bidi-names.test.ts:7:143)
+(fail) F-4: names carry no bidirectional control characters > RLI (U+2067) is removed from a name [0.14ms]
+2 | // so a guest can type a name that displays reversed or hides text in the organizer's list, the winners list and the report. RED on release/snakes-1.4.0: it states the correct behaviour.
+3 | import { describe, expect, test } from "bun:test";
+4 | import { cleanName } from "../src/people";
+5 | describe("F-4: names carry no bidirectional control characters", () => {
+6 |   for (const [label, cp] of [["LRE", 0x202a], ["RLE", 0x202b], ["PDF", 0x202c], ["LRO", 0x202d], ["RLO", 0x202e], ["LRI", 0x2066], ["RLI", 0x2067], ["FSI", 0x2068], ["PDI", 0x2069]] as const)
+7 |     test(`${label} (U+${cp.toString(16).toUpperCase()}) is removed from a name`, () => { expect(cleanName(`Ash${String.fromCodePoint(cp)}a`)).toBe("Asha"); });
+                                                                                                                                                  ^
+error: expect(received).toBe(expected)
+
+Expected: "Asha"
+Received: "Ash⁨a"
+
+      at <anonymous> (/home/user/corporate-snakes-and-ladders/apps/edge/test/t30-finding-f4-bidi-names.test.ts:7:143)
+(fail) F-4: names carry no bidirectional control characters > FSI (U+2068) is removed from a name [0.02ms]
+2 | // so a guest can type a name that displays reversed or hides text in the organizer's list, the winners list and the report. RED on release/snakes-1.4.0: it states the correct behaviour.
+3 | import { describe, expect, test } from "bun:test";
+4 | import { cleanName } from "../src/people";
+5 | describe("F-4: names carry no bidirectional control characters", () => {
+6 |   for (const [label, cp] of [["LRE", 0x202a], ["RLE", 0x202b], ["PDF", 0x202c], ["LRO", 0x202d], ["RLO", 0x202e], ["LRI", 0x2066], ["RLI", 0x2067], ["FSI", 0x2068], ["PDI", 0x2069]] as const)
+7 |     test(`${label} (U+${cp.toString(16).toUpperCase()}) is removed from a name`, () => { expect(cleanName(`Ash${String.fromCodePoint(cp)}a`)).toBe("Asha"); });
+                                                                                                                                                  ^
+error: expect(received).toBe(expected)
+
+Expected: "Asha"
+Received: "Ash⁩a"
+
+      at <anonymous> (/home/user/corporate-snakes-and-ladders/apps/edge/test/t30-finding-f4-bidi-names.test.ts:7:143)
+(fail) F-4: names carry no bidirectional control characters > PDI (U+2069) is removed from a name [0.03ms]
+
+ 0 pass
+ 9 fail
+ 9 expect() calls
+Ran 9 tests across 1 file. [9.00ms]

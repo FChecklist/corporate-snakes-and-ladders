@@ -1,0 +1,61 @@
+bun test v1.4.4 (38afee6c8)
+
+apps/web/test/t30-finding-f10-landing-script.test.ts:
+34 |   return { ctx, page, errors, csp };
+35 | }
+36 | 
+37 | describe("FINDING F-10: the old buy box and the pricing section on the landing page (RED on release/snakes-1.4.0, see docs/TEST_FINDINGS.md)", () => {
+38 |   test("no script error when the page loads", async () => {
+39 |     const { ctx, errors } = await open(1280, "light"); expect(errors).toEqual([]); await ctx.close();
+                                                                           ^
+error: expect(received).toEqual(expected)
+
+- []
++ [
++   "Cannot read properties of null (reading 'addEventListener')",
++ ]
+
+- Expected  - 1
++ Received  + 3
+
+      at <anonymous> (/home/user/corporate-snakes-and-ladders/apps/web/test/t30-finding-f10-landing-script.test.ts:39:71)
+(fail) FINDING F-10: the old buy box and the pricing section on the landing page (RED on release/snakes-1.4.0, see docs/TEST_FINDINGS.md) > no script error when the page loads [894.27ms]
+39 |     const { ctx, errors } = await open(1280, "light"); expect(errors).toEqual([]); await ctx.close();
+40 |   });
+41 |   test("the 'Number of players' list has packs in it and the pricing section shows a price card", async () => {
+42 |     const { ctx, page } = await open(1280, "light");
+43 |     const n = await page.evaluate(() => ({ options: document.querySelectorAll("#pack option").length, cards: document.querySelectorAll("#packs > *").length, price: (document.querySelector("#packs")?.textContent ?? "").trim().length }));
+44 |     expect(n.options).toBeGreaterThanOrEqual(4); expect(n.cards).toBeGreaterThanOrEqual(1); expect(n.price).toBeGreaterThan(20); await ctx.close();
+                           ^
+error: expect(received).toBeGreaterThanOrEqual(expected)
+
+Expected: >= 4
+Received: 0
+
+      at <anonymous> (/home/user/corporate-snakes-and-ladders/apps/web/test/t30-finding-f10-landing-script.test.ts:44:23)
+(fail) FINDING F-10: the old buy box and the pricing section on the landing page (RED on release/snakes-1.4.0, see docs/TEST_FINDINGS.md) > the 'Number of players' list has packs in it and the pricing section shows a price card [870.89ms]
+44 |     expect(n.options).toBeGreaterThanOrEqual(4); expect(n.cards).toBeGreaterThanOrEqual(1); expect(n.price).toBeGreaterThan(20); await ctx.close();
+45 |   });
+46 |   test("'Create your Corporate Snakes and Ladders' opens the checkout sheet without a script error", async () => {
+47 |     const { ctx, page, errors } = await open(1280, "light"); await page.click("#payBtn"); await page.waitForTimeout(500);
+48 |     const sheet = await page.evaluate(() => !!document.querySelector(".sheet, .modal, [role=dialog], #sheet") && (document.querySelector(".sheet, .modal, [role=dialog], #sheet") as HTMLElement).getBoundingClientRect().height > 50);
+49 |     expect(errors).toEqual([]); expect(sheet).toBe(true); await ctx.close();
+                        ^
+error: expect(received).toEqual(expected)
+
+- []
++ [
++   "Cannot read properties of null (reading 'addEventListener')",
++   "Cannot access 'xbtn' before initialization",
++ ]
+
+- Expected  - 1
++ Received  + 4
+
+      at <anonymous> (/home/user/corporate-snakes-and-ladders/apps/web/test/t30-finding-f10-landing-script.test.ts:49:20)
+(fail) FINDING F-10: the old buy box and the pricing section on the landing page (RED on release/snakes-1.4.0, see docs/TEST_FINDINGS.md) > 'Create your Corporate Snakes and Ladders' opens the checkout sheet without a script error [1445.45ms]
+
+ 0 pass
+ 3 fail
+ 3 expect() calls
+Ran 3 tests across 1 file. [3.82s]
