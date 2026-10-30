@@ -22,7 +22,7 @@ Branch: release/snakes-1.4.0. Last updated: 2026-10-30.
 | 15 | Claim / heartbeat signals | NOT APPLICABLE / TODO | Snakes has no claim; heartbeat check to be read |
 | 16 | Game log 365 days | TODO | |
 | 17 | 24 h erase | ADOPTED | Snakes lifecycle already erases (constants in lifecycle.ts: 20 h purge, 19 h report link); re-check against 1.8.x wording |
-| 18 | New organizer console, 5 steps, ?flow=new then default, ?flow=old | TODO | zc.js is separate from Tambola's pack/ flow; to be assessed |
+| 18 | New organizer console, 5 steps, ?flow=new then default, ?flow=old | ADOPTED as opt-in (untested) | pack/ vendored byte for byte from console repo head 66f2ff8 (tools/vendor-pack.mjs); descriptor zc-flow-game.js; "Try the new screens / Use the previous screens" link; default switch TODO after tester evidence. Prize step relies on ZG.PRIZE_HOUSES (milestone, finish, team, climb, comeback, nevermissed); not checked against the pack |
 | 19 | Game dashboard (status pills, plain banners) | TODO | |
 | 20 | Host and Co-host links, approvals by role | ADAPTED / TODO | Co-host accept exists; Tambola 1.8.0 approval rules to port |
 | 21 | Host/Co-host passcode sign-in | NOT APPLICABLE | hidden in Tambola 1.7.0 too |

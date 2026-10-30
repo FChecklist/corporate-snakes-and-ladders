@@ -5,6 +5,7 @@
   const ZG = window.ZG;
   const $app = document.getElementById("app");
   const q = new URLSearchParams(location.search);
+  if (q.get("flow") === "new") return; // the NEW organizer flow (pack/zc-flow.js) draws this page instead
   const BASE = (q.get("api") || "").replace(/\/$/, "");
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const ss = { get: (k) => (window.CTK ? window.CTK.get(k) : (() => { try { return sessionStorage.getItem(k); } catch { return null; } })()), set: (k, v) => { if (window.CTK) window.CTK.set(k, v); else { try { sessionStorage.setItem(k, v); } catch {} } } };
