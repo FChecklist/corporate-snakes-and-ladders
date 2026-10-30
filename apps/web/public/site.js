@@ -20,7 +20,7 @@
     $("pack").innerHTML = TB.PACKS.map(([n]) => `<option value="${n}" ${n === S.pack ? "selected" : ""}>Up to ${nf(n)} players</option>`).join("");
     if ($("heroBrk")) $("heroBrk").innerHTML = breakdown(S.pack, S.cur);
     { // one price card: the organizer picks the size, then sees the price (never a list of every pack)
-      const n = S.pack, x = TB.price(n, S.cur), shown = S.cur === "INR" ? x.base : x.total; // SL-24: one honest price. No computed old price and no permanent discount badge (Boss ruling Q8, 2026-10-29)
+      const n = S.pack, x = TB.price(n, S.cur), shown = S.cur === "INR" ? x.base : x.total; // SL-24: one honest price. No computed old price and no permanent discount badge
       const opts = TB.PACKS.map(([k]) => `<option value="${k}" ${k === n ? "selected" : ""}>Up to ${nf(k)} players</option>`).join("");
       const perks = ["All features included", "Free AI assistant to build your game", "Snakes and ladders for your whole team, wherever they are", "Your message, video or audio between turns", "Build it free, pay just before the game starts", "No fee to create or edit your game", "Guest nicknames erased within 24 hours of the game", "One payment per game, no yearly plan"];
       $("packs").innerHTML = `<div class="pcard"><div class="pwho"><label for="pack2">How many players?</label><div class="selwrap"><select id="pack2" aria-label="Number of players">${opts}</select><svg class="ic chev"><use href="#i-chev"/></svg></div></div>` +

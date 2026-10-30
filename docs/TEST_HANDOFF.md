@@ -86,3 +86,16 @@ Exact new behaviours (file:line):
 10. Duplicates after cleaning: add-people answers `duplicateRows` [{raw, why}] beside the count (people.ts:288); the console summary names up to five (zc.js:607).
 11. Sound: no saved choice means sound ON again (z.js:65: !== "off"). NOTE for the boss: gap wave 1 (commit 2f0a74f, SL-11) had deliberately made it quiet by default; this reverts that on the audit's instruction.
 NOT fixable here (pack is vendored byte for byte, edit in the console repo and re-vendor): pack/zc-flow.js still has Tambola words ("Ticket number" waiting-table column and winners text, "Numbers are called automatically" at line 338 for non-manual mode) and shows stored Email IDs through cleanEmployeeId with an "Employee ID" column in the waiting/winner tables. Until the console repo adds descriptor switches for those words, the new flow must not be made the default.
+
+## Round 2 (audit fixes, same branch; product code only, not run by the coder)
+- PB-10: guide card for the id-locked message in apps/web/public/guide.js (before the "Test payments" entry); server answers the "different kind of ID" sentence when the kind changed and "different way of asking for IDs" when only the verify kind changed (worker.ts id-locked line).
+- PB-1: add Host with an e-mail typed but unusable: 400 "That e-mail address does not look right. Please check it." even with a mobile number (worker.ts, /api/org/host, line before the "at least one" check).
+- PB-2: every duplicate row is named in duplicateRows (people.ts: three in-list dedupe points, already-listed, seat, and the two insert-ignored loops); raw is the typed ID (or typed number), why says "Already on the list." / "Already in the game." / "Same person as an earlier row ...".
+- PB-3: ends-when text: big.js meta line, zc.js help line ep, legal.html milestone item: cap shown, team game ends when the first whole team is home.
+- PB-4: zc.js settings (S.cfg) now carries idKind from the server record; Save never sends "emp" for an Email game.
+- PB-5: zc.js paste help uses a real string (name, <ID kind>) and the mobile-and-ID line says Email ID in an Email game.
+- PB-6: "Try the new screens" entry removed from zc.html with the modelink and pack scripts and styles; zc.js no longer returns early for ?flow=new (the old console always draws). Files stay in the repo and the pack is untouched.
+- PB-9: z.js tip now says sound is on unless the player turns it off.
+- PN-2 release.json version 1.4.1. PN-3 site.js comment removed. PN-4: an email in an employee-ID box is refused with ONE sentence ("This looks like an Email ID. This game asks for an employee ID: letters and numbers only.") by the server in every game (people.ts normId, badIdMessage), as the phone already does.
+- PN-5: cleanAccountEmail refuses \s, U+200B-U+200D, U+2060, U+FEFF, U+0085, U+2028, U+2029; cleanEmail (participant Email ID) removes them (emailclean.ts lines 2 and 5).
+- PN-6: pack/MANIFEST.json and pack/gamelog.* are restored byte for byte from origin/release/snakes-1.4.0 (I cannot run the vendor tool: the console repo is not here). gamelog.* is NOT in pages/build.mjs FILES, so it does not ship; the console repo should drop it, then re-vendor. Item 11 of Milestone 7 is amended accordingly.

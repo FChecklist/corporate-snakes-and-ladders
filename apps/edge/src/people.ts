@@ -68,10 +68,10 @@ const EMAIL_ID_RE = /^[^\s@]{1,64}@[^\s@]{1,255}\.[^\s@]{2,}$/;
 /** The ID a person gives, by what this game asks for: an employee ID (cleaned to A-Z 0-9; an email typed there is refused) or an Email ID (cleanEmail). "" = nothing typed, null = not usable. */
 export const normId = (raw: unknown, kind: "emp" | "email", clean = false): string | null => {
   if (kind === "email") { const k = cleanEmail(raw); if (!k) return ""; return EMAIL_ID_RE.test(k) && k.length <= 254 ? k : null; }
-  if (clean && looksLikeEmail(raw)) return null;
+  if (looksLikeEmail(raw)) return null; // one plain refusal for an email in an employee-ID box, in every game
   return normEmp(raw, clean);
 };
-export const badIdMessage = (raw: unknown, kind: "emp" | "email", clean = false): string => kind === "email" ? "Please check your Email ID. It looks incomplete." : clean && looksLikeEmail(raw) ? "This looks like an Email ID. This game asks for an employee ID: letters and numbers only." : "An employee ID has letters and numbers only (up to 30).";
+export const badIdMessage = (raw: unknown, kind: "emp" | "email", clean = false): string => kind === "email" ? "Please check your Email ID. It looks incomplete." : looksLikeEmail(raw) ? "This looks like an Email ID. This game asks for an employee ID: letters and numbers only." : "An employee ID has letters and numbers only (up to 30).";
 /** The identity of a person who is known by employee ID alone (no mobile number needed). One hash for the same ID in every game, like the phone hash. */
 export const empHashOf = (env: { PHONE_SALT?: string; ORGANIZER_SECRET?: string }, id: string) => sha(`${env.PHONE_SALT ?? env.ORGANIZER_SECRET ?? "unset"}|emp|${id}`);
 /** What the organizer asked people to give to get in, read from the game's stored settings. */
@@ -286,11 +286,12 @@ async function addPeople(c: Ctx, who: Caller, b: any): Promise<Response> {
   await recordConsent(c.env.DB, "K6", who.id, c.eid, c.now);
   if (c.now >= await c.endBound()) return c.json({ error: "The game has ended, so no one can be added." }, 409);
   const invalid: { raw: string; why: string }[] = []; let duplicates = 0; const duplicateRows: { raw: string; why: string }[] = [];
-  const seen = new Set<string>(); const todo: { name: string; digits: string; ph: string; empId?: string; idHash?: string }[] = [];
+  const seen = new Set<string>(); const todo: { name: string; digits: string; ph: string; empId?: string; idHash?: string; typed: string }[] = [];
   const vf = verifyOf(c.e);
   for (const x of b.people) {
     const raw = `${cleanName(x?.name)} ${String(x?.phone ?? "")}`.trim().slice(0, 100);
     const empRaw = x?.empId ?? x?.employeeId, emp = normId(empRaw, vf.idKind, empCleanFor(c.e));
+    const typed = (String(empRaw ?? "").trim() || String(x?.phone ?? "").trim() || raw).slice(0, 100); // what the person typed in the ID (or number) cell
     if (emp === null) { invalid.push({ raw, why: badIdMessage(empRaw, vf.idKind, empCleanFor(c.e)) }); continue; }
     const phoneTyped = String(x?.phone ?? "").trim() !== "";
     if (vf.mode === "either" && !emp && !phoneTyped) { invalid.push({ raw, why: "Give a mobile number or an employee ID." }); continue; }
@@ -299,20 +300,20 @@ async function addPeople(c: Ctx, who: Caller, b: any): Promise<Response> {
       let digits = "";
       if (phoneTyped) { const cl = cleanPhone(x?.phone); if (!cl.ok) { invalid.push({ raw, why: cl.why }); continue; } digits = keptFromClean(cl.digits); }
       const ph = await empHashOf(c.env, emp);
-      if (seen.has(ph)) { duplicates++; duplicateRows.push({ raw, why: "Same person as an earlier row (the ID reads the same after cleaning)." }); continue; }
-      seen.add(ph); todo.push({ name: cleanName(x?.name), digits, ph, empId: emp }); continue;
+      if (seen.has(ph)) { duplicates++; duplicateRows.push({ raw: typed, why: "Same person as an earlier row (the ID reads the same after cleaning)." }); continue; }
+      seen.add(ph); todo.push({ name: cleanName(x?.name), digits, ph, empId: emp, typed }); continue;
     }
     const cl = cleanPhone(x?.phone);
     if (!cl.ok) { invalid.push({ raw, why: cl.why }); continue; }
     const ph = await phoneHashOf(c.env, cl.digits);
-    if (seen.has(ph)) { duplicates++; duplicateRows.push({ raw, why: "Same person as an earlier row (the ID reads the same after cleaning)." }); continue; }
+    if (seen.has(ph)) { duplicates++; duplicateRows.push({ raw: typed, why: "Same person as an earlier row (the ID reads the same after cleaning)." }); continue; }
     const idHash = vf.mode === "either" && emp ? await empHashOf(c.env, emp) : undefined; // "mobile number or employee ID": a listed person with both can come in with either, so the ID points to the mobile-number identity
     if (idHash) { // the same employee ID on two people of one list would let the second take over the first's ID: the second is a duplicate
       const al = await c.env.DB.prepare("SELECT v FROM kv WHERE k=?").bind(`idx/${c.eid}/${idHash}`).first<{ v: string }>();
-      if ((al && al.v !== ph && (await c.env.DB.prepare("SELECT 1 AS x FROM person WHERE eid=? AND ph=? AND status<>'removed'").bind(c.eid, al.v).first())) || seen.has("I" + idHash)) { duplicates++; duplicateRows.push({ raw, why: "Same person as an earlier row (the ID reads the same after cleaning)." }); continue; }
+      if ((al && al.v !== ph && (await c.env.DB.prepare("SELECT 1 AS x FROM person WHERE eid=? AND ph=? AND status<>'removed'").bind(c.eid, al.v).first())) || seen.has("I" + idHash)) { duplicates++; duplicateRows.push({ raw: typed, why: "Same person as an earlier row (the ID reads the same after cleaning)." }); continue; }
       seen.add("I" + idHash);
     }
-    seen.add(ph); todo.push({ name: cleanName(x?.name), digits: keptFromClean(cl.digits), ph, ...(emp && vf.mode !== "mobile" ? { empId: emp } : {}), ...(idHash ? { idHash } : {}) });
+    seen.add(ph); todo.push({ name: cleanName(x?.name), digits: keptFromClean(cl.digits), ph, typed, ...(emp && vf.mode !== "mobile" ? { empId: emp } : {}), ...(idHash ? { idHash } : {}) });
   }
   const db = c.env.DB, hashes = todo.map((t) => t.ph);
   const persons = await existingBy(db, "person", c.eid, hashes, "ph, status, id, inviter, removed_by");
@@ -321,8 +322,8 @@ async function addPeople(c: Ctx, who: Caller, b: any): Promise<Response> {
   const fresh: typeof todo = [], revive: typeof todo = [];
   for (const t of todo) {
     const p = persons.get(t.ph);
-    if (p) { if (p.status === "removed" && (who.all || (p.inviter === who.id && p.removed_by === who.id))) revive.push(t); /* an Organizer or Host puts anyone back; a Co-host or guest only takes back a person they removed themselves */ else if (p.status === "removed") invalid.push({ raw: `${t.name} ${t.digits ? "+" + phoneDigits(t.digits) : ""}`.trim(), why: "This person was removed. Ask the Organizer or a Host to put them back." }); else duplicates++; continue; }
-    if (seats.has(t.ph)) { duplicates++; continue; } // a seat from an older flow (a loaded list): already in the game
+    if (p) { if (p.status === "removed" && (who.all || (p.inviter === who.id && p.removed_by === who.id))) revive.push(t); /* an Organizer or Host puts anyone back; a Co-host or guest only takes back a person they removed themselves */ else if (p.status === "removed") invalid.push({ raw: `${t.name} ${t.digits ? "+" + phoneDigits(t.digits) : ""}`.trim(), why: "This person was removed. Ask the Organizer or a Host to put them back." }); else { duplicates++; duplicateRows.push({ raw: t.typed, why: "Already on the list." }); } continue; }
+    if (seats.has(t.ph)) { duplicates++; duplicateRows.push({ raw: t.typed, why: "Already in the game." }); continue; } // a seat from an older flow (a loaded list): already in the game
     fresh.push(t);
   }
   const adds = fresh.length + revive.length;
@@ -356,8 +357,8 @@ async function addPeople(c: Ctx, who: Caller, b: any): Promise<Response> {
   if (c.started && revive.length) await refreshBlocked(db, c.eid);
   // stmts are in the order fresh..., revive (+seat update)..., waiting...: map the person inserts back by position
   let i = 0; const done: typeof todo = [];
-  for (const t of fresh) { if ((res[i++]?.meta?.changes ?? 0) > 0) done.push(t); else duplicates++; }
-  for (const t of revive) { if ((res[i++]?.meta?.changes ?? 0) > 0) done.push(t); else duplicates++; if (seats.has(t.ph)) i++; }
+  for (const t of fresh) { if ((res[i++]?.meta?.changes ?? 0) > 0) done.push(t); else { duplicates++; duplicateRows.push({ raw: t.typed, why: "Already on the list." }); } }
+  for (const t of revive) { if ((res[i++]?.meta?.changes ?? 0) > 0) done.push(t); else { duplicates++; duplicateRows.push({ raw: t.typed, why: "Already on the list." }); } if (seats.has(t.ph)) i++; }
   const label = await labelsOf(c);
   const out: PersonView[] = [];
   for (const t of done) {

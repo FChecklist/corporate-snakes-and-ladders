@@ -497,7 +497,7 @@
     const rules = ruleLines(v);
     return `<div class="zcard zwait">${top}
       <div class="zdo"><b>What to do:</b> nothing yet. Keep this page open. ${v.cfg.play === "presence" ? "When the first turn opens, tap the Roll button." : "Your rolls happen by themselves."}</div>
-      <p class="zsmall zflush">Tip: switch your phone to Do not disturb, so calls and messages do not cover the game. We ask your phone to keep the screen on while this page is open. Sound is off until you turn it on.</p>
+      <p class="zsmall zflush">Tip: switch your phone to Do not disturb, so calls and messages do not cover the game. We ask your phone to keep the screen on while this page is open. Sound is on unless you turn it off (the sound button).</p>
       ${prizes ? `<h3>What you can win</h3><div class="zprizes2">${prizes}</div>` : ""}
       <h3>The rules</h3><ul class="zlist zrules">${rules.map((r) => `<li>${esc(r)}</li>`).join("")}</ul>
       <button class="zbtn s alt" id="soundtest" type="button">Check my sound</button><a class="zbtn s alt" id="addcal" download="game.ics" href="${icsFor(v)}">Add to my calendar</a></div>`;

@@ -1094,6 +1094,7 @@ async function route0(req: Request, env: Env, now: number, a: Auth): Promise<Res
     const hb = await body(req);
     const hEmail = typeof hb?.email === "string" ? cleanAccountEmail(hb.email) : "";
     const rawMob = hb?.mobile ?? hb?.phone, hasMob = rawMob !== undefined && rawMob !== null && String(rawMob).trim() !== "";
+    if (typeof hb?.email === "string" && hb.email.trim() !== "" && !hEmail) return json({ error: "That e-mail address does not look right. Please check it." }, 400); // typed but unusable: never make the Host from the mobile alone
     if (!hEmail && !hasMob) return json({ error: "Please give the Host's e-mail address or mobile number (at least one). Their own link is sent there." }, 400);
     if (hEmail && !EMAIL_RE.test(hEmail)) return json({ error: "That e-mail address does not look right. Please check it." }, 400);
     const hMob = hasMob ? cleanPhone(rawMob) : null;
@@ -2007,7 +2008,7 @@ async function route0(req: Request, env: Env, now: number, a: Auth): Promise<Res
     const have = await env.DB.prepare("SELECT COUNT(*) AS c FROM participant WHERE eid=?").bind(eid).first<{ c: number }>();
     if (!a.plat && e.pack !== 0 && next.cap > (e.pack ?? e.cap)) return json({ error: `Your pack allows up to ${e.pack ?? e.cap} people. For more people, make a new game like this one.` }, 402);
     const listed = await env.DB.prepare("SELECT COUNT(*) AS c FROM person WHERE eid=? AND status<>'removed'").bind(eid).first<{ c: number }>().catch(() => null); // people on the lists who have not come in yet count too
-    { const cur = verifyOf(e); if ((cur.idKind !== (vc.cfg.idKind ?? "emp") || cur.mode !== (vc.cfg.verify ?? "mobile")) && (have?.c ?? 0) + (listed?.c ?? 0) > 0) return json({ error: "You already have people listed. Start a new game to use a different kind of ID.", code: "id-locked" }, 409); } // a person's identity hash comes from the ID kind: changing it would orphan everyone
+    { const cur = verifyOf(e); if ((cur.idKind !== (vc.cfg.idKind ?? "emp") || cur.mode !== (vc.cfg.verify ?? "mobile")) && (have?.c ?? 0) + (listed?.c ?? 0) > 0) return json({ error: cur.idKind !== (vc.cfg.idKind ?? "emp") ? "You already have people listed. Start a new game to use a different kind of ID." : "You already have people listed. Start a new game to use a different way of asking for IDs.", code: "id-locked" }, 409); } // a person's identity hash comes from the ID kind: changing it would orphan everyone
     if (next.cap < Math.max(have?.c ?? 0, listed?.c ?? 0)) return json({ error: "The limit cannot be lower than the people already on the list." }, 409);
     if (!(await spend(env, now))) return BUSY();
     await env.DB.prepare("UPDATE engagement SET start_round=?, call_seconds=?, cap=?, closed=?, tickets=?, config=?, cohost_limit=? WHERE id=?").bind(next.start_round, next.call_seconds, next.cap, next.closed, vc.cfg.tickets, cfgJson(vc.cfg), next.cohost_limit, eid).run();
