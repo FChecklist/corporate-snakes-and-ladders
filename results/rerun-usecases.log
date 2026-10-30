@@ -1,0 +1,22 @@
+bun test v1.4.4 (38afee6c8)
+
+apps/edge/test/usecases.test.ts:
+84 |     expect(last).toBe(429); // too many codes in an hour
+85 |     expect(o.token).toMatch(/^cbk_/);
+86 |   });
+87 |   test("UC-5 invalid emails are refused everywhere", async () => {
+88 |     for (const email of ["", "nope", "a@b", "a b@c.com", "x".repeat(300) + "@a.com", 42 as any]) {
+89 |       expect((await call("POST", "/api/start", { email })).status).toBe(400);
+                                                                        ^
+error: expect(received).toBe(expected)
+
+Expected: 400
+Received: 200
+
+      at <anonymous> (/home/user/corporate-snakes-and-ladders/apps/edge/test/usecases.test.ts:89:68)
+(fail) A. organizer: getting in > UC-5 invalid emails are refused everywhere [33.73ms]
+
+ 54 pass
+ 1 fail
+ 388 expect() calls
+Ran 55 tests across 1 file. [2.30s]
