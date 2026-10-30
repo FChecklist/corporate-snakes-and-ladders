@@ -36,15 +36,17 @@ export async function breakcheck({ id, tests, mutations }) {
     say(`  baseline: ${base.fail === 0 && base.pass > 0 ? "GREEN" : "NOT GREEN"}  ${base.pass} pass, ${base.fail} fail`);
     if (base.fail !== 0 || base.pass === 0) { bad++; say("  the baseline must be green before a break means anything: " + base.failed.slice(0, 3).join(" | ")); }
     for (const [i, m] of mutations.entries()) {
-      const path = join(scratch, m.file), original = readFileSync(join(REPO, m.file), "utf8");
-      const n = original.split(m.from).length - 1;
-      if (n === 0 || (n > 1 && !m.all)) { bad++; say(`  break ${i + 1} [${m.note}] NOT PLANTED: ${m.file} has ${n} copies of the text to change`); continue; }
-      writeFileSync(path, m.all ? original.split(m.from).join(m.to) : original.replace(m.from, () => m.to));
+      const edits = m.edits ?? [{ file: m.file, from: m.from, to: m.to, all: m.all }]; // one break can need two edits when the rule is guarded in two places
+      const originals = edits.map((e) => readFileSync(join(REPO, e.file), "utf8"));
+      const counts = edits.map((e, k) => originals[k].split(e.from).length - 1);
+      const badEdit = counts.findIndex((n, k) => n === 0 || (n > 1 && !edits[k].all));
+      if (badEdit >= 0) { bad++; say(`  break ${i + 1} [${m.note}] NOT PLANTED: ${edits[badEdit].file} has ${counts[badEdit]} copies of the text to change`); continue; }
+      edits.forEach((e, k) => writeFileSync(join(scratch, e.file), e.all ? originals[k].split(e.from).join(e.to) : originals[k].replace(e.from, () => e.to)));
       const r = runTests(scratch, tests);
-      writeFileSync(path, original); // put the file back
+      edits.forEach((e, k) => writeFileSync(join(scratch, e.file), originals[k])); // put the files back
       const red = r.fail > 0;
       if (!red) bad++;
-      say(`  break ${i + 1}: ${m.note}  [${m.file}]  -> ${red ? "RED" : "STILL GREEN (the tests did not notice)"}  ${r.pass} pass, ${r.fail} fail`);
+      say(`  break ${i + 1}: ${m.note}  [${edits.map((e) => e.file).join(" + ")}]  -> ${red ? "RED" : "STILL GREEN (the tests did not notice)"}  ${r.pass} pass, ${r.fail} fail`);
       for (const f of r.failed.slice(0, 3)) say(`      failing: ${f}`);
     }
     const after = runTests(scratch, tests);

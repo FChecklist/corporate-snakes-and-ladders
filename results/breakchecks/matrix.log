@@ -1,0 +1,13 @@
+BREAKCHECK matrix  (scratch copy: /tmp/claude-0/-home-user-corporate-snakes-and-ladders/117805c9-be35-5a9a-b7a1-0275cf74a649/scratchpad/breakcheck-ZXbNsU; tests: tools/sim2/scenarios/matrix/matrix.test.ts)
+  baseline: GREEN  19 pass, 0 fail
+  break 1: employee ID cleaner keeps dashes  [apps/edge/src/people.ts]  -> RED  16 pass, 3 fail
+      failing: scenario matrix: real product, streamed > M1 identity: ID spelling x era x e-mail spelling x verification setting
+      failing: scenario matrix: real product, streamed > M4 wire: mode x era x payment x ID or phone x listed x device x time x approval, real requests
+      failing: scenario matrix: real product, streamed > the total is at least 1,000,000 distinct scenarios with zero failures; exact counts are saved to results/matrix-counts.json
+  break 2: old games read IDs the new way  [apps/edge/src/people.ts]  -> RED  17 pass, 2 fail
+      failing: scenario matrix: real product, streamed > M4 wire: mode x era x payment x ID or phone x listed x device x time x approval, real requests
+      failing: scenario matrix: real product, streamed > the total is at least 1,000,000 distinct scenarios with zero failures; exact counts are saved to results/matrix-counts.json
+  break 3: e-mail cleaner does not lower-case  [apps/edge/src/emailclean.ts]  -> RED  14 pass, 5 fail
+      failing: scenario matrix: real product, streamed > M1 identity: ID spelling x era x e-mail spelling x verification setting
+      failing: scenario matrix: real product, streamed > the total is at least 1,000,000 distinct scenarios with zero failures; exact counts are saved to results/matrix-counts.json
+      failing: every counted dimension can fail (matrix against a broken copy) > employee-id-format: the ID reading keeps dashes and slashes

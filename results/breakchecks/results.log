@@ -1,0 +1,26 @@
+BREAKCHECK results  (scratch copy: /tmp/claude-0/-home-user-corporate-snakes-and-ladders/117805c9-be35-5a9a-b7a1-0275cf74a649/scratchpad/breakcheck-qWVndZ; tests: packages/beacon/test/t30-regress-results.test.ts)
+  baseline: GREEN  21 pass, 0 fail
+  break 1: the game goes on one turn past the limit  [packages/beacon/src/race.ts]  -> RED  20 pass, 1 fail
+      failing: how a game ends > while values are missing the game is 'running'; after the turn limit it ends with 'cap'
+  break 2: the game waits for one more finisher  [packages/beacon/src/race.ts]  -> RED  20 pass, 1 fail
+      failing: how a game ends > it ends with 'finishers' the moment endPrizes players are home, and no later turn is played
+  break 3: a throw past the last square finishes (exact finish is lost)  [packages/beacon/src/play.ts]  -> RED  20 pass, 1 fail
+      failing: one throw (step) > exact finish: 100 is a finish, a throw past 100 is not used (pawn stays)
+  break 4 [the later finisher ranks first] NOT PLANTED: packages/beacon/src/race.ts has 2 copies of the text to change
+  break 5: every finish prize goes to the first finisher  [packages/beacon/src/race.ts]  -> RED  20 pass, 1 fail
+      failing: ranking has no ties and prizes follow the finisher position > finish prize 1..5 goes to the 1st..5th finisher in ranking order, each person once, nobody who did not finish
+  break 6: manual dice: everybody throws whether or not they pressed  [packages/beacon/src/race.ts]  -> RED  20 pass, 1 fail
+      failing: how a game ends > presence mode: nobody who did not throw moves; a player who throws every turn plays like fate
+  break 7: the dice never show a 6  [packages/beacon/src/play.ts]  -> RED  20 pass, 1 fail
+      failing: one throw (step) > every roll value 1..6 appears and rolls are the same on every phone (deterministic) and differ by seat and by turn
+  break 8: a one-player game is allowed  [packages/beacon/src/race.ts]  -> RED  20 pass, 1 fail
+      failing: how a game ends > a game of one player is refused (2 to 10,000 players), as are bad limits
+  break 9: a pawn that is on a snake head is not moved  [packages/beacon/src/board.ts]  -> RED  7 pass, 14 fail
+      failing: one throw (step) > a plain move, a ladder, a snake
+      failing: how a game ends > while values are missing the game is 'running'; after the turn limit it ends with 'cap'
+      failing: how a game ends > it ends with 'finishers' the moment endPrizes players are home, and no later turn is played
+  break 10: the milestone prize goes to the LAST player to reach it  [packages/beacon/src/race.ts]  -> RED  20 pass, 1 fail
+      failing: ranking has no ties and prizes follow the finisher position > the milestone prize goes to the player who reached the milestone square on the earliest turn
+  restored: GREEN  21 pass, 0 fail
+  branch product code untouched: yes
+RESULT results: 1 problem(s)

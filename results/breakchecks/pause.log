@@ -1,0 +1,29 @@
+BREAKCHECK pause  (scratch copy: /tmp/claude-0/-home-user-corporate-snakes-and-ladders/117805c9-be35-5a9a-b7a1-0275cf74a649/scratchpad/breakcheck-kwI31d; tests: packages/beacon/test/t30-regress-pause.test.ts)
+  baseline: GREEN  18 pass, 0 fail
+  break 1: a pause may be signed with no lead time  [packages/beacon/src/control.ts]  -> RED  16 pass, 2 fail
+      failing: rules that keep a pause safe > a pause with less lead than leadRounds is ignored and takes no effect (but still uses its number)
+      failing: rules that keep a pause safe > exactly the lead is enough (4 of 4), one less is not (3 of 4)
+  break 2: a pause no longer moves later turns  [packages/beacon/src/control.ts]  -> RED  15 pass, 3 fail
+      failing: pause moves every later turn by exactly the pause length > a timed pause of 30 rounds at round 1012 pushes turns at or after 1012 by 30 and leaves earlier turns
+      failing: pause moves every later turn by exactly the pause length > open-ended pause then resume: the pause lasts exactly from the pause round to the resume round
+      failing: pause moves every later turn by exactly the pause length > two pauses add up
+  break 3: an open-ended pause lasts for ever  [packages/beacon/src/control.ts]  -> RED  17 pass, 1 fail
+      failing: pause moves every later turn by exactly the pause length > an open-ended pause ends by itself after maxPauseRounds (a lost organizer cannot freeze a room)
+  break 4: a second pause while paused is accepted  [packages/beacon/src/control.ts]  -> RED  17 pass, 1 fail
+      failing: rules that keep a pause safe > a second pause while paused, a resume when not paused, and anything after a stop are ignored with a reason
+  break 5: a stop needs no lead  [packages/beacon/src/control.ts]  -> STILL GREEN (the tests did not notice)  18 pass, 0 fail
+  break 6: a timed pause may be any length  [packages/beacon/src/control.ts]  -> RED  17 pass, 1 fail
+      failing: rules that keep a pause safe > a timed pause longer than 24 hours of rounds, or ending before it starts, is refused
+  break 7: signatures are not checked  [packages/beacon/src/control.ts]  -> RED  15 pass, 3 fail
+      failing: only the organizer's key can pause (signatures) > a message signed with another key is dropped as forged and does not move the schedule
+      failing: only the organizer's key can pause (signatures) > changing any signed field after signing (the end round) breaks the signature
+      failing: only the organizer's key can pause (signatures) > a key made in the browser way (WebCrypto) signs and verifies the same way
+  break 8: a message for another game is accepted  [packages/beacon/src/control.ts]  -> RED  17 pass, 1 fail
+      failing: only the organizer's key can pause (signatures) > a message for another game is dropped (cannot be replayed into this one)
+  break 9: the signed text no longer covers the end round  [packages/beacon/src/control.ts]  -> RED  17 pass, 1 fail
+      failing: only the organizer's key can pause (signatures) > changing any signed field after signing (the end round) breaks the signature
+  break 10: messages are applied in arrival order, not seq order  [packages/beacon/src/control.ts]  -> RED  17 pass, 1 fail
+      failing: rules that keep a pause safe > messages are applied in seq order whatever order they arrive in
+  restored: GREEN  18 pass, 0 fail
+  branch product code untouched: yes
+RESULT pause: 1 problem(s)

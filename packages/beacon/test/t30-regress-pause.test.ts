@@ -45,6 +45,11 @@ describe("rules that keep a pause safe", () => {
     expect(resolveControl(cfg(), [msg({ seq: 1, action: "pause", atBeaconRound: 1100, signedAtRound: 1096, untilRound: 1110 })]).intervals).toHaveLength(1);
     expect(resolveControl(cfg(), [msg({ seq: 1, action: "pause", atBeaconRound: 1100, signedAtRound: 1097, untilRound: 1110 })]).intervals).toHaveLength(0);
   });
+  test("a stop needs the same lead as a pause: 3 of 4 rounds is ignored with a reason, 4 of 4 stops the game", () => {
+    const short = resolveControl(cfg(), [msg({ seq: 1, action: "stop", atBeaconRound: 1100, signedAtRound: 1097 })]);
+    expect(short.stopRound).toBeNull(); expect(short.ignored).toEqual([{ seq: 1, why: "stop needs at least 4 rounds of lead" }]); expect(callRound(short, START, STRIDE, 30)).toBe(1210);
+    const ok = resolveControl(cfg(), [msg({ seq: 1, action: "stop", atBeaconRound: 1100, signedAtRound: 1096 })]); expect(ok.stopRound).toBe(1100); expect(callRound(ok, START, STRIDE, 30)).toBeNull();
+  });
   test("a second pause while paused, a resume when not paused, and anything after a stop are ignored with a reason", () => {
     const s = resolveControl(cfg(), [msg({ seq: 1, action: "resume", atBeaconRound: 1000 }), msg({ seq: 2, action: "pause", atBeaconRound: 1100, untilRound: 1200 }), msg({ seq: 3, action: "pause", atBeaconRound: 1150, untilRound: 1250 }), msg({ seq: 4, action: "stop", atBeaconRound: 1300 }), msg({ seq: 5, action: "pause", atBeaconRound: 1400 })]);
     expect(s.ignored.map((x) => [x.seq, x.why])).toEqual([[1, "not paused"], [3, "already paused"], [5, "engagement already stopped"]]); expect(s.applied).toBe(2);
