@@ -844,7 +844,7 @@
       ${standingsCard(v)}
       ${waiting ? "" : prizesStatusCard(v)}
       ${v.phase === "ended" ? "" : prizesCard()}
-      ${waiting ? "" : rulesFold(v)}
+      ${waiting || !(self.SLRules ? SLRules.showRules("playing") && v.phase !== "ended" : v.phase !== "ended") ? "" : rulesFold(v)}
       ${mineCard(v)}${inviteCard(v)}
       ${luckyCard(v)}
       ${chk}<a class="zref" href="/partner.html?from=card">Refer &amp; earn</a>`;
