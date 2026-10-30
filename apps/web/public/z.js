@@ -122,7 +122,7 @@
   const joinWho = () => {
     const vm = INFO.verify || "mobile", eo = !!INFO.empOnly, pv = esc(J.phone || ""), ev = esc(J.emp || "");
     const phone = (label, hint) => `<label for="ph">${label}</label><input id="ph" inputmode="tel" autocomplete="tel" placeholder="+1 555 010 0100" value="${pv}">${hint ? `<p class="zsmall zflush">${hint}</p>` : ""}`;
-    const emp = (label, hint) => `<label for="emp">${label}</label><input id="emp" autocomplete="off" autocapitalize="characters" maxlength="30" value="${ev}">${hint ? `<p class="zsmall zflush">${hint}</p>` : ""}`;
+    const emp = (label, hint) => `<label for="emp">${label}</label><input id="emp" autocomplete="off" autocapitalize="characters" maxlength="30" value="${ev}"><p class="zsmall zflush" id="empread" aria-live="polite"></p>${hint ? `<p class="zsmall zflush">${hint}</p>` : ""}`;
     if (vm === "id") return emp("Your employee ID", eo ? "This game is for employees only." : "") + (eo ? "" : phone("No employee ID? Type your mobile number instead", "Vendors, customers and families use their mobile number."));
     if (vm === "both") return phone("Your mobile number", "") + emp(eo ? "Your employee ID" : "Your employee ID (employees only)", eo ? "This game is for employees only." : "Not an employee? Leave this empty.");
     return phone("Your mobile number", "");
@@ -897,6 +897,9 @@
     const again = document.getElementById("again"); if (again) again.onclick = () => { clearTimeout(J.retry); J.busyTries = 0; J.mode = ""; J.wid = ""; clearWait(); paint(); };
     const go = document.getElementById("go"); if (!go) return;
     const nm = document.getElementById("nm"), ph = document.getElementById("ph"), em = document.getElementById("emp");
+    const empRead = document.getElementById("empread");
+    const showRead = () => { if (!em || !empRead) return; const c = String(em.value || "").normalize("NFKC").toUpperCase().replace(/[^A-Z0-9]/g, ""); empRead.textContent = c && c !== String(em.value || "") ? "The system will read this as " + c : ""; };
+    if (em) { em.addEventListener("input", showRead); showRead(); }
     if (nm) nm.oninput = () => { J.name = nm.value; };
     if (em) em.oninput = () => { J.emp = em.value; };
     if (ph) ph.oninput = () => { J.phone = ph.value; };
