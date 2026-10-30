@@ -13,3 +13,12 @@ describe("email id", () => {
   test("the employee ID cleaner is not the email cleaner", () => { expect(cleanEmpId("a@x.com")).not.toBe(cleanEmail("a@x.com")); });
   test("deliberate break: a case-sensitive compare would split them", () => { expect("Rajat1@demo.com" === "rajat1@demo.com").toBe(false); expect(cleanEmail("Rajat1@demo.com")).toBe(cleanEmail("rajat1@demo.com")); });
 });
+
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+describe("every place an email is read uses the one cleaner", () => {
+  const src = (f: string) => readFileSync(join(import.meta.dir, "../src", f), "utf8");
+  for (const f of ["admin.ts", "credit.ts", "google.ts", "helpdesk.ts", "hostsetup.ts", "mode.ts", "partners.ts", "pay.ts", "testlogins.ts", "visits.ts", "worker.ts"])
+    test(f, () => { const s = src(f); expect(s).toContain("cleanEmail("); expect(s).toContain('from "./emailclean"'); expect(/email[^;\n]{0,40}\.trim\(\)\.toLowerCase\(\)/i.test(s)).toBe(false); });
+  test("cleaner file is self-contained", () => { expect(src("emailclean.ts")).not.toContain("import "); });
+});

@@ -1,0 +1,2 @@
+/** EMAIL ID (owner rule, 30 Oct 2026): case-insensitive. NFKC (full-width ＠ becomes @), trim, inner spaces removed, lower case. Used ONLY for an Email ID criterion, never cleanEmpId. Snakes has no Email ID criterion yet; every future path must use this one function. */
+export const cleanEmail = (raw: unknown): string => String(raw ?? "").normalize("NFKC").trim().replace(/\s+/g, "").toLowerCase();
