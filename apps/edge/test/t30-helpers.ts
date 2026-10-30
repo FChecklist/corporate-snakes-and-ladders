@@ -54,5 +54,5 @@ export async function setupGame(w: World, opts: { id?: string; verify?: string; 
   return { ...o, id };
 }
 export const addPeople = (w: World, key: string, id: string, people: unknown[]) => api(w, "POST", `/api/z/${id}/people`, { people }, key);
-export const joinGame = (w: World, id: string, body: Record<string, unknown>, now = T) => api(w, "POST", `/api/z/${id}/join`, body, undefined, now);
+export const joinGame = (w: World, id: string, body: Record<string, unknown>, now = T, ip?: string) => api(w, "POST", `/api/z/${id}/join`, body, undefined, now, ip ? { "cf-connecting-ip": ip } : {});
 export const who = (w: World, id: string, empId: string) => api(w, "POST", `/api/z/${id}/who`, { empId, consent: TICKS }, undefined, T);

@@ -1,0 +1,110 @@
+{
+ "groups": {
+  "M1": {
+   "scenarios": 3709440,
+   "checks": 33384960,
+   "pass": 3709440,
+   "fail": 0
+  },
+  "M2": {
+   "scenarios": 8640,
+   "checks": 142560,
+   "pass": 8640,
+   "fail": 0
+  },
+  "M3": {
+   "scenarios": 3651,
+   "checks": 27001,
+   "pass": 3651,
+   "fail": 0
+  },
+  "M4": {
+   "scenarios": 708,
+   "checks": 1996,
+   "pass": 708,
+   "fail": 0
+  }
+ },
+ "total": {
+  "scenarios": 3722439,
+  "checks": 33556517,
+  "pass": 3722439,
+  "fail": 0
+ },
+ "independentInputs": 14956,
+ "byDimension": {
+  "employee-id-format": {
+   "scenarios": 3710056,
+   "fail": 0
+  },
+  "game-era": {
+   "scenarios": 3710056,
+   "fail": 0
+  },
+  "email-format": {
+   "scenarios": 3709440,
+   "fail": 0
+  },
+  "validation-mode": {
+   "scenarios": 3710148,
+   "fail": 0
+  },
+  "employee-id-vs-email": {
+   "scenarios": 3709440,
+   "fail": 0
+  },
+  "dice-mode": {
+   "scenarios": 8640,
+   "fail": 0
+  },
+  "turn-limit": {
+   "scenarios": 8640,
+   "fail": 0
+  },
+  "end-prizes": {
+   "scenarios": 8640,
+   "fail": 0
+  },
+  "finish-rule": {
+   "scenarios": 8640,
+   "fail": 0
+  },
+  "players": {
+   "scenarios": 8640,
+   "fail": 0
+  },
+  "role": {
+   "scenarios": 1150,
+   "fail": 0
+  },
+  "link-type": {
+   "scenarios": 3651,
+   "fail": 0
+  },
+  "screen-state": {
+   "scenarios": 3650,
+   "fail": 0
+  },
+  "theme": {
+   "scenarios": 3650,
+   "fail": 0
+  },
+  "payment-state": {
+   "scenarios": 708,
+   "fail": 0
+  },
+  "start-time": {
+   "scenarios": 708,
+   "fail": 0
+  },
+  "device": {
+   "scenarios": 708,
+   "fail": 0
+  },
+  "approval": {
+   "scenarios": 616,
+   "fail": 0
+  }
+ },
+ "firstFailures": []
+}
