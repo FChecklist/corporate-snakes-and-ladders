@@ -43,13 +43,14 @@ export async function startOrganizer(w: World, email?: string) {
 }
 
 /** A published game (free: cap 100 is fine for the people routes) with the chosen verification mode. `era` = "new" gives the game row a created_ms after the cleaner's switch-on instant. */
-export async function setupGame(w: World, opts: { id?: string; verify?: string; employeesOnly?: boolean; era?: "old" | "new"; closed?: boolean; cap?: number; callSeconds?: number } = {}) {
+export async function setupGame(w: World, opts: { id?: string; verify?: string; employeesOnly?: boolean; era?: "old" | "new"; paid?: boolean; closed?: boolean; cap?: number; callSeconds?: number } = {}) {
   const o = await startOrganizer(w), id = opts.id ?? "T30-1";
   expect((await api(w, "POST", "/api/z", { id, startRound: START, callSeconds: opts.callSeconds ?? 20, cap: opts.cap ?? 100, ...(opts.closed ? { whoCanJoin: "list" } : {}) }, o.key)).status).toBe(200);
   expect((await api(w, "POST", `/api/z/${id}/publish`, { email: "boss@acme.com", phone: "98765 43210" }, o.key)).status).toBe(200);
   const body = { ...(opts.verify ? { verify: opts.verify } : {}), ...(opts.employeesOnly !== undefined ? { employeesOnly: opts.employeesOnly } : {}) };
   if (Object.keys(body).length) expect((await api(w, "PATCH", `/api/z/${id}/settings`, body, o.key)).status).toBe(200);
   w.raw.prepare("UPDATE engagement SET created_ms=? WHERE id=?").run(opts.era === "new" ? NEW_ERA_MS : OLD_ERA_MS, id);
+  if (opts.paid) w.raw.prepare("UPDATE engagement SET pack=? WHERE id=?").run(opts.cap ?? 100, id); // paid (the same stand-in the other tests use)
   return { ...o, id };
 }
 export const addPeople = (w: World, key: string, id: string, people: unknown[]) => api(w, "POST", `/api/z/${id}/people`, { people }, key);
