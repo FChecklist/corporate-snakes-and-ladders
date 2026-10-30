@@ -13,7 +13,7 @@ Branch `tests/snakes-run3-fixes-2026-10-30`, from `origin/release/snakes-1.4.0` 
 | `bun run typecheck` | 0 errors | | |
 
 Not run: apps/cron, tools/browser-tests, tools/errorlog (no `*.test.ts` files). `tools/sim2` (crowd simulation, `bun run sim`, 15 min timeout) is outside the repo's `test` script and was not run in this pass.
-apps/web was run once before the web fixes (135 pass, 2 fail) and again after (138 pass, 0 fail). The 138 is the final count; the new count is 3 more because one test was added to no-internal-notes.test.ts (the narrow-exemption test) and the pack check counts differently. Nothing else in the folder changed.
+apps/web was run once before the web fixes (135 pass, 2 fail, 137 tests) and again after (138 pass, 0 fail). The one extra test is the new narrow-exemption test in no-internal-notes.test.ts.
 
 ## What I changed (all test code)
 1. **verify.test.ts** (the 188/198 tests): the service was in LIVE mode. The tests now call the product's own `setMode(env, "TEST", ...)` (apps/edge/src/mode.ts, same way wp14-testlogins.test.ts does it) before the demo1/2/3 sign-ins. Added a LIVE case that refuses 123456 with 400 and no token.
