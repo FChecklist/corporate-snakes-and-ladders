@@ -1,0 +1,7 @@
+BREAKCHECK landing  (scratch copy: /tmp/claude-0/-home-user-corporate-snakes-and-ladders/117805c9-be35-5a9a-b7a1-0275cf74a649/scratchpad/breakcheck-7LgelH; tests: apps/web/test/t30-m3-landing.test.ts)
+  baseline: GREEN  17 pass, 0 fail
+  break 1: a menu item (Brochure) is missing  [apps/web/public/index.html]  -> RED  16 pass, 1 fail
+      failing: landing: kit header > the main menu has exactly the six items, in order, with the right links
+  break 2: the Guide link points to the wrong page  [apps/web/public/index.html]  -> RED  15 pass, 2 fail
+      failing: landing: kit header > the main menu has exactly the six items, in order, with the right links
+      failing: landing: kit footer > every menu and footer link that points into this site has a file behind it (no dead page)

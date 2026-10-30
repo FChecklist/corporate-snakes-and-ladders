@@ -24,7 +24,7 @@ describe("landing: kit header", () => {
   test("a Menu button controls the nav (aria-controls, aria-expanded false at first)", () => {
     const m = d.getElementById("ck-menu"); expect(m.textContent.trim()).toBe("Menu"); expect(m.getAttribute("aria-controls")).toBe("ck-nav"); expect(m.getAttribute("aria-expanded")).toBe("false");
   });
-  test("the old header is gone: no .snav element anywhere in the page or in its styles", () => { expect(d.querySelector(".snav")).toBeNull(); expect(/class="[^"]*\bsnav\b/.test(HTML)).toBe(false); expect(d.querySelectorAll("header.ck-top").length).toBe(1); expect(d.querySelectorAll("nav").length).toBe(1); });
+  test("the old header is gone: no .snav element anywhere in the page or in its styles", () => { expect(d.querySelector(".snav") === null).toBe(true); expect(/class="[^"]*\bsnav\b/.test(HTML)).toBe(false); expect(d.querySelectorAll("header.ck-top").length).toBe(1); expect(d.querySelectorAll("nav").length).toBe(1); });
   test("brand name is in the header and links home", () => { const b = d.querySelector(".ck-brand"); expect(b.getAttribute("href")).toBe("/"); expect(b.textContent).toContain("Snakes and Ladders"); });
 });
 
@@ -60,7 +60,7 @@ describe("landing: kit header behaviour (the real brandkit.js)", () => {
 describe("landing: kit footer", () => {
   const d = doc().document;
   test("there is a footer with a Version slot (#relline) at the bottom of the page, after the legal text", () => {
-    const f = d.querySelector("footer.ck-foot"); expect(f).not.toBeNull(); expect(f.querySelector("#relline")).not.toBeNull();
+    const f = d.querySelector("footer.ck-foot"); expect(f !== null).toBe(true); expect(f.querySelector("#relline") !== null).toBe(true);
     expect(HTML.indexOf('id="relline"')).toBeGreaterThan(HTML.indexOf('class="ck-legal"'));
     expect(HTML.indexOf("</footer>")).toBeGreaterThan(HTML.indexOf('id="relline"'));
   });

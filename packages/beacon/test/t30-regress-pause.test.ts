@@ -77,6 +77,13 @@ describe("only the organizer's key can pause (signatures)", () => {
     const k = await generateOrganizerKey(); const m = await signControl(k.privateKey, { engagementId: "G1", seq: 1, action: "stop", atBeaconRound: 1100, signedAtRound: 1000 });
     expect((await acceptLog({ pubKey: k.publicKeyHex, maxPauseRounds: 600, leadRounds: 4 }, "G1", [m])).length).toBe(1); expect((await acceptLog(cfg(), "G1", [m])).length).toBe(0);
   });
+  test("a gap in the numbers stops the log there (a withheld message can only make a phone know less, never something false); a duplicate number with another signature is not believed", async () => {
+    const m1 = msg({ seq: 1, action: "pause", atBeaconRound: 1100, untilRound: 1120 }), m3 = msg({ seq: 3, action: "stop", atBeaconRound: 1300 });
+    expect((await acceptLog(cfg(), "G1", [m1, m3])).map((m) => m.seq)).toEqual([1]);
+    const m2 = msg({ seq: 2, action: "extend", atBeaconRound: 1105, untilRound: 1140 }); expect((await acceptLog(cfg(), "G1", [m3, m2, m1])).map((m) => m.seq)).toEqual([1, 2, 3]);
+    const twin = msg({ seq: 1, action: "pause", atBeaconRound: 1500, untilRound: 1600 }); const r = await (await import("../src/control")).acceptLogDetailed(cfg(), "G1", [m1, twin]);
+    expect(r.log).toEqual([m1]); expect(r.forged).toBe(1);
+  });
   test("junk in the log (not an object, missing fields, wrong action) is dropped, never thrown", async () => {
     expect((await acceptLog(cfg(), "G1", [null, 5, "x", {}, { seq: 1 }, { ...msg({ seq: 1, action: "pause", atBeaconRound: 1100 }), action: "explode" }] as any)).length).toBe(0);
     expect((await acceptLog(cfg(), "G1", "not a list" as any)).length).toBe(0);
