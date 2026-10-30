@@ -85,10 +85,18 @@ describe("A. organizer: getting in", () => {
     expect(o.token).toMatch(/^cbk_/);
   });
   test("UC-5 invalid emails are refused everywhere", async () => {
-    for (const email of ["", "nope", "a@b", "a b@c.com", "x".repeat(300) + "@a.com", 42 as any]) {
+    for (const email of ["", "nope", "a@b", "x".repeat(300) + "@a.com", 42 as any]) {
       expect((await call("POST", "/api/start", { email })).status).toBe(400);
       expect((await call("POST", "/api/auth/email", { email })).status).toBe(400);
     }
+  });
+  test("UC-5 an ACCOUNT e-mail is cleaned at the ends only (NFKC, trim, lowercase); an address with a space INSIDE is refused, never repaired (1.4.1 owner rule; a participant's Email ID still drops inner spaces: audit141-email.test.ts)", async () => {
+    const a = await organizer("  AB@C.com "), b = await organizer("ab@c.com");
+    expect((raw.prepare("SELECT COUNT(DISTINCT org) AS c FROM organizer_email").get() as any).c).toBe(1);
+    expect(a.token).toBeTruthy(); expect(b.email).toBe("ab@c.com"); // the second sign-up is the same account (no new row)
+    expect((await call("POST", "/api/auth/email", { email: "AB@C.com" })).status).toBe(200);
+    for (const bad of ["A B@C.com", "  A B@C.com ", "ab@c .com", "a\tb@c.com"]) { expect((await call("POST", "/api/start", { email: bad })).status).toBe(400); expect((await call("POST", "/api/auth/email", { email: bad })).status).toBe(400); }
+    expect((raw.prepare("SELECT COUNT(DISTINCT org) AS c FROM organizer_email").get() as any).c).toBe(1);
   });
   test("UC-5 an unknown email asking for a code gets the same answer as a known one (nobody can find out who has an account)", async () => {
     await organizer("known@acme.com");
@@ -357,7 +365,8 @@ describe("D. participants", () => {
     const ok = rs.filter((r) => r.status === 200).length, full = rs.filter((r) => r.status === 409).length;
     expect((raw.prepare("SELECT COUNT(*) AS c FROM participant WHERE eid='CROWD-1'").get() as any).c).toBeLessThanOrEqual(5);
     expect(ok).toBe(5); expect(full).toBe(35);
-    expect((await call("POST", "/api/z/CROWD-1/join", { phone: phone(1) })).status).toBe(200); // someone who already has a place can always come back
+    const inIdx = rs.findIndex((r) => r.status === 200); // which 5 of the 40 simultaneous joins win is not fixed, so use one that really got in
+    expect((await call("POST", "/api/z/CROWD-1/join", { phone: phone(inIdx + 1) })).status).toBe(200); // someone who already has a place can always come back
   });
   test("UC-33 invite-only: an unlisted number is refused, a listed one gets in", async () => {
     const o = await published("INVITE-1", { closed: true });
