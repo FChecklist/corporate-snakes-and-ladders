@@ -69,14 +69,14 @@ describe("the other words of the old console follow the game's kind of ID", () =
     expect(p.text()).toContain("Name, Mobile (optional), Email ID");
     expect(p.text()).not.toMatch(/Fill it in \([^)]*Employee ID/);
   });
-  // PRODUCT BUG PB-5b: for "both" (mobile number and ID) the paste help is still the fixed words "name, mobile number, employee ID", whatever kind of ID the game asks for.
-  test.failing("an Email ID game that asks for mobile AND ID: the paste help says Email ID", async () => {
+  // PB-5b (fixed in 1.4.1 round 2): for "both" (mobile number and ID) the paste help is still the fixed words "name, mobile number, employee ID", whatever kind of ID the game asks for.
+  test("an Email ID game that asks for mobile AND ID: the paste help says Email ID", async () => {
     const { p } = await consoleFor("CON-EM3", { settings: { verify: "both", idKind: "email" } });
     await openPaste(p);
     expect(p.text()).toMatch(/Paste one person per line: name, mobile number, Email ID/);
   });
-  // PRODUCT BUG PB-5 (see TESTER_REPORT): the "id" paste line is a plain "..." string that still holds the text ${idLow()}, so the organizer reads the code, not the word.
-  test.failing("the paste help of an Employee ID game reads 'name, employee ID', never a raw ${...}", async () => {
+  // PB-5 (fixed in 1.4.1 round 2): the "id" paste line is a plain "..." string that still holds the text ${idLow()}, so the organizer reads the code, not the word.
+  test("the paste help of an Employee ID game reads 'name, employee ID', never a raw ${...}", async () => {
     const { p } = await consoleFor("CON-EM2", { settings: { verify: "id" } });
     await openPaste(p);
     expect(p.text()).not.toContain("${");
@@ -92,7 +92,7 @@ describe("item 10 (console): the add-people summary names the duplicates (up to 
     p.click("#rosterGo"); await p.waitFor((x) => /duplicate/.test(x), 20000);
     const t = p.$("#cleansum").textContent;
     expect(t).toMatch(/2 good, 2 duplicates removed/);
-    expect(t).toContain("Bala Nair"); expect(t).toContain("Chitra Das");
+    expect(t).toContain("1B678"); expect(t).toContain("1B/678"); // 1.4.1 round 2: each duplicate is named by the ID as typed (the console shows it with the cleaner's case and spacing)
   });
   test("DELIBERATE BREAK: dropping the names from the summary is caught", async () => {
     const pub = mutated("zc.js", 'for (const x of r.duplicateRows || []) dupNames.push(String(x.raw || "").slice(0, 60));', "");
@@ -119,8 +119,8 @@ describe("item 6: 'Ends when N players are home' is true", () => {
     expect(t).not.toMatch(/as soon as \d+ players? (is|are) home/);
     expect(t).toContain("The game ends when the first whole team is home");
   });
-  // PRODUCT BUG PB-3b: the help line under that choice (zc.js:246, a fixed text) still says "this many players" in a team game.
-  test.failing("the help line under the choice does not say 'this many players are home' in a team game", async () => {
+  // PB-3b (fixed in 1.4.1 round 2): the help line under that choice (zc.js:246, a fixed text) still says "this many players" in a team game.
+  test("the help line under the choice does not say 'this many players are home' in a team game", async () => {
     const { p } = await consoleFor("CON-TM3", { over: { mode: "team", teams: 3 } });
     const t = await openStep(p, 2, /How many players/);
     expect(t).not.toContain("The game ends when this many players are home.");
@@ -150,8 +150,8 @@ describe("item 6: 'Ends when N players are home' is true", () => {
     const old = (v: any, n: number) => v.kind === "table" ? `Turn ${n} of ${v.turnCap}` : `Turn ${n} &middot; ends when ${v.endPrizes} ${v.endPrizes === 1 ? "player is" : "players are"} home`;
     expect(plain(old({ kind: "team", turnCap: 60, endPrizes: 5 }, 3))).not.toBe("Turn 3 of 60 · ends sooner when the first whole team is home");
   });
-  // PRODUCT BUG PB-3 (see TESTER_REPORT): the projector page big.js still says "ends when N players are home" (no cap, no team rule) for the same games.
-  test.failing("the projector page (big.js) tells the same true thing as the phone: team games say the first whole team, and the turn cap is shown", () => {
+  // PB-3 (fixed in 1.4.1 round 2): the projector page big.js still says "ends when N players are home" (no cap, no team rule) for the same games.
+  test("the projector page (big.js) tells the same true thing as the phone: team games say the first whole team, and the turn cap is shown", () => {
     const big = readFileSync(join(PUB, "big.js"), "utf8");
     expect(big).toContain("first whole team");
     expect(big).toMatch(/ends sooner/);
@@ -159,20 +159,14 @@ describe("item 6: 'Ends when N players are home' is true", () => {
 });
 
 describe("PB-4: an Email ID game is still an Email ID game when the console is opened again", () => {
-  // PRODUCT BUG PB-4 (see TESTER_REPORT): zc.js builds its settings (S.cfg) from the server record but leaves idKind out, so the form shows 'Employee ID' and a plain "Save" in step 2 sends idKind "emp" back,
+  // PB-4 (fixed in 1.4.1 round 2): zc.js built its settings (S.cfg) from the server record but left idKind out, so the form showed 'Employee ID' and a plain "Save" in step 2 sent idKind "emp" back,
   // which the new lock refuses with 'You already have people listed...'. The organizer changed nothing.
-  test.failing("Email game with a listed person: step 2 shows Email ID chosen and Save works", async () => {
+  test("Email game with a listed person: step 2 shows Email ID chosen and Save works", async () => {
     const { p, w } = await consoleFor("CON-P4A", { settings: { verify: "id", idKind: "email" }, people: [{ name: "Asha", empId: "a@x.com" }] });
     const t = await openStep(p, 2, /Which ID/);
     expect(t).toContain("Your list has an Email ID for each person.");
     p.click('[data-save="2"]'); await new Promise((r) => setTimeout(r, 2500));
     expect(p.text()).not.toContain("already have people listed");
     void w;
-  });
-  test("what happens today (kept so the report's evidence is re-checkable): the form says employee ID and Save is refused with the lock words", async () => {
-    const { p } = await consoleFor("CON-P4B", { settings: { verify: "id", idKind: "email" }, people: [{ name: "Asha", empId: "a@x.com" }] });
-    const t = await openStep(p, 2, /Which ID/);
-    expect(t).toContain("Your list has an employee ID for each person.");
-    p.click('[data-save="2"]'); await p.waitFor((x) => /already have people listed/.test(x), 10000);
   });
 });

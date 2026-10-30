@@ -101,8 +101,8 @@ describe("item 11: release.json and the public files hold no internal notes", ()
     expect(walk(out).length).toBeGreaterThan(100); expect(bad).toEqual([]);
   });
   test("DELIBERATE BREAK: the marker scan does catch a note (checked on a string)", () => { expect(MARKERS.some((re) => re.test("// see TEST_HANDOFF item 7"))).toBe(true); expect(MARKERS.some((re) => re.test("// Boss ruling Q8"))).toBe(true); });
-  // PRODUCT NOTE PN-3: apps/web/public/site.js:23 still has a source comment "Boss ruling Q8". It is stripped by the build, so nothing ships; the source folder is not clean.
-  test.failing("the SOURCE folder apps/web/public also has none (site.js:23 'Boss ruling Q8' is a comment that the build removes)", () => {
+  // PN-3 (fixed in 1.4.1 round 2): the "Boss ruling Q8" source comment in site.js is gone.
+  test("the SOURCE folder apps/web/public also has none (site.js:23 'Boss ruling Q8' is a comment that the build removes)", () => {
     const bad: string[] = []; for (const f of walk(PUB)) { const t = readFileSync(f, "utf8"); for (const re of MARKERS) if (re.test(t)) bad.push(f.slice(PUB.length) + " ~ " + re); }
     expect(bad).toEqual([]);
   });

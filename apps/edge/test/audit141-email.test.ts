@@ -12,13 +12,15 @@ import { call, j, organizer, publish, create, reset, restore, uid, W } from "./p
 beforeEach(() => reset());
 afterEach(() => { restore(); setGoogleKeyProvider(); });
 
-/** The rule written out a second time, on purpose, with NO regex: the characters JavaScript calls white space, listed one by one. */
-const WS = new Set([..." \t\n\v\f\r      　﻿", ...Array.from({ length: 11 }, (_, i) => String.fromCharCode(0x2000 + i))]);
+/** The rule written out a second time, on purpose, with NO regex and no literal invisible characters: white space and invisible characters listed by code point. */
+const cp = (...n: number[]) => n.map((x) => String.fromCharCode(x));
+const WS = new Set([...cp(0x20, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0xa0, 0x1680, 0x2028, 0x2029, 0x202f, 0x205f, 0x3000, 0xfeff), ...Array.from({ length: 11 }, (_, i) => String.fromCharCode(0x2000 + i))]);
+const INVISIBLE = new Set(cp(0x200b, 0x200c, 0x200d, 0x2060, 0xfeff, 0x0085, 0x2028, 0x2029)); // 1.4.1 round 2: refused inside an account email too
 const model = (raw: string): string => {
   let v = raw.normalize("NFKC"); let a = 0, b = v.length;
   while (a < b && WS.has(v[a]!)) a++; while (b > a && WS.has(v[b - 1]!)) b--;
   v = v.slice(a, b).toLowerCase();
-  for (const ch of v) if (WS.has(ch)) return ""; // a space inside: refused
+  for (const ch of v) if (WS.has(ch) || INVISIBLE.has(ch)) return ""; // a space or an invisible character inside: refused
   return v;
 };
 
@@ -73,7 +75,7 @@ export const MATRIX_SIZE = N_CORE * CASES.length * ATS.length * TAGS.length * DO
 export function* emailMatrix(): Generator<string> {
   for (let i = 0; i < N_CORE; i++) for (const cs of CASES) for (const at of ATS) for (const tag of TAGS) for (const dot of DOTS) for (const sp of SPACES) for (const zw of ZW) for (const lg of LONG) {
     let local = cs(core(i)); if (dot) local = local.slice(0, 1) + "." + local.slice(1) + "." + "s";
-    if (zw) local = local.slice(0, 1) + "​" + local.slice(1);
+    if (zw) local = local.slice(0, 1) + String.fromCharCode(0x200b) + local.slice(1);
     if (lg) local = local + "s".repeat(300); local += tag;
     if (sp === "innerSpace") local = local.slice(0, 1) + " " + local.slice(1); else if (sp === "innerTab") local = local.slice(0, 1) + "\t" + local.slice(1);
     const e = local + at + cs("acme.co.in");
@@ -100,8 +102,8 @@ describe("streamed email matrix", () => {
     expect(r.dup).toBe(0);
     expect(r.distinctChecked).toBe(1_100_000);
     expect(r.wrong).toBe(0);
-    expect(r.refused).toBe(MATRIX_SIZE / SPACES.length * 2); // innerSpace + innerTab refused, none + edge kept
-    expect(r.kept).toBe(MATRIX_SIZE / SPACES.length * 2);
+    expect(r.refused).toBe(MATRIX_SIZE * 3 / 4); // innerSpace, innerTab or an inner U+200B: refused (3 of every 4); only none/edge without a zero-width character is kept
+    expect(r.kept).toBe(MATRIX_SIZE / 4);
   }, 300000);
   test("DELIBERATE BREAK: a cleaner that forgot the backslash (/s/) is caught by the matrix", () => {
     const broken = (raw: string) => { const v = String(raw ?? "").normalize("NFKC").trim().toLowerCase(); return /s/.test(v) ? "" : v; };
@@ -153,8 +155,8 @@ describe("add a Host refuses an inner space in the e-mail", () => {
     const o = await organizer();
     for (const e of bad) { const r = await call("POST", "/api/org/host", { email: e }, o.h); expect([e, r.status]).toEqual([e, 400]); }
   });
-  // PRODUCT BUG PB-1 (see TESTER_REPORT): the route cleans the e-mail to "" and then treats it as "no e-mail typed", so the Host is made from the mobile number alone and the typed address is silently dropped. test.failing turns green when it is fixed (then change it to test).
-  test.failing("POST /api/org/host with a spaced e-mail AND a mobile number is refused too (the bad address must not be silently dropped)", async () => {
+  // PB-1 of the first report was fixed in 1.4.1 round 2 ("Host email 400"): a bad address next to a mobile number is refused, not dropped.
+  test("POST /api/org/host with a spaced e-mail AND a mobile number is refused too (the bad address must not be silently dropped)", async () => {
     const o = await organizer();
     const r = await call("POST", "/api/org/host", { email: "ho st@acme.com", mobile: "9876500009" }, o.h);
     expect(r.status).toBe(400);
@@ -193,8 +195,10 @@ describe("a participant's Email ID still REMOVES inner spaces (the other rule)",
 describe("source: the account cleaner is the one every account door imports", () => {
   const src = (f: string) => readFileSync(join(import.meta.dir, "../src", f), "utf8");
   test("emailclean.ts has the backslash-s test written out, and people.ts normId (participant Email ID) still uses cleanEmail", () => {
-    expect(src("emailclean.ts")).toContain("/\\s/.test(v)");
-    expect(src("emailclean.ts")).toContain(".replace(/\\s+/g, \"\")");
+    const BS = String.fromCharCode(92), U = (h: string) => BS + "u" + h; // no backslash is typed in a literal below
+    const cls = "[" + BS + "s" + U("200B") + "-" + U("200D") + U("2060") + U("FEFF") + U("0085") + U("2028") + U("2029") + "]";
+    expect(src("emailclean.ts")).toContain("/" + cls + "/.test(v)");
+    expect(src("emailclean.ts")).toContain(".replace(/" + cls + "+/g, \"\")");
     expect(src("people.ts")).toMatch(/cleanEmail\(raw\)/);
   });
   for (const f of ["admin.ts", "credit.ts", "google.ts", "helpdesk.ts", "hostsetup.ts", "mode.ts", "partners.ts", "pay.ts", "testlogins.ts", "visits.ts", "worker.ts"])

@@ -9,8 +9,9 @@ beforeEach(() => reset());
 afterEach(restore);
 const CLEAN_MS = EMP_CLEAN_FROM_MS + 1;
 const cleanOn = (id: string) => W.raw.prepare("UPDATE engagement SET created_ms=? WHERE id=?").run(CLEAN_MS, id);
-const WHY = "Same person as an earlier row (the ID reads the same after cleaning)."; // a row is named by the person on it ("name phone"), not by the ID typed
-const LOCK = "You already have people listed. Start a new game to use a different kind of ID.";
+const WHY = "Same person as an earlier row (the ID reads the same after cleaning)."; // 1.4.1 round 2: a row is named by the ID as typed
+const LOCK = "You already have people listed. Start a new game to use a different kind of ID."; // the kind of ID was changed
+const LOCK_VERIFY = "You already have people listed. Start a new game to use a different way of asking for IDs."; // only the way of asking (verify) was changed
 async function game(over: Record<string, unknown> = {}, settings: Record<string, unknown> = {}, clean = false) {
   const o = await organizer(), id = uid(); expect((await create(o.key, id, { cap: 8, ...over })).status).toBe(200); expect((await publish(o.key, id)).status).toBe(200);
   if (clean) cleanOn(id);
@@ -41,9 +42,9 @@ describe("item 4: the kind of ID is locked once anyone is listed or has joined",
     const g = await game({}, { verify: "id" });
     expect((await j(await addPeople(g, [{ name: "Asha", empId: "E101" }]))).added).toBe(1);
     expect(one("SELECT COUNT(*) AS c FROM participant WHERE eid=?", g.id).c).toBe(0); // proves this is the listed-only case
-    for (const b of [{ idKind: "email" }, { verify: "mobile" }, { verify: "both" }, { verify: "either" }]) {
+    for (const [b, words] of [[{ idKind: "email" }, LOCK], [{ verify: "mobile" }, LOCK_VERIFY], [{ verify: "both" }, LOCK_VERIFY], [{ verify: "either" }, LOCK_VERIFY], [{ verify: "mobile", idKind: "email" }, LOCK]] as [Record<string, unknown>, string][]) {
       const r = await patch(g, b), body = await j(r);
-      expect([JSON.stringify(b), r.status, body.error, body.code]).toEqual([JSON.stringify(b), 409, LOCK, "id-locked"]);
+      expect([JSON.stringify(b), r.status, body.error, body.code]).toEqual([JSON.stringify(b), 409, words, "id-locked"]);
     }
     expect(one("SELECT config FROM engagement WHERE id=?", g.id).config).not.toContain("email");
   });
@@ -54,7 +55,7 @@ describe("item 4: the kind of ID is locked once anyone is listed or has joined",
     W.raw.prepare("DELETE FROM person WHERE eid=?").run(g.id); // joining also makes a list row: take it away, so only the participant row can be the reason for the lock
     expect(one("SELECT COUNT(*) AS c FROM person WHERE eid=?", g.id).c).toBe(0);
     expect(one("SELECT COUNT(*) AS c FROM participant WHERE eid=?", g.id).c).toBe(1);
-    for (const b of [{ verify: "id" }, { idKind: "email" }]) { const r = await patch(g, b), body = await j(r); expect([JSON.stringify(b), r.status, body.error, body.code]).toEqual([JSON.stringify(b), 409, LOCK, "id-locked"]); }
+    for (const [b, words] of [[{ verify: "id" }, LOCK_VERIFY], [{ idKind: "email" }, LOCK]] as [Record<string, unknown>, string][]) { const r = await patch(g, b), body = await j(r); expect([JSON.stringify(b), r.status, body.error, body.code]).toEqual([JSON.stringify(b), 409, words, "id-locked"]); }
   });
   test("saving the SAME values still works with people in the game, and so do other settings", async () => {
     const g = await game({}, { verify: "id", idKind: "email" });
@@ -79,9 +80,9 @@ describe("item 3 (server): an email typed in an employee-ID box gets the plain r
     const g = await game({}, { verify: "id" }, true);
     for (const t of ["a@b.com", "a＠b.com", "A.B@C.IN", "1b-678@x"]) { const r = await joinId(g.id, t), b = await j(r); expect([t, r.status, b.code, b.error]).toEqual([t, 400, "bad-id", "This looks like an Email ID. This game asks for an employee ID: letters and numbers only."]); }
   });
-  test("a game on the old reading keeps the old plain words, and an email is not read as an ID either", async () => {
+  test("a game on the old reading gives the same plain refusal for an email (1.4.1 round 2), never letters", async () => {
     const g = await game({}, { verify: "id" });
-    const b = await j(await joinId(g.id, "a@b.com")); expect(b.code).toBe("bad-id"); expect(b.error).toBe("An employee ID has letters and numbers only (up to 30).");
+    const b = await j(await joinId(g.id, "a@b.com")); expect(b.code).toBe("bad-id"); expect(b.error).toBe("This looks like an Email ID. This game asks for an employee ID: letters and numbers only.");
   });
   test("an Email ID game takes the email and never says 'employee'", async () => {
     const g = await game({}, { verify: "id", idKind: "email" }, true);
@@ -112,25 +113,19 @@ describe("item 10: duplicates after cleaning are named row by row", () => {
     const g = await game({}, { verify: "id" }, true);
     const r = await j(await addPeople(g, [{ name: "A", empId: "1B-678" }, { name: "B", empId: "1b 678" }, { name: "C", empId: "1B/678" }, { name: "D", empId: "2C-9" }]));
     expect([r.added, r.duplicates]).toEqual([2, 2]);
-    expect(r.duplicateRows).toEqual([{ raw: "B", why: WHY }, { raw: "C", why: WHY }]);
+    expect(r.duplicateRows).toEqual([{ raw: "1b 678", why: WHY }, { raw: "1B/678", why: WHY }]);
   });
-  // PRODUCT BUG PB-2 (see TESTER_REPORT): a row that repeats someone ALREADY listed by an earlier upload is counted in `duplicates` but not named in `duplicateRows` (people.ts:359 counts, never pushes). test.failing: turns green once fixed.
-  test.failing("a second upload of an already-listed ID is named too (every counted duplicate has a name)", async () => {
+  // PB-2 of the first report was fixed in 1.4.1 round 2: a row that repeats someone already listed is now named too.
+  test("a second upload of an already-listed ID is named too (every counted duplicate has a name)", async () => {
     const g = await game({}, { verify: "id" }, true);
     await addPeople(g, [{ name: "A", empId: "1B-678" }]);
     const r = await j(await addPeople(g, [{ name: "A again", empId: "1b 678" }]));
-    expect([r.added, r.duplicates, r.duplicateRows.length]).toEqual([0, 1, 1]);
-  });
-  test("what the second upload does give today: the count, with no names", async () => {
-    const g = await game({}, { verify: "id" }, true);
-    await addPeople(g, [{ name: "A", empId: "1B-678" }]);
-    const r = await j(await addPeople(g, [{ name: "A again", empId: "1b 678" }]));
-    expect([r.added, r.duplicates, r.duplicateRows]).toEqual([0, 1, []]);
+    expect([r.added, r.duplicates, r.duplicateRows]).toEqual([0, 1, [{ raw: "1b 678", why: "Already on the list." }]]);
   });
   test("Email ID games: the same address in another case is named", async () => {
     const g = await game({}, { verify: "id", idKind: "email" });
     const r = await j(await addPeople(g, [{ name: "A", empId: "a@x.com" }, { name: "B", empId: "A＠X.COM" }]));
-    expect([r.added, r.duplicates, r.duplicateRows.map((x: any) => x.raw)]).toEqual([1, 1, ["B"]]);
+    expect([r.added, r.duplicates, r.duplicateRows.map((x: any) => x.raw)]).toEqual([1, 1, ["A＠X.COM"]]);
   });
   test("mobile numbers: the same number twice is named as well", async () => {
     const g = await game();

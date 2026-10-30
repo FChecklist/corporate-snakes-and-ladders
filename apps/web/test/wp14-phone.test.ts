@@ -41,8 +41,8 @@ describe("SL-11: the phone keeps its screen on and tells the person to use Do no
     expect(p.text()).toContain("Sound on"); expect(p.text()).not.toContain("Sound off");
     expect(p.text()).toContain("switch your phone to Do not disturb");
   });
-  // PRODUCT BUG PB-9 (see TESTER_REPORT): item 12 turned the sound ON by default but the waiting-room sentence "Sound is off until you turn it on." (z.js:500) was left, so the page contradicts its own button.
-  test.failing("the waiting room does not say 'Sound is off until you turn it on' while the button says Sound on", async () => {
+  // PB-9 (fixed in 1.4.1 round 2): the waiting-room tip now says sound is on unless the player turns it off.
+  test("the waiting room does not say 'Sound is off until you turn it on' while the button says Sound on", async () => {
     const o = await organizer(); await publishedGame(o, "WAKE-2");
     const p = await phone(o, "WAKE-2"); await join(p);
     expect(p.text()).toContain("Sound on"); expect(p.text()).not.toContain("Sound is off until you turn it on");
