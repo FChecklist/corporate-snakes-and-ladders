@@ -39,10 +39,10 @@
     if (e.target.closest("[data-close]")) TB.closeSheet();
   });
   document.addEventListener("keydown", (e) => { if (e.key === "Escape") TB.closeSheet(); });
-  $("pack").addEventListener("change", (e) => { S.pack = +e.target.value; renderPrices(); });
+  $("pack")?.addEventListener("change", (e) => { S.pack = +e.target.value; renderPrices(); });
   document.addEventListener("change", (e) => { if (e.target && e.target.id === "pack2") { S.pack = +e.target.value; renderPrices(); const f = $("pack2"); if (f) f.focus(); } });
-  $("payBtn").addEventListener("click", () => openCheckout(S.pack));
-  $("loginLink").addEventListener("click", (e) => { e.preventDefault(); openLogin(""); });
+  $("payBtn")?.addEventListener("click", () => openCheckout(S.pack));
+  $("loginLink")?.addEventListener("click", (e) => { e.preventDefault(); openLogin(""); });
 
   // ---------- helpers ----------
   const xbtn = `<button type="button" class="xbtn" data-close aria-label="Close">${ic("x")}</button>`;
