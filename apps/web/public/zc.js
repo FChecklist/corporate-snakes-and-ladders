@@ -677,7 +677,7 @@
     h += guestTools();
     return h + `</div>`;
   }
-  const localCsv = () => [vmode() === "mobile" ? "Name,Mobile,Personal link,WhatsApp link,Status" : "Name,Mobile," + idLbl() + ",Personal link,WhatsApp link,Status"].concat((S.pp.list || []).map((p) => [p.name, p.maskedPhone].concat(vmode() === "mobile" ? [] : [p.empId || ""]).concat([p.link, waHref(p), stLabel(p.status)]).map((x) => '"' + String(x == null ? "" : x).replace(/"/g, '""') + '"').join(","))).join("\n");
+  const localCsv = () => [vmode() === "mobile" ? "Name,Mobile,Personal link,WhatsApp link,Status" : (idLbl() === "Employee ID" ? "Name,Mobile,Employee ID,Personal link,WhatsApp link,Status" : "Name,Mobile," + idLbl() + ",Personal link,WhatsApp link,Status")].concat((S.pp.list || []).map((p) => [p.name, p.maskedPhone].concat(vmode() === "mobile" ? [] : [p.empId || ""]).concat([p.link, waHref(p), stLabel(p.status)]).map((x) => '"' + String(x == null ? "" : x).replace(/"/g, '""') + '"').join(","))).join("\n");
   /** Organizer and Host play through their own personal link too: their seat is marked for them (POST /people/me), made when they ask. */
   function playBlock() {
     if (S.shield || !canRun()) return "";
