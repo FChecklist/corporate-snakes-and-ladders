@@ -104,7 +104,7 @@ export class Race {
   phase(gameNowMs: number): "waiting" | "playing" | "over" { const t = gameNowMs - this.startsAtMs; return this.st.over ? "over" : t < WAITING_ROOM_MS ? "waiting" : "playing"; }
   /** One throw window has closed: `threw` are the players who threw inside their 10 s. Settles the move and the counts, then the next window may open. */
   settle(gameNowMs: number, threw: string[]): void {
-    const play = gameNowMs - this.startsAtMs - WAITING_ROOM_MS; if (play < 0 || this.st.over) return;
+    const play = gameNowMs - this.startsAtMs - WAITING_ROOM_MS; if (play < 0 || this.st.over || this.paused) return;
     const turn = this.st.turn + 1, rolls: Record<string, number> = {};
     for (const p of this.players) rolls[p] = this.rollFor(p, turn);
     const before = this.st.pawns, r = snakesRules.step(this.st, { type: "turn", rolls, threw, gameMs: play }, gameNowMs, { phase: "running", frozenAt: null, pausedMs: 0, pauses: [] } as any);
@@ -118,7 +118,22 @@ export class Race {
       }
     }
   }
-  canOpenNext(lastOpenedGameMs: number, gameNowMs: number): boolean { return windowOpen(this.st, lastOpenedGameMs, gameNowMs - this.startsAtMs - WAITING_ROOM_MS); }
+  canOpenNext(lastOpenedGameMs: number, gameNowMs: number, player?: string): boolean { return !this.paused && windowOpen(this.st, lastOpenedGameMs, gameNowMs - this.startsAtMs - WAITING_ROOM_MS, player); }
+  /** An extra throw (reward gives 2): the holder throws again at once, each time, with no wait and no new turn for the others. */
+  extraThrow(gameNowMs: number, player: string): boolean {
+    if (this.paused || this.st.over || !(this.st.pawns[player]?.extra)) return false;
+    const play = gameNowMs - this.startsAtMs - WAITING_ROOM_MS; if (play < 0) return false;
+    const roll = this.rollFor(player, this.st.turn * 100 + (this.st.pawns[player]!.extra ?? 0));
+    this.st = snakesRules.step(this.st, { type: "turn", rolls: { [player]: roll }, threw: [player], gameMs: play, only: player }, gameNowMs, { phase: "running", frozenAt: null, pausedMs: 0, pauses: [] } as any).state;
+    return true;
+  }
+  private paused = false; private pausedMs = 0; private pausedAt: number | null = null;
+  /** Pause freezes the game clock for the race AND the reactions: nothing is shown while paused. `wallMs` is the real clock. */
+  pause(wallMs: number): void { if (this.paused) return; this.paused = true; this.pausedAt = wallMs; this.rx.setPaused(true); }
+  resume(wallMs: number): void { if (!this.paused) return; this.pausedMs += wallMs - (this.pausedAt ?? wallMs); this.paused = false; this.pausedAt = null; this.rx.setPaused(false); }
+  isPaused(): boolean { return this.paused; }
+  /** Game time from the real clock: pauses removed. Give THIS to phase, settle, canOpenNext and the reactions. */
+  gameNow(wallMs: number): number { return (this.paused ? this.pausedAt! : wallMs) - this.pausedMs; }
   ranking(): string[] { return finalRanking(this.st); }
   winner(): string | undefined { return winnerOf(this.st); }
   note(p: string): string { return this.st.pawns[p]?.note ?? ""; }

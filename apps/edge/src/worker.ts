@@ -14,7 +14,7 @@
 
 import { cleanAccountEmail } from "./emailclean";
 import { zoneTime, tzOfRow } from "./tz";
-import { GRACE_ROUNDS, HOUSE_ORDER, gameFields, gameOut, isTimeZone, PRIZE_HOUSES, brandMomentsFor, defaultCfg, validateCfg, type EngagementCfg } from "../../../packages/beacon/src/config";
+import { ENGINE_CAP, GRACE_ROUNDS, HOUSE_ORDER, gameFields, gameOut, isTimeZone, PRIZE_HOUSES, brandMomentsFor, defaultCfg, validateCfg, type EngagementCfg } from "../../../packages/beacon/src/config";
 import { openPii, openText, sealPii, sealText } from "./pii";
 import { TEST_LOGINS, TEST_LOGIN_CODE, TEST_LOGINS_PER_IP_DAY } from "./testlogins";
 import { deviceMatches, checkinRequired, checkinRoute, presenceRoute, presentMsOf, seatOfPidText } from "./checkin";
@@ -1362,6 +1362,7 @@ async function route0(req: Request, env: Env, now: number, a: Auth): Promise<Res
     if (!Number.isInteger(b.startRound)) return json({ error: "Pick the day and time the game starts." }, 400);
     if (!Number.isInteger(b.callSeconds)) return json({ error: GAP_MSG }, 400);
     if (!Number.isInteger(b.cap) || b.cap < 1 || b.cap > 100000) return json({ error: "The number of people must be a whole number from 1 up. Please check it." }, 400);
+    if (b.engine === true && b.cap > ENGINE_CAP) return json({ error: `A game on the new rules takes up to ${ENGINE_CAP} people.`, code: "engine-cap" }, 400); // flagged games only; the live path is unchanged
     if (b.whoCanJoin !== undefined && b.whoCanJoin !== "list" && b.whoCanJoin !== "anyone") return json({ error: "Who can join: choose \"list\" (only people on a list) or \"anyone\" (anyone with the link)." }, 400);
     if (roundMs(b.startRound) > now + MAX_AHEAD_MS) return json({ error: TOO_FAR, code: "too-far" }, 400);
     const vc = validateCfg({ tickets: b.tickets, rewards: b.rewards, breaks: b.breaks, rounds: b.rounds, opening: b.opening, closing: b.closing, name: b.name, brand: b.brand, mark: b.mark, join: b.join, tz: b.tz, verify: b.verify, employeesOnly: b.employeesOnly, idKind: b.idKind, engine: b.engine, survivors: b.survivors, roundTurns: b.roundTurns, ...gameFields(b) });
@@ -2004,6 +2005,7 @@ async function route0(req: Request, env: Env, now: number, a: Auth): Promise<Res
     if (!Number.isInteger(next.start_round)) return json({ error: "Pick the day and time the game starts." }, 400);
     if (!Number.isInteger(next.call_seconds)) return json({ error: GAP_MSG }, 400);
     if (!Number.isInteger(next.cap) || next.cap < 1 || next.cap > 100000) return json({ error: "The number of people must be a whole number from 1 up. Please check it." }, 400);
+    if (vc.cfg.engine === true && next.cap > ENGINE_CAP) return json({ error: `A game on the new rules takes up to ${ENGINE_CAP} people.`, code: "engine-cap" }, 400);
     if (roundMs(next.start_round) <= now) return json({ error: "Pick a start time in the future." }, 400);
     if (next.start_round !== e.start_round) { const mx = await maxAheadFor(env, e, now); if (roundMs(next.start_round) > now + mx) return json({ error: e.pack ? PAID_TOO_FAR : TOO_FAR, code: "too-far" }, 400); }
     const have = await env.DB.prepare("SELECT COUNT(*) AS c FROM participant WHERE eid=?").bind(eid).first<{ c: number }>();
