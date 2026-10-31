@@ -7,7 +7,7 @@
     "changes": [
       "Joining: a person can give a mobile number or an employee ID (or both, when the organizer asks), a name-only guest still joins, and the same person on the same phone always gets the same board; a join that gets no answer is asked again by the page itself",
       "A vote or a game-over report is accepted only from the phone that holds the board (device proof); forged ones are refused",
-      "A Co-host must accept the role before paying or using credit; a game cannot be erased while it is being played; a second order while one is being confirmed is refused",
+      "A Co-host must accept the role before paying or using credit; a game cannot be auto-deleted while it is being played; a second order while one is being confirmed is refused",
       "Every refusal comes with what happened, where, and how to fix it (the guide)",
       "Personal data is deleted 20 hours after a game ends, and the clean-up also runs by itself when the scheduler is late",
       "The beacon can be read through our own site when a company network blocks it; a slow mirror is skipped",

@@ -29,7 +29,7 @@ export const roundMs = (r: number) => (GENESIS + (r - 1) * 3) * 1000;
 export const PURGE_AFTER_MS = 20 * 3_600_000;      // participants' personal data (and the personal part of their audit rows) goes this long after the game ended (the promise is 24 hours)
 export const REPORT_LINK_MS = 19 * 3_600_000;      // the organizer's report link stops working this long after the game ended, an hour before the deletion
 export const REPORT_AFTER_MS = 3 * 60_000;         // the report starts a few minutes after the end, so late wins have been recorded
-export const UNPLAYED_WARN_MS = 6 * 3_600_000;       // the heads-up e-mail for a game that did not start goes out this long before its guests' data is erased
+export const UNPLAYED_WARN_MS = 6 * 3_600_000;       // the heads-up e-mail for a game that did not start goes out this long before its guests' data is auto-deleted
 export const SETTINGS_KEEP_MS = 30 * 86_400_000;      // the settings of a game that did not start (occasion, prizes, brand...) stay this long after it closed, so the Organizer can reuse them
 export const MAX_AHEAD_MS = 30 * 86_400_000;          // a game time can be set at most this far ahead
 const IST = 5.5 * 3_600_000, DAY = 86_400_000;
@@ -248,7 +248,7 @@ const bodyFor = (eid: string, d: ReportData, link: string) => [
   `- Everything about this game is deleted at 00:00 hours IST on ${istDate(d.fullDeleteAtMs)} (the end of the 365th day). We keep billing data for audit and tax reasons.`,
   ``,
   `The winners were worked out by the software from the public numbers and accepted only when several different phones agreed. You cannot choose or change a winner or a dice throw, and neither can we.`, ``,
-  `You can ask us to delete everything sooner: press Erase in your console, ask your AI assistant to request it (you confirm in your console), or reply to this e-mail from your registered address.`, ``,
+  `You can ask us to delete everything sooner: press Delete in your console, ask your AI assistant to request it (you confirm in your console), or reply to this e-mail from your registered address.`, ``,
   `Corporate Snakes and Ladders is built to follow India's DPDP Act, the EU and UK GDPR and US privacy laws (including CCPA / CPRA): we collect only what is needed to run your game, protect it with encryption, keep it for the shortest time we can, never sell it, and honour every request to see, correct or delete data.`, ``,
   `Sent on ${istFull(d.sentAtMs)} to ${d.organizerEmail}.`,
 ].join("\n");
@@ -331,10 +331,10 @@ async function remindReport(env: LifeEnv, e: any, life: any, now: number) {
 
 // ------------------------------------------------------------------------------------------------ games that did not start
 /**
- * A game that was never paid for (so its first number was never called). Its guests' names and numbers, people lists, waiting requests, personal links and Co-host details are erased
+ * A game that was never paid for (so its first number was never called). Its guests' names and numbers, people lists, waiting requests, personal links and Co-host details are auto-deleted
  * 20 hours after its scheduled END (the same end estimate a played game uses), following the NEWEST schedule: a reschedule moves the clock. Organizer and Host data, payments and invoices stay.
  * A published game is then CLOSED (`unplayed_ms`): nobody can join or pay. Six hours before, the Organizer and Hosts get a heads-up (once per erasure time); right after, an "it did not start" mail.
- * A draft nobody published is erased the same way but is not "closed" (it is forgotten after 30 days as before). Safe to repeat.
+ * A draft nobody published is auto-deleted the same way but is not "closed" (it is forgotten after 30 days as before). Safe to repeat.
  */
 export async function unplayedPass(env: LifeEnv, now: number): Promise<number> {
   let purged = 0;
@@ -412,7 +412,7 @@ export async function lifecycleTick(env: LifeEnv, now: number): Promise<{ checke
   // games that did not start (nobody paid, or still a draft): guest data goes 20 hours after the game was MEANT to end; a published one is then closed ("This game did not start")
   try { out.purged += await unplayedPass(env, now); } catch { /* tried again at the next tick */ }
   try { const c = await creditTick(env as any, now); (out as any).creditLapsed = c.lapsed; (out as any).creditMails = c.mailed; } catch { /* tried again at the next tick */ }
-  // a game's Co-hosts (name + mobile) go 20 hours after it ends even when nobody ever joined, so no participant erasure ever ran for it
+  // a game's Co-hosts (name + mobile) go 20 hours after it ends even when nobody ever joined, so no participant auto-deletion ever ran for it
   try {
     const open = (await env.DB.prepare("SELECT DISTINCT eid FROM organizer_key WHERE kind='cohost' AND revoked=0 AND eid IS NOT NULL LIMIT 25").all<{ eid: string }>()).results ?? [];
     for (const k of open) {
@@ -427,7 +427,7 @@ export async function lifecycleTick(env: LifeEnv, now: number): Promise<{ checke
     const late = (await env.DB.prepare("SELECT DISTINCT p.eid AS eid FROM audit_pii p JOIN life l ON l.eid=p.eid WHERE l.end_ms + ? <= ? AND NOT EXISTS (SELECT 1 FROM legal_hold h WHERE h.eid=p.eid) LIMIT 25").bind(PURGE_AFTER_MS, now).all<{ eid: string }>()).results ?? [];
     for (const x of late) await shredParticipantAudit(env as any, x.eid, now);
   } catch { /* tried again at the next tick */ }
-  // a paid game that was played with nobody in it (no guests, no people list, nobody waiting) has no personal data to erase, but it still gets its end record, so the 365-day clock has a start
+  // a paid game that was played with nobody in it (no guests, no people list, nobody waiting) has no personal data to delete, but it still gets its end record, so the 365-day clock has a start
   try {
     const bare = (await env.DB.prepare("SELECT e.* FROM engagement e LEFT JOIN life l ON l.eid=e.id WHERE l.eid IS NULL AND e.pack IS NOT 0 AND e.cancelled_ms IS NULL AND NOT EXISTS (SELECT 1 FROM participant p WHERE p.eid=e.id) AND NOT EXISTS (SELECT 1 FROM person q WHERE q.eid=e.id) AND NOT EXISTS (SELECT 1 FROM waiting w WHERE w.eid=e.id) ORDER BY e.start_round LIMIT 25").all<any>()).results ?? [];
     for (const e of bare) { const end = await endBoundMs(env, e); if (now >= end) await env.DB.prepare("INSERT OR IGNORE INTO life(eid,end_ms,end_src,purged_ms,report_state) VALUES(?,?,'schedule',?,'no-guests')").bind(e.id, end, now).run(); }

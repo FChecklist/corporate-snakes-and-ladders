@@ -135,7 +135,7 @@
   function draw() {
     const v = rt.view();
     if (v.phase === "missing" || v.phase === "boot") return ($app.innerHTML = `${lostBar()}<p class="msg">${esc(v.error || "Loading…")}</p>`);
-    if (dns()) return ($app.innerHTML = plain("This game did not start", "This game did not start. Your details have been erased."));
+    if (dns()) return ($app.innerHTML = plain("This game did not start", "This game did not start. Your details have been auto-deleted."));
     if (cancelled()) return ($app.innerHTML = plain("This game was cancelled", "This game was cancelled by the organizer."));
     if (v.locked) return ($app.innerHTML = plain("Waiting for the Organizer or Host", "Waiting for the Organizer or Host to start the game.")); // held for non-payment: nothing is shown
     if (v.brk) return ($app.innerHTML = frame(`<div class="big"><h1>A short break</h1><p>${esc(v.brk.title)}</p><div class="cd">${v.brk.secondsLeft}</div><p>The game continues in ${v.brk.secondsLeft} seconds.</p></div>`, v, ""));

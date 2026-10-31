@@ -58,7 +58,7 @@ export async function hasConsent(db: D1, kind: ConsentKind, subject: string, ref
     : await db.prepare("SELECT 1 AS x FROM consent_log WHERE kind=? AND subject=? AND version=? AND ref=?").bind(kind, subject, TERMS_VERSION, ref).first();
   return !!r;
 }
-/** A player's acceptance is erased with the game's other personal data (the 24-hour job). Organizers' rows stay with the account. */
+/** A player's acceptance is auto-deleted with the game's other personal data (the 24-hour job). Organizers' rows stay with the account. */
 export async function eraseParticipantConsent(db: D1, eid: string): Promise<void> {
   await db.prepare("DELETE FROM consent_log WHERE ref=? AND kind='K4'").bind(eid).run();
 }
