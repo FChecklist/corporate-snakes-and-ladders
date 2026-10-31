@@ -32,4 +32,4 @@ export function applyPause(st: PauseState, action: "pause" | "resume", role: Rol
 /** Every deadline on an engine game uses this, so a pause freezes it. */
 export const engineNow = (st: PauseState, now: number): number => gameNow(st.clock, now);
 
-export { snakesRules, finalRanking, standing, winnerOf, WINDOW_MS, nextWindowAt, windowOpen } from "../../../vendor/game-core/packages/snakes/src";
+export { snakesRules, finalRanking, standing, winnerOf, WINDOW_MS, nextWindowAt, windowOpen, placeSpecials, noteFor, hasExtra } from "../../../vendor/game-core/packages/snakes/src";
