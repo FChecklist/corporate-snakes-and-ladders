@@ -1,7 +1,7 @@
 // Written from the release-safety rule (31 Oct 2026), not from the build code:
 //   "A page must never run an old cached script against new HTML."
 //   1. In every shipped HTML page, every local script and stylesheet address carries ?v=<the commit that was built> (so a release means new addresses).
-//   2. Every shipped .js and .css file has its own "Cache-Control: no-cache" rule in _headers (Cloudflare Pages ignores the "/*.js" suffix form, so each file must be named).
+//   2. _headers keeps its "/*.js" and "/*.css" no-cache rules and stays within the 100-rule limit. (On the custom domain the zone's Browser Cache TTL replaces a no-cache header with 4 hours, which is why rule 1 is the real protection.)
 // The test builds the site itself, then reads what would be uploaded.
 import { describe, expect, test } from "bun:test";
 import { readdirSync, readFileSync } from "node:fs";
@@ -44,15 +44,12 @@ describe("a returning visitor never runs an old script on a new page", () => {
     expect(bad).toEqual([]);
   });
 
-  test("every shipped .js and .css file has its own Cache-Control: no-cache rule in _headers", () => {
-    const rules = readFileSync(join(OUT, "_headers"), "utf8").replace(/\r/g, "").split("\n");
-    const noCache = new Set<string>();
-    for (let i = 0; i < rules.length; i++) {
-      if (!rules[i]!.startsWith("/")) continue;
-      for (let j = i + 1; j < rules.length && /^\s/.test(rules[j]!); j++) if (/^\s*Cache-Control:\s*no-cache\s*$/i.test(rules[j]!)) noCache.add(rules[i]!.trim());
-    }
-    const files = walk(OUT).filter((f) => /\.(js|css)$/.test(f)).map((f) => "/" + relative(OUT, f).split("\\").join("/"));
-    expect(files.length).toBeGreaterThan(30);
-    expect(files.filter((f) => !noCache.has(f))).toEqual([]);
+  test("_headers keeps its no-cache rules for scripts and styles and stays within Cloudflare Pages' limit of 100 rules (more are silently ignored)", () => {
+    const text = readFileSync(join(OUT, "_headers"), "utf8").replace(/\r/g, "");
+    const rules = text.split("\n").filter((l) => l.startsWith("/"));
+    expect(rules.length).toBeLessThanOrEqual(100);
+    expect(text).toMatch(/\n\/\*\.js\n\s+Cache-Control: no-cache/);
+    expect(text).toMatch(/\n\/\*\.css\n\s+Cache-Control: no-cache/);
+    // the zone's Browser Cache TTL can still replace these on the custom domain: that is why the addresses above carry the commit
   });
 });

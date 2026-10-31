@@ -3,7 +3,7 @@ import { cpSync, mkdirSync, rmSync, existsSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { readFileSync } from "node:fs";
 import { versionStamp } from "./version.mjs";
-import { versionRefs, noCacheRules } from "./cache-bust.mjs";
+import { versionRefs } from "./cache-bust.mjs";
 const SRC = join(import.meta.dir, "../apps/web/public"), OUT = join(import.meta.dir, "public");
 rmSync(OUT, { recursive: true, force: true }); mkdirSync(OUT, { recursive: true }); const STAMP = versionStamp({ root: join(import.meta.dir, ".."), game: JSON.parse(readFileSync(join(import.meta.dir, "../package.json"), "utf8")).name }), BUILT_SIG = [STAMP.commit, STAMP.builtAt, ""].join("|"); /* what this build calls itself: written to version.json and baked into autoupdate.js (the same text autoupdate.js builds from /version.json) */
 /* RELEASE GATE: a release build (RELEASE=1) refuses to run while EMP_CLEAN_FROM_MS (apps/edge/src/people.ts) is still the year-2100 placeholder, because the screens and the server would then disagree about how an employee ID is read. The release session sets the constant to the deploy instant first. */
@@ -39,9 +39,7 @@ rules += "/" + hdr(GOOGLECSP);
 rules += "/*\n  Strict-Transport-Security: max-age=31536000\n"; // HTTPS only: a browser that has seen the site over HTTPS never tries plain HTTP again
 rules += "/version.json\n  Cache-Control: no-store\n";
 rules += "/*.js\n  Cache-Control: no-cache\n  X-Robots-Tag: noindex, noai, noimageai\n/img/*\n  Cache-Control: public, max-age=604800\n/*.css\n  Cache-Control: no-cache\n/fonts/*\n  Cache-Control: public, max-age=31536000, immutable\n";
-versionRefs(OUT, STAMP.commit); // every local script and stylesheet address in the pages carries ?v=<commit> (pages/cache-bust.mjs), and each .js/.css file is named in a no-cache rule: a returning visitor never runs an old script on a new page
-if (!rules.endsWith("\n")) rules += "\n";
-rules += noCacheRules(OUT);
+versionRefs(OUT, STAMP.commit); // every local script and stylesheet address in the pages carries ?v=<commit> (pages/cache-bust.mjs): a returning visitor never runs an old script on a new page, whatever cache time the zone adds (the zone setting Browser Cache TTL replaces a no-cache header on the custom domain, so the address itself must change)
 writeFileSync(join(OUT, "_headers"), rules);
 writeFileSync(join(OUT, "version.json"), JSON.stringify(STAMP) + "\n"); // what is live (P12): served at /version.json
 // The functions also run for the page addresses (and only those, never for images, scripts or styles), so the old pages.dev address can answer 301 (functions/_middleware.ts).

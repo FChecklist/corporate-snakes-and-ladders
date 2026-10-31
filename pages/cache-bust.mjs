@@ -1,9 +1,8 @@
 // Cache safety for returning visitors (31 Oct 2026). Without this a browser that has an old script cached (Cloudflare Pages gives a plain asset 4 hours) runs it against new HTML after a release and the page breaks.
 // 1. versionRefs: every local script and stylesheet reference in every shipped HTML page gets ?v=<commit>, so a new release means new addresses.
-// 2. noCacheRules: an explicit "Cache-Control: no-cache" rule for every shipped .js and .css file (the suffix form "/*.js" is not honoured by Cloudflare Pages, so each file is named). The browser then checks with the server each time (a cheap 304).
-// Images and fonts keep their long cache (their rules are written elsewhere in the build).
+// Why the address and not a header: on the custom domain the zone setting Browser Cache TTL (4 hours) replaces a no-cache header, so only a new address is safe (verified 31 Oct 2026: *.pages.dev answered no-cache, the custom domain max-age=14400 for the same file).
 import { readdirSync, readFileSync, writeFileSync } from "node:fs";
-import { join, relative } from "node:path";
+import { join } from "node:path";
 
 const walk = (d) => readdirSync(d, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(join(d, e.name)) : [join(d, e.name)]));
 const REF = /(<script\b[^>]*?\bsrc=|<link\b[^>]*?\bhref=)"(\/[^"?#]+\.(?:js|css))(\?[^"#]*)?"/g;
@@ -22,13 +21,4 @@ export function versionRefs(outDir, commit) {
     if (t !== s) writeFileSync(f, t);
   }
   return n;
-}
-
-export function noCacheRules(outDir) {
-  let rules = "";
-  for (const f of walk(outDir).sort()) {
-    if (!/\.(js|css)$/.test(f)) continue;
-    rules += `/${relative(outDir, f).split("\\").join("/")}\n  Cache-Control: no-cache\n`;
-  }
-  return rules;
 }
