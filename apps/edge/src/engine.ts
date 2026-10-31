@@ -15,7 +15,7 @@ export const GOLDEN_LABEL: string = snakesRules.goldenButton;
 
 /** Setup for snakesRules.init from a game's config plus the site-made boards and fate numbers. */
 export function engineSetup(cfg: EngineCfg, boards: Record<string, unknown>, fate: Record<string, number>) {
-  return { boards, fate, timeLimitMinutes: cfg.timeLimitMinutes ?? 10, turnLimit: cfg.turnCap, mode: cfg.presence ? "presence" : "fate", pass: !!cfg.pass, survivors: cfg.survivors ?? 0, roundTurns: cfg.roundTurns ?? 10 };
+  return { boards, fate, timeLimitMinutes: cfg.timeLimitMinutes === 7 ? "7" : "8", turnLimit: cfg.turnCap, mode: cfg.presence ? "presence" : "fate", pass: !!cfg.pass, survivors: cfg.survivors ?? 0, roundTurns: cfg.roundTurns ?? 10 };
 }
 
 export interface PauseState { clock: Clock; log: Change[] }
@@ -32,4 +32,4 @@ export function applyPause(st: PauseState, action: "pause" | "resume", role: Rol
 /** Every deadline on an engine game uses this, so a pause freezes it. */
 export const engineNow = (st: PauseState, now: number): number => gameNow(st.clock, now);
 
-export { snakesRules, finalRanking, standing, winnerOf, WINDOW_MS, nextWindowAt, windowOpen, ownerBoard, checkOwnerBoard, squareXY, squareKind, playersOn, placeSpecials, noteFor, hasExtra } from "../../../vendor/game-core/packages/snakes/src";
+export { snakesRules, finalRanking, standing, winnerOf, WINDOW_MS, nextWindowAt, windowOpen, reactionOf, WAITING_ROOM_MS, ownerBoard, checkOwnerBoard, squareXY, squareKind, playersOn, placeSpecials, noteFor, hasExtra } from "../../../vendor/game-core/packages/snakes/src";
