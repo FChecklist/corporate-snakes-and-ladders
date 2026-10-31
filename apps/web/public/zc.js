@@ -1597,7 +1597,7 @@
     };
     if ($("logorm")) $("logorm").onclick = () => { S.f.brand.logo = ""; S.logoNote = ""; redraw(); };
     if ($("copypaylink")) $("copypaylink").onclick = async () => {
-      try { const r = await call("POST", `/api/z/${eid}/paylink`, {}); S.payUrl = r.url || ""; S.payLinkNote = "Anyone with this link can pay for this game. It works until the game is paid or for 7 days."; S.payCopied = S.payUrl ? await copyText(S.payUrl) : false; }
+      try { const r = await call("POST", `/api/z/${eid}/paylink`, {}); S.payUrl = r.url || ""; S.payLinkNote = "Anyone with this link can pay for this game. It works until the game is paid or for 7 days."; S.payCopied = S.payUrl ? await copyText(S.payUrl) : false; if (S.payCopied && window.CBFunnel) CBFunnel.report("payment_link_copied"); }
       catch (e) { S.payUrl = ""; S.payLinkNote = friendly(e); }
       redraw();
     };

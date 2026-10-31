@@ -35,12 +35,12 @@
   }
   document.addEventListener("click", (e) => {
     const c = e.target.closest("[data-c]"); if (c) { S.cur = c.dataset.c; renderPrices(); if ($("ordSum")) sumRefresh(); return; }
-    const b = e.target.closest("[data-buy]"); if (b) { S.pack = +b.dataset.buy; renderPrices(); openCheckout(S.pack); return; }
+    const b = e.target.closest("[data-buy]"); if (b) { S.pack = +b.dataset.buy; window.CBFunnel && CBFunnel.report("size_chosen", { size: S.pack }); renderPrices(); openCheckout(S.pack); return; }
     if (e.target.closest("[data-close]")) TB.closeSheet();
   });
   document.addEventListener("keydown", (e) => { if (e.key === "Escape") TB.closeSheet(); });
-  $("pack")?.addEventListener("change", (e) => { S.pack = +e.target.value; renderPrices(); });
-  document.addEventListener("change", (e) => { if (e.target && e.target.id === "pack2") { S.pack = +e.target.value; renderPrices(); const f = $("pack2"); if (f) f.focus(); } });
+  $("pack")?.addEventListener("change", (e) => { S.pack = +e.target.value; window.CBFunnel && CBFunnel.report("size_chosen", { size: S.pack }); renderPrices(); });
+  document.addEventListener("change", (e) => { if (e.target && e.target.id === "pack2") { S.pack = +e.target.value; window.CBFunnel && CBFunnel.report("size_chosen", { size: S.pack }); renderPrices(); const f = $("pack2"); if (f) f.focus(); } });
   $("payBtn")?.addEventListener("click", () => openCheckout(S.pack));
   $("loginLink")?.addEventListener("click", (e) => { e.preventDefault(); openLogin(""); });
 
@@ -124,6 +124,7 @@
   TB.api("GET", "/api/payments/status").then((s) => { PAYMODE = s.mode; }).catch(() => {});
   // ---------- free launch: create an organizer account with an e-mail; the key arrives only through the e-mailed code ----------
   function openFree() {
+    window.CBFunnel && CBFunnel.report("signup_started");
     try { if (Number.isInteger(S.pack) && S.pack > 10) { sessionStorage.setItem("cbz-cap", String(S.pack)); } } catch {} // the size chosen on the website carries through the sign-in: Quick setup opens with it
     TB.sheet(`${xbtn}<div class="openfree" role="group" aria-labelledby="ofTitle">
       <div class="sheethead"><span class="rolepill">For the organizer or host</span><span class="sbrand" role="img" aria-label="Corporate Snakes and Ladders"><span class="mark"><img src="/logo-mark.svg" alt="Corporate Snakes and Ladders logo" width="34" height="34"></span><span class="word">Corporate Snakes and Ladders<i>.</i></span></span></div>
@@ -179,6 +180,7 @@
   /** Where a signed-in organizer goes next: the page the visit began on (the console, a pay page, or the free demo link) or the console. */
   function nextAfterSignIn() { let nx = "/zc.html"; try { const n = sessionStorage.getItem("cbz-next"); if (n && /^\/(zc|pay)(\.html)?(\?(e=[A-Za-z0-9_-]{4,40}|demo=1|quick=1(&cap=\d{1,5})?))?$/.test(n)) nx = n; sessionStorage.removeItem("cbz-next"); } catch {} return nx; }
   function openLogin(email) {
+    window.CBFunnel && CBFunnel.report("signup_started");
     TB.sheet(`${xbtn}<div class="eyebrow">Organizer sign-in</div><h2>Sign in or create your account</h2><p class="muted small">Type your e-mail and press Continue. That is all: there is no password. New here? Your account is made at once. Coming back? We e-mail you two ways to get in; you use <b>one</b> of them. Players never sign in here: they join with your game link.</p>
       ${gBox}<form id="lgForm" novalidate><label class="lb" for="lMail">Your e-mail</label><input class="inp big" id="lMail" data-need="1" type="email" inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" placeholder="your e-mail" value="${esc(email || "")}"><div id="k2slot"></div><div id="fErr" role="alert"></div>
       <button class="btn block big" style="margin-top:14px" type="submit" id="lgGo">Continue ${ic("arrow")}</button></form>`);

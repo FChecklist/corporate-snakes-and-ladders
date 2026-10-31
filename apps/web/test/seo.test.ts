@@ -6,7 +6,7 @@ import { PACKS } from "../../../packages/shared/src/pricing";
 const PUB = new URL("../public/", import.meta.url), ORIGIN = "https://snakes.corporatetambola.com";
 const rd = (f: string) => readFileSync(new URL(f, PUB), "utf8");
 const INDEXABLE = ["index.html", "partner.html", "helpdesk.html", "legal.html", "terms.html", "privacy.html", "legal-position.html", "dpa.html", "subprocessors.html", "partner-terms.html", "organizer-guide.html", "trust.html", "brochure.html", "about.html", "contact.html", "pricing.html", "refund-policy.html"];
-const NOINDEX = ["signin.html", "pay.html", "paytest.html", "ai-link.html", "helpdesk-accept.html", "helpdesk-approve.html", "report.html", "z.html", "zc.html", "big.html", "404.html", "owner-visits.html"];
+const NOINDEX = ["signin.html", "pay.html", "paytest.html", "ai-link.html", "helpdesk-accept.html", "helpdesk-approve.html", "report.html", "z.html", "zc.html", "big.html", "404.html", "owner-funnel.html", "owner-visits.html"];
 const urlOf = (f: string) => ORIGIN + (f === "index.html" ? "/" : "/" + f);
 const meta = (h: string, re: RegExp) => (h.match(re) ?? [])[1] ?? "";
 
@@ -29,7 +29,7 @@ describe("sitemap and robots", () => {
   });
   test("a page that says noindex is never in the sitemap, and the owner page is not linked from any public page", () => {
     for (const f of NOINDEX) { let h = ""; try { h = rd(f); } catch { continue; } if (/name="robots" content="[^"]*noindex/.test(h)) expect(sm).not.toContain("/" + f); }
-    expect(rd("owner-visits.html")).toMatch(/name="robots" content="noindex, nofollow"/);
+    expect(rd("owner-funnel.html", "owner-visits.html")).toMatch(/name="robots" content="noindex, nofollow"/);
     for (const f of [...INDEXABLE, "signin.html", "pay.html"]) expect(rd(f)).not.toContain("owner-visits");
     expect(readFileSync(new URL("../../../pages/build.mjs", import.meta.url), "utf8")).toContain('["/owner-visits", PLAINCSP, true]'); // served with X-Robots-Tag: noindex too
   });

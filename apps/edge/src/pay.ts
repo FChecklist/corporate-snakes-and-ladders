@@ -7,6 +7,7 @@
 // Needs the `nodejs_compat` flag (billing uses node:crypto HMAC). Test mode (env.TEST_MODE = "1", never in production) fulfils without Razorpay.
 import { cleanAccountEmail as cleanEmail } from "./emailclean";
 import { recordFunnelForOrg } from "./visits";
+import { recordFunnel } from "./funnel";
 import { BRAND, plainToHtml, taggedSubject, withFooter } from "./brand";
 import {
   BRANDS, DEFAULT_COMPANY, companyGaps, createOrder, fetchPayment, capturePayment, paymentInfo, financialYear, formatInvoiceNumber, renderInvoiceHtml, renderInvoiceText, splitGst, toMinor,
@@ -289,6 +290,7 @@ Download the PDF: ${origin}/api/invoice/${token}.pdf`
   if (keptCredit && closedGame) await mailCreditCreated(env, keptCredit, closedGame, "late", now); // the Organizer and the Hosts are told once; the payer got the receipt above
   if (published) await recordFunnelForOrg({ DB: db }, org, "published", now); // marketing funnel (visits.ts): counted once, against the visitor's first visit
   await recordFunnelForOrg({ DB: db }, org, "paid", now);
+  await recordFunnel(env as any, "payment_succeeded", meta.eid ?? p.id, now, { org }); // sales funnel (funnel.ts)
   // E9: the owner is told of every paid order, once (the claim is inside notifyOwnerOfPaidOrder), whichever path - the webhook or the verify call - got here first
   try { await notifyOwnerOfPaidOrder((subject, text) => sendMail(env, db, ownerAddress(env), subject, text, now, { owner: true }), db, { gameLabel: brand.name, paymentId: p.id, txnId: p.txn_id ?? txnIdOf(p.id), planLabel: closed ? `payment kept as credit (up to ${p.pack} players)` : `up to ${p.pack} players`, amountText: rs(p.amount, p.currency), organizerName: String(organizer.name ?? meta.name ?? ""), organizerEmail: String(organizer.email ?? p.email), eid: eidForInvoice ?? null, test: !!test }, now); } catch { /* a note to the owner never blocks a payment */ }
   return { result };
@@ -386,6 +388,7 @@ export async function payRoute(req: Request, env: PayEnv, now: number, spend: (n
     const bph = partnerCode(b.phone); // optional, only used to spot a partner buying through their own link
     const lf = ledgerFields(siteOf(meta.origin), "game_pack", `pack_${pack}`, boundOrg ?? null);
     await db.prepare("INSERT INTO payment(id,org,email,pack,currency,amount,tax,rzp_order_id,status,created_ms,meta,ref,buyer_phone_hash,is_test,eid,site,product,product_type,product_ref,payer_user,txn_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)").bind(id, null, cleanEmail(b.email), pack, cur, pr.total, pr.tax, order?.id ?? null, "created", now, JSON.stringify(meta), ref, bph ? await phoneHashFor(env, bph) : null, siteTest ? 1 : 0, boundEid, lf.site, lf.product, lf.productType, lf.productRef, lf.payerUser, txnIdOf(id)).run();
+    await recordFunnel(env as any, "payment_started", boundEid ?? id, now, { org: boundOrg, props: { size: pack } }); // sales funnel (funnel.ts)
     if (!rzp) { const f = await fulfil(env, id, now, spend); return "result" in f ? json({ mode: "test", paymentId: id, result: f.result, ...(siteTest ? { testPayment: true, label: "TEST payment: nothing was charged." } : {}) }) : json({ error: f.error }, f.status); }
     return json({ mode: "razorpay", paymentId: id, ...hopOf(env), razorpay: { keyId: rzp.keyId, orderId: order.id, amount: toMinor(pr.total), currency: cur, name: brand.name, description: "(close group snakes and ladders software) | owned and made by IT Services by Rajat Agarwal", prefill: { email: b.email.trim(), name: payerName.slice(0, 80), ...(contact ? { contact } : {}) }, notes: { brand: brand.name, participants: String(pack) }, theme: { color: brand.theme }, ...(cur === "INR" ? { config: UPI_FIRST } : {}) } });
   }
@@ -434,6 +437,7 @@ export async function payRoute(req: Request, env: PayEnv, now: number, spend: (n
     const unconfirm = async () => { if (marked) await db.prepare("UPDATE payment SET confirming_ms=NULL WHERE id=? AND status<>'paid'").bind(row.id).run(); };
     const pay = await fetchPayment(rzp, String(b.razorpay_payment_id)).catch(() => null);
     if (!pay || pay.order_id !== b.razorpay_order_id || Number(pay.amount) !== toMinor(row.amount)) { await unconfirm(); return json({ error: "The payment details did not match the order." }, 400); }
+    if (pay.status === "failed") await recordFunnel(env as any, "payment_failed", row.id, now, { props: { reason: "declined" } }); // sales funnel (funnel.ts)
     if (pay.status === "failed") { try { await recordAttempt(db, { ...pay, currency: pay.currency ?? row.currency }, "failed", now, now, row.id); } catch { /* the webhook records it too */ } } // ledger C: a failed try is kept with Razorpay's reason; it never marks the payment paid
     if (pay.status === "created") { await db.prepare("UPDATE payment SET rzp_payment_id=COALESCE(rzp_payment_id,?) WHERE id=?").bind(String(b.razorpay_payment_id), row.id).run(); return json({ confirming: true, paid: false, message: "Confirming your payment..." }, 202); } // the page asks again in a few seconds; the gateway's webhook finishes it too
     let done: any = pay;
@@ -477,6 +481,7 @@ export async function payRoute(req: Request, env: PayEnv, now: number, spend: (n
         const pr = await db.prepare("SELECT id FROM payment WHERE rzp_order_id=?").bind(orderId).first<{ id: string }>();
         return hook(json({ ok: true, confirming: true }), "confirming", { ...seen, paymentId: pr?.id });
       }
+      if (ev.event === "payment.failed" && prow) await recordFunnel(env as any, "payment_failed", prow.id, now, { props: { reason: "declined" } }); // sales funnel (funnel.ts)
       if (ev.event === "payment.failed" && prow) return hook(json({ ok: true, attempt: "failed" }), "attempt recorded: failed (the payment stays unpaid)", { ...seen, paymentId: prow.id }); // a failed try never marks the payment paid; a later paying try still can
       if (!["payment.captured", "order.paid"].includes(ev.event) || !orderId) return hook(json({ ok: true, ignored: ev.event }), "ignored: not a payment event", seen);
       const row = await db.prepare("SELECT * FROM payment WHERE rzp_order_id=?").bind(orderId).first<any>();

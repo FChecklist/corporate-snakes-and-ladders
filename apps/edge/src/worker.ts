@@ -51,6 +51,7 @@ import { factsText } from "./ai-facts";
 import { mapJson, mapText } from "./ai-functions";
 import { goScreen, screenJson, screenText } from "./ai-go";
 import { AUDIT_SCHEMA, auditRequest, analyzeChain, loadRows, logAccess, setHold, toCsv, verifyChain, closeAuditFor, sweepAudit, type AuditEnv } from "./audit";
+import { FUNNEL_ENDPOINT, funnelCsv, funnelRange, funnelReport, funnelRoute, recordFunnel } from "./funnel";
 import { VISIT_SCHEMA, beaconRoute, linkVisitor, parseRange, recordFunnelForOrg, visitsJourney, visitsSummary, type VisitEnv } from "./visits";
 import { knownDial } from "./phonekit";
 import { WINNERS_SCHEMA, acceptVotes, auditAi, confirmPrize, listAiAudit, listPrizes, markGiven, myPrizes, overridePrize } from "./winners";
@@ -66,7 +67,7 @@ export interface Env {
   /** The secret that seals names and mobile numbers at rest (AES-256-GCM). Never stored in the database. */
   DATA_KEY?: string;
   /** Optional: the key that hashes network addresses for the public-page visit tracking (visits.ts); when absent it is derived from DATA_KEY. VISIT_DAILY_WRITES caps that tracking's share of the daily write allowance (default 20,000). */
-  VISIT_KEY?: string; VISIT_DAILY_WRITES?: string;
+  VISIT_KEY?: string; VISIT_DAILY_WRITES?: string; FUNNEL_EVENTS?: string;
   /** Shared secret of the mail service's inbound webhook (e-mail to us asking for a deletion). */
   INBOUND_SECRET?: string;
   /** The scheduled job's own key (it can call only the lifecycle tick, nothing else). */
@@ -795,6 +796,7 @@ async function route0(req: Request, env: Env, now: number, a: Auth): Promise<Res
   { const cm = p.match(/^\/api\/consent\/(K[1-9])$/); if (cm && req.method === "GET" && isKind(cm[1])) return json(consentInfo(cm[1])); } // the boxes a page must show (exact wording, current version)
   { const mr = await modeRoute(req, env as any, now, a.plat && req.headers.get("x-cb-link") !== "1", (n) => purgeTestData(env, n)); if (mr) return mr; } // TEST/LIVE switch, allow-list, purge (mode.ts): owner only, except the public read of the word TEST or LIVE
   { const ar = await adminRoute(req, env as any, now, a.plat && req.headers.get("x-cb-link") !== "1", (n) => spend(env, now, n)); if (ar) return ar; } // the owner's desk (admin.ts): site switch, organizer lookup, data requests, mail events, error counts; the health read; the mail webhook
+  if (p === FUNNEL_ENDPOINT) return funnelRoute(req, env as any, now); // first-party sales funnel, page steps (funnel.ts); stores nothing while FUNNEL_EVENTS is not "on"
   if (p === "/api/v/b") return beaconRoute(req, env as VisitEnv, now, (n) => spend(env, now, n)); // public-page visit tracking (visits.ts); never the live game
   if (p === "/api/owner/game-records") { // OWNER ONLY (platform key, never through an AI work link): the permanent settings record of every game (no personal data of any player in it). Anybody else gets the same 404 as an unknown address.
     if (!(a.plat && req.headers.get("x-cb-link") !== "1") || req.method !== "GET") { await logAccess(env.DB, now, "denied:game-records", null, null, 0, false, a.kind ?? "anonymous"); return json({ error: "Not found" }, 404); }
@@ -816,6 +818,13 @@ async function route0(req: Request, env: Env, now: number, a: Auth): Promise<Res
     const out = await ownerLedger(env as PayEnv, url, now);
     await logAccess(env.DB, now, "ledger-c", null, url.searchParams.get("format") === "csv" ? "csv" : "json", 0);
     return out;
+  }
+  if (p === "/api/owner/funnel") { // OWNER ONLY (platform key, never through an AI work link): the sales funnel by day, week and total, JSON or ?format=csv. Every read is written to the access log; anybody else gets the same 404 as an unknown address.
+    const ownerOk = a.plat && req.headers.get("x-cb-link") !== "1";
+    if (!ownerOk || req.method !== "GET") { await logAccess(env.DB, now, "denied:funnel", null, null, 0, false, a.kind ?? "anonymous"); return json({ error: "Not found" }, 404); }
+    const rep = await funnelReport(env as any, ...Object.values(funnelRange(url.searchParams, now)) as [string, string]);
+    await logAccess(env.DB, now, "funnel", null, null, rep.total.reduce((n, r) => n + r.count, 0), true);
+    return url.searchParams.get("format") === "csv" ? new Response(funnelCsv(rep), { headers: { "content-type": "text/csv; charset=utf-8", "content-disposition": "attachment; filename=\"sales-funnel.csv\"", "cache-control": "no-store" } }) : json(rep);
   }
   { // OWNER ONLY (platform key, never through an AI work link): visitor-journey reports. Every read is written to the access log; anybody else gets the same 404 as an unknown address.
     const vm = p.match(/^\/api\/owner\/visits\/(summary|journey\/([A-Za-z0-9_]{32,40}))$/);
@@ -1385,6 +1394,7 @@ async function route0(req: Request, env: Env, now: number, a: Auth): Promise<Res
     if (ent) await env.DB.prepare("UPDATE entitlement SET eid=? WHERE id=? AND eid IS NULL").bind(b.id, ent.id).run();
     if (a.kind === "ai" && a.org) await noteHelperGame(env.DB, req.headers.get("x-organizer") || (req.headers.get("authorization") ?? "").replace(/^Bearer\s+/i, ""), a.org, b.id, now); // a game made with a Help Desk helper's key is recorded as theirs
     if (a.org) await recordTerms(env, a.org, now, "engagement");
+    await recordFunnel(env as any, "game_created", b.id, now, { org: a.org }); // sales funnel (funnel.ts)
     return json({ ok: true, draft, openUrl: `${(env as PayEnv).PUBLIC_ORIGIN ?? ""}/zc.html?e=${b.id}` });
   }
   if (req.method === "GET" && p === "/api/history") {
@@ -1858,6 +1868,7 @@ async function route0(req: Request, env: Env, now: number, a: Auth): Promise<Res
     const paid = !!(ent || free), startMs = roundMs(e.start_round);
     await recordConsent(env.DB, "K1", e.org ?? a.kind ?? "platform", eid!, now);
     await recordFunnelForOrg(env as VisitEnv, e.org, "published", now);
+    await recordFunnel(env as any, "game_published", eid, now, { org: e.org }); // sales funnel (funnel.ts)
     await sendMail(env as PayEnv, env.DB, cEmail, paid ? `Your engagement ${eid} is published and paid` : `Your engagement ${eid} is published: payment pending (it starts ${istTime(startMs)})`,
       `Your engagement ${eid} is live.\n\nShare this link: ${shareUrl}\n\n${paid ? "" : `Payment pending: the game does not begin until it is paid for. You can pay at any time until the guest data is auto-deleted; if you pay late, the first number comes 2 minutes after the payment is confirmed (about 2 minutes to pay): ${payUrl}\n\n`}Big screen for the room: ${origin}/big.html?e=${eid}`, now);
     return json({ ok: true, published: true, paid, startMs, payUrl, shareUrl, confirmed: { email: cEmail, phone: cPhone.slice(-10) } });
