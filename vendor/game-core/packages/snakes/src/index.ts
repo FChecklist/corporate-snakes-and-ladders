@@ -97,25 +97,32 @@ export function crossings(b: Board): number {
   for (let i = 0; i < all.length; i++) for (let j = i + 1; j < all.length; j++) if (lineGap(all[i]!, all[j]!) < MIN_CLEAR / 1.3) n++;
   return n;
 }
+const boardMemo = new Map<string, Board>();
+/** The same board for the same game id, made once (a copy is handed out, so nobody can change the stored one). Only phones call this, once per race; nothing on the server does. */
 export function ownerBoard(gameId: string): Board {
+  const hit = boardMemo.get(gameId); if (hit) return { ...hit, snakes: { ...hit.snakes }, ladders: { ...hit.ladders }, specials: { ...hit.specials } };
+  const b = makeOwnerBoard(gameId); if (boardMemo.size > 50) boardMemo.clear(); boardMemo.set(gameId, b);
+  return { ...b, snakes: { ...b.snakes }, ladders: { ...b.ladders }, specials: { ...b.specials } };
+}
+function makeOwnerBoard(gameId: string): Board {
   type Seg = { s: boolean; f: number; t: number };
   for (let attempt = 0; attempt < 3000; attempt++) {
     const r = seeded(gameId + "#" + attempt), pick = (n: number): number => Math.floor(r() * n);
-    const kinds = Array.from({ length: 20 }, (_, i) => i % 2 === 0), spans = kinds.map(() => (pick(12) === 0 ? 5 : 2 + pick(3)));
+    const kinds = Array.from({ length: 20 }, (_, i) => i % 2 === 0), spans = kinds.map((_, i) => (i % 5 === 0 || i % 5 === 4 ? 2 : pick(12) === 0 ? 5 : 2 + pick(3))); // the top and bottom bands only fit 2-row pieces
     const segs: Seg[] = [];
     /** A random candidate for segment i that keeps the hard rules (own squares, own length, short, not flat). */
     const cand = (i: number): Seg | null => {
       const s = kinds[i]!, sp = spans[i]!, f = s ? 21 + pick(79) : 2 + pick(78), tr = s ? rowOf(f) - sp : rowOf(f) + sp; if (tr < 0 || tr > 9) return null;
-      const tc = Math.max(0, Math.min(9, squareXY(f).col + pick(5) - 2)), t = tr * 10 + 1 + (tr % 2 ? 9 - tc : tc); if (t < 2 || t > 99 || isFlat(f, t)) return null;
+      const tc = Math.max(0, Math.min(9, squareXY(f).col + pick(5) - 2)), t = tr * 10 + 1 + (tr % 2 ? 9 - tc : tc); if (t < 2 || t > 99 || isFlat(f, t) || Math.min(4, Math.floor((rowOf(f) + rowOf(t)) / 4)) !== i % 5) return null; // each of the 5 two-row bands gets 4
       for (let j = 0; j < segs.length; j++) if (j !== i && segs[j]) { const o = segs[j]!; if (o.f === f || o.f === t || o.t === f || o.t === t) return null; }
       return { s, f, t };
     };
     const conflicts = (i: number, c: Seg): number => segs.reduce((n, o, j) => n + (j !== i && o && lineGap([o.f, o.t], [c.f, c.t]) < MIN_CLEAR ? 1 : 0), 0);
-    for (let i = 0; i < 20; i++) { let c: Seg | null = null; for (let k = 0; k < 200 && !c; k++) c = cand(i); if (!c) break; segs.push(c); }
+    for (let i = 0; i < 20; i++) { let c: Seg | null = null, bc = 1e9; for (let k = 0; k < 40; k++) { const x = cand(i); if (!x) continue; const n = conflicts(i, x); if (n < bc) { bc = n; c = x; if (!n) break; } } if (!c) break; segs.push(c); } // place one at a time, each in the least crowded of a few tries
     if (segs.length < 20) continue;
     // Min-conflicts search: move one tangled snake or ladder at a time to the best of a few new places until nothing crosses or crowds another.
     const cnt = segs.map((c, i) => conflicts(i, c)); let done = false;
-    for (let step = 0; step < 3000 && !done; step++) {
+    for (let step = 0; step < 500 && !done; step++) {
       const bad: number[] = []; for (let i = 0; i < 20; i++) if (cnt[i]) bad.push(i);
       if (!bad.length) { done = true; break; }
       const i = bad[pick(bad.length)]!; let best: Seg | null = null, bc = 1e9;

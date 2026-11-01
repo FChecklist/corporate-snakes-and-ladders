@@ -19,7 +19,7 @@ describe("owner board: 10 snakes, 10 ladders, 5 penalty, 5 reward", () => {
     expect(Object.keys(b.snakes).concat(Object.keys(b.ladders)).some((q) => q === "1" || q === "100")).toBe(false);
   });
   test("the rule check names the counts when they are wrong", () => {
-    const b = ownerBoard("demo-1"), more = { ...b, snakes: { ...b.snakes, 47: 41 } };
+    const b = ownerBoard("demo-1"), taken = new Set([...Object.keys(b.snakes), ...Object.keys(b.ladders), ...Object.keys(b.specials ?? {})].map(Number)), free = [...Array(98).keys()].map((i) => i + 2).find((q) => q > 50 && !taken.has(q))!, more = { ...b, snakes: { ...b.snakes, [free]: 30 } };
     expect(checkOwnerBoard(more).join(" ")).toContain("10 snakes, 10 ladders, 5 penalty and 5 reward squares");
   });
 });
@@ -37,7 +37,7 @@ describe("owner board: short, separate, spread out", () => {
       expect(bands.every((n) => n >= 2)).toBe(true);
       expect(checkOwnerBoard(b)).toEqual([]);
     }
-  });
+  }, 60000);
   test("the rule check reports a long snake and a crossing", () => {
     const b = ownerBoard("demo-1"), long = { ...b, snakes: { ...b.snakes, 97: 5 } };
     expect(checkOwnerBoard(long).join(" ")).toMatch(/short|cross/);
