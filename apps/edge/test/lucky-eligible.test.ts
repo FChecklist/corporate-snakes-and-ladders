@@ -15,7 +15,7 @@ import { roundTimeMs } from "../../../packages/beacon/src/index";
 import { fakeFetcher, fakeVerify, randomnessOf, roundAt } from "../../../tools/sim2/lib/beacon.mjs";
 
 /** When the lucky draw of drawGame is decided (the time of the beacon round that ends its break), worked out the way a phone does. */
-const WINDOW = 20, START_MS = Date.UTC(2026, 9, 20, 10, 0, 0) + 10 * 60_000, BRK = { after: 3, seconds: 30, kind: "lucky" as const, title: "Lucky draw", winners: 10 as 1 | 3 | 5 | 10 };
+const WINDOW = 10, START_MS = Date.UTC(2026, 9, 20, 10, 0, 0) + 10 * 60_000, BRK = { after: 3, seconds: 30, kind: "lucky" as const, title: "Lucky draw", winners: 10 as 1 | 3 | 5 | 10 };
 const DRAW_MS = roundTimeMs(luckyRound(null, roundAt(START_MS) + GRACE_ROUNDS, turnRounds(WINDOW), [BRK], BRK)!);
 
 /** `removals`: the organizer removes player i (the person's line on the organizer's list) when virtual time first reaches `at`. */

@@ -129,9 +129,9 @@ describe("start-time edge cases (GET /api/z/schedule and game creation)", () => 
 });
 
 // ---------------------------------------------------------------------------------------------------------- speeds, rounds, tickets, names
-describe("turn windows and names (this game: 15, 20, 25 or 30 seconds, one round)", () => {
+describe("turn windows and names (this game: 10 seconds, one round)", () => {
   const mk = async (over: Record<string, unknown>) => { const o = await organizer(); const id = uid(); const r = await create(o.key, id, over); return { r, id, o, body: await j(r) }; };
-  for (const [gap, ok] of [[15, true], [20, true], [25, true], [30, true], [6, false], [9, false], [12, false], [3, false], [18, false], [0, false], [-6, false], [7, false], [45, false]] as [number, boolean][]) {
+  for (const [gap, ok] of [[10, true], [15, false], [20, false], [25, false], [30, false], [6, false], [9, false], [12, false], [3, false], [18, false], [0, false], [-6, false], [7, false], [45, false]] as [number, boolean][]) {
     test(`a ${gap}-second gap between numbers is ${ok ? "accepted" : "refused"}`, async () => { expect((await mk({ callSeconds: gap })).r.status).toBe(ok ? 200 : 400); });
   }
   for (const gap of [6.5, "9", null, true]) test(`a gap of ${JSON.stringify(gap)} is not a whole number: refused`, async () => { expect((await mk({ callSeconds: gap })).r.status).toBe(400); });
