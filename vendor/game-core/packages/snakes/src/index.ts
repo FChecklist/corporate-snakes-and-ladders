@@ -53,7 +53,7 @@ export function placeSpecials(b: Board, counts: Partial<Record<SpecialKind, numb
   return checkBoard(nb).length ? b : nb; // a board that would be unsound keeps its plain squares
 }
 /** Owner board (31 Oct 2026): ONE board for everyone, 100 equal squares, fixed counts. */
-export const OWNER_COUNTS = { snakes: 30, ladders: 15, penalty: 10, reward: 10 } as const;
+export const OWNER_COUNTS = { snakes: 10, ladders: 10, penalty: 5, reward: 5 } as const;
 export const REWARD_THROWS = 2;
 /** Square n (1..100) to its grid cell. Row 0 is the bottom row: 1..10 left to right, the next row up runs right to left (11 at the right edge), and so on to 100 at the top. */
 export function squareXY(n: number): { col: number; row: number } {
@@ -76,14 +76,14 @@ const seeded = (seed: string): (() => number) => {
   let h = 2166136261; for (let i = 0; i < seed.length; i++) { h ^= seed.charCodeAt(i); h = Math.imul(h, 16777619); }
   return () => { h = (h + 0x6D2B79F5) | 0; let t = Math.imul(h ^ (h >>> 15), h | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
 };
-/** The board for a game, made only from the game id (same on every phone and the server). 30 snakes, 15 ladders, 10 penalty, 10 reward squares; the longest snake is 99 to 9, the longest ladder 31 to 80; every snake and ladder has a different length. A snake or ladder ends on a plain square; several may end on the same plain square. */
+/** The board for a game, made only from the game id (same on every phone and the server). 10 snakes, 10 ladders, 5 penalty, 5 reward squares; the longest snake is 99 to 9, the longest ladder 31 to 80; every snake and ladder has a different length. A snake or ladder ends on a plain square; several may end on the same plain square. */
 export function ownerBoard(gameId: string): Board {
   for (let attempt = 0; attempt < 20000; attempt++) {
     const r = seeded(gameId + "#" + attempt), shuf = <T,>(a: T[]): T[] => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [a[i], a[j]] = [a[j]!, a[i]!]; } return a; };
     const pool = shuf(Array.from({ length: 98 }, (_, i) => i + 2).filter((q) => q !== 99 && q !== 31 && q !== 80 && q !== 9));
     const take = (n: number, ok: (q: number) => boolean): number[] => { const out: number[] = []; for (let i = 0; i < pool.length && out.length < n; i++) if (ok(pool[i]!)) out.push(...pool.splice(i--, 1)); return out; };
-    const hd = take(29, (q) => q >= 12), ft = take(14, (q) => q <= 88), pen = take(10, () => true), rew = take(10, () => true); // heads need room to fall, feet room to climb
-    if (hd.length < 29 || ft.length < 14) continue;
+    const hd = take(9, (q) => q >= 12), ft = take(9, (q) => q <= 88), pen = take(5, () => true), rew = take(5, () => true); // heads need room to fall, feet room to climb
+    if (hd.length < 9 || ft.length < 9) continue;
     const heads = [99, ...hd], feet = [31, ...ft];
     const plain = [...pool, 80, 9], used = new Set<number>([90, 49]), snakes: Record<number, number> = { 99: 9 }, ladders: Record<number, number> = { 31: 80 };
     let ok = true;
@@ -101,7 +101,7 @@ export function ownerBoard(gameId: string): Board {
 export function checkOwnerBoard(b: Board): string[] {
   const bad: string[] = [], sn = Object.entries(b.snakes).map(([f, t]) => [+f, t] as const), la = Object.entries(b.ladders).map(([f, t]) => [+f, t] as const), sp = Object.entries(b.specials ?? {});
   if (b.size !== 100) bad.push("the board has 100 squares");
-  if (sn.length !== OWNER_COUNTS.snakes || la.length !== OWNER_COUNTS.ladders || sp.filter(([, v]) => v.kind === "punishment").length !== OWNER_COUNTS.penalty || sp.filter(([, v]) => v.kind === "reward").length !== OWNER_COUNTS.reward) bad.push("30 snakes, 15 ladders, 10 penalty and 10 reward squares");
+  if (sn.length !== OWNER_COUNTS.snakes || la.length !== OWNER_COUNTS.ladders || sp.filter(([, v]) => v.kind === "punishment").length !== OWNER_COUNTS.penalty || sp.filter(([, v]) => v.kind === "reward").length !== OWNER_COUNTS.reward) bad.push("10 snakes, 10 ladders, 5 penalty and 5 reward squares");
   const starts = [...sn.map(([f]) => f), ...la.map(([f]) => f), ...sp.map(([q]) => +q)];
   if (new Set(starts).size !== starts.length) bad.push("no square is used twice");
   if (starts.some((q) => q === 1 || q === 100)) bad.push("nothing sits on square 1 or 100");
