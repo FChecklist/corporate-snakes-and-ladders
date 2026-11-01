@@ -20,6 +20,7 @@ Where things are set:
 | `VISIT_KEY` | Key that hashes network addresses for first-party public-page visit counts | Pages secret | secret |
 | `VISIT_DAILY_WRITES` | Most visit-count writes per day (a cap) | Optional Pages variable | setting |
 | `FUNNEL_EVENTS` | Sales-funnel counting switch: only the exact value `on` turns it on; unset means off | Optional Pages variable | setting |
+| `DEMO_GAME` | Free demo game switch: only the exact value `on` turns it on; unset means off | Optional Pages variable | setting |
 | `REPORT_KEY` | Key to read the first-party error and speed reports (`/api/telemetry`) | Pages secret | secret |
 | `RESEND_API_KEY` | Sends e-mail through the mail service (sign-in codes, invoices, reports, notes to the owner) | Pages secret | secret |
 | `RESEND_WEBHOOK_SECRET` | Checks the signature of the mail service's bounce / complaint / delivery webhook (`POST /api/mail/events`); with no value that address answers 404 | Pages secret | secret |

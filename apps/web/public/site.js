@@ -313,4 +313,9 @@
     var t = document.getElementById("pricing"); if (!t) return; e.preventDefault();
     t.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" });
   });
+  // "Try a free demo": shown only while the server flag DEMO_GAME is on (the answer is a plain yes or no; nothing is sent about the visitor)
+  try { fetch("/api/demo/status").then(function (r) { return r.json(); }).then(function (j) {
+    var h = document.getElementById("h1"); if (!j || j.enabled !== true || !h || document.getElementById("demoLink")) return;
+    var p = document.createElement("p"); p.id = "demoLink"; p.innerHTML = '<a href="/zc.html">Try a free demo (up to 10 people, no payment)</a>'; h.parentNode.insertBefore(p, h.nextSibling);
+  }).catch(function () {}); } catch (e) {}
 })();

@@ -39,6 +39,7 @@
     if ("brand" in r && !(fromJoin && INFO.brand)) { INFO.brand = cleanBrand(r.brand); if (!DEMO && EID && INFO.brand && INFO.brand.logo !== undefined) { try { store.set("cbz:" + EID + ":brand", JSON.stringify(INFO.brand)); } catch { /* storage full or blocked: the strip just is not kept */ } } } // a join answer carries the brand without its logo: never let it replace the full one read from info
     if ("joinPhone" in r) INFO.joinPhone = r.joinPhone === true;
     if ("verify" in r) { INFO.verify = r.verify === "id" || r.verify === "both" ? r.verify : "mobile"; INFO.empOnly = r.employeesOnly === true; INFO.idKind = r.idKind === "email" ? "email" : "emp"; INFO.idClean = r.idClean === true; }
+    if (r.demo === true) INFO.demo = true;
     if (r.didNotStart === true) INFO.dns = true; else if ("startRound" in r && !fromJoin) INFO.dns = false;
     if ("cancelled" in r || "startRound" in r) INFO.cancelled = r.cancelled ? { message: String(r.message || "").slice(0, 200) } : null;
   };
@@ -925,5 +926,8 @@
 
   if (!EID) { $app.innerHTML = `<p class="zmsg">This link is incomplete. Please ask your organizer for the game link.</p>`; return; }
   rt.boot().then(() => { if (rt.phase === "play") clearWait(); else restoreWait(); paint(); if (rt.phase === "play") start(); });
+  // Free demo game (demo.ts): every screen says "Demo". The bar is put back at the top of the page whenever the screen is redrawn.
+  function demoBar() { try { if (!(INFO.demo === true)) return; const first = $app.firstElementChild; if (first && first.id === "zdemo-bar") return; const d = document.createElement("div"); d.id = "zdemo-bar"; d.className = "zbanner info zflush"; d.setAttribute("role", "status"); d.innerHTML = "<b>Demo</b> · a free practice game for up to 10 people. Same rules as a real game. Nothing is paid and guest details are auto-deleted after the game."; $app.insertBefore(d, $app.firstChild); } catch { /* a courtesy label: the game name also starts with Demo */ } }
+  try { new MutationObserver(demoBar).observe($app, { childList: true }); } catch { /* old browser: the name still says Demo */ }
   window.__rt = rt;
 })();

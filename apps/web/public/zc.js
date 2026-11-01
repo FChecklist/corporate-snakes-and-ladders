@@ -1094,7 +1094,7 @@
     const main0 = clonePanel();
     const hist = S.showHist && h ? `<div class="zc-block"><h3>History · kept ${h.retentionDays} days</h3>${h.engagements.map((e) => `<div class="zc-rowl"><span>${esc(e.id)} · ${fmtDay(e.created_ms)} · ${e.participants} people${e.draft ? " · draft" : ""}</span><span><button type="button" class="zc-mini" data-open-game="${esc(e.id)}">Open</button> <button type="button" class="zc-mini" data-reuse="${esc(e.id)}"${consOff("K6")}>Reuse</button> <button type="button" class="zc-mini" data-clonebtn="1" data-from="${esc(e.id)}" data-people="${e.participants > 0 && !e.erased ? 1 : 0}">Create a new game like this one</button></span></div>`).join("")}</div>` : "";
     const main = `${S.note ? `<div class="zc-toast" role="status">${esc(S.note)}</div>` : ""}${main0}<div class="zc-small zc-rolenote">${esc(ROLE_NOTE.organizer)}</div>
-      ${gamesBlock(h, "organizer")}<div class="zc-block"><h3>Start a new game</h3>${small("You build it first, at no cost. You pay only when you publish. The first turn opens two minutes after the start time.")}<div class="zc-chips"><button type="button" class="zc-btn zc-btn-s" id="mk">Start a new game</button><a class="zc-chip" href="/zc.html?quick=1">Quick setup form</a></div></div>${bar}${hist}${acctHtml()}`;
+      ${gamesBlock(h, "organizer")}<div class="zc-block"><h3>Start a new game</h3>${small("You build it first, at no cost. You pay only when you publish. The first turn opens two minutes after the start time.")}<div class="zc-chips"><button type="button" class="zc-btn zc-btn-s" id="mk">Start a new game</button>${S.demoOn ? `<button type="button" class="zc-btn zc-btn-s" id="mkdemo">Try a free demo (up to 10 people)</button>` : ""}<a class="zc-chip" href="/zc.html?quick=1">Quick setup form</a></div></div>${bar}${hist}${acctHtml()}`;
     return frame(`<div class="zc-body"><div class="zc-main">${main}</div></div>`, false);
   }
   // ---------- Quick setup: the first three steps as one form, with a real date and time picker (the AI route and the browser-AI route use it) ----------
@@ -1207,6 +1207,7 @@
   async function refreshHome() {
     if (isOrg()) await redeemPass(); // a demo pass link opened in this browser is used now (before a first game is made for a new person)
     S.screen = "home";
+    try { S.demoOn = (await fetch(BASE + "/api/demo/status").then((r) => r.json())).enabled === true; } catch { S.demoOn = false; } // "Try a free demo" shows only while DEMO_GAME is on
     try { S.keys = (await call("GET", "/api/org/keys")).keys; } catch { S.keys = []; }
     try { S.sugs = (await call("GET", "/api/z/suggestions")).suggestions.slice(0, 6); } catch { S.sugs = []; }
     await loadCredits();
@@ -1359,7 +1360,7 @@
 
   // ---------- quick setup: make the draft ----------
   async function makeDraft(r, id, hasName) {
-    const res = await call("POST", "/api/z", { id, ...(r.name ? { name: r.name } : {}), startRound: ZG.roundAt(r.startMs), callSeconds: r.speed, cap: r.cap, join: r.join, tz: r.tz, rewards: r.rewards, whoCanJoin: r.who, ...(r.game || {}) });
+    const res = await call("POST", "/api/z", { id, ...(r.name ? { name: r.name } : {}), startRound: ZG.roundAt(r.startMs), callSeconds: r.speed, cap: r.cap, ...(r.demo ? { demo: true } : {}), join: r.join, tz: r.tz, rewards: r.rewards, whoCanJoin: r.who, ...(r.game || {}) });
     return res;
   }
   async function afterCreate(id, r) {
@@ -1387,8 +1388,8 @@
       refreshEng();
     } catch (e) { err.textContent = e.message; err.style.display = ""; }
   }
-  async function startNew() {
-    const saved = S.f; S.f = quickDefault(); const rr = quickRead(); S.f = saved;
+  async function startNew(opt) {
+    const saved = S.f; S.f = quickDefault(); const rr = { ...quickRead(), ...(opt && opt.demo ? { demo: true, cap: 10 } : {}) }; S.f = saved;
     const id = randId();
     await makeDraft({ ...rr, name: "" }, id);
     const k = await afterCreate(id, rr);
@@ -1452,6 +1453,7 @@
       catch (e) { S.becomeErr = friendly(e); redraw(); }
     };
     if ($("back")) $("back").onclick = () => { eid = ""; S.cfg = null; S.info = null; S.f = null; S.fFor = ""; S.openInit = ""; S.note = ""; S.sum = null; history.replaceState(null, "", location.pathname + (BASE ? "?api=" + encodeURIComponent(BASE) : "")); refreshHome(); };
+    if ($("mkdemo")) $("mkdemo").onclick = async () => { $("mkdemo").disabled = true; try { await startNew({ demo: true }); } catch (e) { noteAndDraw(friendly(e)); } };
     if ($("mk")) $("mk").onclick = async () => { $("mk").disabled = true; try { await startNew(); } catch (e) { noteAndDraw(friendly(e)); } };
     // moving around
     all("[data-open]", (b) => (b.onclick = () => openStep(Number(b.dataset.open))));
@@ -1773,5 +1775,8 @@
   };
   (async () => { if (!secret && bc) { bc.postMessage({ ask: true }); await new Promise((r) => setTimeout(r, 350)); } if (!inited) bootstrap(); })();
   setInterval(() => { const a = document.activeElement; if (a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) return; /* never wipe what the organizer is typing */ if (!secret || document.hidden) return; if (role() === "host" && S.setup && S.setup.ready === false) return; if (eid) refreshEng(); else if (QUICK || S.screen === "quick") return; else if (isOrg()) refreshHome(); }, 5000);
+  // Free demo game (demo.ts): every screen says "Demo". The bar is put back at the top of the page whenever the screen is redrawn.
+  function demoBar() { try { if (!(S.info && S.info.demo === true)) return; const first = $app.firstElementChild; if (first && first.id === "zdemo-bar") return; const d = document.createElement("div"); d.id = "zdemo-bar"; d.className = "zbanner info zflush"; d.setAttribute("role", "status"); d.innerHTML = "<b>Demo</b> · a free practice game for up to 10 people. Same rules as a real game. Nothing is paid and guest details are auto-deleted after the game."; $app.insertBefore(d, $app.firstChild); } catch { /* a courtesy label: the game name also starts with Demo */ } }
+  try { new MutationObserver(demoBar).observe($app, { childList: true }); } catch { /* old browser: the name still says Demo */ }
   window.__zc = S;
 })();

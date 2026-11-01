@@ -51,6 +51,7 @@ import { factsText } from "./ai-facts";
 import { mapJson, mapText } from "./ai-functions";
 import { goScreen, screenJson, screenText } from "./ai-go";
 import { AUDIT_SCHEMA, auditRequest, analyzeChain, loadRows, logAccess, setHold, toCsv, verifyChain, closeAuditFor, sweepAudit, type AuditEnv } from "./audit";
+import { DEMO_CAP, demoAllowed, demoName, demoOn, demoRecord, isDemo } from "./demo";
 import { FUNNEL_ENDPOINT, funnelCsv, funnelRange, funnelReport, funnelRoute, recordFunnel } from "./funnel";
 import { VISIT_SCHEMA, beaconRoute, linkVisitor, parseRange, recordFunnelForOrg, visitsJourney, visitsSummary, type VisitEnv } from "./visits";
 import { knownDial } from "./phonekit";
@@ -67,7 +68,7 @@ export interface Env {
   /** The secret that seals names and mobile numbers at rest (AES-256-GCM). Never stored in the database. */
   DATA_KEY?: string;
   /** Optional: the key that hashes network addresses for the public-page visit tracking (visits.ts); when absent it is derived from DATA_KEY. VISIT_DAILY_WRITES caps that tracking's share of the daily write allowance (default 20,000). */
-  VISIT_KEY?: string; VISIT_DAILY_WRITES?: string; FUNNEL_EVENTS?: string;
+  VISIT_KEY?: string; VISIT_DAILY_WRITES?: string; FUNNEL_EVENTS?: string; DEMO_GAME?: string;
   /** Shared secret of the mail service's inbound webhook (e-mail to us asking for a deletion). */
   INBOUND_SECRET?: string;
   /** The scheduled job's own key (it can call only the lifecycle tick, nothing else). */
@@ -796,6 +797,7 @@ async function route0(req: Request, env: Env, now: number, a: Auth): Promise<Res
   { const cm = p.match(/^\/api\/consent\/(K[1-9])$/); if (cm && req.method === "GET" && isKind(cm[1])) return json(consentInfo(cm[1])); } // the boxes a page must show (exact wording, current version)
   { const mr = await modeRoute(req, env as any, now, a.plat && req.headers.get("x-cb-link") !== "1", (n) => purgeTestData(env, n)); if (mr) return mr; } // TEST/LIVE switch, allow-list, purge (mode.ts): owner only, except the public read of the word TEST or LIVE
   { const ar = await adminRoute(req, env as any, now, a.plat && req.headers.get("x-cb-link") !== "1", (n) => spend(env, now, n)); if (ar) return ar; } // the owner's desk (admin.ts): site switch, organizer lookup, data requests, mail events, error counts; the health read; the mail webhook
+  if (p === "/api/demo/status" && req.method === "GET") return json({ enabled: demoOn(env), people: DEMO_CAP }); // the home page shows "Try a free demo" only while DEMO_GAME is "on" (demo.ts)
   if (p === FUNNEL_ENDPOINT) return funnelRoute(req, env as any, now); // first-party sales funnel, page steps (funnel.ts); stores nothing while FUNNEL_EVENTS is not "on"
   if (p === "/api/v/b") return beaconRoute(req, env as VisitEnv, now, (n) => spend(env, now, n)); // public-page visit tracking (visits.ts); never the live game
   if (p === "/api/owner/game-records") { // OWNER ONLY (platform key, never through an AI work link): the permanent settings record of every game (no personal data of any player in it). Anybody else gets the same 404 as an unknown address.
@@ -1367,6 +1369,12 @@ async function route0(req: Request, env: Env, now: number, a: Auth): Promise<Res
     const b = await body(req, BRAND_BODY_MAX); // room for a brand logo (30 KB picture = about 40 KB of text)
     if (b && Number.isInteger(b.callSeconds) && !GAPS.includes(b.callSeconds)) return json({ error: GAP_MSG }, 400);
     if (!b) return json({ error: "Check the details and try again." }, 400);
+    const demo = b.demo === true; // free demo game (demo.ts): 10 people, no payment, no bought pack, labelled Demo
+    const demoIp = demo ? (await sha("demoip|" + (req.headers.get("cf-connecting-ip") ?? "local"))).slice(0, 16) : "";
+    if (demo) {
+      const dc = await demoAllowed(env, a.org ?? null, demoIp, now); if (!dc.ok) return json({ error: dc.error, ...(dc.code ? { code: dc.code } : {}) }, dc.status ?? 400);
+      b.cap = DEMO_CAP; b.name = demoName(b.name); if (typeof b.id !== "string" || !b.id) b.id = "DEMO-" + randHex(4).toUpperCase();
+    }
     if (!ID.test(b.id ?? "")) return json({ error: "The game code can use letters, numbers, - and _ only (3 to 40 characters)." }, 400);
     if (!Number.isInteger(b.startRound)) return json({ error: "Pick the day and time the game starts." }, 400);
     if (!Number.isInteger(b.callSeconds)) return json({ error: GAP_MSG }, 400);
@@ -1379,11 +1387,11 @@ async function route0(req: Request, env: Env, now: number, a: Auth): Promise<Res
     const have = await env.DB.prepare("SELECT org FROM engagement WHERE id=?").bind(b.id).first<{ org: string | null }>();
     if (have) return json({ ok: true, existed: true }); // creating twice never overwrites (and never reveals whose it is)
     // an organizer needs a purchased engagement (entitlement) big enough for the limit they ask for; we (platform) do not. A demo game never uses up a bought pack.
-    if (!a.plat && a.org) { try { await ownerTestGrant(env, a.org, b.cap, now); } catch { /* no grant: the game is a draft as for everybody */ } }
-    const ent = a.plat ? null : await env.DB.prepare("SELECT id, pack FROM entitlement WHERE org=? AND eid IS NULL AND pack>=? ORDER BY pack, created_ms LIMIT 1").bind(a.org, b.cap).first<{ id: string; pack: number }>();
+    if (!a.plat && a.org && !demo) { try { await ownerTestGrant(env, a.org, b.cap, now); } catch { /* no grant: the game is a draft as for everybody */ } }
+    const ent = a.plat || demo ? null : await env.DB.prepare("SELECT id, pack FROM entitlement WHERE org=? AND eid IS NULL AND pack>=? ORDER BY pack, created_ms LIMIT 1").bind(a.org, b.cap).first<{ id: string; pack: number }>();
     // no payment is needed to BUILD an engagement: without a purchased pack it is saved as a draft (pack 0) that participants cannot see or join;
     // payment is asked only when the organizer publishes it (POST /api/z/:id/publish)
-    const draft = !a.plat && !ent;
+    const draft = !a.plat && !ent && !demo;
     if (draft) {
       const n = (await env.DB.prepare("SELECT COUNT(*) AS c FROM engagement e WHERE e.org=? AND e.pack=0 AND NOT EXISTS (SELECT 1 FROM kv WHERE k='pub/' || e.id)").bind(a.org).first<{ c: number }>())?.c ?? 0;
       if (n >= MAX_DRAFTS) return json({ error: `You have ${MAX_DRAFTS} unpublished drafts. Publish one, or delete one you do not need (open Your games, then press Delete next to it). An unpublished draft is also forgotten after ${DRAFT_DAYS} days.` }, 409);
@@ -1391,11 +1399,12 @@ async function route0(req: Request, env: Env, now: number, a: Auth): Promise<Res
     if (!(await spend(env, now, 2))) return BUSY();
     const isTestEng = (await testFlag(env)) === 1 || (await orgIsTest(env, a.org)) ? 1 : 0; // made in TEST mode, or by a test account
     await env.DB.prepare("INSERT OR IGNORE INTO engagement(id,start_round,call_seconds,cap,created_ms,org,closed,pack,tickets,config,is_test) VALUES(?,?,?,?,?,?,?,?,?,?,?)").bind(b.id, b.startRound, b.callSeconds, b.cap, now, a.org, b.whoCanJoin === "list" || (b.whoCanJoin === undefined && b.closed) || vc.cfg.employeesOnly ? 1 : 0, draft ? 0 : ent?.pack ?? b.cap, vc.cfg.tickets, cfgJson(vc.cfg), isTestEng).run(); // the console sends whoCanJoin "list"; the API default stays "anyone"
+    if (demo) await demoRecord(env, b.id, a.org ?? null, demoIp, now);
     if (ent) await env.DB.prepare("UPDATE entitlement SET eid=? WHERE id=? AND eid IS NULL").bind(b.id, ent.id).run();
     if (a.kind === "ai" && a.org) await noteHelperGame(env.DB, req.headers.get("x-organizer") || (req.headers.get("authorization") ?? "").replace(/^Bearer\s+/i, ""), a.org, b.id, now); // a game made with a Help Desk helper's key is recorded as theirs
     if (a.org) await recordTerms(env, a.org, now, "engagement");
     await recordFunnel(env as any, "game_created", b.id, now, { org: a.org }); // sales funnel (funnel.ts)
-    return json({ ok: true, draft, openUrl: `${(env as PayEnv).PUBLIC_ORIGIN ?? ""}/zc.html?e=${b.id}` });
+    return json({ ok: true, draft, ...(demo ? { demo: true } : {}), openUrl: `${(env as PayEnv).PUBLIC_ORIGIN ?? ""}/zc.html?e=${b.id}` });
   }
   if (req.method === "GET" && p === "/api/history") {
     if (!a.plat && !a.org) return deny(a);
@@ -1545,7 +1554,7 @@ async function route0(req: Request, env: Env, now: number, a: Auth): Promise<Res
     const pk = unpaid ? PACKS.find((x) => x[0] >= e.cap)?.[0] ?? null : e.pack;
     const lockedC = unpaid && !isDraft && !cancelled && !e.unplayed_ms && roundMs(e.start_round) - LOCK_LEAD_MS <= now;
     const roleAccepted = a.kind === "cohost" ? await hasConsent(env.DB, "K5", await cohostSubject(req)) : undefined;
-    return json({ ...(roleAccepted === undefined ? {} : { roleAccepted }), name: c.name || e.id, startMs: roundMs(e.start_round), cap: e.cap, joined, brought: await broughtBy(env, e.org, kid), price: pk ? price(pk, "INR").total : null, payment, ...(cancelled ? { cancelled: true } : {}), waitingFor: lockedC ? "organizer" : null, didNotStart: !!e.unplayed_ms, erasureMs: await erasureOf(env, e), ...(await creditFields(env, a, e, unpaid && !cancelled && !e.unplayed_ms, now)), inviteLink: kid && !isDraft && !cancelled ? `${origin}/z.html?e=${e.id}&from=${COHOST_FROM + parseInt(kid, 16)}` : null });
+    return json({ ...(roleAccepted === undefined ? {} : { roleAccepted }), ...((await isDemo(env, e.id)) ? { demo: true } : {}), name: c.name || e.id, startMs: roundMs(e.start_round), cap: e.cap, joined, brought: await broughtBy(env, e.org, kid), price: pk ? price(pk, "INR").total : null, payment, ...(cancelled ? { cancelled: true } : {}), waitingFor: lockedC ? "organizer" : null, didNotStart: !!e.unplayed_ms, erasureMs: await erasureOf(env, e), ...(await creditFields(env, a, e, unpaid && !cancelled && !e.unplayed_ms, now)), inviteLink: kid && !isDraft && !cancelled ? `${origin}/z.html?e=${e.id}&from=${COHOST_FROM + parseInt(kid, 16)}` : null });
   }
   const locked = unpaid && !isDraft && !cancelled && !didNotStart && roundMs(e.start_round) - LOCK_LEAD_MS <= now; // published but not paid by its start time: it does not begin
   if (isDraft && (((action === "join" || action === "who") && req.method === "POST") || (action === "info" && !can(a, e)))) return json({ error: "This game is not open yet." }, 403);
@@ -1792,7 +1801,7 @@ async function route0(req: Request, env: Env, now: number, a: Auth): Promise<Res
     // public: counts only, no ids. The exceptions are a lucky draw and Unlucky, whose winners are shown by their opaque card ids so each phone can tell whether it won
     return json({ results: (r.results ?? []).map((x: any) => ({ pattern: x.pattern, ordinal: x.ordinal, round: x.round, idx: x.idx, count: JSON.parse(x.pids).length, ...(JSON.parse(x.pids).length ? { winners: JSON.parse(x.pids) } : {}) })) });
   }
-  if (action === "info" && req.method === "GET") return json({ ...(cancelled ? { cancelled: true, message: "This game was cancelled by the organizer.", cancelledMs: e.cancelled_ms } : {}), ...(didNotStart ? { message: DNS_MSG } : {}), ...(isDraft ? { draft: true } : {}), ...(unpaid && !isDraft ? { ...(can(a, e) ? { unpaid: true } : {}), locked } : {}),
+  if (action === "info" && req.method === "GET") return json({ ...((await isDemo(env, e.id)) ? { demo: true } : {}), ...(cancelled ? { cancelled: true, message: "This game was cancelled by the organizer.", cancelledMs: e.cancelled_ms } : {}), ...(didNotStart ? { message: DNS_MSG } : {}), ...(isDraft ? { draft: true } : {}), ...(unpaid && !isDraft ? { ...(can(a, e) ? { unpaid: true } : {}), locked } : {}),
     waitingFor: locked ? "organizer" : null, didNotStart, erasureMs: await erasureOf(env, e), ...(await creditFields(env, a, e, unpaid && !cancelled && !didNotStart, now)), startMs: roundMs(e.start_round), cap: e.cap, startRound: e.start_round, callSeconds: e.call_seconds, trackClaims: tracks(e), controlUrl: controlUrl(env, e.id), whoCanJoin: e.closed ? "list" : "anyone", ...pub(e, true) });
 
   // everything below is for the organizer (or their AI, where allowed)
