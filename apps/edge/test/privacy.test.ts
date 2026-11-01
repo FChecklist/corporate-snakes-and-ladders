@@ -208,7 +208,7 @@ describe("the report and the deletion", () => {
     const r = await buildReport(link); const pdf = r.text;
     expect(pdf.startsWith("%PDF-1.4")).toBe(true); expect(pdf).toMatch(/%%EOF\s*$/);
     for (const needle of ["Organizer Olga", "Guest 3", "98765 00001", "98765 00002", "Zed ??", "organizer", "boss@acme.com", "Sent on:", "deleted", "365th day"]) expect(pdf.toLowerCase()).toContain(needle.toLowerCase());
-    for (const needle of ["Our commitment to your data", "permanently deleted from our systems within 24 hours", "DPDP", "GDPR", "California Consumer Privacy Act", "advertising", "encryption", "winners record", "Agreed by", "Prize given"]) expect(pdf).toContain(needle);
+    for (const needle of ["The commitment to your data", "permanently deleted from the systems within 24 hours", "DPDP", "GDPR", "California Consumer Privacy Act", "advertising", "encryption", "winners record", "Agreed by", "Prize given"]) expect(pdf).toContain(needle);
     expect(pdf).not.toMatch(/personal data(?! protection)/i);
     expect(pdf).not.toMatch(/the law requires|required by law/i);
     expect(pdf).not.toMatch(/(rs|inr|usd|price)[^\n(]{0,12}per (person|participant|head|user)/i);

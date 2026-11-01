@@ -240,17 +240,17 @@ async function reportStep(env: LifeEnv, e: any, life: { end_ms: number }, now: n
 const bodyFor = (eid: string, d: ReportData, link: string) => [
   `Hello,`, ``,
   `Your game ${eid} has ended. Your complete report is ready: when the game started, how many people took part at each stage, every prize and who won it, the invite tree, all statistics, and the name and mobile number of every participant.`, ``,
-  `Open it here (the PDF is built on your own computer or phone, so this link is all we send):`,
+  `Open it here (the PDF is built on your own computer or phone, so this link is all that is sent):`,
   link, ``,
   `The link works until ${istFull(reportLinkUntil(d.endMs))}; the participants' details are permanently deleted at ${istFull(d.personalDeleteAtMs)}, as promised. Please open it and save the PDF before then: it is the only copy of this data once ours is deleted. You can share the link with your co-host; anyone who has it can read the report, so share it carefully. Winners confirm the name and mobile number their prize goes to on their own phone; the report shows what they confirmed, whether they changed anything, and whether you have handed the prize over, so open it again after you have ticked "Prize given" in your console.`, ``,
   `What happens to the data:`,
-  `- By ${istFull(d.personalDeleteAtMs)} (within 24 hours of the game ending) we permanently delete every participant's name, mobile number, seat, join record and invite record from our systems.`,
-  `- For 365 days we keep only: the organizer, host and co-host details, the log of what your AI assistant did, and the winners record (which prize, which round, what time, which seat, and the name and mobile number each winner confirmed so the prize can be handed over, with whether it was given).`,
+  `- By ${istFull(d.personalDeleteAtMs)} (within 24 hours of the game ending) every participant's name, mobile number, seat, join record and invite record is permanently deleted from the systems.`,
+  `- For 365 days only this is kept: the organizer, host and co-host details, the log of what your AI assistant did, and the winners record (which prize, which round, what time, which seat, and the name and mobile number each winner confirmed so the prize can be handed over, with whether it was given).`,
   `- Everything about this game is deleted at 00:00 hours IST on ${istDate(d.fullDeleteAtMs)} (the end of the 365th day). Billing data is kept for audit and tax reasons.`,
   ``,
-  `The winners were worked out by the software from the public numbers and accepted only when several different phones agreed. You cannot choose or change a winner or a dice throw, and neither can we.`, ``,
-  `You can ask us to delete everything sooner: press Delete in your console, ask your AI assistant to request it (you confirm in your console), or reply to this e-mail from your registered address.`, ``,
-  `Corporate Snakes and Ladders is built to follow India's DPDP Act, the EU and UK GDPR and US privacy laws (including CCPA / CPRA): we collect only what is needed to run your game, protect it with encryption, keep it for the shortest time we can, never sell it, and honour every request to see, correct or delete data.`, ``,
+  `The winners were worked out by the software from the public numbers and accepted only when several different phones agreed. You cannot choose or change a winner or a dice throw, and neither can IT Services by Rajat Agarwal.`, ``,
+  `Everything can be deleted sooner on request: press Delete in your console, ask your AI assistant to request it (you confirm in your console), or reply to this e-mail from your registered address.`, ``,
+  `Corporate Snakes and Ladders is built to follow India's DPDP Act, the EU and UK GDPR and US privacy laws (including CCPA / CPRA): only what is needed to run your game is collected, it is protected with encryption, kept for the shortest time possible and never sold, and every request to see, correct or delete data is honoured.`, ``,
   `Sent on ${istFull(d.sentAtMs)} to ${d.organizerEmail}.`,
 ].join("\n");
 

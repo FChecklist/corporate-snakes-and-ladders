@@ -104,7 +104,7 @@ export async function leaveRoute(c: RightsCtx): Promise<Response> {
   if (s instanceof Response) return s;
   if (!(await c.spend(4))) return c.json({ error: "It is busy right now. Please try again in a few minutes.", code: "busy" }, 503);
   await takeOut(c, s);
-  return c.json({ ok: true, left: true, message: "You have left the game. Your name and your place were deleted from our system just now. You can close this page." });
+  return c.json({ ok: true, left: true, message: "You have left the game. Your name and your place were deleted from the system just now. You can close this page." });
 }
 
 /** What we hold about this player right now, in plain words (the answer to "what do you hold about me"). */
@@ -134,10 +134,10 @@ async function mailBoth(c: RightsCtx, id: string, kind: RequestKind, seat: Seat,
   const base = [
     `A player of "${c.gameName}" has asked ${KIND_WORDS[kind]}.`, "",
     `Game: ${c.gameName} (${c.eid})`, `${Noun} number: ${seat.seq}`, `Request: ${kind}`, `Received: ${istTime(c.now)}`,
-    `We promised the player an answer ${PROMISE_TEXT}, by ${istDay(due)}.`,
+    `The player has been promised an answer ${PROMISE_TEXT}, by ${istDay(due)}.`,
   ];
   const orgBody = [...base, ...(name ? [`Name the player gave: ${name}`] : []), ...(note ? [`Note from the player: ${note}`] : []), "",
-    erased ? "The player's name and place were deleted at once, as they asked. Nothing more is needed from you." : kind === "nomination" ? `The player has been asked to write to ${BRAND.support} with the name of the person they nominate. Please answer the player.` : kind === "access" ? "The player has already been shown what we hold. Please answer anything more they ask." : "You are the one who holds this name for the game. Please answer the player.",
+    erased ? "The player's name and place were deleted at once, as they asked. Nothing more is needed from you." : kind === "nomination" ? `The player has been asked to write to ${BRAND.support} with the name of the person they nominate. Please answer the player.` : kind === "access" ? "The player has already been shown what is held. Please answer anything more they ask." : "You are the one who holds this name for the game. Please answer the player.",
     `Request number: ${id}`].join("\n");
   const ownerBody = [...base, `Organizer informed: yes`, "", erased ? "Deleted at once." : "Open.", `Request number: ${id}`].join("\n");
   try { const to = await c.orgEmail(); if (to) await sendMail(c.env, c.db, to, `A player's data request: ${subjectEnd}`, orgBody, c.now); } catch { /* the request is stored; a mail is a nudge */ }
@@ -158,8 +158,8 @@ export async function requestRoute(c: RightsCtx): Promise<Response> {
   if (kind === "correction" && note.length < 2) return c.json({ error: "Please write what should be corrected.", code: "note-needed" }, 400);
   const mine = (await c.db.prepare("SELECT id, kind, status, created_ms, due_ms FROM data_request WHERE eid=? AND pid=?").bind(c.eid, s.pid).all<any>()).results ?? [];
   const open = mine.find((r: any) => r.kind === kind && r.status === "open");
-  if (open) return c.json({ ok: true, again: true, id: open.id, kind, status: "open", promiseDays: PROMISE_DAYS, promise: PROMISE_TEXT, receivedMs: open.created_ms, answerByMs: open.due_ms, message: `We already have your request. You will have your answer ${PROMISE_TEXT}.` });
-  if (mine.length >= MAX_REQUESTS_PER_PLAYER) return c.json({ error: "You have already sent several requests for this game. Please wait for our answer.", code: "too-many" }, 429);
+  if (open) return c.json({ ok: true, again: true, id: open.id, kind, status: "open", promiseDays: PROMISE_DAYS, promise: PROMISE_TEXT, receivedMs: open.created_ms, answerByMs: open.due_ms, message: `Your request has already been received. You will have your answer ${PROMISE_TEXT}.` });
+  if (mine.length >= MAX_REQUESTS_PER_PLAYER) return c.json({ error: "You have already sent several requests for this game. Please wait for the answer.", code: "too-many" }, 429);
   if (!(await c.spend(6))) return c.json({ error: "It is busy right now. Please try again in a few minutes.", code: "busy" }, 503);
   const id = "dr_" + randHex(8), due = c.now + PROMISE_DAYS * 86_400_000;
   const held = kind === "access" ? await heldAbout(c, s) : undefined; // read BEFORE anything is deleted
@@ -171,6 +171,6 @@ export async function requestRoute(c: RightsCtx): Promise<Response> {
   await mailBoth(c, id, kind, s, name, note, due, erased);
   return c.json({
     ok: true, id, kind, status: erased ? "done" : "open", promiseDays: PROMISE_DAYS, promise: PROMISE_TEXT, receivedMs: c.now, answerByMs: due, ...(held ? { held } : {}), ...(erased ? { erased: true } : {}),
-    message: erased ? "Done. Your name and your place were deleted just now. We told the organizer." : kind === "nomination" ? `We have your request. To name the person, please write to ${BRAND.support} with their name and how to reach them. You will have your answer ${PROMISE_TEXT}, by ${istDay(due)}.` : `We have your request. You will have your answer ${PROMISE_TEXT}, by ${istDay(due)}.`,
+    message: erased ? "Done. Your name and your place were deleted just now. The organizer has been told." : kind === "nomination" ? `Your request has been received. To name the person, please write to ${BRAND.support} with their name and how to reach them. You will have your answer ${PROMISE_TEXT}, by ${istDay(due)}.` : `Your request has been received. You will have your answer ${PROMISE_TEXT}, by ${istDay(due)}.`,
   });
 }

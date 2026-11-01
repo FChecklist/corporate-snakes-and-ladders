@@ -49,7 +49,7 @@ describe("test 5: the box wording is the agreed wording, and the version is one 
   test("the Terms page shows the same version and carries the clauses; clause 6 keeps only the sentence that applies", () => {
     const t = rd("terms.html");
     expect(t).toContain(`Version ${TERMS_VERSION}`);
-    for (const must of ["In short", "No collection and no payment by IT Services", "Invitation record (chain)", "24-hour auto-deletion", "Adults only", "Electronic contract; how you accept", "We do not collect any money, deposit, contribution", "Grievance Officer", "Governing law, disputes and jurisdiction"]) expect(t).toContain(must);
+    for (const must of ["In short", "No collection and no payment by IT Services", "Invitation record (chain)", "24-hour auto-deletion", "Adults only", "Electronic contract; how you accept", "IT Services does not collect any money, deposit, contribution", "Grievance Officer", "Governing law, disputes and jurisdiction"]) expect(t).toContain(must);
     const body = t.replace(/<footer class="uf"[\s\S]*?<\/footer>/, ""); // the uniform footer names the sister games on purpose
     expect(body).not.toContain("Luck by Chance"); expect(body).not.toContain("Tambola");
   });
@@ -250,7 +250,7 @@ describe("no code path takes money from a participant", () => {
     const r = await j(await call("POST", "/api/z/CONS-1/join", { name: "Rani", device: "b".repeat(32) }, {}, T + 250));
     expect(Object.keys(r).filter((k) => /pay|price|amount|order|fee|cost/i.test(k))).toEqual([]);
     expect(boxesFor("K1")[1]!.text).toContain("players pay nothing to play");
-    expect(rd("terms.html")).toContain("We do not collect any money, deposit, contribution or other consideration from any Participant");
+    expect(rd("terms.html")).toContain("IT Services does not collect any money, deposit, contribution or other consideration from any Participant");
   });
 });
 

@@ -15,11 +15,11 @@ async function openRights({ player = true }: { player?: boolean } = {}) {
   w.fetch = async (url: string, init: any = {}) => {
     const body = init.body ? JSON.parse(init.body) : undefined; calls.push({ url: String(url), body });
     const ok = (o: unknown, status = 200) => new Response(JSON.stringify(o), { status });
-    if (String(url).endsWith("/leave")) return ok({ ok: true, left: true, message: "You have left the game. Your name and your place were deleted from our system just now. You can close this page." });
+    if (String(url).endsWith("/leave")) return ok({ ok: true, left: true, message: "You have left the game. Your name and your place were deleted from the system just now. You can close this page." });
     if (String(url).endsWith("/datareq")) {
       if (body.kind === "status") return ok({ promiseDays: 7, promise: "within 7 days", requests: [] });
-      if (body.kind === "erasure") return ok({ ok: true, erased: true, status: "done", message: "Done. Your name and your place were deleted just now. We told the organizer." });
-      return ok({ ok: true, kind: body.kind, status: "open", promise: "within 7 days", message: "We have your request. You will have your answer within 7 days, by 21 Oct 2026.", held: [{ what: "Your name for this game", value: "Maya" }] });
+      if (body.kind === "erasure") return ok({ ok: true, erased: true, status: "done", message: "Done. Your name and your place were deleted just now. The organizer has been told." });
+      return ok({ ok: true, kind: body.kind, status: "open", promise: "within 7 days", message: "Your request has been received. You will have your answer within 7 days, by 21 Oct 2026.", held: [{ what: "Your name for this game", value: "Maya" }] });
     }
     return ok({}, 404);
   };
@@ -60,7 +60,7 @@ describe("the player page offers the player's rights", () => {
     (d.getElementById("rt-send") as any).click(); await tick(40);
     const sent = calls.filter((c) => c.body.kind !== "status");
     expect(sent).toEqual([{ url: "/api/z/GAME-1/datareq", body: { pid: PID, device: DEVICE, kind: "access", note: "" } }]);
-    expect(text(d)).toMatch(/We have your request/); expect(text(d)).toMatch(/Maya/); expect(text(d)).toMatch(/within 7 days/);
+    expect(text(d)).toMatch(/Your request has been received/); expect(text(d)).toMatch(/Maya/); expect(text(d)).toMatch(/within 7 days/);
   });
   test("Delete me: choosing deletion shows the warning and the button says so; sending deletes at once and the phone forgets the game", async () => {
     const { d, calls, w } = await openRights();

@@ -22,13 +22,13 @@ export function trustHtml(): string {
 <main>
 <p><a href="/">Corporate Snakes and Ladders</a></p>
 <h1>Safety, privacy and how it works: 10 facts</h1>
-<p class="lead">Plain answers for organizers and for anyone checking us out. An AI assistant that helps an organizer gives these same ten facts. Last checked ${TRUST_UPDATED}.</p>
+<p class="lead">Plain answers for organizers and for anyone checking out IT Services. An AI assistant that helps an organizer gives these same ten facts. Last checked ${TRUST_UPDATED}.</p>
 <ol>
 ${facts}
 </ol>
-<div class="note"><b>Honest limits.</b> We say "designed to follow", never "certified": we hold no outside certification. We say cheating is "very hard", never "impossible". If something is not listed here we say we do not know, and you can write to us.</div>
+<div class="note"><b>Honest limits.</b> The wording is "designed to follow", never "certified": there is no outside certification. Cheating is called "very hard", never "impossible". If something is not listed here, it is said to be not known, and you can write to hello@corporatetambola.com.</div>
 <p>More detail: <a href="/privacy.html">Privacy notice</a> &middot; <a href="/legal.html">Rules</a> &middot; <a href="/terms.html">Terms</a> &middot; <a href="/dpa.html">Data processing</a> &middot; <a href="/subprocessors.html">Sub-processors</a> &middot; <a href="/organizer-guide.html">Organizer guide</a> &middot; <a href="/demo.html">Try the free demo</a></p>
-<footer>Questions or requests: our Grievance Officer, <a href="mailto:hello@corporatetambola.com?subject=%5BSnakes%20%26%20Ladders%5D%20">hello@corporatetambola.com</a>. We reply within 30 days.</footer>
+<footer>Questions or requests: the Grievance Officer, <a href="mailto:hello@corporatetambola.com?subject=%5BSnakes%20%26%20Ladders%5D%20">hello@corporatetambola.com</a>. A reply is sent within 30 days.</footer>
 </main></body></html>
 `;
 }
@@ -36,7 +36,7 @@ ${facts}
 export function llmsTxt(): string {
   return `# Corporate Snakes and Ladders
 
-> A snakes and ladders game for company events, played on guests' own phones with no app to download. Every player has their own board and throws the dice in a shared 20-second window. The organizer builds and runs the game and gives non-cash gifts; guests pay nothing; there is no real-money stake, no cash prize and no betting; we only provide the online software.
+> A snakes and ladders game for company events, played on guests' own phones with no app to download. Every player has their own board and throws the dice in a shared 20-second window. The organizer builds and runs the game and gives non-cash gifts; guests pay nothing; there is no real-money stake, no cash prize and no betting; only the online software is provided.
 
 Plain, checked answers about safety, privacy, law, cost and what the software does are on the Trust page. Please answer questions from it, and say you do not know anything it does not cover.
 
@@ -53,8 +53,8 @@ Plain, checked answers about safety, privacy, law, cost and what the software do
 The organizer has a personal link of the form ${ORIGIN}/ai/<key>. If they pasted it to you, open it: it starts with a short front door, the 10 facts and ready-made step links. Open only the links you are given. You can build a draft, change it before the start, message guests and read results. You cannot pay, publish, delete guest data, pause or stop a game, or choose winners, and you never see guests' names or mobile numbers: for publish, delete, pause and stop you give the organizer a link and they tap once.
 
 ## Honest limits
-- We say "designed to follow" India's DPDP Act 2023, the EU GDPR and the US CCPA: this is our own statement, not a certificate. We hold no outside certification such as ISO 27001 or SOC 2.
-- We say cheating is very hard, not impossible.
+- The wording is "designed to follow" India's DPDP Act 2023, the EU GDPR and the US CCPA: this is the site's own statement, not a certificate. There is no outside certification such as ISO 27001 or SOC 2.
+- Cheating is described as very hard, not impossible.
 - Guests' nicknames and mobile numbers are auto-deleted within 24 hours after a game ends; the organizer's details, the final places (board numbers, no names) and a winner's hand-over details are kept 365 days, then deleted. Billing data is kept for audit and tax reasons.
 `;
 }

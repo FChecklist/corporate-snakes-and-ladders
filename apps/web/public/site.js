@@ -133,7 +133,7 @@
       ${k2Box}${gBox}<form id="frForm" novalidate><label class="lb" for="fMail">Your e-mail</label><input class="inp big" id="fMail" type="email" inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" placeholder="your e-mail" aria-describedby="fErr"><div id="fErr" role="alert"></div>
       <button class="btn block big" style="margin-top:14px" type="submit" id="frGo" disabled aria-disabled="true">Create my game ${ic("arrow")}</button></form>
       <p class="trust">${ic("shield")}Free to build and publish. No password.</p>
-      <p class="proto">Your console opens at once. We use your e-mail for your invoice and to sign you in later.</p><p class="proto"><a href="/demo.html">Want to see it first? Try the free 70-second demo.</a></p></div>`);
+      <p class="proto">Your console opens at once. Your e-mail is used for your invoice and to sign you in later.</p><p class="proto"><a href="/demo.html">Want to see it first? Try the free 70-second demo.</a></p></div>`);
     $("frForm").addEventListener("submit", async (e) => {
       e.preventDefault(); const m = $("fMail").value.trim().toLowerCase();
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(m)) return setErr("Please enter a valid e-mail address.");
@@ -141,7 +141,7 @@
       const b = $("frGo"); b.disabled = true; setErr("");
       try {
         const r = await TB.api("POST", "/api/start", { email: m, consent, ...(passTok() ? { pass: passTok() } : {}) });
-        if (r.exists) { TB.toast("You already have an account, so we are e-mailing you a code to confirm it is you"); return askCode(m, b); }
+        if (r.exists) { TB.toast("You already have an account, so a code is being e-mailed to you to confirm it is you"); return askCode(m, b); }
         try { CTK.set("cbz-org", r.token); sessionStorage.setItem("cbz-aimsg", r.aiMessage); CTK.set("cbz-email", m); } catch {}
         location.href = "/zc.html";
       } catch (x) { if (x.code === "consent-required" || x.code === "terms-changed") { k2Fresh(x.consent); setErr("Please read and tick the box again, then press the button."); return; } b.disabled = false; setErr(x.message); }
@@ -168,8 +168,8 @@
     const o = ORDER;
     TB.sheet(`${xbtn}<div class="res ok">${ic("check")}</div><h2 class="center">Your game is ready</h2>
       <div class="sum"><div class="kv"><span>Order</span><b class="mono">${esc(o.orderId)}</b></div><div class="kv"><span>Organization</span><b>${esc(o.org)}</b></div><div class="kv"><span>Players</span><b>Up to ${nf(o.pack)}</b></div><div class="kv t"><span>${o.mode === "test" ? "Paid (test)" : "Paid"}</span><b>${TB.money(o.total, o.currency)}</b></div>${o.invoiceNumber ? `<div class="kv"><span>Invoice</span><b class="mono"><a href="${esc(o.invoiceUrl)}" target="_blank" rel="noopener">${esc(o.invoiceNumber)}</a></b></div>` : ""}</div>
-      ${o.organizerKey ? `<div class="note info" role="note"><b>Your organizer key</b> (shown only once, and we have e-mailed it to you):<div class="mono" id="orgKey" style="word-break:break-all;margin:6px 0">${esc(o.organizerKey)}</div><button class="btn sm" type="button" id="cpKey">Copy key</button></div>` : `<p class="small muted center">You already have an organizer key. Sign in with your e-mail to continue.</p>`}
-      <p class="small muted center">Next step: open your console to set the date, pick your gifts and share the link. We sent the details and your invoice to <b>${esc(o.email)}</b>.</p>
+      ${o.organizerKey ? `<div class="note info" role="note"><b>Your organizer key</b> (shown only once, and also e-mailed to you):<div class="mono" id="orgKey" style="word-break:break-all;margin:6px 0">${esc(o.organizerKey)}</div><button class="btn sm" type="button" id="cpKey">Copy key</button></div>` : `<p class="small muted center">You already have an organizer key. Sign in with your e-mail to continue.</p>`}
+      <p class="small muted center">Next step: open your console to set the date, pick your gifts and share the link. The details and your invoice have been sent to <b>${esc(o.email)}</b>.</p>
       <div id="fErr"></div>
       <button class="btn block" id="toLogin" type="button">Open my console ${ic("arrow")}</button>`);
     const cp = $("cpKey"); if (cp) cp.addEventListener("click", () => { try { navigator.clipboard.writeText(o.organizerKey); TB.toast("Key copied"); } catch {} });
@@ -181,7 +181,7 @@
   function nextAfterSignIn() { let nx = "/zc.html"; try { const n = sessionStorage.getItem("cbz-next"); if (n && /^\/(zc|pay)(\.html)?(\?(e=[A-Za-z0-9_-]{4,40}|demo=1|quick=1(&cap=\d{1,5})?))?$/.test(n)) nx = n; sessionStorage.removeItem("cbz-next"); } catch {} return nx; }
   function openLogin(email) {
     window.CBFunnel && CBFunnel.report("signup_started");
-    TB.sheet(`${xbtn}<div class="eyebrow">Organizer sign-in</div><h2>Sign in or create your account</h2><p class="muted small">Type your e-mail and press Continue. That is all: there is no password. New here? Your account is made at once. Coming back? We e-mail you two ways to get in; you use <b>one</b> of them. Players never sign in here: they join with your game link.</p>
+    TB.sheet(`${xbtn}<div class="eyebrow">Organizer sign-in</div><h2>Sign in or create your account</h2><p class="muted small">Type your e-mail and press Continue. That is all: there is no password. New here? Your account is made at once. Coming back? Two ways to get in are e-mailed to you; you use <b>one</b> of them. Players never sign in here: they join with your game link.</p>
       ${gBox}<form id="lgForm" novalidate><label class="lb" for="lMail">Your e-mail</label><input class="inp big" id="lMail" data-need="1" type="email" inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" placeholder="your e-mail" value="${esc(email || "")}"><div id="k2slot"></div><div id="fErr" role="alert"></div>
       <button class="btn block big" style="margin-top:14px" type="submit" id="lgGo">Continue ${ic("arrow")}</button></form>`);
     let termsShown = false;
@@ -189,7 +189,7 @@
     const showTerms = (info) => {
       termsShown = true; if (info && Array.isArray(info.boxes)) K2.info = info; Object.keys(K2.state).forEach((k) => delete K2.state[k]);
       const k = $("k2slot"); if (!k) return;
-      k.innerHTML = `<p class="small muted" style="margin:12px 0 4px"><b>New here?</b> Tick the box below and we create your organizer account at once. It is free to build and publish.</p><div id="k2box"></div>`;
+      k.innerHTML = `<p class="small muted" style="margin:12px 0 4px"><b>New here?</b> Tick the box below and your organizer account is created at once. It is free to build and publish.</p><div id="k2box"></div>`;
       k2Mount(["lgGo"]); setErr(""); const f = k.querySelector("input"); if (f) f.focus();
     };
     $("lgForm").addEventListener("submit", async (e) => {
@@ -204,7 +204,7 @@
         location.href = nextAfterSignIn();
       } catch (x) {
         b.disabled = false;
-        if (x.code === "consent-required" || x.code === "terms-changed") { showTerms(x.consent); if (termsShown && x.code === "terms-changed") setErr("Our Terms have changed. Please read and tick the box again."); return; }
+        if (x.code === "consent-required" || x.code === "terms-changed") { showTerms(x.consent); if (termsShown && x.code === "terms-changed") setErr("The Terms have changed. Please read and tick the box again."); return; }
         setErr(x.message);
       }
     });
@@ -223,7 +223,7 @@
     const boxes6 = [0, 1, 2, 3, 4, 5].map((i) => `<input class="otpb" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" autocomplete="${i === 0 ? "one-time-code" : "off"}" aria-label="Digit ${i + 1} of 6" autocapitalize="off" spellcheck="false">`).join("");
     TB.sheet(`${xbtn}<div class="sheethead"><div class="eyebrow">Step 2</div><span class="sbrand" role="img" aria-label="Corporate Snakes and Ladders"><span class="mark"><img src="/logo-mark.svg" alt="" width="26" height="26"></span><span class="word">Corporate Snakes and Ladders<i>.</i></span></span></div>
       <h2 id="cdTitle">Now open your e-mail</h2>
-      <p class="sheetbody">We sent an e-mail to <b class="sendto">${esc(email)}</b>. Pick <b>ONE</b> of these two ways. You do not need both.</p>
+      <p class="sheetbody">An e-mail has been sent to <b class="sendto">${esc(email)}</b>. Pick <b>ONE</b> of these two ways. You do not need both.</p>
       <div class="optbox"><div class="optn">Option 1</div><p class="optt">Go to your e-mail and type the 6-digit number here</p><p class="opts">Open the e-mail. Find the 6 numbers. Type them in the six boxes below and press <b>Submit</b>.</p></div>
       <div class="optbox"><div class="optn">Option 2</div><p class="optt">Go to your e-mail and tap the button</p><p class="opts">Open the e-mail and tap the button <b>Sign me in</b>. You are signed in at once. You do not type anything. (You can then close this page.)</p></div>
       ${devCode ? `<div class="note info devcode" role="note"><span>Local test mode: your code is <b>${esc(devCode)}</b></span><button type="button" class="btn sm" id="useCode">Use this code</button></div>` : ""}

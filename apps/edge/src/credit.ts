@@ -234,7 +234,7 @@ export async function creditRoute(req: Request, env: PayEnv, now: number, spend:
   if (e.cancelled_ms) return json({ error: "This game was cancelled. It cannot be paid for.", code: "cancelled" }, 409);
   if (e.unplayed_ms) return json({ error: "This game did not start and is closed. It cannot be paid for.", code: "did-not-start" }, 409);
   const pack = PACKS.find((x) => x[0] >= e.cap)?.[0] ?? null;
-  if (!pack) return json({ error: "That many participants needs a custom arrangement. Please write to us." }, 400);
+  if (!pack) return json({ error: "That many participants needs a custom arrangement. Please write from the contact page." }, 400);
   const bodyText = await req.text(); let b: any = {}; try { b = bodyText ? JSON.parse(bodyText) : {}; } catch { b = {}; }
   const cur = b?.currency === "USD" ? "USD" : "INR";
   const total = price(pack, cur).total;
