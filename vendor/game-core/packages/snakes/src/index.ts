@@ -77,6 +77,9 @@ const seeded = (seed: string): (() => number) => {
   return () => { h = (h + 0x6D2B79F5) | 0; let t = Math.imul(h ^ (h >>> 15), h | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
 };
 /** The board for a game, made only from the game id (same on every phone and the server). 10 snakes, 10 ladders, 5 penalty, 5 reward squares; the longest snake is 99 to 9, the longest ladder 31 to 80; every snake and ladder has a different length. A snake or ladder ends on a plain square; several may end on the same plain square. */
+const rowOf = (q: number): number => Math.floor((q - 1) / 10);
+/** Too flat to read as a snake or ladder: fewer than 2 rows apart, or climbing less than about 22 degrees (columns apart more than 2.5 times the rows apart). */
+export const isFlat = (a: number, b: number): boolean => { const rd = Math.abs(rowOf(a) - rowOf(b)), cd = Math.abs(squareXY(a).col - squareXY(b).col); return rd < 2 || cd > 2.5 * rd; };
 export function ownerBoard(gameId: string): Board {
   for (let attempt = 0; attempt < 20000; attempt++) {
     const r = seeded(gameId + "#" + attempt), shuf = <T,>(a: T[]): T[] => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [a[i], a[j]] = [a[j]!, a[i]!]; } return a; };
@@ -87,9 +90,9 @@ export function ownerBoard(gameId: string): Board {
     const heads = [99, ...hd], feet = [31, ...ft];
     const plain = [...pool, 80, 9], used = new Set<number>([90, 49]), snakes: Record<number, number> = { 99: 9 }, ladders: Record<number, number> = { 31: 80 };
     let ok = true;
-    for (const f of heads.slice(1)) { const o = plain.filter((t) => t <= f - 3 && !used.has(f - t)); if (!o.length) { ok = false; break; } const t = o[Math.floor(r() * o.length)]!; used.add(f - t); snakes[f] = t; }
+    for (const f of heads.slice(1)) { const o = plain.filter((t) => t <= f - 3 && !isFlat(f, t) && !used.has(f - t)); if (!o.length) { ok = false; break; } const t = o[Math.floor(r() * o.length)]!; used.add(f - t); snakes[f] = t; }
     if (!ok) continue;
-    for (const f of feet.slice(1)) { const o = plain.filter((t) => t >= f + 3 && !used.has(t - f)); if (!o.length) { ok = false; break; } const t = o[Math.floor(r() * o.length)]!; used.add(t - f); ladders[f] = t; }
+    for (const f of feet.slice(1)) { const o = plain.filter((t) => t >= f + 3 && !isFlat(f, t) && !used.has(t - f)); if (!o.length) { ok = false; break; } const t = o[Math.floor(r() * o.length)]!; used.add(t - f); ladders[f] = t; }
     if (!ok) continue;
     const specials: Record<number, Special> = {}; for (const q of pen) specials[q] = { kind: "punishment" }; for (const q of rew) specials[q] = { kind: "reward" };
     const b: Board = { size: 100, snakes, ladders, specials };
@@ -109,6 +112,7 @@ export function checkOwnerBoard(b: Board): string[] {
   if (ends.some((t) => starts.includes(t) || t < 2 || t > 99)) bad.push("a snake or ladder ends on a plain square");
   const lens = [...sn.map(([f, t]) => f - t), ...la.map(([f, t]) => t - f)];
   if (lens.some((d) => d < 3) || new Set(lens).size !== lens.length) bad.push("every snake and ladder has a different length");
+  if ([...sn, ...la].some(([f, t]) => isFlat(f, t))) bad.push("no flat snake or ladder: the start and the end are at least 2 rows apart and not nearly level");
   if (b.snakes[99] !== 9 || Math.max(...sn.map(([f, t]) => f - t)) !== 90) bad.push("the longest snake is on 99 and goes to 9");
   if (b.ladders[31] !== 80 || Math.max(...la.map(([f, t]) => t - f)) !== 49) bad.push("the longest ladder starts on 31 and goes to 80");
   if (!reachable(b)) bad.push("nobody may be trapped");
