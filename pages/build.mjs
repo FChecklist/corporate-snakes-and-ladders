@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { readFileSync } from "node:fs";
 import { versionStamp } from "./version.mjs";
 import { versionRefs } from "./cache-bust.mjs";
+import { hideFromSearch, PRIVATE_ROBOTS_HEADER } from "./private-site.mjs";
 const SRC = join(import.meta.dir, "../apps/web/public"), OUT = join(import.meta.dir, "public");
 rmSync(OUT, { recursive: true, force: true }); mkdirSync(OUT, { recursive: true }); const STAMP = versionStamp({ root: join(import.meta.dir, ".."), game: JSON.parse(readFileSync(join(import.meta.dir, "../package.json"), "utf8")).name }), BUILT_SIG = [STAMP.commit, STAMP.builtAt, ""].join("|"); /* what this build calls itself: written to version.json and baked into autoupdate.js (the same text autoupdate.js builds from /version.json) */
 /* RELEASE GATE: a release build (RELEASE=1) refuses to run while EMP_CLEAN_FROM_MS (apps/edge/src/people.ts) is still the year-2100 placeholder, because the screens and the server would then disagree about how an employee ID is read. The release session sets the constant to the deploy instant first. */
@@ -27,7 +28,7 @@ const PLAINCSP = CSP.replace(/ frame-src[^;]*;/, "");
 // "Continue with Google" (Google Identity Services): its script, frame, connection and style are allowed ONLY on the pages that show the button (signin, index, zc; the Host setup lives in zc)
 const GOOGLECSP = PLAINCSP.replace("script-src 'self' https://static.cloudflareinsights.com;", "script-src 'self' https://static.cloudflareinsights.com https://accounts.google.com/gsi/client;").replace("style-src 'self' 'unsafe-inline';", "style-src 'self' 'unsafe-inline' https://accounts.google.com/gsi/style;").replace("connect-src 'self'", "connect-src 'self' https://accounts.google.com/gsi/").replace("frame-ancestors", "frame-src https://accounts.google.com/gsi/; frame-ancestors");
 // Cloudflare Pages serves "/z.html" as "/z" (a 308), so every page needs a rule for BOTH spellings or the header silently never applies (found in the 2026-10-05 audit, G-07).
-const hdr = (csp, extra = "") => `\n  Content-Security-Policy: ${csp}\n  X-Content-Type-Options: nosniff\n  Referrer-Policy: no-referrer\n  X-Frame-Options: DENY\n  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=()${extra || "\n  X-Robots-Tag: noai, noimageai"}\n`;
+const hdr = (csp, extra = "") => `\n  Content-Security-Policy: ${csp}\n  X-Content-Type-Options: nosniff\n  Referrer-Policy: no-referrer\n  X-Frame-Options: DENY\n  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=()${extra || PRIVATE_ROBOTS_HEADER}\n`;
 const NOINDEX = "\n  X-Robots-Tag: noindex, noai, noimageai";
 const PAGES = [ // [clean path, csp, noindex]
   ["/pay", PAYCSP, true], ["/paytest", PAYCSP, true], ["/paylink", PAYCSP, true], ["/z", GAMECSP, true], ["/preview", GAMECSP, true], ["/demo", GAMECSP, true], ["/trust", PLAINCSP, false], ["/zc", GOOGLECSP, true], ["/big", PLAINCSP, true], ["/report", PLAINCSP, true], ["/signin", GOOGLECSP, true], ["/owner-visits", PLAINCSP, true], ["/owner-funnel", PLAINCSP, true], ["/owner-versions", PLAINCSP, true], ["/ai-link", PLAINCSP, true],
@@ -36,10 +37,12 @@ const PAGES = [ // [clean path, csp, noindex]
 let rules = "";
 for (const [path, csp, noindex] of PAGES) { const h = hdr(csp, noindex ? NOINDEX : ""); rules += `${path}.html${h}${path}${h}`; }
 rules += "/" + hdr(GOOGLECSP);
-rules += "/*\n  Strict-Transport-Security: max-age=31536000\n"; // HTTPS only: a browser that has seen the site over HTTPS never tries plain HTTP again
+rules += "/*\n  Strict-Transport-Security: max-age=31536000" + PRIVATE_ROBOTS_HEADER + "\n"; // private site: never listed by a search engine (pages/private-site.mjs)
+ // HTTPS only: a browser that has seen the site over HTTPS never tries plain HTTP again
 rules += "/version.json\n  Cache-Control: no-store\n";
 rules += "/*.js\n  Cache-Control: no-cache\n  X-Robots-Tag: noindex, noai, noimageai\n/img/*\n  Cache-Control: public, max-age=604800\n/*.css\n  Cache-Control: no-cache\n/fonts/*\n  Cache-Control: public, max-age=31536000, immutable\n";
 versionRefs(OUT, STAMP.commit); // every local script and stylesheet address in the pages carries ?v=<commit> (pages/cache-bust.mjs): a returning visitor never runs an old script on a new page, whatever cache time the zone adds (the zone setting Browser Cache TTL replaces a no-cache header on the custom domain, so the address itself must change)
+hideFromSearch(OUT); // owner order 1 Nov 2026: noindex meta on every page, robots.txt Disallow all, no sitemap
 writeFileSync(join(OUT, "_headers"), rules);
 writeFileSync(join(OUT, "version.json"), JSON.stringify(STAMP) + "\n"); // what is live (P12): served at /version.json
 // The functions also run for the page addresses (and only those, never for images, scripts or styles), so the old pages.dev address can answer 301 (functions/_middleware.ts).
