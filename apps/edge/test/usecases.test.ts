@@ -23,7 +23,7 @@ let rz: { orders: any[]; payments: Record<string, any>; mail: any[]; mailDown: b
 const call = (method: string, path: string, body?: unknown, headers: Record<string, string> = {}, now = T) =>
   handle(new Request("http://x" + path, { method, headers: { "content-type": "application/json", ...headers }, body: withDevice(method, path, body) }), env as Env, now);
 const j = async (r: Response) => (await r.json()) as any;
-const eng = (id: string, over: Record<string, unknown> = {}) => ({ id, startRound: START, callSeconds: 20, cap: 100, ...over });
+const eng = (id: string, over: Record<string, unknown> = {}) => ({ id, startRound: START, callSeconds: 10, cap: 100, ...over });
 const contact = { email: "boss@acme.com", phone: "98765 43210" };
 
 async function organizer(email = `o${++ipN}@acme.com`) {

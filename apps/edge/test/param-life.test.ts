@@ -14,7 +14,7 @@ afterEach(restore);
 /** A game that was played (it began two hours before T), with `n` players who joined three hours before T and an organizer e-mail on record. */
 async function played(n = 3, over: Record<string, unknown> = {}) {
   const id = uid("LIFE");
-  expect((await create(undefined, id, { startRound: startIn(-2 * HOUR), callSeconds: 20, cap: 5000, ...over })).status).toBe(200);
+  expect((await create(undefined, id, { startRound: startIn(-2 * HOUR), callSeconds: 10, cap: 5000, ...over })).status).toBe(200);
   await W.env.DB.prepare("INSERT INTO kv(k,v) VALUES(?,?)").bind(`contact/${id}`, JSON.stringify({ email: "boss@acme.com", phone: "9811122233" })).run();
   for (let i = 1; i <= n; i++) expect((await join(id, i, {}, T - 3 * HOUR)).status).toBe(200);
   const end = await endBoundMs(W.env as any, one("SELECT * FROM engagement WHERE id=?", id));
@@ -342,7 +342,7 @@ describe("Help Desk with several parameter sets", () => {
       expect((await hcall("POST", "/api/helpdesk/accept", { t, consent: true }, org.h)).status).toBe(200);
       const me = await j(await hcall("GET", "/api/helpdesk/me", undefined, { "x-partner": pk }));
       const aiKey = me.clients[0].consoleUrl.match(/k=(cba_[0-9a-f]{48})/)[1] as string;
-      const id = uid("HD"); expect((await hcall("POST", "/api/z", { id, startRound: startIn(2 * DAY), callSeconds: 20, cap: 300, name: "Annual Day" }, { "x-organizer": aiKey })).status).toBe(200);
+      const id = uid("HD"); expect((await hcall("POST", "/api/z", { id, startRound: startIn(2 * DAY), callSeconds: 10, cap: 300, name: "Annual Day" }, { "x-organizer": aiKey })).status).toBe(200);
       expect((await hcall("POST", `/api/z/${id}/publish`, { email: oemail, phone: "9876500009" }, { "x-organizer": aiKey })).status).toBeLessThan(500);
       expect(one("SELECT 1 x FROM kv WHERE k=?", "pub/" + id)).toBeFalsy(); // the helper's key cannot publish: it is still a draft
       expect((await hcall("POST", "/api/helpdesk/request-publish", { linkId: inv.id, eid: id }, { "x-partner": pk })).status).toBe(200);
@@ -359,7 +359,7 @@ describe("Help Desk with several parameter sets", () => {
     const org = await organizer("boss@acme.com"); const inv = await j(await hcall("POST", "/api/helpdesk/invite", { email: "boss@acme.com" }, { "x-partner": pk }));
     await hcall("POST", "/api/helpdesk/accept", { t: tokenOf(lastMail("boss@acme.com", /asks to prepare/), "helpdesk-accept"), consent: true }, org.h);
     const aiKey = (await j(await hcall("GET", "/api/helpdesk/me", undefined, { "x-partner": pk }))).clients[0].consoleUrl.match(/k=(cba_[0-9a-f]{48})/)[1] as string;
-    const id = uid("HD"); await hcall("POST", "/api/z", { id, startRound: startIn(2 * DAY), callSeconds: 20, cap: 100 }, { "x-organizer": aiKey });
+    const id = uid("HD"); await hcall("POST", "/api/z", { id, startRound: startIn(2 * DAY), callSeconds: 10, cap: 100 }, { "x-organizer": aiKey });
     expect((await hcall("POST", "/api/checkout", { eid: id, org: "A", email: "a@b.co" }, { "x-organizer": aiKey })).status).toBeGreaterThanOrEqual(400);
     expect((await hcall("POST", "/api/org/host", { mobile: "9876500077" }, { "x-organizer": aiKey })).status).toBe(403);
     expect(inv.ok).toBe(true);

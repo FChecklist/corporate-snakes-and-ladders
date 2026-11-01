@@ -24,7 +24,7 @@ const OLD = "2026-01-01";
 beforeEach(() => { const d = makeD1(); raw = d.raw; env = { DB: d.db, ORGANIZER_SECRET: "plat", DAILY_WRITE_BUDGET: "100000", PUBLIC_ORIGIN: "https://snakes.test", DATA_KEY: "k", TEST_MODE: "1", JOIN_PER_IP_DAY: "100000", JOIN_PER_IP_MINUTE: "100000" } as any; });
 async function organizerWithDraft(id = "CONS-1") {
   const o = await j(await call("POST", "/api/start", { email: "boss@acme.com" }, { "cf-connecting-ip": "1.1.1.1" }));
-  await call("POST", "/api/z", { id, startRound: START, callSeconds: 20, cap: 100 }, { "x-organizer": o.token }, T + 10);
+  await call("POST", "/api/z", { id, startRound: START, callSeconds: 10, cap: 100 }, { "x-organizer": o.token }, T + 10);
   return o.token as string;
 }
 const pubBody = { email: "boss@acme.com", phone: "98765 43210" };

@@ -41,7 +41,7 @@ const VISIT = "abcdefghij12";
 const evt = (event: string, extra: Record<string, unknown> = {}) => ({ event, at: T, visit: VISIT, game: "snakes", ...extra });
 
 const start = async (email: string, ip: string) => ((await (await call("POST", "/api/start", { email }, { "cf-connecting-ip": ip })).json()) as any).token as string;
-const create = (key: string, id: string, cap = 300) => call("POST", "/api/z", { id, startRound: START, callSeconds: 20, cap }, { "x-organizer": key });
+const create = (key: string, id: string, cap = 300) => call("POST", "/api/z", { id, startRound: START, callSeconds: 10, cap }, { "x-organizer": key });
 const checkout = (key: string, eid: string) => call("POST", "/api/checkout", { eid, org: "Acme Ltd", email: "boss.secret@acme.com", country: "IN", taxId: "", currency: "INR" }, { "x-organizer": key });
 const verify = (paymentId: string, orderId: string, payId: string, status: string) => {
   rz.payments[payId] = { id: payId, order_id: orderId, status, amount: rz.orders.find((o) => o.id === orderId)!.amount };

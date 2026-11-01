@@ -26,7 +26,7 @@ const joinAs = (id: string, i: number, extra: Record<string, unknown> = {}, now 
 async function setup(opts: { closed?: boolean; cap?: number; invites?: unknown } = {}) {
   const st = await j(await handle(new Request("http://x/api/start", { method: "POST", headers: { "content-type": "application/json", "cf-connecting-ip": `7.7.7.${++ipN}` }, body: JSON.stringify({ consent: TICKS, email: `o${ipN}@acme.com` }) }), env as Env, T));
   const master = st.token as string, ai = st.aiKey as string;
-  await call("POST", "/api/z", { id: "PPL-1", startRound: START, callSeconds: 20, cap: opts.cap ?? 100, ...(opts.closed ? { whoCanJoin: "list" } : {}) }, master);
+  await call("POST", "/api/z", { id: "PPL-1", startRound: START, callSeconds: 10, cap: opts.cap ?? 100, ...(opts.closed ? { whoCanJoin: "list" } : {}) }, master);
   await call("POST", "/api/z/PPL-1/publish", { email: "boss@acme.com", phone: "98765 43210" }, master);
   if (opts.invites) await call("PATCH", "/api/z/PPL-1/settings", { guestInvites: opts.invites }, master);
   const host = (await j(await call("POST", "/api/org/host", { label: "Priya", email: "priya@acme.com", mobile: "9876500001" }, master))).hostKey as string;

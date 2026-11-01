@@ -13,7 +13,7 @@ const call = (method: string, path: string, body?: unknown, headers: Record<stri
   handle(new Request("http://x" + path, { method, headers: { "content-type": "application/json", ...headers }, body: withDevice(method, path, body) }), env as Env, now);
 const roundAt = (ms: number) => Math.floor((ms / 1000 - 1692803367) / 3) + 1;
 const FUT = roundAt(T) + 1200;
-const eng = (id: string, cap = 100) => ({ id, startRound: FUT, callSeconds: 20, cap });
+const eng = (id: string, cap = 100) => ({ id, startRound: FUT, callSeconds: 10, cap });
 const contact = { email: "boss@acme.com", phone: "98765 43210" };
 const q = (o: unknown) => encodeURIComponent(JSON.stringify(o));
 const j = async (r: Response) => (await r.json()) as any;

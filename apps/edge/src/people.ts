@@ -475,7 +475,7 @@ async function myOwnSeat(c: Ctx, who: Caller, b: any): Promise<Response> {
   }
   if (b?.phone !== undefined && b.phone !== null && String(b.phone).trim() !== "") { const cl = cleanPhone(b.phone); if (!cl.ok) return c.json({ error: cl.why }, 400); digits = cl.digits; }
   if (b?.name !== undefined) name = cleanName(b.name) || name;
-  if (!digits) return c.json({ error: "We need your mobile number to make your play link.", code: "need-phone" }, 400);
+  if (!digits) return c.json({ error: "Your mobile number is needed to make your play link.", code: "need-phone" }, 400);
   const ph = await phoneHashOf(c.env, digits);
   const label = await labelsOf(c);
   let row = await db.prepare(`SELECT ${PERSON_COLS} FROM person WHERE eid=? AND ph=?`).bind(c.eid, ph).first<PersonRow>();

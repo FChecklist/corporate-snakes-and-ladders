@@ -210,9 +210,9 @@
     const date = istDateStr(start), time = pad2(start.getUTCHours()) + ":" + pad2(start.getUTCMinutes());
     const nm = (c.name || "").trim();
     const f = { occ: nm ? (OCC.includes(nm) && nm !== "Other" ? nm : "Other") : "Team event", oname: nm && !OCC.includes(nm) ? nm : "", day: blank ? "" : dayOpts().some((d) => d[0] === date) ? date : "other", dayo: blank ? "" : date, time: blank ? "" : TIMES.some((x) => x[0] === time) ? time : "other", timeo: blank ? "" : time,
-      cap: String(inf.cap || 250), tix: "1", gj: c.join === "phone" ? "phone" : "name", spd: String(inf.callSeconds || 20), who: whoNow(), ver: c.verify === "id" || c.verify === "both" ? c.verify : "mobile", emp: !!c.employeesOnly, idk: c.idKind === "email" ? "email" : "emp",
+      cap: String(inf.cap || 250), tix: "1", gj: c.join === "phone" ? "phone" : "name", spd: String(inf.callSeconds || 10), who: whoNow(), ver: c.verify === "id" || c.verify === "both" ? c.verify : "mobile", emp: !!c.employeesOnly, idk: c.idKind === "email" ? "email" : "emp",
       gm: c.mode === "team" || c.mode === "table" ? c.mode : "race", tm: String(c.teams || 4), pl: c.play === "presence" ? "presence" : "fate", bs: String(bd.size || 100), sn: String(bd.snakes || 9), ld: String(bd.ladders || 9), fin: bd.finish === "pass" ? "pass" : "exact",
-      ms: (Array.isArray(c.milestones) && c.milestones.length ? c.milestones : [75]).join(", "), tc: String(c.turnCap || 60), ep: String(c.endPrizes || 5), ex: !!c.exclusive, th: c.theme === "career" ? "career" : "jungle",
+      ms: (Array.isArray(c.milestones) && c.milestones.length ? c.milestones : [75]).join(", "), tc: String(c.turnCap || 26), ep: String(c.endPrizes || 5), ex: !!c.exclusive, th: c.theme === "career" ? "career" : "jungle",
       inv: !!(c.invites && c.invites.on), per: String((c.invites && c.invites.per) || 4), cats: ((c.invites && c.invites.cats) || ["family", "colleagues"]).slice(), bundle: "", hs: {}, ph: "" };
     for (const [k] of HS) f.hs[k] = { on: false, n: 1, pt: "later", pd: "", orig: [] };
     for (const l of c.rewards || []) { const k = l.pattern, h = f.hs[k]; if (!h) continue; h.on = true; h.n = Math.max(h.n, l.ordinal); h.orig[l.ordinal - 1] = l.text || ""; }
@@ -288,10 +288,10 @@
 
   // ---------- step 2: how it plays ----------
   // the turn window (the time to throw): 15, 20, 25 or 30 seconds (an older game that uses another value keeps its own so it never disappears)
-  const spdOpts = (cur) => { const o = [["15", "15 seconds"], ["20", "20 seconds"], ["25", "25 seconds"], ["30", "30 seconds"]]; const c = String(cur || ""); if (c && !o.some((x) => x[0] === c)) { o.push([c, c + " seconds"]); o.sort((a, b) => Number(a[0]) - Number(b[0])); } return o; };
+  const spdOpts = (cur) => { const o = [["10", "10 seconds"]]; const c = String(cur || ""); if (c && !o.some((x) => x[0] === c)) { o.push([c, c + " seconds"]); o.sort((a, b) => Number(a[0]) - Number(b[0])); } return o; };
   const nums = (a, b) => Array.from({ length: b - a + 1 }, (_, i) => [String(a + i), String(a + i)]);
   /** SL-07: how long a game can last, from the settings themselves (no guess): the turn limit times the turn window, and it ends sooner when enough players are home. */
-  const durationLine = (f) => { const secs = Number(f.spd) || 20, tc = Number(f.tc) || 60, ep = Number(f.ep) || 5; return `A game lasts at most ${Math.ceil(tc * secs / 60)} minutes (${tc} turns of ${secs} seconds), plus any brand moments you add. It ends sooner, as soon as ${f.gm === "team" ? "the first whole team is" : ep + (ep === 1 ? " player is" : " players are")} home. Whatever happens, it stops after ${tc} turns. The first turn comes 2 minutes after the start time.`; };
+  const durationLine = (f) => { const secs = Number(f.spd) || 10, tc = Number(f.tc) || 26, ep = Number(f.ep) || 5; return `A game lasts at most ${Math.ceil(tc * secs / 60)} minutes (${tc} turns of ${secs} seconds), plus any brand moments you add. It ends sooner, as soon as ${f.gm === "team" ? "the first whole team is" : ep + (ep === 1 ? " player is" : " players are")} home. Whatever happens, it stops after ${tc} turns. The first turn comes 2 minutes after the start time.`; };
   /** The game settings (game type, throws, board, milestones, turn limit, one prize per person, look). Shared by step 2 and the Quick setup form. */
   function gameBlock() {
     const f = S.f;
@@ -983,7 +983,7 @@
   /** The game is over, as far as this page can tell: the report already went out (or the data was auto-deleted), the Organizer or Host pressed "End the game" and that stop has taken effect, or every turn window has opened (the turn cap). A game that ends early because enough players reached the end is only seen here once the server sends the report, a few minutes later. The hint must not send the organizer back to step 1. */
   const gameEnded = () => !!(S.life && (S.life.purged || S.life.reportSent))
     || (!!S.started && !S.draft && !!S.st && S.st.stopRound !== null && S.st.stopRound !== undefined && S.nowRound !== null && S.nowRound !== undefined && S.nowRound >= S.st.stopRound)
-    || (!!S.started && !S.draft && !S.locked && (S.turns || 0) >= (Number(S.cfg && S.cfg.turnCap) || ZG.DEFAULT_TURN_CAP || 60));
+    || (!!S.started && !S.draft && !S.locked && (S.turns || 0) >= (Number(S.cfg && S.cfg.turnCap) || ZG.DEFAULT_TURN_CAP || 26));
   function nextHtml() {
     const n = nextStep();
     if (!n) return `<div class="zc-next zc-next-ok"><span><b>All done.</b> Nothing else to do.</span></div>`;
@@ -1100,7 +1100,7 @@
   // ---------- Quick setup: the first three steps as one form, with a real date and time picker (the AI route and the browser-AI route use it) ----------
   function quickDefault() {
     const t = new Date(istNow().getTime() + 86400000);
-    const f = { occ: "Team event", oname: "", day: "other", dayo: istDateStr(t), time: "other", timeo: "16:00", cap: "250", tix: "1", gj: "name", spd: "20", join: "anyone", gm: "race", tm: "4", pl: "fate", bs: "100", sn: "9", ld: "9", fin: "exact", ms: "75", tc: "60", ep: "5", ex: false, th: "jungle", inv: false, per: "4", cats: ["family", "colleagues"], bundle: "Classic", hs: {}, ph: "" };
+    const f = { occ: "Team event", oname: "", day: "other", dayo: istDateStr(t), time: "other", timeo: "16:00", cap: "250", tix: "1", gj: "name", spd: "10", join: "anyone", gm: "race", tm: "4", pl: "fate", bs: "100", sn: "9", ld: "9", fin: "exact", ms: "75", tc: "26", ep: "5", ex: false, th: "jungle", inv: false, per: "4", cats: ["family", "colleagues"], bundle: "Classic", hs: {}, ph: "" };
     for (const [k] of HS) f.hs[k] = { on: false, n: 1, pt: "later", pd: "", orig: [] };
     applyBundleTo(f, "Classic");
     return f;
@@ -1257,7 +1257,7 @@
       S.started = now !== null && now >= S.info.startRound + ZG.GRACE_ROUNDS; S.nowRound = now; // the latest beacon round, kept so gameEnded() can tell whether a pressed "End the game" has taken effect
       try { S.published = (await fetch(BASE + `/api/z/${eid}/results`).then((r) => r.json())).results || []; } catch { S.published = S.published || []; }
       // Turns so far: how many turn windows have opened (the first turn opens GRACE_ROUNDS after the start). Held for non-payment: nothing is shown to anyone, the organizer included.
-      const turnCap = Number(S.cfg.turnCap) || ZG.DEFAULT_TURN_CAP || 60; let turns = 0;
+      const turnCap = Number(S.cfg.turnCap) || ZG.DEFAULT_TURN_CAP || 26; let turns = 0;
       if (S.started && !S.locked && now !== null) for (let k = 0; k < turnCap; k++) { const x = ZG.callRoundR(st, S.info.startRound + ZG.GRACE_ROUNDS, stride, S.cfg.breaks, 1, k); if (x !== null && x <= now) turns++; else break; }
       S.turns = turns; S.round = 1;
       // The winners are decided by the software (the phones agree on them, the server keeps what they agree on): this page lists the confirmed ones. Prizes with more than one winner on the same turn are listed together.

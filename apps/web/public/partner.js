@@ -29,7 +29,7 @@
     const fromCard = q.get("from") === "card";
     return `<div class="zcard zform"><h2>${fromCard ? "Start earning: get your link" : "Get your link in 20 seconds"}</h2>
         <label for="ph">Your mobile number</label><input id="ph" inputmode="tel" autocomplete="tel" placeholder="98765 43210" value="${esc(S.f.ph)}">
-        <label for="em">Your e-mail (we send you a code)</label><input id="em" type="email" inputmode="email" autocomplete="email" placeholder="your e-mail" value="${esc(S.f.em)}">
+        <label for="em">Your e-mail (a code is sent to it)</label><input id="em" type="email" inputmode="email" autocomplete="email" placeholder="your e-mail" value="${esc(S.f.em)}">
         <label for="nm">Your name (optional)</label><input id="nm" autocomplete="name" maxlength="60" value="${esc(S.f.nm)}">
         <label style="display:flex;gap:8px;align-items:flex-start;margin-top:12px;color:var(--ink);font-size:14px"><input type="checkbox" id="ok" style="width:auto;min-height:0;margin-top:3px"${S.f.ok ? " checked" : ""}> <span>I would like to join Refer &amp; earn with this mobile number.</span></label>
         ${S.err ? `<div class="zbanner bad" role="alert">${esc(S.err)}</div>` : ""}
@@ -37,7 +37,7 @@
         <p class="zsmall">Already joined? <a href="#" id="signin">Sign in with your e-mail</a></p></div>`;
   }
   function codeView() {
-    return `<div class="zcard zform"><h2>Check your e-mail</h2><p class="zsmall" style="margin-top:0">We e-mailed <b>${esc(S.email)}</b>. Type the 6-digit code here. It works for 10 minutes.</p>
+    return `<div class="zcard zform"><h2>Check your e-mail</h2><p class="zsmall" style="margin-top:0">A code was e-mailed to <b>${esc(S.email)}</b>. Type the 6-digit code here. It works for 10 minutes.</p>
       <label for="cd">6-digit code</label><input id="cd" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code" maxlength="6" placeholder="••••••">
       ${S.err ? `<div class="zbanner bad" role="alert">${esc(S.err)}</div>` : ""}
       <button class="zbtn" id="cdgo">Get my link</button>
@@ -46,14 +46,14 @@
   const twoWays = `<div class="zbanner info" style="text-align:left"><b>Option 1.</b> Go to your e-mail, find the 6 numbers and type them here.<br><b>Option 2.</b> Go to your e-mail and tap the button <b>Sign me in</b>. You do not type anything.<br>Use only one. Both work for 10 minutes.</div>`;
   function signinView() {
     return `<div class="zcard zform"><h2>Sign in to see your sales</h2>
-      <p class="zsmall" style="margin-top:0">Type your e-mail and press Continue. There is no password. We e-mail you two ways in; you use <b>one</b> of them.</p>
+      <p class="zsmall" style="margin-top:0">Type your e-mail and press Continue. There is no password. Two ways in are e-mailed to you; use <b>one</b> of them.</p>
       <label for="se">Your e-mail</label><input id="se" type="email" inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" placeholder="your e-mail" value="${esc(S.email || "")}">
       ${S.err ? `<div class="zbanner bad" role="alert">${esc(S.err)}</div>` : ""}
       <button class="zbtn" id="sgo">Continue</button>
       <p class="zsmall"><a href="#" id="back">Back</a></p></div>`;
   }
   function signinCodeView() {
-    return `<div class="zcard zform"><h2>Now open your e-mail</h2><p class="zsmall" style="margin-top:0">We sent an e-mail to <b>${esc(S.email)}</b>. Pick <b>one</b> of these two ways.</p>${twoWays}
+    return `<div class="zcard zform"><h2>Now open your e-mail</h2><p class="zsmall" style="margin-top:0">An e-mail was sent to <b>${esc(S.email)}</b>. Pick <b>one</b> of these two ways.</p>${twoWays}
       ${S.dev ? `<div class="zbanner info">Local test mode: your code is <b>${esc(S.dev)}</b> <button class="zbtn s" id="suse" type="button">Use this code</button></div>` : ""}
       <label for="scd">Option 1: type your 6-digit code here</label><input id="scd" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code" maxlength="6" placeholder="••••••">
       ${S.err ? `<div class="zbanner bad" role="alert">${esc(S.err)}</div>` : ""}
@@ -69,7 +69,7 @@
     const fresh = S.fresh ? `<div class="zbanner ok">You are in. You stay signed in on this phone or laptop. On another device, or if you ever sign out, just sign in with your e-mail again: nothing to remember.</div>` : "";
     const rows = m.sales.length ? `<table><tr><th>Date</th><th>Pack</th><th>Status</th><th>Commission</th></tr>${m.sales.map((s) => `<tr><td>${day(s.date)}</td><td>${s.pack ? "up to " + s.pack : "-"}</td><td>${statusText(s)}</td><td>${s.amount === null ? "to be announced" : inr(s.amount)}</td></tr>`).join("")}</table>` : `<p class="zsmall" style="margin:0">No sales yet. Share your link to get started.</p>`;
     return `<div class="zhead"><b><a class="zlogo" href="/" aria-label="Corporate Snakes and Ladders home"><img src="/logo-mark.svg" alt="Corporate Snakes and Ladders logo" width="20" height="20"></a>Corporate Snakes and Ladders · Refer &amp; earn</b><button class="zsnd" id="out">Sign out</button></div>${fresh}
-      ${m.state !== "active" ? `<div class="zbanner warn">Your partner account is paused. Please contact us.</div>` : ""}
+      ${m.state !== "active" ? `<div class="zbanner warn">Your partner account is paused. Please contact IT Services.</div>` : ""}
       <div class="zcard"><h2>Your link</h2>${shareBlock(m.code, m.link)}</div>
       <div class="zgrid"><div class="zcard"><h2>Sales</h2><div class="zstat">${t.sales}</div></div><div class="zcard"><h2>Earned so far</h2><div class="zstat">${inr(t.accruedInr + t.paidInr)}</div><p class="zsmall" style="margin:4px 0 0">${t.paidInr ? inr(t.paidInr) + " paid" : "None paid yet"}</p></div></div>
       ${!m.rateAnnounced && t.waitingForRate ? `<div class="zbanner info">${t.waitingForRate} sale${t.waitingForRate === 1 ? " is" : "s are"} counted for you. The commission will be announced soon and applied to them.</div>` : ""}

@@ -26,7 +26,7 @@ async function organizer(email: string) {
 }
 async function game(id: string, email = `org${++n}@acme.com`) {
   const o = await organizer(email);
-  expect((await call("POST", "/api/z", { id, startRound: START, callSeconds: 20, cap: 100 }, o.h)).status).toBe(200);
+  expect((await call("POST", "/api/z", { id, startRound: START, callSeconds: 10, cap: 100 }, o.h)).status).toBe(200);
   expect((await call("POST", `/api/z/${id}/publish`, { email: "boss@acme.com", phone: "98765 43210" }, o.h)).status).toBe(200);
   return o;
 }
@@ -91,7 +91,7 @@ describe("A3: look up an organizer and their games", () => {
   test("by e-mail: their games with id, state, start, paid and created; no phone number, nothing about anyone else", async () => {
     const o = await game("LK-1", "Maya.Lopez@acme.com");
     await game("LK-2", "other@acme.com");
-    expect((await call("POST", "/api/z", { id: "LK-3", startRound: START + 10, callSeconds: 20, cap: 50 }, o.h)).status).toBe(200); // a draft
+    expect((await call("POST", "/api/z", { id: "LK-3", startRound: START + 10, callSeconds: 10, cap: 50 }, o.h)).status).toBe(200); // a draft
     const r = await call("GET", "/api/owner/organizer?email=maya.lopez%40ACME.com", undefined, PLAT); expect(r.status).toBe(200);
     const b = await j(r);
     expect(b.found).toBe(true); expect(b.email).toBe("maya.lopez@acme.com");

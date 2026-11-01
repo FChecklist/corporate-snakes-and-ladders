@@ -5,7 +5,7 @@ import { advance, fateOf, newRun, rollFor, squareOf, type Run } from "./play";
 
 export type Mode = "race" | "team" | "table";
 export type Play = "fate" | "presence";
-export const DEFAULT_TURN_CAP = 60, MAX_TURN_CAP = 150, DEFAULT_END_PRIZES = 5, MAX_END_PRIZES = 5, DEFAULT_MILESTONE = 75;
+export const DEFAULT_TURN_CAP = 26, MAX_TURN_CAP = 150, DEFAULT_END_PRIZES = 5, MAX_END_PRIZES = 5, DEFAULT_MILESTONE = 75;
 
 /** What the game needs to know to play (public settings, the same on every device). */
 export interface RaceCfg {

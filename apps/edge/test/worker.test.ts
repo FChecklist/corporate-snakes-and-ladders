@@ -12,7 +12,7 @@ const FAR_START = Math.floor(((T + 2 * 86_400_000) / 1000 - 1692803367) / 3) + 1
 const call = (method: string, path: string, body?: unknown, headers: Record<string, string> = {}, now = T) =>
   handle(new Request("http://x" + path, { method, headers: { "content-type": "application/json", ...headers }, body: withDevice(method, path, body) }), env, now);
 const org = { "x-organizer": SECRET };
-const create = (over: Record<string, unknown> = {}) => call("POST", "/api/z", { id: "ENG1", startRound: FAR_START, callSeconds: 20, cap: 400, ...over }, org);
+const create = (over: Record<string, unknown> = {}) => call("POST", "/api/z", { id: "ENG1", startRound: FAR_START, callSeconds: 10, cap: 400, ...over }, org);
 const phone = (i: number) => "9" + String(100000000 + i);
 const join = (i: number, eid = "ENG1", now = T) => call("POST", `/api/z/${eid}/join`, { phone: phone(i), name: "P" + i }, {}, now);
 
@@ -24,16 +24,16 @@ beforeEach(() => {
 
 describe("engagement set-up", () => {
   test("only the organizer can create one", async () => {
-    expect((await call("POST", "/api/z", { id: "ENG1", startRound: 1, callSeconds: 20, cap: 10 })).status).toBe(403);
-    expect((await call("POST", "/api/z", { id: "ENG1", startRound: 1, callSeconds: 20, cap: 10 }, { "x-organizer": "wrong" })).status).toBe(403);
+    expect((await call("POST", "/api/z", { id: "ENG1", startRound: 1, callSeconds: 10, cap: 10 })).status).toBe(403);
+    expect((await call("POST", "/api/z", { id: "ENG1", startRound: 1, callSeconds: 10, cap: 10 }, { "x-organizer": "wrong" })).status).toBe(403);
   });
   test("with no secret configured, nobody is the organizer (no empty-secret bypass)", async () => {
     env.ORGANIZER_SECRET = undefined;
-    expect((await call("POST", "/api/z", { id: "ENG1", startRound: 1, callSeconds: 20, cap: 10 }, { "x-organizer": "" })).status).toBe(403);
+    expect((await call("POST", "/api/z", { id: "ENG1", startRound: 1, callSeconds: 10, cap: 10 }, { "x-organizer": "" })).status).toBe(403);
   });
   test("call speed must be a multiple of 3 s and at least 6 s", async () => {
     for (const s of [10, 3, 7, 0, -6, 6.5]) expect((await create({ callSeconds: s })).status).toBe(400);
-    expect((await create({ callSeconds: 20 })).status).toBe(200);
+    expect((await create({ callSeconds: 10 })).status).toBe(200);
   });
   test("bad ids, caps and rounds are refused", async () => {
     for (const o of [{ id: "x" }, { id: "a b c d" }, { id: "../../etc" }, { cap: 0 }, { cap: 100001 }, { startRound: 1.5 }, { startRound: "1" }]) expect((await create(o)).status).toBe(400);
@@ -188,7 +188,7 @@ describe("roster, history, erase and 365-day retention", () => {
       expect((await call(m, p, m === "POST" ? {} : undefined)).status).toBe(403);
   });
   test("info is public and holds only what a phone needs", async () => {
-    expect(await (await call("GET", "/api/z/ENG1/info")).json()).toMatchObject({ startRound: FAR_START, callSeconds: 20, trackClaims: true, controlUrl: null, tickets: 1, breaks: [] });
+    expect(await (await call("GET", "/api/z/ENG1/info")).json()).toMatchObject({ startRound: FAR_START, callSeconds: 10, trackClaims: true, controlUrl: null, tickets: 1, breaks: [] });
   });
   test("the organizer sees ids and names, never phone numbers or hashes", async () => {
     await join(1);
@@ -237,9 +237,9 @@ describe("roster, history, erase and 365-day retention", () => {
   });
   test("purge deletes only engagements older than 365 days, with everything under them", async () => {
     await join(1);
-    await call("POST", "/api/z", { id: "OLD1", startRound: 5, callSeconds: 20, cap: 10 }, org, T - 366 * D);
+    await call("POST", "/api/z", { id: "OLD1", startRound: 5, callSeconds: 10, cap: 10 }, org, T - 366 * D);
     await join(5, "OLD1", T - 366 * D);
-    await call("POST", "/api/z", { id: "EDGE", startRound: 5, callSeconds: 20, cap: 10 }, org, T - 364 * D);
+    await call("POST", "/api/z", { id: "EDGE", startRound: 5, callSeconds: 10, cap: 10 }, org, T - 364 * D);
 
     const r = await (await call("POST", "/api/purge", {}, org)).json() as any;
     expect(r.purged).toBe(1);
@@ -265,7 +265,7 @@ describe("organizers, their AI assistant, and what the AI may not do", () => {
     other = ((await (await call("POST", "/api/org", {}, plat)).json()) as any).organizerKey;
     aiKey = ((await (await call("POST", "/api/org/ai", {}, asM())).json()) as any).aiKey;
     for (let i = 0; i < 6; i++) raw.run("INSERT INTO entitlement(id,org,pack,payment_id,eid,created_ms) SELECT 'g" + i + "'||hash, org, 1000, 'x', NULL, 0 FROM organizer_key WHERE kind='master'"); // purchased engagements
-    await call("POST", "/api/z", { id: "MINE1", startRound: FUTURE, callSeconds: 20, cap: 50 }, asM());
+    await call("POST", "/api/z", { id: "MINE1", startRound: FUTURE, callSeconds: 10, cap: 50 }, asM());
   });
   test("only the platform makes organizers; keys are shown once and never stored in the clear", async () => {
     expect((await call("POST", "/api/org", {}, asM())).status).toBe(403);
@@ -284,18 +284,18 @@ describe("organizers, their AI assistant, and what the AI may not do", () => {
     expect((await (await call("GET", "/api/history", undefined, asM())).json() as any).engagements.map((x: any) => x.id)).toEqual(["MINE1"]);
   });
   test("another organizer can neither reuse my roster nor create over my id", async () => {
-    await call("POST", "/api/z", { id: "THEIRS", startRound: FUTURE, callSeconds: 20, cap: 50 }, { "x-organizer": other });
+    await call("POST", "/api/z", { id: "THEIRS", startRound: FUTURE, callSeconds: 10, cap: 50 }, { "x-organizer": other });
     expect((await call("POST", "/api/z/THEIRS/reuse", { from: "MINE1" }, { "x-organizer": other })).status).toBe(400);
-    const r = await (await call("POST", "/api/z", { id: "MINE1", startRound: 1, callSeconds: 20, cap: 1 }, { "x-organizer": other })).json() as any;
+    const r = await (await call("POST", "/api/z", { id: "MINE1", startRound: 1, callSeconds: 10, cap: 1 }, { "x-organizer": other })).json() as any;
     expect(r.existed).toBe(true);
     expect(raw.query("SELECT cap FROM engagement WHERE id='MINE1'").get()).toEqual({ cap: 50 });
   });
   test("the AI can do the organizer's work: create, load an invite list, change settings, read people and claims, reuse", async () => {
-    expect((await call("POST", "/api/z", { id: "BYAI1", startRound: FUTURE, callSeconds: 20, cap: 10 }, asA())).status).toBe(200);
+    expect((await call("POST", "/api/z", { id: "BYAI1", startRound: FUTURE, callSeconds: 10, cap: 10 }, asA())).status).toBe(200);
     const r = await (await call("POST", "/api/z/BYAI1/roster", { people: [{ phone: phone(1), name: "A" }, { phone: phone(2), name: "B" }, { phone: "12" }] }, asM())).json() as any; // the owner loads the list; an AI key is refused (names and numbers never pass through the AI)
     expect((await call("POST", "/api/z/BYAI1/roster", { people: [{ phone: phone(9), name: "Z" }] }, asA())).status).toBe(403);
     expect(r).toMatchObject({ added: 2, invalid: 1 });
-    expect((await call("PATCH", "/api/z/BYAI1/settings", { callSeconds: 20 }, asA())).status).toBe(200);
+    expect((await call("PATCH", "/api/z/BYAI1/settings", { callSeconds: 10 }, asA())).status).toBe(200);
     expect(((await (await call("GET", "/api/z/BYAI1/participants", undefined, asA())).json()) as any).participants).toHaveLength(2);
     expect((await call("GET", "/api/z/BYAI1/claims", undefined, asA())).status).toBe(200);
     expect((await call("POST", "/api/z/MINE1/reuse", { from: "BYAI1" }, asA())).status).toBe(200);
@@ -379,7 +379,7 @@ describe("organizers, their AI assistant, and what the AI may not do", () => {
     expect((await call("POST", "/api/z/MINE1/erase", {}, plat)).status).toBe(200);
   });
   test("purge also removes the pause file and requests of an old engagement", async () => {
-    await call("POST", "/api/z", { id: "ANCIENT", startRound: 5, callSeconds: 20, cap: 5 }, plat, T - 400 * 86_400_000);
+    await call("POST", "/api/z", { id: "ANCIENT", startRound: 5, callSeconds: 10, cap: 5 }, plat, T - 400 * 86_400_000);
     await call("POST", "/api/z/ANCIENT/control/request", { action: "pause" }, plat);
     await call("PUT", "/api/z/ANCIENT/control/key", { publicKey: "aa".repeat(32) }, plat);
     await call("POST", "/api/purge", {}, plat);
@@ -470,7 +470,7 @@ describe("the shared suggestion board for every organizer's AI", () => {
     expect((await call("POST", "/api/z/suggestions", { kind: "feature", title: "Fresh idea next day", body: "A perfectly reasonable description of the need." }, asA(), T + 86_400_001 + 1)).status).toBe(200);
   });
   test("a suggestion gives no one a way to run code or touch another organizer's engagements", async () => {
-    await call("POST", "/api/z", { id: "OTHERS1", startRound: FAR_START, callSeconds: 20, cap: 5 }, plat);
+    await call("POST", "/api/z", { id: "OTHERS1", startRound: FAR_START, callSeconds: 10, cap: 5 }, plat);
     for (const path of ["/api/z/OTHERS1/participants", "/api/z/OTHERS1/claims", "/api/z/OTHERS1/roster", "/api/z/OTHERS1/erase", "/api/z/OTHERS1/settle", "/api/z/OTHERS1/settings"])
       expect([403, 404, 405]).toContain((await call(path.endsWith("participants") || path.endsWith("claims") ? "GET" : "POST", path, {}, asA())).status);
   });
@@ -529,7 +529,7 @@ describe("pause file served from a cached static copy", () => {
   });
   test("purging an old engagement removes its static copy too", async () => {
     const { publicKeyFromSecret } = await import("../../../packages/beacon/src/control");
-    await call("POST", "/api/z", { id: "OLD99", startRound: 5, callSeconds: 20, cap: 5 }, plat, T - 400 * 86_400_000);
+    await call("POST", "/api/z", { id: "OLD99", startRound: 5, callSeconds: 10, cap: 5 }, plat, T - 400 * 86_400_000);
     await call("PUT", "/api/z/OLD99/control/key", { publicKey: publicKeyFromSecret("77".repeat(32)) }, plat);
     expect(store.has("c/OLD99.json")).toBe(true);
     await call("POST", "/api/purge", {}, plat);
@@ -539,7 +539,7 @@ describe("pause file served from a cached static copy", () => {
 
 describe("tickets, reward lines and brand breaks", () => {
   const FUT = Math.floor((T / 1000 - 1692803367) / 3) + 1 + 4000;
-  const mk = (extra: Record<string, unknown> = {}, id = "CFG01") => call("POST", "/api/z", { id, startRound: FUT, callSeconds: 20, cap: 50, ...extra }, org);
+  const mk = (extra: Record<string, unknown> = {}, id = "CFG01") => call("POST", "/api/z", { id, startRound: FUT, callSeconds: 10, cap: 50, ...extra }, org);
   const info = async (id = "CFG01") => (await (await call("GET", `/api/z/${id}/info`)).json()) as any;
 });
 
@@ -547,7 +547,7 @@ describe("lucky draw results", () => {
   const FUT = Math.floor((T / 1000 - 1692803367) / 3) + 1 + 4000;
   let pids: string[] = [];
   beforeEach(async () => {
-    await call("POST", "/api/z", { id: "LUCK1", startRound: FUT, callSeconds: 20, cap: 50, breaks: [{ after: 20, seconds: 30, kind: "lucky", title: "Lucky draw", winners: 3 }] }, org);
+    await call("POST", "/api/z", { id: "LUCK1", startRound: FUT, callSeconds: 10, cap: 50, breaks: [{ after: 20, seconds: 30, kind: "lucky", title: "Lucky draw", winners: 3 }] }, org);
     pids = []; for (let i = 1; i <= 5; i++) pids.push(((await (await join(i, "LUCK1")).json()) as any).pid);
   });
   const pub = async () => (await (await call("GET", "/api/z/LUCK1/results")).json()) as any;
@@ -571,7 +571,7 @@ describe("lucky draw results", () => {
     expect((await pub()).results.map((x: any) => x.winners)).toEqual([[pids[0]!]]);
   });
   test("an engagement with no lucky draw ignores lucky results", async () => {
-    await call("POST", "/api/z", { id: "PLAIN1", startRound: FUT, callSeconds: 20, cap: 50 }, org);
+    await call("POST", "/api/z", { id: "PLAIN1", startRound: FUT, callSeconds: 10, cap: 50 }, org);
     const q = ((await (await join(1, "PLAIN1")).json()) as any).pid;
     await settleByPhones(call, "PLAIN1", [{ pattern: "lucky", idx: 20, pids: [q] }], [q]);
     expect(raw.query("SELECT COUNT(*) c FROM settled WHERE eid='PLAIN1'").get()).toEqual({ c: 0 });
@@ -620,11 +620,11 @@ describe("an organizer's own sign-in keys", () => {
 describe("rounds in the store", () => {
   const FUT = Math.floor((T / 1000 - 1692803367) / 3) + 1 + 4000;
   test("an engagement with nothing set is one round", async () => {
-    await call("POST", "/api/z", { id: "RND02", startRound: FUT, callSeconds: 20, cap: 50 }, org);
+    await call("POST", "/api/z", { id: "RND02", startRound: FUT, callSeconds: 10, cap: 50 }, org);
     expect(((await (await call("GET", "/api/z/RND02/info")).json()) as any).rounds).toBe(1);
   });
   test("erase removes every round's claims and results", async () => {
-    await call("POST", "/api/z", { id: "RND05", startRound: FUT, callSeconds: 20, cap: 50, rounds: 2 }, org);
+    await call("POST", "/api/z", { id: "RND05", startRound: FUT, callSeconds: 10, cap: 50, rounds: 2 }, org);
     const pid = ((await (await join(1, "RND05")).json()) as any).pid;
     await call("POST", "/api/z/RND05/claims", { pid, claims: [{ pattern: "finish", idx: 20, round: 2 }] });
     await settleByPhones(call, "RND05", [{ pattern: "finish", round: 2, idx: 20, pids: [pid] }], [pid]);
@@ -741,7 +741,7 @@ const nowround = (delta: number) => Math.floor((T / 1000 - 1692803367) / 3) + 1 
 
 describe("brand moments: five for each ticket, placed by the software", () => {
   const FUT = Math.floor((T / 1000 - 1692803367) / 3) + 1 + 4000;
-  const mk = (extra: Record<string, unknown> = {}, id = "BM01") => call("POST", "/api/z", { id, startRound: FUT, callSeconds: 20, cap: 50, ...extra }, org);
+  const mk = (extra: Record<string, unknown> = {}, id = "BM01") => call("POST", "/api/z", { id, startRound: FUT, callSeconds: 10, cap: 50, ...extra }, org);
   const info = async (id = "BM01") => (await (await call("GET", `/api/z/${id}/info`)).json()) as any;
   const mid = (o: Record<string, unknown> = {}) => ({ kind: "speech", title: "A word from Acme", ...o });
   const open = { kind: "youtube", title: "Welcome", mediaUrl: "https://youtu.be/abcdefghijk" };

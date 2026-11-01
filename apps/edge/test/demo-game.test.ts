@@ -13,7 +13,7 @@ const j = async (r: Response) => (await r.json()) as any;
 const dev = (i: number) => String(i).padStart(2, "0").repeat(16);
 const mk = (extra: Record<string, unknown> = {}) => { const d = makeD1(); raw = d.raw; env = { DB: d.db, ORGANIZER_SECRET: "plat", DAILY_WRITE_BUDGET: "1000000", PUBLIC_ORIGIN: "https://snakesladders.test", PHONE_SALT: "salt", DATA_KEY: "k", ...extra } as any; };
 async function organizer(email: string, ip: string) { const s = await j(await call("POST", "/api/start", { email }, { "cf-connecting-ip": ip })); return { "x-organizer": s.token as string, "cf-connecting-ip": ip }; }
-const demoBody = (id: string, extra: Record<string, unknown> = {}) => ({ id, startRound: START, callSeconds: 20, cap: 500, demo: true, ...extra });
+const demoBody = (id: string, extra: Record<string, unknown> = {}) => ({ id, startRound: START, callSeconds: 10, cap: 500, demo: true, ...extra });
 const count = (sql: string) => (raw.query(sql).get() as any).c as number;
 
 describe("free demo game", () => {
@@ -45,7 +45,7 @@ describe("free demo game", () => {
   });
   test("a real game made the usual way is not a demo", async () => {
     const h = await organizer("a4@acme.com", "10.0.0.4");
-    await call("POST", "/api/z", { id: "REAL-ONE", startRound: START, callSeconds: 20, cap: 50 }, h);
+    await call("POST", "/api/z", { id: "REAL-ONE", startRound: START, callSeconds: 10, cap: 50 }, h);
     const info = await j(await call("GET", "/api/z/REAL-ONE/info", undefined, h)); expect(info.demo).toBeUndefined(); expect(info.draft).toBe(true);
   });
   test("at most 3 a day per organizer; the 4th is refused with a plain message", async () => {

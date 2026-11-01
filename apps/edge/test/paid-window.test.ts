@@ -16,7 +16,7 @@ const j = async (r: Response) => (await r.json()) as any;
 beforeEach(() => { const d = makeD1(); raw = d.raw; env = { DB: d.db, ORGANIZER_SECRET: "plat", DAILY_WRITE_BUDGET: "100000", PUBLIC_ORIGIN: "https://snakes.test", DATA_KEY: "k", TEST_MODE: "1" } as any; });
 async function game() {
   const o = await j(await call("POST", "/api/start", { email: "boss@acme.com" }, { "cf-connecting-ip": "1.1.1.1" }));
-  expect((await call("POST", "/api/z", { id: "WIN-1", startRound: roundOf(T + 5 * DAY), callSeconds: 20, cap: 100 }, { "x-organizer": o.token }, T)).status).toBe(200);
+  expect((await call("POST", "/api/z", { id: "WIN-1", startRound: roundOf(T + 5 * DAY), callSeconds: 10, cap: 100 }, { "x-organizer": o.token }, T)).status).toBe(200);
   return { "x-organizer": o.token as string };
 }
 const move = (h: Record<string, string>, startMs: number, now: number) => call("PATCH", "/api/z/WIN-1/settings", { startRound: roundOf(startMs) }, h, now);
@@ -31,7 +31,7 @@ describe("how far ahead a game time can be set", () => {
     expect((await move(h, T + 29 * DAY, T)).status).toBe(200);
     const r = await move(h, T + 31 * DAY, T + 1000); expect(r.status).toBe(400); expect((await j(r)).code).toBe("too-far");
     // creating a new game is capped the same way
-    expect((await call("POST", "/api/z", { id: "WIN-2", startRound: roundOf(T + 31 * DAY), callSeconds: 20, cap: 100 }, h, T)).status).toBe(400);
+    expect((await call("POST", "/api/z", { id: "WIN-2", startRound: roundOf(T + 31 * DAY), callSeconds: 10, cap: 100 }, h, T)).status).toBe(400);
   });
   test("a PAID game: any date up to 365 days from the payment (day 364 allowed, day 366 refused), even though that is far past 30 days from now", async () => {
     const h = await game(); markPaid(T);

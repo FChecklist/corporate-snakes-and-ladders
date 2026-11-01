@@ -19,11 +19,11 @@
       const d = S.done;
       return `${head}<div class="zcard" style="border:2px solid #2e7d4f"><h2>Payment received. The test worked.</h2>${TB.payReceipt ? TB.payReceipt(d, "Payment test (no game)") : ""}
         <p style="margin:0 0 10px">You paid <b>${esc(TB.money(d.total, d.currency))}</b>. Nothing was bought and nothing else will happen.</p>
-        ${TB.invoiceBox ? TB.invoiceBox(d, S.email) : ""}<p class="zsmall">We also e-mailed it to you.</p>
+        ${TB.invoiceBox ? TB.invoiceBox(d, S.email) : ""}<p class="zsmall">It was also e-mailed to you.</p>
         <button class="zbtn" id="again">Test again</button></div>`;
     }
     const cur = S.country === "IN" ? "INR" : "USD", amt = TB.money(1, cur);
-    return `${head}<div class="zcard"><h2>Test our payment</h2>
+    return `${head}<div class="zcard"><h2>Test the payment</h2>
       <p class="zsmall" style="margin-top:0">This is a real payment of <b>${esc(amt)}</b> (Rs 1 if you are in India, US$ 1 if you are abroad). It buys nothing. You get an invoice, so you can see the whole experience. Anyone can test it, any number of times.</p></div>
       <div class="zcard zform"><h2>Details</h2>
         <label for="nm">Name</label><input id="nm" autocomplete="name" value="${esc(S.name)}" placeholder="Full name">

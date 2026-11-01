@@ -18,7 +18,7 @@ describe("10-player demo game at Rs 0", () => {
   test("make, publish with no payment, 10 join by name, the 11th is refused, the same phone gets the same card", async () => {
     const s = await j(await call("POST", "/api/start", { email: "demo1@xyz.in" }, { "cf-connecting-ip": "10.0.0.9" }));
     const h = { "x-organizer": s.token as string };
-    expect((await call("POST", "/api/z", { id: "DEMO-10", startRound: START, callSeconds: 20, cap: 10 }, h)).status).toBe(200);
+    expect((await call("POST", "/api/z", { id: "DEMO-10", startRound: START, callSeconds: 10, cap: 10 }, h)).status).toBe(200);
     const pub = await call("POST", "/api/z/DEMO-10/publish", { email: "boss@acme.com", phone: "98765 43210" }, h);
     expect(pub.status).toBe(200); const pb = await j(pub); expect(pb.published).toBe(true); expect(pb.paid).toBe(true); // the owner test account (demo1@xyz.in) pays nothing: a Rs 0 game
     const pids = new Set<string>();

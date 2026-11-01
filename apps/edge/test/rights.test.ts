@@ -22,7 +22,7 @@ async function game(id: string) {
   orgMail = `org${++n}@acme.com`;
   const r = await j(await call("POST", "/api/start", { email: orgMail }, { "cf-connecting-ip": `10.0.0.${n}` }));
   const h = { "x-organizer": r.token as string };
-  expect((await call("POST", "/api/z", { id, startRound: START, callSeconds: 20, cap: 100 }, h)).status).toBe(200);
+  expect((await call("POST", "/api/z", { id, startRound: START, callSeconds: 10, cap: 100 }, h)).status).toBe(200);
   expect((await call("POST", `/api/z/${id}/publish`, { email: "boss@acme.com", phone: "98765 43210" }, h)).status).toBe(200);
   return h;
 }

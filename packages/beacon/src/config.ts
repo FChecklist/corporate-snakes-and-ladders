@@ -307,6 +307,7 @@ export function validateCfg(input: { verify?: unknown; employeesOnly?: unknown; 
       if (sorted.length === 1 && sorted[0] === DEFAULT_MILESTONE) delete cfg.milestones; else cfg.milestones = sorted;
     }
   }
+  if ((input as any).timeLimit !== undefined && (input as any).timeLimit !== null && input.turnCap === undefined) { const m = (input as any).timeLimit; if (m === 8) delete cfg.turnCap; else if (m === 7) cfg.turnCap = 23; else return { ok: false, error: "The time limit is 7 or 8 minutes." }; } // 7 minutes = 23 turns of 18 seconds, 8 minutes = 26 turns (the default)
   if (input.turnCap !== undefined) { const v = input.turnCap as any; if (v === null || v === DEFAULT_TURN_CAP) delete cfg.turnCap; else if (!Number.isInteger(v) || v < 10 || v > MAX_TURN_CAP) return { ok: false, error: `The turn limit is 10 to ${MAX_TURN_CAP}.` }; else cfg.turnCap = v; }
   if (input.endPrizes !== undefined) { const v = input.endPrizes as any; if (v === null || v === DEFAULT_END_PRIZES) delete cfg.endPrizes; else if (!Number.isInteger(v) || v < 1 || v > MAX_END_PRIZES) return { ok: false, error: `The game can end when 1 to ${MAX_END_PRIZES} players are home.` }; else cfg.endPrizes = v; }
   if (input.exclusive !== undefined) { if (input.exclusive === true) cfg.exclusive = true; else if (input.exclusive === false || input.exclusive === null) delete cfg.exclusive; else return { ok: false, error: "One prize per person is on (true) or off (false)." }; }
@@ -362,7 +363,7 @@ export function validateCfg(input: { verify?: unknown; employeesOnly?: unknown; 
 }
 
 /** The game-specific settings, picked out of any object (a request body, stored JSON) so every place that reads or writes settings handles them the same way. */
-export const GAME_FIELDS = ["mode", "play", "board", "milestones", "turnCap", "endPrizes", "exclusive", "teams", "theme"] as const;
+export const GAME_FIELDS = ["mode", "play", "board", "milestones", "turnCap", "timeLimit", "endPrizes", "exclusive", "teams", "theme"] as const;
 export const gameFields = (src: any): Record<string, unknown> => { const o: Record<string, unknown> = {}; if (src && typeof src === "object") for (const k of GAME_FIELDS) if (src[k] !== undefined) o[k] = src[k]; return o; };
 /** The same settings out of a validated config, only those that differ from the defaults (validateCfg already drops the defaults). */
 export const gameOut = (c: EngagementCfg): Record<string, unknown> => { const o: Record<string, unknown> = {}; for (const k of GAME_FIELDS) if ((c as any)[k] !== undefined) o[k] = (c as any)[k]; return o; };

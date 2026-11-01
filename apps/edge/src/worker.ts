@@ -234,8 +234,8 @@ const sha = async (s: string) => Array.from(new Uint8Array(await crypto.subtle.d
 const randHex = (n: number) => Array.from(crypto.getRandomValues(new Uint8Array(n)), (b) => b.toString(16).padStart(2, "0")).join("");
 const MAX_BODY = 4096;
 /** The gap between two numbers: 6, 9, 12 or 15 seconds (the console offers these; the server holds every caller, an AI included, to them). */
-const GAPS = [15, 20, 25, 30];
-const GAP_MSG = "The turn window can be 15, 20, 25 or 30 seconds.";
+const GAPS = [10];
+const GAP_MSG = "Every turn has a 10 second window.";
 /** A game time can be set at most 30 days ahead (the server enforces it for the console, the API and an AI alike). */
 const TOO_FAR = "A game can be set at most 30 days ahead. Please pick a day within the next 30 days.";
 const PAID_TOO_FAR = "A paid game can be moved to any date within 365 days of the payment. Please pick an earlier day.";
@@ -718,7 +718,7 @@ export const AI_MANIFEST = {
   your_role: "You are the organizer's event planner. Talk with them in plain, friendly words, never in API terms. Work through the steps in `conversation` IN ORDER, ONE question at a time, offering 2 to 4 clear options with a recommended default, and wait for their answer before moving on. Never invent details for them. They can watch everything you create appear live in their console (the openUrl returned when you create the engagement).",
   conversation: CONVERSATION.map((t) => t.replace(/\{api\}/g, "/api")),
   packs: PACKS.map(([n]) => ({ upTo: n, inr: price(n, "INR").total, usd: price(n, "USD").total })),
-  choices: { call_seconds: [15, 20, 25, 30], mode: ["race", "team", "table"], play: ["fate", "presence"], board: "size 100, 144 or 225; 6 to 12 snakes; 6 to 12 ladders; finish exact or pass", milestones: "1 to 3 squares", turnCap: "10 to 150", endPrizes: "1 to 5", exclusive: "true or false", teams: "2 to 10 (team race)", theme: ["jungle", "career"], rewards: PRIZE_HOUSES.map((h) => h.id), winners_per_reward: "1 up to the house maximum: " + PRIZE_HOUSES.map((h) => h.id + " " + h.max).join(", "), break_kinds: ["file", "youtube", "slides", "speech", "lucky (1, 3, 5 or 10 winners)"], rounds: "1 to 5" },
+  choices: { call_seconds: [10], time_limit_minutes: [7, 8], mode: ["race", "team", "table"], play: ["fate", "presence"], board: "size 100, 144 or 225; 6 to 12 snakes; 6 to 12 ladders; finish exact or pass", milestones: "1 to 3 squares", turnCap: "10 to 150", endPrizes: "1 to 5", exclusive: "true or false", teams: "2 to 10 (team race)", theme: ["jungle", "career"], rewards: PRIZE_HOUSES.map((h) => h.id), winners_per_reward: "1 up to the house maximum: " + PRIZE_HOUSES.map((h) => h.id + " " + h.max).join(", "), break_kinds: ["file", "youtube", "slides", "speech", "lucky (1, 3, 5 or 10 winners)"], rounds: "1 to 5" },
   you_can: [
     { do: "Turn the organizer's chosen date and time into the startRound the engagement needs, and check it is in the future", call: "GET /api/z/schedule?at=2026-10-03T16:00:00+05:30 -> {startRound, startMs, startsInMinutes, startsAtIST}" },
     { do: "Read back everything saved for one engagement (start time in the organizer's time, speed, limit, tickets, every reward, every break, rounds, head-count, and whether it is a draft, published or paid). Use it to confirm the details with the organizer after every change", call: "GET /api/z/{id}/summary" },

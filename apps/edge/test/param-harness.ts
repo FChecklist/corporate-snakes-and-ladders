@@ -56,7 +56,7 @@ export async function organizer(email = `org${++W.ip}x${Math.floor(Math.random()
 }
 let n = 0;
 export const uid = (p = "PRM") => `${p}-${(++n).toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`.slice(0, 40);
-export const eng = (id: string, over: Record<string, unknown> = {}) => ({ id, startRound: startIn(2 * HOUR), callSeconds: 20, cap: 100, ...over });
+export const eng = (id: string, over: Record<string, unknown> = {}) => ({ id, startRound: startIn(2 * HOUR), callSeconds: 10, cap: 100, ...over });
 /** Create a game as `key` (draft unless an entitlement exists). */
 export const create = (key: string | undefined, id: string, over: Record<string, unknown> = {}, now = T) => call("POST", "/api/z", eng(id, over), key ? keyH(key) : PLAT, now);
 export const contact = { email: "boss@acme.com", phone: "98765 43210" };

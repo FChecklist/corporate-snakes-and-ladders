@@ -18,7 +18,7 @@ beforeEach(() => { const d = makeD1(); raw = d.raw; env = { DB: d.db, ORGANIZER_
 
 async function team() {
   const master = (await j(await handle(new Request("http://x/api/start", { method: "POST", headers: { "content-type": "application/json", "cf-connecting-ip": `9.9.9.${++ip}` }, body: JSON.stringify({ consent: TICKS, email: "boss@acme.com" }) }), env, T))).token as string;
-  expect((await call("POST", "/api/z", { id: "CO-1", startRound: FAR_START, callSeconds: 20, cap: 300 }, master)).status).toBe(200);
+  expect((await call("POST", "/api/z", { id: "CO-1", startRound: FAR_START, callSeconds: 10, cap: 300 }, master)).status).toBe(200);
   const cohost = (await j(await call("POST", "/api/org/cohost", { label: "Ravi", phone: "9876500001", e: "CO-1" }, master))).cohostKey as string;
   const cohost2 = (await j(await call("POST", "/api/org/cohost", { label: "Meera", phone: "9876500002", e: "CO-1" }, master))).cohostKey as string;
   return { master, cohost, cohost2 };

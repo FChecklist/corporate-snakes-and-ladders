@@ -20,7 +20,7 @@ const j = async (r: Response) => (await r.json()) as any;
 async function setup() {
   const st = await j(await handle(new Request("http://x/api/start", { method: "POST", headers: { "content-type": "application/json", "cf-connecting-ip": `8.8.8.${++ipN}` }, body: JSON.stringify({ email: `o${ipN}@acme.com` }) }), env as Env, T));
   const master = st.token as string;
-  await call("POST", "/api/z", { id: "CSV-1", startRound: START, callSeconds: 20, cap: 100, whoCanJoin: "list" }, master);
+  await call("POST", "/api/z", { id: "CSV-1", startRound: START, callSeconds: 10, cap: 100, whoCanJoin: "list" }, master);
   await call("POST", "/api/z/CSV-1/publish", { email: "boss@acme.com", phone: "98765 43210" }, master);
   return master;
 }

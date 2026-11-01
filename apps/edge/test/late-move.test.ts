@@ -8,7 +8,7 @@ afterEach(restore);
 const MSG = "Ohooo! 😊 Sorry, you moved after your turn ended. This move cannot be made.";
 
 async function game(play: "presence" | "fate" = "presence") {
-  const g = await paidGame({ cap: 10, over: { play, startRound: startIn(2 * HOUR), callSeconds: 20 } });
+  const g = await paidGame({ cap: 10, over: { play, startRound: startIn(2 * HOUR), callSeconds: 10 } });
   const r = await j(await join(g.id, 1));
   const start = (one("SELECT start_round s FROM engagement WHERE id=?", g.id) as any).s as number;
   const open = roundMs(start + 40); // turn 0 opens GRACE_ROUNDS (40) after the start round; the window is 20 seconds
@@ -34,8 +34,8 @@ describe("late move", () => {
   });
   test("the boundary is decided by the server clock: one millisecond before the window ends is on time, the closing millisecond is late", async () => {
     const { open, send } = await game();
-    expect((await send(0, open + 20_000 - 1)).status).toBe(200);
-    const late = await send(0, open + 20_000); expect(late.status).toBe(409); expect((await j(late)).code).toBe("late-move");
+    expect((await send(0, open + 10_000 - 1)).status).toBe(200);
+    const late = await send(0, open + 10_000); expect(late.status).toBe(409); expect((await j(late)).code).toBe("late-move");
     expect((await send(0, open - 1)).status).toBe(409); // not open yet: a different refusal, not late-move
   });
   test("a forged throw (another phone) is refused, and a game with automatic throws takes no throws at all", async () => {

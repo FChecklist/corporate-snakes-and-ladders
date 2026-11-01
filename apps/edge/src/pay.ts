@@ -369,7 +369,7 @@ export async function payRoute(req: Request, env: PayEnv, now: number, spend: (n
     const dial = typeof b.phoneCode === "string" && /^\d{1,4}$/.test(b.phoneCode) ? b.phoneCode : "91", phoneDigits = typeof b.phone === "string" ? b.phone.replace(/\D/g, "").replace(/^0+/, "") : "";
     const contact = phoneDigits.length >= 6 && phoneDigits.length <= 14 ? `+${dial}${phoneDigits}` : "";
     if ((typeof b.country !== "string" || b.country.slice(0, 2) === "IN") && typeof b.taxId === "string" && b.taxId.trim() && !/^\d{2}[A-Z]{5}\d{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/.test(b.taxId.trim().toUpperCase())) return json({ error: "That GSTIN does not look right. It has 15 characters, like 27ABCDE1234F1Z5." }, 400);
-    if (cur === "USD" && rzp && env.RAZORPAY_INTERNATIONAL !== "1") return json({ error: "Payments in US dollars are not switched on yet. Please pay in Indian rupees or write to us." }, 400);
+    if (cur === "USD" && rzp && env.RAZORPAY_INTERNATIONAL !== "1") return json({ error: "Payments in US dollars are not switched on yet. Please pay in Indian rupees or write to IT Services." }, 400);
     if (!(await spend(2))) return busy();
     const full = price(pack, cur);
     // credit already applied to THIS game (by the Organizer, a Host or a Co-host, before this checkout) reduces what is charged; nothing else about credit is ever shown or used here

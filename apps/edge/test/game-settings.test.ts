@@ -15,7 +15,7 @@ const call = (method: string, path: string, body?: unknown, headers: Record<stri
 const j = async (r: Response) => (await r.json()) as any;
 const pubBody = { email: "boss@acme.com", phone: "98765 43210" };
 async function game(id = "SL-1", over: Record<string, unknown> = {}, publish = true) {
-  const r = await call("POST", "/api/z", { id, startRound: START, callSeconds: 20, cap: 200, ...over }, h);
+  const r = await call("POST", "/api/z", { id, startRound: START, callSeconds: 10, cap: 200, ...over }, h);
   expect(r.status).toBe(200);
   if (publish) expect((await call("POST", `/api/z/${id}/publish`, pubBody, h)).status).toBe(200);
 }
@@ -32,7 +32,7 @@ describe("joining", () => {
     await game();
     const r = await j(await join(1));
     expect(r.pid).toMatch(/^1x[0-9a-f]{12}$/);
-    expect(r.startRound).toBe(START); expect(r.callSeconds).toBe(20);
+    expect(r.startRound).toBe(START); expect(r.callSeconds).toBe(10);
     expect(r.rewards.map((x: any) => `${x.pattern}#${x.ordinal}`)).toEqual(["milestone#1", "finish#1", "finish#2", "finish#3", "finish#4", "finish#5"]);
     expect(r.rounds).toBe(1); expect(r.tickets).toBe(1);
     expect(JSON.stringify(r)).not.toMatch(/bingo|ticket number|called/i);
@@ -50,9 +50,9 @@ describe("joining", () => {
     expect(late.status).toBe(410); const b = await j(late); expect(b.code).toBe("closed"); expect(b.error).toContain("closed");
     const again = await j(await join(1, "SL-1", T + 2 * 86_400_000 + 20_000)); expect(again.pid).toBe(first.pid);
   });
-  test("the turn window is 15, 20, 25 or 30 seconds", async () => {
-    for (const s of [6, 9, 10, 12, 14, 31, 45]) expect((await call("POST", "/api/z", { id: "SL-W", startRound: START, callSeconds: s, cap: 100 }, h)).status).toBe(400);
-    for (const s of [15, 25, 30]) expect((await call("POST", "/api/z", { id: "SL-W" + s, startRound: START, callSeconds: s, cap: 100 }, h)).status).toBe(200);
+  test("the turn window is 10 seconds", async () => {
+    for (const s of [6, 9, 12, 14, 15, 20, 25, 30, 31, 45]) expect((await call("POST", "/api/z", { id: "SL-W", startRound: START, callSeconds: s, cap: 100 }, h)).status).toBe(400);
+    for (const s of [10]) expect((await call("POST", "/api/z", { id: "SL-W" + s, startRound: START, callSeconds: s, cap: 100 }, h)).status).toBe(200);
   });
 });
 
@@ -78,7 +78,7 @@ describe("the game settings", () => {
       { rewards: [{ pattern: "line", ordinal: 1, text: "" }] },              // not a prize of this game
       { rewards: [{ pattern: "finish", ordinal: 6, text: "" }] },            // only 5 end prizes
     ];
-    for (const [i, o] of bad.entries()) { const r = await call("POST", "/api/z", { id: "SL-B" + i, startRound: START, callSeconds: 20, cap: 100, ...o }, h); expect([JSON.stringify(o), r.status]).toEqual([JSON.stringify(o), 400]); expect(((await j(r)).error as string).length).toBeGreaterThan(10); }
+    for (const [i, o] of bad.entries()) { const r = await call("POST", "/api/z", { id: "SL-B" + i, startRound: START, callSeconds: 10, cap: 100, ...o }, h); expect([JSON.stringify(o), r.status]).toEqual([JSON.stringify(o), 400]); expect(((await j(r)).error as string).length).toBeGreaterThan(10); }
     expect(raw.prepare("SELECT COUNT(*) AS c FROM engagement WHERE id LIKE 'SL-B%'").get()).toEqual({ c: 0 });
   });
   test("settings can be changed before the start and never after; a bad change changes nothing", async () => {
@@ -92,7 +92,7 @@ describe("the game settings", () => {
   });
   test("game settings can be put back to the defaults (null / the default value)", async () => {
     await game("SL-D", { board: { size: 144, snakes: 8, ladders: 8, finish: "exact" }, turnCap: 80 });
-    await call("PATCH", "/api/z/SL-D/settings", { board: null, turnCap: 60 }, h);
+    await call("PATCH", "/api/z/SL-D/settings", { board: null, turnCap: 26 }, h);
     const info = await j(await call("GET", "/api/z/SL-D/info")); expect(info.board).toBeUndefined(); expect(info.turnCap).toBeUndefined();
   });
 });

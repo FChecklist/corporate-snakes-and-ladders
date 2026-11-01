@@ -23,7 +23,7 @@ const rowsOf = (sql: string, ...v: unknown[]) => raw.prepare(sql).all(...(v as a
 async function setup(opts: { closed?: boolean; verify?: "mobile" | "id" | "both" | "either"; employeesOnly?: boolean } = {}) {
   const st = await j(await handle(new Request("http://x/api/start", { method: "POST", headers: { "content-type": "application/json", "cf-connecting-ip": `7.7.7.${++ipN}` }, body: JSON.stringify({ email: `o${ipN}@acme.com` }) }), env as Env, T));
   const master = st.token as string;
-  await call("POST", "/api/z", { id: "PPL-1", startRound: START, callSeconds: 20, cap: 100, ...(opts.closed ? { whoCanJoin: "list" } : {}) }, master);
+  await call("POST", "/api/z", { id: "PPL-1", startRound: START, callSeconds: 10, cap: 100, ...(opts.closed ? { whoCanJoin: "list" } : {}) }, master);
   await call("POST", "/api/z/PPL-1/publish", { email: "boss@acme.com", phone: "98765 43210" }, master);
   const body = { ...(opts.verify ? { verify: opts.verify } : {}), ...(opts.employeesOnly !== undefined ? { employeesOnly: opts.employeesOnly } : {}) };
   if (Object.keys(body).length) expect((await call("PATCH", "/api/z/PPL-1/settings", body, master)).status).toBe(200);

@@ -90,7 +90,7 @@
   const K4 = { info: null, state: {}, loading: false, failed: false };
   const K6 = { info: null, state: {}, loading: false, failedAt: -Infinity };
   const CBC = () => window.CBConsent || null;
-  const consentLoading = (failed, retryId) => (failed ? `<p class="zsmall">We could not load the terms. Check your connection. <button class="zsnd" id="${retryId}" type="button">Try again</button></p>` : `<p class="zsmall">Loading the terms…</p>`);
+  const consentLoading = (failed, retryId) => (failed ? `<p class="zsmall">The terms could not be loaded. Check your connection. <button class="zsnd" id="${retryId}" type="button">Try again</button></p>` : `<p class="zsmall">Loading the terms…</p>`);
   async function loadK4() {
     if (K4.info || K4.loading) return;
     K4.loading = true;
@@ -134,7 +134,7 @@
     if (J.mode === "removed") return `${brandStrip()}${head}<div class="zcard" role="status"><h2>You are not on this game's list</h2><p class="zsmall zflush">You were removed from this game, so there is no board for you here. If you think this is a mistake, please ask the person who invited you.</p></div>`;
     if (J.mode === "gone") return `${brandStrip()}${head}<div class="zcard" role="status"><h2>This link is not active any more</h2><p class="zsmall zflush">Please ask the person who invited you for a new link.</p></div>`;
     if (J.mode === "closed") return `${brandStrip()}${head}<div class="zcard" role="status"><h2>Sign-up has closed</h2><p class="zsmall zflush">Sign-up closed when the game started. Nobody new can join after the start. If you joined earlier, open your own link on the same phone. Otherwise, please ask your organizer.</p></div>`;
-    if (J.mode === "busy") return `${brandStrip()}${head}<div class="zcard zwait" role="status"><h2>Many people are joining right now</h2><p class="zflush zgap">Your request is safe. We are trying again for you every few seconds. Keep this page open.</p><p class="zsmall zflush">Try ${J.busyTries} of ${BUSY_TRIES}.</p></div><div class="zagain"><button class="zbtn s alt" id="again" type="button">Stop and try myself</button></div>`; // a whole office joins from one address: the server asks for a short wait, or the answer never comes: the page asks again by itself
+    if (J.mode === "busy") return `${brandStrip()}${head}<div class="zcard zwait" role="status"><h2>Many people are joining right now</h2><p class="zflush zgap">Your request is safe. It is tried again every few seconds. Keep this page open.</p><p class="zsmall zflush">Try ${J.busyTries} of ${BUSY_TRIES}.</p></div><div class="zagain"><button class="zbtn s alt" id="again" type="button">Stop and try myself</button></div>`; // a whole office joins from one address: the server asks for a short wait, or the answer never comes: the page asks again by itself
     if (J.mode === "waiting") return `${brandStrip()}${head}<div class="zcard zwait" role="status"><h2>Please wait a moment</h2><p class="zflush zgap">${J.note ? esc(J.note) : `Your request to join has gone to ${J.who ? esc(J.who) : "the organizer"}.`}</p><p class="zsmall zflush">Keep this page open. As soon as you are let in, your board appears here.</p></div>`;
     if (J.mode === "declined" || J.mode === "lapsed") return `${brandStrip()}${head}<div class="zcard" role="status"><h2>${J.mode === "declined" ? "Your request was not accepted" : "This request has run out"}</h2><p class="zsmall zflush zgap">${J.mode === "declined" ? "You are not on the list for this game. Please ask the person who invited you." : "Nobody answered in time. You can ask again."}</p>${J.mode === "lapsed" ? `<button class="zbtn s" id="again" type="button">Ask again</button>` : ""}</div>`;
     const personal = !!TOKEN && J.mode !== "needPhone"; // a personal link is made for one person: nothing to type unless the server asks
@@ -152,7 +152,7 @@
     ${m ? `<div class="zbanner bad" role="alert">${esc(m)}</div>` : ""}
     <button class="zbtn" id="go" type="button" disabled aria-disabled="true">Join the game</button>
     <p class="zsmall" id="same-app"><b>Stay in this app.</b> Your board stays with the app or browser you join in. If you open this link in Teams, keep using Teams: do not switch to Chrome later.</p>
-    <p class="spriv">Players are 18 or older. Playing is free: you never pay, and no prize money is held or paid by us.</p>
+    <p class="spriv">Players are 18 or older. Playing is free: you never pay, and no prize money is held or paid by IT Services.</p>
     <p class="spriv"><a href="/privacy.html" target="_blank" rel="noopener">Privacy Policy</a></p></div>`;
   };
   const cancelledView = () => `${brandStrip()}${head}<div class="zcard" role="status"><h2>This game was cancelled</h2><p class="zsmall zflush">${esc((INFO.cancelled && INFO.cancelled.message) || "The organizer cancelled this game.")} There is nothing to do on this page. Thank you for your interest.</p></div>`;
@@ -498,7 +498,7 @@
     const rules = ruleLines(v);
     return `<div class="zcard zwait">${top}
       <div class="zdo"><b>What to do:</b> nothing yet. Keep this page open. ${v.cfg.play === "presence" ? "When the first turn opens, tap the Roll button." : "Your rolls happen by themselves."}</div>
-      <p class="zsmall zflush">Tip: switch your phone to Do not disturb, so calls and messages do not cover the game. We ask your phone to keep the screen on while this page is open. Sound is on unless you turn it off (the sound button).</p>
+      <p class="zsmall zflush">Tip: switch your phone to Do not disturb, so calls and messages do not cover the game. Your phone is asked to keep the screen on while this page is open. Sound is on unless you turn it off (the sound button).</p>
       ${prizes ? `<h3>What you can win</h3><div class="zprizes2">${prizes}</div>` : ""}
       <h3>The rules</h3><ul class="zlist zrules">${rules.map((r) => `<li>${esc(r)}</li>`).join("")}</ul>
       <button class="zbtn s alt" id="soundtest" type="button">Check my sound</button><a class="zbtn s alt" id="addcal" download="game.ics" href="${icsFor(v)}">Add to my calendar</a></div>`;
@@ -604,7 +604,7 @@
     return `<div class="zcard zfinal"><h2>Game complete</h2>
       <div class="zmedal" aria-hidden="true">${medal}</div>
       <div class="zfbig">${n ? "You won " + n + (n === 1 ? " prize!" : " prizes!") : v.myRank ? "You finished number " + v.myRank + (v.crowd ? " of " + v.crowd.players : "") + "." : "Well played!"}</div>
-      <p class="zsmall zthanks">Thank you for joining our extended family of Corporate Snakes and Ladders.</p>
+      <p class="zsmall zthanks">Thank you for joining the extended family of Corporate Snakes and Ladders.</p>
       <p class="zsmall zbigger">${place} ${n ? "Your prizes are listed below and stay on this phone. Show them to your organizer to collect." : "No prize this time. Every game is a good game, and the next one is another chance."}</p>
       <button class="zbtn" id="shr">Share with friends and colleagues</button>
       <a class="zbtn s alt zlinkbtn" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent("I just played Corporate Snakes and Ladders with my team. Bring it to your company: " + shareLink)}">WhatsApp</a>
