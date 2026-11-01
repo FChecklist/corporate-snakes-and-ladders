@@ -427,7 +427,7 @@ export async function payRoute(req: Request, env: PayEnv, now: number, spend: (n
     if (!rzp) return json({ error: "Online payments are not switched on." }, 400);
     const b = await body(req);
     const row = b && typeof b.paymentId === "string" ? await db.prepare("SELECT * FROM payment WHERE id=?").bind(b.paymentId).first<any>() : null;
-    if (!row || row.rzp_order_id !== b.razorpay_order_id) return json({ error: "We could not match this payment." }, 404);
+    if (!row || row.rzp_order_id !== b.razorpay_order_id) return json({ error: "This payment could not be matched yet. Nothing is lost, and you are charged only once." }, 404);
     if (row.status === "paid") return json(JSON.parse(row.result));
     if (!verifyPaymentSignature(rzp.keySecret, String(b.razorpay_order_id), String(b.razorpay_payment_id), String(b.razorpay_signature)))
       return json({ error: "The payment could not be verified. If money was taken it will be refunded." }, 400);

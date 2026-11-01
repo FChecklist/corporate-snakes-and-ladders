@@ -170,13 +170,13 @@ export async function cancelGame(env: PayEnv, e: any, now: number, by: string): 
 
 /**
  * "Your guests' personal data has been deleted": to the Organizer and the Host(s), at the automatic deletion, with the exact time (IST). Best effort; never blocks the deletion.
- * `didNotStart` = the wording for a game that never began ("Your game did not start. We auto-deleted the guest list at <time>.").
+ * `didNotStart` = the wording for a game that never began ("Your game did not start. The guest list was auto-deleted at <time>.").
  */
 export async function mailDataDeleted(env: PayEnv, e: { id: string; org: string | null; config?: string | null }, now: number, opts: { didNotStart?: boolean } = {}): Promise<void> {
   try {
     let name = e.id; try { name = JSON.parse(e.config ?? "{}").name || e.id; } catch { /* the id */ }
     if (opts.didNotStart) {
-      await mailTeam(env, e.org, e.id, `Your game did not start: ${name}`, [`Your game did not start. We auto-deleted the guest list at ${istStamp(now, tzOfRow(e))}.`, `For the game "${name}" (${e.id}), every guest's name and mobile number was permanently deleted, as promised. The game is now closed: nobody can join or pay for it.`, "Your own details and your settings stay. Open the game and tap Create a new game like this one to start again with the same settings."].join("\n\n"), now);
+      await mailTeam(env, e.org, e.id, `Your game did not start: ${name}`, [`Your game did not start. The guest list was auto-deleted at ${istStamp(now, tzOfRow(e))}.`, `For the game "${name}" (${e.id}), every guest's name and mobile number was permanently deleted, as promised. The game is now closed: nobody can join or pay for it.`, "Your own details and your settings stay. Open the game and tap Create a new game like this one to start again with the same settings."].join("\n\n"), now);
       return;
     }
     const text = [`Your guests' personal data has been deleted.`, `For the game "${name}" (${e.id}), every guest's name and mobile number was permanently deleted on ${istStamp(now, tzOfRow(e))}, as promised.`, "Nothing more is needed from you. The winners record (board number, prize, time) stays for your records, as explained in your Terms."].join("\n\n");

@@ -36,7 +36,7 @@
         if (!r.ok) throw new Error(j.error || "Something went wrong. Please try again.");
         try { CTK.set("cbz-org", j.token); } catch {}
         location.replace(go);
-      } catch (e) { draw(e && e.name === "TypeError" ? "We could not reach the service. Please check your internet and try again." : e && e.message ? e.message : "Something went wrong. Please try again."); }
+      } catch (e) { draw(e && e.name === "TypeError" ? "The service could not be reached. Please check your internet and try again." : e && e.message ? e.message : "Something went wrong. Please try again."); }
     };
   };
   draw("");

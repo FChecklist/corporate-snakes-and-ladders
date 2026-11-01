@@ -26,7 +26,7 @@
   const call = async (method, path, body) => {
     let r;
     try { r = await fetch(BASE + path, { method, headers: { "content-type": "application/json", "x-organizer": secret }, body: body === undefined ? undefined : JSON.stringify(body) }); }
-    catch (e) { const err = Object.assign(new Error("We could not reach the service. Please check your internet and try again."), { status: 0 }); guided(err, method, path, body); throw err; }
+    catch (e) { const err = Object.assign(new Error("The service could not be reached. Please check your internet and try again."), { status: 0 }); guided(err, method, path, body); throw err; }
     const j = await r.json().catch(() => ({}));
     if (!r.ok) { const err = Object.assign(new Error(j.error || "http " + r.status), { code: j.code, status: r.status, needPack: j.needPack, payments: j.payments, consent: j.consent }); guided(err, method, path, body); throw err; }
     return j;
@@ -1202,7 +1202,7 @@
     if (!isOrg() || !secret) return;
     ls.set("cbz-pass", ""); // used or refused, it is not tried again
     try { const r = await call("POST", "/api/pass", { token: v.t }); S.passMsg = r.again ? "This demo link is already yours: press Create a new game." : `Your free demo is ready: one game of up to ${r.cap} people at Rs 0. In step 2 choose "Up to ${r.cap} people".`; }
-    catch (e) { S.passMsg = e && e.message ? e.message : "This demo link could not be used. Please ask us for a new one."; }
+    catch (e) { S.passMsg = e && e.message ? e.message : "This demo link could not be used. Please ask for a new one."; }
   }
   async function refreshHome() {
     if (isOrg()) await redeemPass(); // a demo pass link opened in this browser is used now (before a first game is made for a new person)
@@ -1730,7 +1730,7 @@
     };
     if ($("aimake")) $("aimake").onclick = () => newLink("/api/org/ai/replace");
     if ($("aistripmake")) $("aistripmake").onclick = () => newLink("/api/org/ai/replace");
-    if ($("aifresh")) $("aifresh").onclick = async () => { try { const r = await call("POST", "/api/org/ai/fresh", {}); S.note = r.mailed ? "A fresh 24-hour AI link is on its way to your e-mail. Never forward that e-mail." : "We have no e-mail address to send it to. Use the link in the box in your account."; } catch (e) { S.note = e.message; } redraw(); };
+    if ($("aifresh")) $("aifresh").onclick = async () => { try { const r = await call("POST", "/api/org/ai/fresh", {}); S.note = r.mailed ? "A fresh 24-hour AI link is on its way to your e-mail. Never forward that e-mail." : "There is no e-mail address to send it to. Use the link in the box in your account."; } catch (e) { S.note = e.message; } redraw(); };
     if ($("aireplace")) $("aireplace").onclick = () => newLink("/api/org/ai/replace", "Replace your AI work link? The old link stops working at once, even if an AI is using it right now.");
     if (S.aiMsg) wireAiOptions(document, S.aiMsg);
     if ($("aicopy")) $("aicopy").onclick = async () => { if (await copyText(S.aiMsg)) $("aicopy").textContent = "Copied. Now paste it into your AI chat"; };

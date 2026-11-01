@@ -5,7 +5,7 @@
 //  - showEmail(): the signed-in e-mail at the top of the page (text only).
 (function (root, factory) { if (typeof module === "object" && module.exports) module.exports = factory(); else root.CTPack = Object.assign(root.CTPack || {}, factory()); })(typeof self !== "undefined" ? self : this, function () {
   var TIMEOUT_MS = 40000;
-  var TIMEOUT_SENTENCE = "We could not reach the service. Please check your internet and try again.";
+  var TIMEOUT_SENTENCE = "The service could not be reached. Please check your internet and try again.";
 
   /** call once per page: from now on typing in any field marks the page as having unsaved work; saved() clears it */
   function watchUnsaved(win) {

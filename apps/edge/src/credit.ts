@@ -191,7 +191,7 @@ export async function creditTick(env: PayEnv, now: number): Promise<{ lapsed: nu
     const claim = await db.prepare(`UPDATE credit SET ${col}=? WHERE id=? AND ${col} IS NULL`).bind(now, c.id).run();
     if ((claim.meta?.changes ?? 0) === 0) continue;
     if (three && c.mail30_ms === null) await db.prepare("UPDATE credit SET mail30_ms=? WHERE id=? AND mail30_ms IS NULL").bind(now, c.id).run(); // the 3-day mail replaces the 30-day one when we are already that close
-    await mailTeam(env, c.org, c.eid, `Your credit of ${rs(c.remaining_inr, c.currency)} lapses on ${lapseDate(c)}`, `Your credit of ${rs(c.remaining_inr, c.currency)} lapses on ${lapseDate(c)} (${three ? "in 3 days" : "in 30 days"}). Use it for your next game before then. After that it is gone: we do not give refunds.`, now); out.mailed++;
+    await mailTeam(env, c.org, c.eid, `Your credit of ${rs(c.remaining_inr, c.currency)} lapses on ${lapseDate(c)}`, `Your credit of ${rs(c.remaining_inr, c.currency)} lapses on ${lapseDate(c)} (${three ? "in 3 days" : "in 30 days"}). Use it for your next game before then. After that it lapses, as credit is valid for 365 days.`, now); out.mailed++;
   }
   return out;
 }

@@ -10,7 +10,7 @@
   const call = async (method, path, body) => {
     let r;
     try { r = await fetch(path, { method, headers: { "content-type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) }); }
-    catch { const err = Object.assign(new Error("We could not reach the service. Please check your internet and try again."), { status: 0 }); if (window.CTG) { CTG.wrap(err, { what: method + " " + path.split("?")[0] }); if (method !== "GET") { err.guided = true; CTG.watch(err, { retry: () => call(method, path, body) }); } } throw err; }
+    catch { const err = Object.assign(new Error("The service could not be reached. Please check your internet and try again."), { status: 0 }); if (window.CTG) { CTG.wrap(err, { what: method + " " + path.split("?")[0] }); if (method !== "GET") { err.guided = true; CTG.watch(err, { retry: () => call(method, path, body) }); } } throw err; }
     const j = await r.json().catch(() => ({}));
     if (!r.ok) { const err = Object.assign(new Error(j.error || "Something went wrong. Please try again."), { status: r.status, body: j }); if (window.CTG) { CTG.wrap(err, { what: method + " " + path.split("?")[0].replace(/\/[0-9a-f]{16,}/gi, "/...") }); if (method !== "GET") { err.guided = true; CTG.watch(err, { retry: () => call(method, path, body) }); } } throw err; }
     return j;

@@ -304,7 +304,7 @@ export const DEMO_PASS_UNTIL = Date.UTC(2026, 11, 31);
 const passShape = (x: unknown): string => (typeof x === "string" && /^[0-9a-f]{32}$/i.test(x.trim()) ? x.trim().toLowerCase() : "");
 /** Uses a demo pass for an account: ONE free pack of the pass's size, once (the first account to use a pass keeps it; the same account may open it again). */
 async function redeemDemoPass(env: Env, org: string, rawToken: string, now: number): Promise<{ status: number; body: any; busy?: boolean }> {
-  const bad = { status: 404, body: { error: "This demo link is not valid or has ended. Please ask us for a new one.", code: "pass-invalid" } };
+  const bad = { status: 404, body: { error: "This demo link is not valid or has ended. Please ask for a new one.", code: "pass-invalid" } };
   const tok = passShape(rawToken);
   if (!tok || now > DEMO_PASS_UNTIL) return bad;
   const ph = await sha("dpass|" + tok), def = DEMO_PASSES.find((x) => x.hash === ph);
@@ -315,7 +315,7 @@ async function redeemDemoPass(env: Env, org: string, rawToken: string, now: numb
     const row = await env.DB.prepare("SELECT v FROM kv WHERE k=?").bind(`dpass/${ph}`).first<{ v: string }>();
     let who = ""; try { who = JSON.parse(row?.v ?? "{}").org ?? ""; } catch { /* unreadable */ }
     if (who === org) return { status: 200, body: { ok: true, again: true, cap: def.cap } };
-    return { status: 409, body: { error: "This demo link has already been used. Please ask us for a new one.", code: "pass-used" } };
+    return { status: 409, body: { error: "This demo link has already been used. Please ask for a new one.", code: "pass-used" } };
   }
   await env.DB.prepare("INSERT INTO entitlement(id,org,pack,payment_id,eid,created_ms) VALUES(?,?,?,'demo-pass',NULL,?)").bind("dp_" + randHex(6), org, def.cap, now).run();
   return { status: 200, body: { ok: true, cap: def.cap } };

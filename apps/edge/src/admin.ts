@@ -57,8 +57,8 @@ export async function siteIsOff(db: D1, nowMs = Date.now()): Promise<boolean> {
 export const OFF_EXEMPT = (p: string): boolean =>
   p === "/api/mode" || p.startsWith("/api/owner/") || p === "/api/status/health" || p === "/api/lifecycle/tick" || p === "/api/payments/webhook" || p === "/api/mail/events" || p === "/api/inbound-email";
 
-const BACK_SOON_TEXT = "Back soon. We are making a small change. Please try again in a few minutes.";
-const backSoonPage = () => `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex"><title>Back soon | ${GAME_NAME}</title><style>body{font:18px/1.5 system-ui,sans-serif;margin:0;display:grid;place-items:center;min-height:100vh;padding:24px;text-align:center;color:#14213d;background:#fff}h1{margin:0 0 8px;font-size:28px}p{margin:0;max-width:30em}</style></head><body><main><h1>Back soon</h1><p>We are making a small change. Please try again in a few minutes.</p></main></body></html>`;
+const BACK_SOON_TEXT = "Back soon. A small change is being made. Please try again in a few minutes.";
+const backSoonPage = () => `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex"><title>Back soon | ${GAME_NAME}</title><style>body{font:18px/1.5 system-ui,sans-serif;margin:0;display:grid;place-items:center;min-height:100vh;padding:24px;text-align:center;color:#14213d;background:#fff}h1{margin:0 0 8px;font-size:28px}p{margin:0;max-width:30em}</style></head><body><main><h1>Back soon</h1><p>A small change is being made. Please try again in a few minutes.</p></main></body></html>`;
 /** The 503 every public address answers while the site is off: a plain page for a browser, JSON for everything else. */
 export function backSoon(req: Request): Response {
   const wantsPage = req.method === "GET" && (req.headers.get("accept") ?? "").includes("text/html");
