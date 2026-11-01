@@ -1378,7 +1378,7 @@ async function route0(req: Request, env: Env, now: number, a: Auth): Promise<Res
     if (!ID.test(b.id ?? "")) return json({ error: "The game code can use letters, numbers, - and _ only (3 to 40 characters)." }, 400);
     if (!Number.isInteger(b.startRound)) return json({ error: "Pick the day and time the game starts." }, 400);
     if (!Number.isInteger(b.callSeconds)) return json({ error: GAP_MSG }, 400);
-    if (!Number.isInteger(b.cap) || b.cap < 1 || b.cap > 2000) return json({ error: "A game can have 1 to 2,000 people. Please check the number." }, 400);
+    if (!Number.isInteger(b.cap) || b.cap < 1 || b.cap > 2000) return json({ error: "The number of people must be a whole number from 1 to 2,000. Please check it." }, 400);
     if (b.engine === true && b.cap > ENGINE_CAP) return json({ error: `A game on the new rules takes up to ${ENGINE_CAP} people.`, code: "engine-cap" }, 400); // flagged games only; the live path is unchanged
     if (b.whoCanJoin !== undefined && b.whoCanJoin !== "list" && b.whoCanJoin !== "anyone") return json({ error: "Who can join: choose \"list\" (only people on a list) or \"anyone\" (anyone with the link)." }, 400);
     if (roundMs(b.startRound) > now + MAX_AHEAD_MS) return json({ error: TOO_FAR, code: "too-far" }, 400);
@@ -2024,7 +2024,7 @@ async function route0(req: Request, env: Env, now: number, a: Auth): Promise<Res
     if (Number.isInteger(next.call_seconds) && !GAPS.includes(next.call_seconds)) return json({ error: GAP_MSG }, 400);
     if (!Number.isInteger(next.start_round)) return json({ error: "Pick the day and time the game starts." }, 400);
     if (!Number.isInteger(next.call_seconds)) return json({ error: GAP_MSG }, 400);
-    if (!Number.isInteger(next.cap) || next.cap < 1 || next.cap > 2000) return json({ error: "A game can have 1 to 2,000 people. Please check the number." }, 400);
+    if (!Number.isInteger(next.cap) || next.cap < 1 || next.cap > 2000) return json({ error: "The number of people must be a whole number from 1 to 2,000. Please check it." }, 400);
     if (vc.cfg.engine === true && next.cap > ENGINE_CAP) return json({ error: `A game on the new rules takes up to ${ENGINE_CAP} people.`, code: "engine-cap" }, 400);
     if (roundMs(next.start_round) <= now) return json({ error: "Pick a start time in the future." }, 400);
     if (next.start_round !== e.start_round) { const mx = await maxAheadFor(env, e, now); if (roundMs(next.start_round) > now + mx) return json({ error: e.pack ? PAID_TOO_FAR : TOO_FAR, code: "too-far" }, 400); }

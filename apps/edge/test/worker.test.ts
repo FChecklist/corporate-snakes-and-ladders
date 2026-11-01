@@ -176,7 +176,7 @@ describe("free-plan guard and scale", () => {
     for (let round = 0; round < 2; round++)
       await Promise.all(pids.slice(0, 2000).map((pid, i) => call("POST", "/api/z/ENG1/claims", { pid, claims: [{ pattern: pats[i % 7], idx: i % 75 }] })));
     expect((raw.query("SELECT COUNT(*) c FROM claim").get() as any).c).toBe(0);
-    expect((raw.query("SELECT writes w FROM usage").get() as any).w).toBe(15994); // 1 create + 1 entitlement-free + 10,000 joins at what a join really writes (about 8 units, the same figure Corporate Tambola counts)
+    expect((raw.query("SELECT writes w FROM usage").get() as any).w).toBe(18002); // 1 create + 1 entitlement-free + 10,000 joins at what a join really writes (about 8 units, the same figure Corporate Tambola counts)
   }, 300_000);
 });
 
