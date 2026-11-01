@@ -2,7 +2,7 @@
 
 This is the data map for gates D1, D2 and D11. It is written from the code, not from memory: `apps/edge/src/worker.ts` (join, schema), `apps/edge/src/people.ts` (lists), `apps/edge/src/winners.ts` (prize hand-over), `apps/edge/src/rights.ts` (a player's own requests), `apps/edge/src/lifecycle.ts` (deletion), `apps/edge/src/pii.ts` (sealing), `apps/edge/src/audit.ts` (security log), `apps/web/public/z.js` (the player page). If you change one of those, change this page in the same step. `apps/edge/test/data-map.test.ts` reads this page.
 
-Short version: a player gives a name. A mobile number is asked only if the organizer switches that on, or if the organizer's own list holds it. The organizer is the controller of those details; we are the processor. All players' details are deleted 23 hours after the game ends (the promise is "within 24 hours"). The winners record (board numbers only) and the organizer's details stay until 00:00 IST at the end of day 365, then everything goes. We keep billing data for audit and tax reasons. Billing data is kept apart from the game data.
+Short version: a player gives a name. A mobile number is asked only if the organizer switches that on, or if the organizer's own list holds it. The organizer is the controller of those details; we are the processor. All players' details are deleted 23 hours after the game ends (the promise is "within 24 hours"). The winners record (board numbers only) and the organizer's details stay until 00:00 IST at the end of day 365, then everything goes. Billing data is kept for audit and tax reasons. Billing data is kept apart from the game data.
 
 ## 1. The player notice (the two boxes shown before the name is asked)
 

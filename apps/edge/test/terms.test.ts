@@ -31,7 +31,7 @@ describe("the document pages", () => {
     for (const n of needles) expect(h).toContain(n);
     expect(h).not.toMatch(/DRAFT|lawyer review|type="checkbox"/i);
     expect(h).not.toMatch(/\bcompliant\b|certified by/i);
-    for (const l of h.match(/<li>[\s\S]*?<\/li>/g) ?? []) expect(l.replace(/<[^>]+>/g, "").split(/\s+/).length).toBeLessThanOrEqual(36); // 36: the owner's credit sentence ("We do not give refunds. If you cancel a paid game before it starts, ... lapses at the end of day 365.") is 35 words
+    for (const l of h.match(/<li>[\s\S]*?<\/li>/g) ?? []) expect(l.replace(/<[^>]+>/g, "").split(/\s+/).length).toBeLessThanOrEqual(36); // 36: the owner's credit sentence ("A paid game cancelled before it starts stays with the organizer as credit ... lapses at the end of day 365.") is well under that
     for (const l of LINKS) expect(h).toContain(`href="${l}"`);
   });
   test("the home page and the legal page link the documents (footer; the legal page also links the other two); the build ships them with headers; the sitemap lists them", () => {

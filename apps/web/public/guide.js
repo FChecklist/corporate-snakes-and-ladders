@@ -50,7 +50,7 @@
       w: "Your board opens, and a prize can be claimed, only after you mark yourself present.", d: ["Open your game page and complete the check-in: name, mobile number, the 4-digit code, Submit."], g: { href: "#", label: "Back to my page" } },
     { m: ["Enter your employee ID", "An employee ID has letters and numbers only", "Enter your mobile number or your employee ID"], k: "field", t: "Your employee ID is needed",
       w: "The organizer asked everyone to give their employee ID to get in.", d: ["Type your employee ID in the box. Letters and numbers only, no spaces needed.", "If you are not an employee and the box allows it, type your mobile number instead.", "Still stuck? Ask the person who invited you."], g: { field: "#emp", label: "the employee ID box" } },
-    { m: ["There is no account for this Google e-mail yet"], k: "blocked", t: "We do not have an account for this Google address yet",
+    { m: ["There is no account for this Google e-mail yet"], k: "blocked", t: "There is no account for this Google address yet",
       w: "Signing in needs an account first.", d: ["Choose Sign up to make your account with this address.", "Then come back and sign in."], g: { href: "/#login", label: "Sign up" } },
     { m: ["Too many codes requested"], s: [429], k: "wait", t: "Please give it a little time",
       w: "Several codes were asked for in a short time, so we paused new ones to keep your account safe.", d: ["Use the newest code in your e-mail.", "If it has not arrived, check the spam folder, or try again in an hour."], g: { retry: true } },

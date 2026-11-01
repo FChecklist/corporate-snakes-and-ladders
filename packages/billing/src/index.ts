@@ -117,16 +117,16 @@ export function paymentInfo(raw: any): PaymentInfo {
 export const istStamp = (ms: number) => new Date(ms + 19_800_000).toLocaleString("en-GB", { timeZone: "UTC", day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false }) + " IST";
 
 /** The text kept on every invoice (owner order 2026-10-10). */
-export const INVOICE_KEEP_NOTE = "We keep billing data for audit and tax reasons.";
+export const INVOICE_KEEP_NOTE = "Billing data is kept for audit and tax reasons.";
 /** Page 2 of every invoice. Kept in step with the Terms page of the service (no refunds; cancelled paid game becomes credit). */
 export const INVOICE_TERMS: string[] = [
   "This invoice is issued by IT Services by Rajat Agarwal for the service named on page 1. Online payments are processed by Razorpay.",
-  "We do not give refunds. If a paid game is cancelled before it starts, the payment stays as credit on the organizer's account and can be used for another game. Credit lapses 365 days after the payment date. No credit note is raised for credit that lapses.",
+  "A paid game cancelled before it starts stays with the organizer as credit, ready to be used for another game. Credit lapses 365 days after the payment date. No credit note is raised for credit that lapses.",
   "A payment buys one engagement for up to the number of participants named on the invoice. Participants never pay; rewards are given by the organizer. Unused places are not credited once the game has started.",
   "Prices are in the currency shown. Payments from India are in Indian rupees (INR); payments from outside India are in US dollars (USD). Bank, card and currency-conversion charges of the payer's own bank are the payer's own.",
   "Where GST applies it is shown on page 1. Where it is not charged, the invoice says so. The payer is responsible for any withholding tax, VAT or duty that applies in the payer's own country.",
   "The organizer is responsible for the rewards, the participants' consent and the conduct of the game. The service runs the game software and does not take part in the draw of rewards.",
-  "We keep billing data for audit and tax reasons. All other game data is deleted as described in the Privacy page.",
+  "Billing data is kept for audit and tax reasons. All other game data is deleted as described in the Privacy page.",
   "Disputes are handled first by e-mail to the seller at the address on page 1. Indian law applies and the courts of the seller's place of business have jurisdiction, unless the payer's own consumer law says otherwise.",
   "This is a computer generated invoice. It needs no signature.",
 ];
