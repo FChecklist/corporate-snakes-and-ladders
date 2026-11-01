@@ -22,7 +22,7 @@ async function organizer(at = T) {
   return { ...w, token: s.token as string, aiKey: s.aiKey as string };
 }
 type O = Awaited<ReturnType<typeof organizer>>;
-const make = (o: O, id: string, over: Record<string, unknown> = {}) => o.api("POST", "/api/z", { id, startRound: START, callSeconds: 20, cap: 100, ...over }, o.aiKey);
+const make = (o: O, id: string, over: Record<string, unknown> = {}) => o.api("POST", "/api/z", { id, startRound: START, callSeconds: 10, cap: 100, ...over }, o.aiKey);
 const publish = (o: O, id: string) => o.api("POST", `/api/z/${id}/publish`, { email: "boss@acme.com", phone: "98765 43210" }, o.token);
 const published = async (o: O, id: string, set: Record<string, unknown> = {}) => { await make(o, id); if (Object.keys(set).length) expect((await o.api("PATCH", `/api/z/${id}/settings`, set, o.token)).status).toBe(200); await publish(o, id); };
 const fakeBeacon = (nowMs: () => number) => { const fetcher: Fetcher = async (url) => { const last = url.split("/").pop()!, nowR = roundAt(nowMs()), r = last === "latest" ? nowR : Number(last); if (r > nowR) return { ok: false, status: 404, json: async () => ({}) }; return { ok: true, status: 200, json: async () => ({ round: r, randomness: rnd(r), signature: "aa" } as Round) }; }; return { fetcher, mirrors: ["https://a.test", "https://b.test", "https://c.test"], timeoutMs: 500 }; };

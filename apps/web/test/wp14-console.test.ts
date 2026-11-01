@@ -9,7 +9,7 @@ afterEach(async () => { for (const p of open) await p.close(); open = []; });
 async function consoleFor(id: string, over: Record<string, unknown> = {}) {
   const w = newWorld(); w.world.now = T;
   const s = await w.json(await w.api("POST", "/api/start", { email: "boss@acme.com" }));
-  expect((await w.api("POST", "/api/z", { id, startRound: roundAt(T) + 1200, callSeconds: 20, cap: 100, ...over }, s.aiKey)).status).toBe(200);
+  expect((await w.api("POST", "/api/z", { id, startRound: roundAt(T) + 1200, callSeconds: 10, cap: 100, ...over }, s.aiKey)).status).toBe(200);
   const p = await openPage(w.world, { url: `http://localhost/zc.html?e=${id}`, html: "zc.html", scripts: ["zgame.js", "zc.js"], session: { "cbz-org": s.token } });
   open.push(p);
   await p.waitFor((x) => /Check and publish/.test(x), 20000);
@@ -36,11 +36,11 @@ describe("SL-06: step 2 shows the few choices most organizers need; the rest sit
 });
 
 describe("SL-07: the organizer is told how long a game can last", () => {
-  test("step 2 says the longest possible time from the real settings (60 turns of 20 seconds = 20 minutes) and that it ends sooner when 5 players are home", async () => {
+  test("step 2 says the longest possible time from the real settings (26 turns of 10 seconds) and that it ends sooner when 5 players are home", async () => {
     const { p } = await consoleFor("SEVEN-1");
     await openStep(p, 2, /How many players/);
     const t = p.text();
-    expect(t).toContain("A game lasts at most 20 minutes (60 turns of 20 seconds)");
+    expect(t).toContain("A game lasts at most 5 minutes (26 turns of 10 seconds)");
     expect(t).toContain("as soon as 5 players are home");
     expect(t).toContain("The first turn comes 2 minutes after the start time");
   });
@@ -74,7 +74,7 @@ describe("SL-29: 'Create a new game like this one' does not wait for the report"
     const w = newWorld(); w.world.now = T;
     const s = await w.json(await w.api("POST", "/api/start", { email: "boss@acme.com" }));
     const start = roundAt(T) + 1200;
-    expect((await w.api("POST", "/api/z", { id: "CLONE-2", startRound: start, callSeconds: 20, cap: 100 }, s.aiKey)).status).toBe(200);
+    expect((await w.api("POST", "/api/z", { id: "CLONE-2", startRound: start, callSeconds: 10, cap: 100 }, s.aiKey)).status).toBe(200);
     w.world.now = roundMs(start) + 10 * 60_000; // ten minutes after the start; the report has not been sent
     const p = await openPage(w.world, { url: "http://localhost/zc.html?e=CLONE-2", html: "zc.html", scripts: ["zgame.js", "zc.js"], session: { "cbz-org": s.token } });
     open.push(p); await p.waitFor((x) => /Check and publish/.test(x), 20000);

@@ -7,7 +7,7 @@ import { PhoneRuntime } from "../src/phone-runtime";
 const viewFor = async (extra: Record<string, unknown>) => {
   const mem = new Map<string, string>();
   const rt = new PhoneRuntime("SL-8", {
-    api: async () => ({ cap: 100, startRound: 1_000_000, callSeconds: 20, ...extra }),
+    api: async () => ({ cap: 100, startRound: 1_000_000, callSeconds: 10, ...extra }),
     beacon: { fetcher: (async () => ({ ok: false, status: 404, json: async () => ({}) })) as any, mirrors: ["https://a.t"], timeoutMs: 50 },
     mono: () => 0, store: { get: (k: string) => mem.get(k) ?? null, set: (k: string, v: string) => void mem.set(k, v) }, verify: () => true,
   } as any);

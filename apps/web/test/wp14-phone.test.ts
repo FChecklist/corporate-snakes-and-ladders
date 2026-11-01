@@ -21,7 +21,7 @@ const fakeBeacon = (nowMs: () => number) => { const fetcher: Fetcher = async (ur
 const skew = { ms: 0 }; // the test moves the phone's clock forward by this much
 const rtFake = (win: any, nowMs: () => number) => { const Orig = win.ZG.PhoneRuntime; win.ZG.PhoneRuntime = class extends Orig { constructor(eid: string, deps: any) { super(eid, { ...deps, beacon: fakeBeacon(nowMs), verify: (x: any) => x.signature === "aa", mono: () => deps.mono() + skew.ms }); } }; };
 async function publishedGame(o: O, id: string) {
-  expect((await o.api("POST", "/api/z", { id, startRound: START, callSeconds: 20, cap: 100 }, o.aiKey)).status).toBe(200);
+  expect((await o.api("POST", "/api/z", { id, startRound: START, callSeconds: 10, cap: 100 }, o.aiKey)).status).toBe(200);
   expect((await o.api("POST", `/api/z/${id}/publish`, { email: "boss@acme.com", phone: "98765 43210" }, o.token)).status).toBe(200);
   (o.world as any).raw.prepare("UPDATE engagement SET pack=100 WHERE id=?").run(id); // paid
 }

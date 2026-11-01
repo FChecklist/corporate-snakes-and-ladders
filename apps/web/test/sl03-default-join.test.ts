@@ -40,8 +40,8 @@ describe("SL-03: a game set to 'only people on a list' with an empty list is fla
     const w = newWorld(); w.world.now = T;
     const s = await w.json(await w.api("POST", "/api/start", { email: "boss@acme.com" }));
     const start = roundAt(T) + 1200;
-    await w.api("POST", "/api/z", { id: "LISTMODE", startRound: start, callSeconds: 20, cap: 100, whoCanJoin: "list" }, s.aiKey);
-    await w.api("POST", "/api/z", { id: "OPENMODE", startRound: start, callSeconds: 20, cap: 100, whoCanJoin: "anyone" }, s.aiKey);
+    await w.api("POST", "/api/z", { id: "LISTMODE", startRound: start, callSeconds: 10, cap: 100, whoCanJoin: "list" }, s.aiKey);
+    await w.api("POST", "/api/z", { id: "OPENMODE", startRound: start, callSeconds: 10, cap: 100, whoCanJoin: "anyone" }, s.aiKey);
     const see = async (id: string) => {
       const p = await openPage(w.world, { url: `http://localhost/zc.html?e=${id}`, html: "zc.html", scripts: ["zgame.js", "zc.js"], session: { "cbz-org": s.token } });
       open.push(p); await p.waitFor((x) => /Check and publish/.test(x), 20000);

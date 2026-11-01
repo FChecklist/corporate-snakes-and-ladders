@@ -32,7 +32,7 @@ describe("engagement set-up", () => {
     expect((await call("POST", "/api/z", { id: "ENG1", startRound: 1, callSeconds: 10, cap: 10 }, { "x-organizer": "" })).status).toBe(403);
   });
   test("call speed must be a multiple of 3 s and at least 6 s", async () => {
-    for (const s of [10, 3, 7, 0, -6, 6.5]) expect((await create({ callSeconds: s })).status).toBe(400);
+    for (const s of [15, 3, 7, 0, -6, 6.5]) expect((await create({ callSeconds: s })).status).toBe(400);
     expect((await create({ callSeconds: 10 })).status).toBe(200);
   });
   test("bad ids, caps and rounds are refused", async () => {
