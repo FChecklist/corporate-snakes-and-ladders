@@ -262,8 +262,8 @@ describe("C. publish and pay", () => {
   test("UC-20 an engagement bigger than every pack needs a custom arrangement", async () => {
     withGateway();
     const o = await organizer();
-    await call("POST", "/api/z", eng("HUGE-1", { cap: 100000 }), o.h);
-    const r = await checkout(o, "HUGE-1"); expect(r.status).toBe(400); expect((await j(r)).error).toMatch(/custom|write to us/i);
+    const r = await call("POST", "/api/z", eng("HUGE-1", { cap: 2001 }), o.h); expect(r.status).toBe(400); expect((await j(r)).error).toMatch(/2,000/);
+    expect((await call("POST", "/api/z", eng("HUGE-2", { cap: 2000 }), o.h)).status).toBe(200);
   });
   test("UC-21 after payment the limit can rise only up to the pack and never below the people already in", async () => {
     withGateway();
@@ -542,10 +542,6 @@ describe("H. the free plan: pause profiles by size", () => {
       expect((await call("PUT", `/api/z/${id}/control/key`, { publicKey: pk }, o.h)).status).toBe(200);
       expect((await ctl(id)).leadRounds).toBe(want);
     }
-    await call("POST", "/api/z", eng("PF-HUGE", { cap: 5000 }), o.h);
-    const r = await call("PUT", "/api/z/PF-HUGE/control/key", { publicKey: pk }, o.h);
-    expect(r.status).toBe(409); expect((await j(r)).error).toMatch(/up to 2,000 participants/);
-    expect((await call("GET", "/api/z/PF-HUGE/control", undefined, {}, T)).status).toBe(404); // no file: phones will not keep asking
   });
   test("UC-71 a bigger pause profile means a longer lead, so nobody can see a number a pause should have prevented", async () => {
     const { SAFETY_STANDARD, SAFETY_LEAN30, SAFETY_LEAN60 } = await import("../../../packages/beacon/src/control");

@@ -12,7 +12,7 @@ afterEach(restore);
 
 // ---------------------------------------------------------------------------------------------------------- packs and prices
 describe("packs x price (packages/shared pricing is the single source)", () => {
-  const caps: [number, number][] = [[100, 100], [101, 250], [250, 250], [251, 500], [500, 500], [501, 750], [750, 750], [751, 1000], [1000, 1000], [1001, 2500], [2500, 2500], [2501, 5000], [5000, 5000], [5001, 10000], [10000, 10000]];
+  const caps: [number, number][] = [[100, 100], [101, 250], [250, 250], [251, 500], [500, 500], [501, 750], [750, 750], [751, 1000], [1000, 1000], [1001, 2500]];
   for (const [cap, pack] of caps) {
     test(`a game of ${cap} players is sold as the ${pack} pack, charged in paise exactly as pricing.ts says`, async () => {
       const o = await organizer(); const id = uid();
@@ -26,9 +26,7 @@ describe("packs x price (packages/shared pricing is the single source)", () => {
   }
   test("a game bigger than the biggest pack cannot be checked out", async () => {
     const o = await organizer(); const id = uid();
-    expect((await create(o.key, id, { cap: 10001 })).status).toBe(200);
-    expect((await publish(o.key, id)).status).toBe(200);
-    expect((await checkout(o.key, { eid: id })).status).toBe(400);
+    expect((await create(o.key, id, { cap: 2001 })).status).toBe(400);
     expect(W.orders.length).toBe(0);
   });
   for (const [pack, inr, usd] of PACKS) {
@@ -135,7 +133,7 @@ describe("turn windows and names (this game: 10 seconds, one round)", () => {
     test(`a ${gap}-second gap between numbers is ${ok ? "accepted" : "refused"}`, async () => { expect((await mk({ callSeconds: gap })).r.status).toBe(ok ? 200 : 400); });
   }
   for (const gap of [6.5, "9", null, true]) test(`a gap of ${JSON.stringify(gap)} is not a whole number: refused`, async () => { expect((await mk({ callSeconds: gap })).r.status).toBe(400); });
-  for (const [cap, ok] of [[1, true], [100000, true], [0, false], [100001, false], [-5, false], [10.5, false]] as [number, boolean][]) {
+  for (const [cap, ok] of [[1, true], [2000, true], [2001, false], [0, false], [100001, false], [-5, false], [10.5, false]] as [number, boolean][]) {
     test(`a limit of ${cap} players is ${ok ? "accepted" : "refused"} when building a game`, async () => { expect((await mk({ cap })).r.status).toBe(ok ? 200 : 400); });
   }
   for (const id of ["abc", "a b c d", "ab/cd", "x".repeat(41), "ok-id_1", "A-1234", "../etc"]) {

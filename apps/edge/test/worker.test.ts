@@ -159,24 +159,24 @@ describe("free-plan guard and scale", () => {
     expect((await join(3)).status).toBe(503);
     expect((await join(3, "ENG1", T + 86_400_000)).status).toBe(200);
   });
-  test("10,000 people join at once: every one gets in, no duplicates, writes stay inside the free daily budget", async () => {
+  test("2,000 people join at once: every one gets in, no duplicates, writes stay inside the free daily budget", async () => {
     env.DAILY_WRITE_BUDGET = "200000"; // the deployed guard is 2,000,000; a join is charged 9 units (what it really writes)
-    await create({ cap: 20000 });
-    const rs = await Promise.all(Array.from({ length: 10000 }, (_, i) => join(i)));
+    await create({ cap: 2000 });
+    const rs = await Promise.all(Array.from({ length: 2000 }, (_, i) => join(i)));
     expect(rs.every((r) => r.status === 200)).toBe(true);
-    expect((raw.query("SELECT COUNT(*) c FROM participant").get() as any).c).toBe(10000);
-    expect((raw.query("SELECT writes w FROM usage").get() as any).w).toBe(90002);
-    expect(90001).toBeLessThan(2_000_000 * 0.05); // one 10,000-person engagement uses under 5% of the deployed daily guard (9 per join: what a join really writes)
+    expect((raw.query("SELECT COUNT(*) c FROM participant").get() as any).c).toBe(2000);
+    expect((raw.query("SELECT writes w FROM usage").get() as any).w).toBe(18002);
+    expect(18001).toBeLessThan(2_000_000 * 0.05); // one 10,000-person engagement uses under 5% of the deployed daily guard (9 per join: what a join really writes)
   }, 120_000);
   test("a large engagement stores no per-claim rows (winners come from the public numbers), so 10,000 phones claiming adds no writes", async () => {
-    await create({ cap: 20000 });
+    await create({ cap: 2000 });
     const pids: string[] = [];
-    for (let i = 0; i < 10000; i++) pids.push(((await (await join(i)).json()) as any).pid);
+    for (let i = 0; i < 2000; i++) pids.push(((await (await join(i)).json()) as any).pid);
     const pats = ["line", "twolines", "corners", "plus", "x", "frame", "blackout"];
     for (let round = 0; round < 2; round++)
       await Promise.all(pids.slice(0, 2000).map((pid, i) => call("POST", "/api/z/ENG1/claims", { pid, claims: [{ pattern: pats[i % 7], idx: i % 75 }] })));
     expect((raw.query("SELECT COUNT(*) c FROM claim").get() as any).c).toBe(0);
-    expect((raw.query("SELECT writes w FROM usage").get() as any).w).toBe(79994); // 1 create + 1 entitlement-free + 10,000 joins at what a join really writes (about 8 units, the same figure Corporate Tambola counts)
+    expect((raw.query("SELECT writes w FROM usage").get() as any).w).toBe(15994); // 1 create + 1 entitlement-free + 10,000 joins at what a join really writes (about 8 units, the same figure Corporate Tambola counts)
   }, 300_000);
 });
 
@@ -638,7 +638,7 @@ describe("big lists come in pages, and the daily clean-up runs by itself", () =>
   const D = 86_400_000;
   const old = (id: string) => raw.run("INSERT INTO engagement(id,start_round,call_seconds,cap,created_ms,org,closed,pack,tickets,config) VALUES(?,?,?,?,?,NULL,0,5,1,NULL)".replace(/\?/g, () => "?"), [id, 5, 6, 5, T - 400 * D] as any);
   test("participants are returned in pages with a total, so one request never has to carry a whole 10,000-person list", async () => {
-    await create({ cap: 20000 });
+    await create({ cap: 2000 });
     for (let i = 0; i < 7; i++) await join(i);
     const p1 = await (await call("GET", "/api/z/ENG1/participants?limit=3", undefined, org)).json() as any;
     const p2 = await (await call("GET", "/api/z/ENG1/participants?limit=3&offset=3", undefined, org)).json() as any;

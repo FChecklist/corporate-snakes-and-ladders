@@ -94,7 +94,7 @@ export function checkBrandLogo(v: unknown): { ok: true; bytes: number } | { ok: 
   if (long > short * LOGO_MAX_RATIO) return { ok: false, error: `The logo is too long and thin. It may be at most ${LOGO_MAX_RATIO} times wider than tall.` };
   return { ok: true, bytes: raw.length };
 }
-export const MAX_INVITES_PER_PERSON = 10;
+export const MAX_INVITES_PER_PERSON = 4;
 export const defaultInvites = (): InviteCfg => ({ on: false, per: 4, cats: ["family", "colleagues"] });
 export type VerifyMode = "mobile" | "id" | "either" | "both";
 export const VERIFY_MODES: VerifyMode[] = ["mobile", "id", "either", "both"];
