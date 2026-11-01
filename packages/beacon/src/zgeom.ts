@@ -5,8 +5,8 @@ import { squareXY, isFlat } from "../../../vendor/game-core/packages/snakes/src"
 import type { Board } from "../../../vendor/game-core/packages/snakes/src";
 
 export const C = 60, O = 14, G = 600, VB = G + 2 * O;
-export const HEAD_R = 30;   // the head with its tongue always fits in a circle of this radius around its anchor point
-export const SNAKE_HALF = 8.5; // half the thickest width of a snake body (a bit over a quarter of a tile wide in all)
+export const HEAD_R = 40;   // the head with its tongue always fits in a circle of this radius around its anchor point
+export const SNAKE_HALF = 6.5; // half the thickest width of a snake body (about a fifth of a tile wide in all; the head is clearly wider)
 const LAD = 7;              // a ladder's rails sit this far either side of its middle line
 
 /** Centre of a square, nudged a little down and right so the number chip in the top-left corner stays clear. */
@@ -20,7 +20,7 @@ export function snakeShape(h: number, t: number, i: number): SnakeShape {
   const a0 = anchor(h), z0 = anchor(t);
   const a = [inside(a0[0], HEAD_R + 2), inside(a0[1], HEAD_R + 2)], z = [inside(z0[0], 6), inside(z0[1], 6)];
   const dx = z[0]! - a[0]!, dy = z[1]! - a[1]!, L = Math.hypot(dx, dy) || 1, nx = -dy / L, ny = dx / L;
-  const flip = i % 2 ? 1 : -1, amp = Math.min(20, L * 0.14) * flip, waves = L > 300 ? 2.5 : L > 170 ? 2 : 1.5, M = 60, pts: number[][] = [];
+  const flip = i % 2 ? 1 : -1, amp = Math.min(12, L * 0.08) * flip, waves = L > 300 ? 2.5 : L > 170 ? 2 : 1.5, M = 60, pts: number[][] = [];
   for (let k = 0; k <= M; k++) {
     const u = k / M, s = Math.sin(u * Math.PI * waves) * amp * Math.min(1, u * 5) * Math.min(1, (1 - u) * 6 + 0.1);
     const hw = 1.4 + (SNAKE_HALF - 1.4) * Math.pow(Math.sin(Math.PI * Math.pow(u, 0.6)), 0.8);

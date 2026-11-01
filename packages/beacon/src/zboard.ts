@@ -23,7 +23,7 @@ export const BOARD_CSS = `
 `;
 
 const PAL = ["#ef4b5b", "#ff8a1f", "#ffcf24", "#7ccb3a", "#2f9bf0", "#ff72b8", "#9a5be0"], PALE = "#e6eaee";
-const SK = [{ b: "#2fa84f", d: "#0f4a22", l: "#d2f4b8" }, { b: "#1f9d84", d: "#0a4a3c", l: "#bdf3e4" }, { b: "#5fba3c", d: "#25601a", l: "#e8f9bb" }, { b: "#f08a24", d: "#7a3504", l: "#ffe6bf" }, { b: "#2e8b57", d: "#0d3d24", l: "#cdf0d8" }, { b: "#c4533f", d: "#5e1a0e", l: "#ffd9cc" }];
+const SK = [{ b: "#22c55e", d: "#0b4d22", l: "#d9ffc4" }, { b: "#14b8a6", d: "#074a42", l: "#c5fff2" }, { b: "#84cc16", d: "#364f08", l: "#f2ffc0" }, { b: "#fb923c", d: "#6e2a06", l: "#ffeacb" }, { b: "#16a34a", d: "#06391a", l: "#c9f7d6" }, { b: "#ef4444", d: "#5a0f0f", l: "#ffd9d9" }];
 type A = Record<string, string | number>;
 const el = (t: string, a: A, p: Element): SVGElement => { const e = document.createElementNS(NS, t); for (const k in a) e.setAttribute(k, String(a[k])); p.appendChild(e); return e as SVGElement; };
 const txt = (p: Element, a: A, s: string): void => { el("text", a, p).textContent = s; };
@@ -51,10 +51,11 @@ function snake(S: Element, h: number, t: number, i: number): void {
   const nrm = (k: number): number[] => { const q = P[Math.min(M, k + 1)]!, r = P[Math.max(0, k - 1)]!, tx = q[0]! - r[0]!, ty = q[1]! - r[1]!, tl = Math.hypot(tx, ty) || 1; return [-ty / tl, tx / tl, tx / tl, ty / tl]; };
   const edge = (sc: number): string => { const l: number[][] = [], r: number[][] = []; for (let k = 0; k <= M; k++) { const p = P[k]!, n = nrm(k); l.push([p[0]! + n[0]! * p[2]! * sc, p[1]! + n[1]! * p[2]! * sc]); r.push([p[0]! - n[0]! * p[2]! * sc, p[1]! - n[1]! * p[2]! * sc]); } return l.concat(r.reverse()).map((q, j) => (j ? "L" : "M") + q[0]!.toFixed(1) + " " + q[1]!.toFixed(1)).join("") + "Z"; };
   const g = el("g", { filter: "url(#zbsh)" }, S);
-  el("path", { d: edge(1), fill: col.b, stroke: col.d, "stroke-width": 2, "stroke-linejoin": "round" }, g);
+  el("path", { d: edge(1), fill: "#fff", stroke: "#fff", "stroke-width": 7, "stroke-linejoin": "round", opacity: 0.95 }, g); // white halo: the snake stands out from any tile
+  el("path", { d: edge(1), fill: col.b, stroke: col.d, "stroke-width": 2.4, "stroke-linejoin": "round" }, g);
   el("path", { d: edge(0.38), fill: col.l, opacity: 0.9 }, g);
   for (let k = 7; k < M - 8; k += 6) { const p = P[k]!, n = nrm(k), w = p[2]! * 0.62, len = Math.max(2.2, p[2]! * 0.62), ang = Math.atan2(n[3]!, n[2]!) * 180 / Math.PI; el("path", { d: `M${-len} 0L0 ${-w}L${len} 0L0 ${w}Z`, transform: `translate(${p[0]!.toFixed(1)} ${p[1]!.toFixed(1)}) rotate(${ang.toFixed(0)})`, fill: col.d, opacity: 0.8 }, g); }
-  const hg = el("g", { transform: `translate(${head.x.toFixed(1)} ${head.y.toFixed(1)}) rotate(${head.deg.toFixed(1)}) scale(1.05)`, filter: "url(#zbsh)" }, S);
+  const hg = el("g", { transform: `translate(${head.x.toFixed(1)} ${head.y.toFixed(1)}) rotate(${head.deg.toFixed(1)}) scale(1.3)`, filter: "url(#zbsh)" }, S);
   el("path", { d: "M16 0L24 0M24 0L29 -4M24 0L29 4", stroke: "#e0262f", "stroke-width": 2.2, fill: "none", "stroke-linecap": "round", "stroke-linejoin": "round" }, hg);
   el("path", { d: "M-7 -9C3 -15 18 -11 21 0C18 11 3 15 -7 9Z", fill: col.b, stroke: col.d, "stroke-width": 2, "stroke-linejoin": "round" }, hg);
   for (const sy of [-1, 1]) { el("circle", { cx: 8, cy: sy * 6.5, r: 4.4, fill: "#fff", stroke: col.d, "stroke-width": 1.1 }, hg); el("circle", { cx: 9.2, cy: sy * 6.5, r: 2.3, fill: "#141414" }, hg); el("circle", { cx: 17, cy: sy * 2.6, r: 1, fill: col.d }, hg); }
@@ -106,9 +107,9 @@ export function renderBoard(root: HTMLElement, b: Board, st: SnakesState, me: st
     el("rect", { x, y, width: w, height: 26, rx: 8, fill: "#fff", "fill-opacity": 0.93, stroke: "#000", "stroke-opacity": 0.15, "stroke-width": 1 }, g);
     txt(g, { x: x + w / 2, y: y + 20.5, "text-anchor": "middle", "font-size": 23, fill: "#111" }, String(n));
   }
-  /** Players: a blue ring marks the viewer's square; each square with people shows the count in a badge in its top-right corner. */
+  /** Players: a blue ring marks the viewer's square; each square with people shows the count in a badge in its bottom-right corner (22 units: about 11 px on a 360 px phone). */
   if (mine) { const { col, row } = squareXY(mine); el("rect", { x: O + col * C + 2.5, y: O + (9 - row) * C + 2.5, width: C - 5, height: C - 5, rx: 8, fill: "none", stroke: "#1456c2", "stroke-width": 4 }, grid); }
-  for (const [ns, c] of Object.entries(on)) { const n = +ns, { col, row } = squareXY(n), x = O + col * C + C - 4, y = O + (9 - row) * C + 4, w = c > 999 ? 40 : c > 99 ? 34 : c > 9 ? 28 : 24; el("rect", { x: x - w, y, width: w, height: 24, rx: 12, fill: mine === n ? "#1456c2" : "#222", stroke: "#fff", "stroke-width": 1.8 }, grid); txt(grid, { x: x - w / 2, y: y + 18, "font-size": 17, fill: "#fff", "text-anchor": "middle" }, String(c)); }
+  for (const [ns, c] of Object.entries(on)) { const n = +ns, { col, row } = squareXY(n), w = c > 999 ? 52 : c > 99 ? 44 : c > 9 ? 36 : 30, x = O + col * C + C - 3, y = O + (9 - row) * C + C - 3; el("rect", { x: x - w, y: y - 28, width: w, height: 28, rx: 14, fill: mine === n ? "#1456c2" : "#222", stroke: "#fff", "stroke-width": 2 }, grid); txt(grid, { x: x - w / 2, y: y - 7, "font-size": 22, fill: "#fff", "text-anchor": "middle" }, String(c)); }
 }
 export const standLine = (st: SnakesState, me: string): string => { const s = standing(st, me); return `${s.ahead} ahead of you, ${s.behind} behind you`; };
 

@@ -76,30 +76,69 @@ const seeded = (seed: string): (() => number) => {
   let h = 2166136261; for (let i = 0; i < seed.length; i++) { h ^= seed.charCodeAt(i); h = Math.imul(h, 16777619); }
   return () => { h = (h + 0x6D2B79F5) | 0; let t = Math.imul(h ^ (h >>> 15), h | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
 };
-/** The board for a game, made only from the game id (same on every phone and the server). 10 snakes, 10 ladders, 5 penalty, 5 reward squares; the longest snake is 99 to 9, the longest ladder 31 to 80; every snake and ladder has a different length. A snake or ladder ends on a plain square; several may end on the same plain square. */
+/** The board for a game, made only from the game id (same on every phone and the server). 10 snakes, 10 ladders, 5 penalty, 5 reward squares. Every snake and ladder is short (2 to 5 rows from start to end), not flat, has its own length, uses squares nobody else uses and keeps clear of every other one (no crossings); they are spread over the whole board. A snake or ladder ends on a plain square. */
 const rowOf = (q: number): number => Math.floor((q - 1) / 10);
 /** Too flat to read as a snake or ladder: fewer than 2 rows apart, or climbing less than about 22 degrees (columns apart more than 2.5 times the rows apart). */
 export const isFlat = (a: number, b: number): boolean => { const rd = Math.abs(rowOf(a) - rowOf(b)), cd = Math.abs(squareXY(a).col - squareXY(b).col); return rd < 2 || cd > 2.5 * rd; };
+export const MAX_SPAN_ROWS = 5, MIN_CLEAR = 0.5; // longest run in rows; the least gap, in squares, between two snakes/ladders
+const PTS: [number, number][] = Array.from({ length: 101 }, (_, q) => { const { col, row } = squareXY(Math.max(1, q)); return [col, row]; });
+const pt = (q: number): [number, number] => PTS[q]!;
+/** Least distance (in squares) between the straight lines of two snakes/ladders; 0 when they cross. */
+export function lineGap(a: readonly [number, number], b: readonly [number, number]): number {
+  const [p1, p2, p3, p4] = [pt(a[0]), pt(a[1]), pt(b[0]), pt(b[1])] as const;
+  const cr = (o: number[], u: number[], v: number[]) => (u[0]! - o[0]!) * (v[1]! - o[1]!) - (u[1]! - o[1]!) * (v[0]! - o[0]!);
+  if (cr(p1, p2, p3) * cr(p1, p2, p4) < 0 && cr(p3, p4, p1) * cr(p3, p4, p2) < 0) return 0;
+  const dp = (p: number[], s: number[], e: number[]) => { const dx = e[0]! - s[0]!, dy = e[1]! - s[1]!, u = Math.max(0, Math.min(1, ((p[0]! - s[0]!) * dx + (p[1]! - s[1]!) * dy) / (dx * dx + dy * dy || 1))); return Math.hypot(p[0]! - (s[0]! + u * dx), p[1]! - (s[1]! + u * dy)); };
+  return Math.min(dp(p1, p3, p4), dp(p2, p3, p4), dp(p3, p1, p2), dp(p4, p1, p2));
+}
+/** How many pairs of snakes/ladders cross or come closer than MIN_CLEAR/1.3 squares (0 for every generated board). */
+export function crossings(b: Board): number {
+  const all = [...Object.entries(b.snakes), ...Object.entries(b.ladders)].map(([f, t]) => [+f, t] as const); let n = 0;
+  for (let i = 0; i < all.length; i++) for (let j = i + 1; j < all.length; j++) if (lineGap(all[i]!, all[j]!) < MIN_CLEAR / 1.3) n++;
+  return n;
+}
 export function ownerBoard(gameId: string): Board {
-  for (let attempt = 0; attempt < 20000; attempt++) {
-    const r = seeded(gameId + "#" + attempt), shuf = <T,>(a: T[]): T[] => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [a[i], a[j]] = [a[j]!, a[i]!]; } return a; };
-    const pool = shuf(Array.from({ length: 98 }, (_, i) => i + 2).filter((q) => q !== 99 && q !== 31 && q !== 80 && q !== 9));
-    const take = (n: number, ok: (q: number) => boolean): number[] => { const out: number[] = []; for (let i = 0; i < pool.length && out.length < n; i++) if (ok(pool[i]!)) out.push(...pool.splice(i--, 1)); return out; };
-    const hd = take(9, (q) => q >= 12), ft = take(9, (q) => q <= 88), pen = take(5, () => true), rew = take(5, () => true); // heads need room to fall, feet room to climb
-    if (hd.length < 9 || ft.length < 9) continue;
-    const heads = [99, ...hd], feet = [31, ...ft];
-    const plain = [...pool, 80, 9], used = new Set<number>([90, 49]), snakes: Record<number, number> = { 99: 9 }, ladders: Record<number, number> = { 31: 80 };
-    let ok = true;
-    for (const f of heads.slice(1)) { const o = plain.filter((t) => t <= f - 3 && !isFlat(f, t) && !used.has(f - t)); if (!o.length) { ok = false; break; } const t = o[Math.floor(r() * o.length)]!; used.add(f - t); snakes[f] = t; }
-    if (!ok) continue;
-    for (const f of feet.slice(1)) { const o = plain.filter((t) => t >= f + 3 && !isFlat(f, t) && !used.has(t - f)); if (!o.length) { ok = false; break; } const t = o[Math.floor(r() * o.length)]!; used.add(t - f); ladders[f] = t; }
-    if (!ok) continue;
-    const specials: Record<number, Special> = {}; for (const q of pen) specials[q] = { kind: "punishment" }; for (const q of rew) specials[q] = { kind: "reward" };
+  type Seg = { s: boolean; f: number; t: number };
+  for (let attempt = 0; attempt < 3000; attempt++) {
+    const r = seeded(gameId + "#" + attempt), pick = (n: number): number => Math.floor(r() * n);
+    const kinds = Array.from({ length: 20 }, (_, i) => i % 2 === 0), spans = kinds.map(() => (pick(12) === 0 ? 5 : 2 + pick(3)));
+    const segs: Seg[] = [];
+    /** A random candidate for segment i that keeps the hard rules (own squares, own length, short, not flat). */
+    const cand = (i: number): Seg | null => {
+      const s = kinds[i]!, sp = spans[i]!, f = s ? 21 + pick(79) : 2 + pick(78), tr = s ? rowOf(f) - sp : rowOf(f) + sp; if (tr < 0 || tr > 9) return null;
+      const tc = Math.max(0, Math.min(9, squareXY(f).col + pick(5) - 2)), t = tr * 10 + 1 + (tr % 2 ? 9 - tc : tc); if (t < 2 || t > 99 || isFlat(f, t)) return null;
+      for (let j = 0; j < segs.length; j++) if (j !== i && segs[j]) { const o = segs[j]!; if (o.f === f || o.f === t || o.t === f || o.t === t) return null; }
+      return { s, f, t };
+    };
+    const conflicts = (i: number, c: Seg): number => segs.reduce((n, o, j) => n + (j !== i && o && lineGap([o.f, o.t], [c.f, c.t]) < MIN_CLEAR ? 1 : 0), 0);
+    for (let i = 0; i < 20; i++) { let c: Seg | null = null; for (let k = 0; k < 200 && !c; k++) c = cand(i); if (!c) break; segs.push(c); }
+    if (segs.length < 20) continue;
+    // Min-conflicts search: move one tangled snake or ladder at a time to the best of a few new places until nothing crosses or crowds another.
+    const cnt = segs.map((c, i) => conflicts(i, c)); let done = false;
+    for (let step = 0; step < 3000 && !done; step++) {
+      const bad: number[] = []; for (let i = 0; i < 20; i++) if (cnt[i]) bad.push(i);
+      if (!bad.length) { done = true; break; }
+      const i = bad[pick(bad.length)]!; let best: Seg | null = null, bc = 1e9;
+      for (let k = 0; k < 14; k++) { const c = cand(i); if (!c) continue; const n = conflicts(i, c); if (n < bc) { bc = n; best = c; } }
+      if (best && (bc <= cnt[i]! || pick(20) === 0)) {
+        const old = segs[i]!; segs[i] = best;
+        for (let j = 0; j < 20; j++) if (j !== i) { const was = lineGap([old.f, old.t], [segs[j]!.f, segs[j]!.t]) < MIN_CLEAR, now = lineGap([best.f, best.t], [segs[j]!.f, segs[j]!.t]) < MIN_CLEAR; if (was !== now) { cnt[j]! += now ? 1 : -1; cnt[i]! += now ? 1 : -1; } }
+      }
+    }
+    if (!done) continue;
+    const bands = [0, 0, 0, 0, 0]; for (const c of segs) bands[Math.min(4, Math.floor((rowOf(c.f) + rowOf(c.t)) / 4))]!++;
+    if (bands.some((n) => n < 2)) continue; // spread over the whole board
+    const used = new Set<number>([1, 100]), snakes: Record<number, number> = {}, ladders: Record<number, number> = {};
+    for (const c of segs) { used.add(c.f); used.add(c.t); (c.s ? snakes : ladders)[c.f] = c.t; }
+    const free = shufq(Array.from({ length: 98 }, (_, i) => i + 2).filter((q) => !used.has(q)), r), far = (q: number): boolean => segs.every((c) => lineGap([c.f, c.t], [q, q]) >= 0.8);
+    const spots = [...free.filter(far), ...free.filter((q) => !far(q))].slice(0, 10), specials: Record<number, Special> = {};
+    spots.forEach((q, i) => { specials[q] = { kind: i < 5 ? "punishment" : "reward" }; });
     const b: Board = { size: 100, snakes, ladders, specials };
     if (!checkOwnerBoard(b).length) return b;
   }
   throw new Error("no sound board for this game id");
 }
+const shufq = <T,>(a: T[], r: () => number): T[] => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [a[i], a[j]] = [a[j]!, a[i]!]; } return a; };
 /** Owner board rules in plain words; [] when sound. Includes the proof that the last square is reachable from every square. */
 export function checkOwnerBoard(b: Board): string[] {
   const bad: string[] = [], sn = Object.entries(b.snakes).map(([f, t]) => [+f, t] as const), la = Object.entries(b.ladders).map(([f, t]) => [+f, t] as const), sp = Object.entries(b.specials ?? {});
@@ -110,11 +149,15 @@ export function checkOwnerBoard(b: Board): string[] {
   if (starts.some((q) => q === 1 || q === 100)) bad.push("nothing sits on square 1 or 100");
   const ends = [...sn.map(([, t]) => t), ...la.map(([, t]) => t)];
   if (ends.some((t) => starts.includes(t) || t < 2 || t > 99)) bad.push("a snake or ladder ends on a plain square");
+  if (new Set(ends).size !== ends.length) bad.push("no two snakes or ladders end on the same square");
   const lens = [...sn.map(([f, t]) => f - t), ...la.map(([f, t]) => t - f)];
-  if (lens.some((d) => d < 3) || new Set(lens).size !== lens.length) bad.push("every snake and ladder has a different length");
+  if (lens.some((d) => d < 3)) bad.push("every snake and ladder is at least 3 squares long");
   if ([...sn, ...la].some(([f, t]) => isFlat(f, t))) bad.push("no flat snake or ladder: the start and the end are at least 2 rows apart and not nearly level");
-  if (b.snakes[99] !== 9 || Math.max(...sn.map(([f, t]) => f - t)) !== 90) bad.push("the longest snake is on 99 and goes to 9");
-  if (b.ladders[31] !== 80 || Math.max(...la.map(([f, t]) => t - f)) !== 49) bad.push("the longest ladder starts on 31 and goes to 80");
+  if ([...sn, ...la].some(([f, t]) => Math.abs(rowOf(f) - rowOf(t)) > MAX_SPAN_ROWS)) bad.push("every snake and ladder is short: at most 5 rows from start to end");
+  if (sn.some(([f, t]) => t >= f) || la.some(([f, t]) => t <= f)) bad.push("snakes go down and ladders go up");
+  if (crossings(b) > 0) bad.push("no snake or ladder crosses another (crossings: " + crossings(b) + ")");
+  const bands = [0, 0, 0, 0, 0]; for (const [f, t] of [...sn, ...la]) bands[Math.min(4, Math.floor((rowOf(f) + rowOf(t)) / 4))]!++;
+  if (bands.some((n) => n < 2)) bad.push("snakes and ladders are spread over the whole board");
   if (!reachable(b)) bad.push("nobody may be trapped");
   return [...new Set(bad)];
 }

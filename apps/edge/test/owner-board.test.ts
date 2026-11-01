@@ -23,3 +23,23 @@ describe("owner board: 10 snakes, 10 ladders, 5 penalty, 5 reward", () => {
     expect(checkOwnerBoard(more).join(" ")).toContain("10 snakes, 10 ladders, 5 penalty and 5 reward squares");
   });
 });
+
+import { crossings, MAX_SPAN_ROWS, squareXY } from "../src/engine";
+describe("owner board: short, separate, spread out", () => {
+  test("every snake and ladder spans 2 to 5 rows, nothing crosses, no square is shared, all 2-row bands are used (40 game ids)", () => {
+    for (let i = 0; i < 40; i++) {
+      const b = ownerBoard("short-" + i), all = [...Object.entries(b.snakes), ...Object.entries(b.ladders)] as [string, number][];
+      expect(all.length).toBe(20);
+      const ends = new Set<number>(); for (const [f, t] of all) { ends.add(+f); ends.add(t); const d = Math.abs(squareXY(+f).row - squareXY(t).row); expect(d).toBeGreaterThanOrEqual(2); expect(d).toBeLessThanOrEqual(MAX_SPAN_ROWS); }
+      expect(ends.size).toBe(40);
+      expect(crossings(b)).toBe(0);
+      const bands = [0, 0, 0, 0, 0]; for (const [f, t] of all) bands[Math.min(4, Math.floor((squareXY(+f).row + squareXY(t).row) / 2 / 2))]!++;
+      expect(bands.every((n) => n >= 2)).toBe(true);
+      expect(checkOwnerBoard(b)).toEqual([]);
+    }
+  });
+  test("the rule check reports a long snake and a crossing", () => {
+    const b = ownerBoard("demo-1"), long = { ...b, snakes: { ...b.snakes, 97: 5 } };
+    expect(checkOwnerBoard(long).join(" ")).toMatch(/short|cross/);
+  });
+});
