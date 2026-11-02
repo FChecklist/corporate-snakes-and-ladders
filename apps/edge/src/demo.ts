@@ -22,7 +22,7 @@ export interface DemoCheck { ok: boolean; status?: number; error?: string; code?
 /** May this organizer make another demo game right now? Counts today's demo games by the organizer account and by the network address. */
 export async function demoAllowed(env: { DB: D1; DEMO_GAME?: string }, org: string | null, ipk: string, now: number): Promise<DemoCheck> {
   if (!demoOn(env)) return { ok: false, status: 404, error: "Not found" };
-  if (!org) return { ok: false, status: 403, error: "Sign in with your work e-mail to try a demo.", code: "demo-sign-in" };
+  if (!org) return { ok: false, status: 403, error: "Sign in with your e-mail to try a demo.", code: "demo-sign-in" };
   await ensure(env.DB);
   const d = dayOf(now);
   const byOrg = (await env.DB.prepare("SELECT COUNT(*) AS c FROM demo_game WHERE org=? AND day=?").bind(org, d).first<{ c: number }>())?.c ?? 0;
