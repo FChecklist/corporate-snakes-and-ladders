@@ -1,12 +1,12 @@
-// Terms checkboxes: the server must refuse every request that comes without the tick and the CURRENT version, store every acceptance (consent_log),
-// ask again when the version changes, and keep the boxes and the Terms page on the same wording and version.
+// The agreement (no tick-boxes since 1 Nov 2026): the server must refuse every request that comes without the CURRENT version and every point of the step, store every
+// acceptance (consent_log: version, sha256 of the one notice line shown, time), ask again when the version changes, and keep the pages and the Terms page on the same version.
 import { beforeEach, describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { withDevice } from "./device";
 import { handle, type Env } from "../src/worker";
 import { TERMS_VERSION } from "../src/brand";
-import { boxesFor, checkConsent, consentInfo, hasConsent, recordConsent, CONSENT_KINDS, textHash } from "../src/consent";
+import { boxesFor, checkConsent, consentInfo, hasConsent, recordConsent, CONSENT_KINDS, textHash, NOTICE_TEXT, STALE_PAGE_MESSAGE } from "../src/consent";
 import type { PayEnv } from "../src/pay";
 import { makeD1 } from "./d1-sqlite";
 
@@ -29,8 +29,9 @@ async function organizerWithDraft(id = "CONS-1") {
 }
 const pubBody = { email: "boss@acme.com", phone: "98765 43210" };
 const sha = (s: string) => createHash("sha256").update(s).digest("hex");
-const expectedHash = (kind: string) => sha((["A", "B"] as const).filter((b) => FIX[kind][b]).map((b) => `${b}: ${FIX[kind][b]}`).join("\n"));
-const REFUSED = (kind: string) => ({ error: "Please tick the box to continue.", code: "consent-required", kind, version: TERMS_VERSION });
+const NOTICE = "By continuing, you agree to the Terms and Conditions, Privacy and Data, and Game rules."; // the one line, written out here on purpose: the stored proof must not move by accident
+const expectedHash = (_kind: string) => sha(NOTICE);
+const REFUSED = (kind: string) => ({ error: "This page is out of date. Please reload it and try again. Sorry for the trouble.", code: "consent-required", kind, version: TERMS_VERSION });
 
 describe("test 5: the box wording is the agreed wording, and the version is one value", () => {
   test("every box, word for word, from the committed copy of the wording file", () => {
@@ -53,10 +54,38 @@ describe("test 5: the box wording is the agreed wording, and the version is one 
     const body = t.replace(/<footer class="uf"[\s\S]*?<\/footer>/, ""); // the uniform footer names the sister games on purpose
     expect(body).not.toContain("Luck by Chance"); expect(body).not.toContain("Tambola");
   });
-  test("the page code draws labelled checkboxes, never pre-ticked, with the policy words as links that open in a new tab, and disables the button until all are ticked", () => {
+  test("the notice line and the stale-page message are the agreed words, and the proof stored is the hash of that one line", async () => {
+    expect(NOTICE_TEXT).toBe(NOTICE);
+    expect(STALE_PAGE_MESSAGE).toBe(REFUSED("K1").error);
+    for (const k of CONSENT_KINDS) expect(await textHash(k)).toBe(sha(NOTICE));
+  });
+  test("the page code draws one small line with three links (new tab), nothing to tick, never pre-ticked, and holds no button back for it", () => {
     const c = rd("consent.js");
-    expect(c).toContain('type="checkbox"'); expect(c).toContain("<label"); expect(c).toContain('target="_blank" rel="noopener"'); expect(c).not.toMatch(/\bchecked="checked"|checked>/);
-    expect(c).toContain("button.disabled = !ok"); expect(c).toContain("aria-disabled");
+    expect(c).not.toContain('type="checkbox"'); expect(c).not.toContain("<label"); expect(c).not.toContain("<input"); expect(c).not.toMatch(/\bchecked="checked"|checked>/);
+    for (const anchor of ["#terms", "#privacy", "#game-rules"]) expect(c).toContain(anchor);
+    expect(c).toContain('target="_blank" rel="noopener"'); expect(c).toContain(NOTICE);
+    expect(c).toContain('C.version = "' + TERMS_VERSION + '"');
+  });
+  test("running consent.js: both ways of calling it give the same line and the same request body; the points of every kind match the server", () => {
+    const nodes: Record<string, any> = {}; const doc: any = { getElementById: (id: string) => nodes[id] || null, createElement: () => ({}), head: { appendChild: (n: any) => { if (n.id) nodes[n.id] = n; } } };
+    const win: any = {}; new Function("window", "document", rd("consent.js"))(win, doc);
+    const C = win.CBConsent;
+    expect(C.version).toBe(TERMS_VERSION); expect(C.notice).toBe(NOTICE);
+    for (const k of CONSENT_KINDS) expect(Object.keys(C.text[k]), k).toEqual(boxesFor(k).map((b) => b.id));
+    const info = consentInfo("K4");
+    for (const h of [C.html("K4"), C.html(info, {})]) {
+      expect(h).toContain("By continuing, you agree to the"); expect(h).toContain("#terms"); expect(h).toContain("#privacy"); expect(h).toContain("#game-rules"); expect(h).not.toContain("<input");
+    }
+    expect(C.payload(info, {})).toEqual({ v: TERMS_VERSION, boxes: ["A", "B"], notice: true });
+    expect(C.payload({}, "K4")).toEqual({ v: TERMS_VERSION, boxes: ["A", "B"], notice: true });
+    expect(C.payload({}, "K3")).toEqual({ v: TERMS_VERSION, boxes: ["A"], notice: true });
+    expect(C.payload(null, {})).toBeNull();                       // the wording has not loaded yet: nothing to send
+    expect(C.ready(info, {})).toBe(true); expect(C.all({}, "K2")).toBe(true);
+    const btn: any = { disabled: true, dataset: {}, setAttribute() {} };
+    C.bind({}, info, {}, btn); expect(btn.disabled).toBe(false);   // no box holds the button
+    const held: any = { disabled: false, dataset: { hold: "1" }, setAttribute() {} };
+    C.bind({}, info, {}, held); expect(held.disabled).toBe(true);  // a button held for another reason stays held
+    for (const k of ["K1", "K2", "K3", "K4", "K5", "K6"] as const) expect(checkConsent(k, C.payload({}, k)), k).toEqual({ ok: true }); // the server takes exactly what the page sends
   });
 });
 
@@ -108,7 +137,7 @@ describe("test 7: the log holds no address, device, phone number or account deta
 
 describe("checkConsent (the one rule every route uses)", () => {
   test("nothing, a wrong shape, a missing box, an old version: all refused; every box and the current version: accepted", () => {
-    for (const bad of [undefined, null, "yes", true, {}, { v: TERMS_VERSION }, { boxes: ["A", "B"] }, { v: TERMS_VERSION, boxes: [] }, { v: TERMS_VERSION, boxes: ["A"] }, { v: TERMS_VERSION, boxes: "AB" }, { v: OLD, boxes: ["A", "B"] }]) expect(checkConsent("K1", bad)).toMatchObject({ ok: false, status: 400, code: "consent-required", error: "Please tick the box to continue." });
+    for (const bad of [undefined, null, "yes", true, {}, { v: TERMS_VERSION }, { boxes: ["A", "B"] }, { v: TERMS_VERSION, boxes: [] }, { v: TERMS_VERSION, boxes: ["A"] }, { v: TERMS_VERSION, boxes: "AB" }, { v: OLD, boxes: ["A", "B"] }]) expect(checkConsent("K1", bad)).toMatchObject({ ok: false, status: 400, code: "consent-required", error: STALE_PAGE_MESSAGE });
     expect(checkConsent("K1", { v: TERMS_VERSION, boxes: ["A", "B"] })).toEqual({ ok: true });
     expect(checkConsent("K2", { v: TERMS_VERSION, boxes: ["A"] })).toEqual({ ok: true });
   });
@@ -182,7 +211,7 @@ describe("K4 join a game: both boxes, before any name", () => {
     expect((await call("POST", "/api/z/CONS-4/join", { ...body, consent: { v: TERMS_VERSION, boxes: ["A"] } }, {}, T + 260)).status).toBe(400); // the age box is required by the server
     expect((await call("POST", "/api/z/CONS-4/join", { ...body, consent: { v: TERMS_VERSION, boxes: ["B"] } }, {}, T + 261)).status).toBe(400);
     expect((await call("POST", "/api/z/CONS-4/join", { ...body, consent: { v: "2026-10-14", boxes: ["A", "B"] } }, {}, T + 262)).status).toBe(400); // the old version no longer counts
-    expect(TERMS_VERSION).toBe("2026-10-15");
+    expect(TERMS_VERSION).toBe("2026-11-01");
     expect((await call("POST", "/api/z/CONS-4/join", body, {}, T + 263)).status).toBe(200); // withDevice ticks both boxes of the current version
     expect(rows("K4")[0]).toMatchObject({ boxes: '["A","B"]', version: TERMS_VERSION, text_hash: expectedHash("K4") });
   });

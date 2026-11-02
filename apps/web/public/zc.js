@@ -602,7 +602,7 @@
   async function addPeople(raw, keep) {
     const P = S.pp;
     if (!raw.length) { P.sum = "Add a name and a number first."; return redraw(); }
-    const consent = consPayload("K6"); if (!consent) { P.sum = "Please tick the box above first."; return redraw(); } // K6: never sent without the tick
+    const consent = consPayload("K6"); if (!consent) { P.sum = "The page is still getting ready. Please wait a moment and try again."; return redraw(); } // K6: never sent without the tick
     const { good, dups, wrong } = cleanBatch(raw); let added = good.length, serverDup = 0, dupNames = [], got = 0, counted = false; const bad = wrong.slice();
     try {
       for (let i = 0; i < good.length; i += 200) {
@@ -614,7 +614,7 @@
       const d = dups + serverDup;
       P.sum = `${added} good, ${d === 1 ? "1 duplicate" : d + " duplicates"} removed${dupNames.length ? " (" + dupNames.slice(0, 5).join("; ") + (dupNames.length > 5 ? "; and " + (dupNames.length - 5) + " more" : "") + ")" : ""}, ${bad.length === 1 ? "1 looks wrong" : bad.length + " look wrong"}`;
       P.wrong = keep ? P.wrong.concat(bad) : bad;
-    } catch (e) { P.sum = consFail("K6", e) ? "Please read and tick the box again, then add them." : friendly(e); }
+    } catch (e) { P.sum = consFail("K6", e) ? "Please add them once more." : friendly(e); }
     await loadPeople(); redraw();
   }
   function removeBox(p) {
@@ -1060,7 +1060,7 @@
     return frame(`<div class="zc-body">${side}<div class="zc-main">${mainHtml()}</div></div>`, true);
   }
   // K5: a Co-host ticks the role box once, before anything else; the server refuses everything else from this key until they have (the box is never ticked in advance)
-  const roleAcceptView = () => frame(`<div class="zc-body"><div class="zc-main"><div class="zc-block" id="roleaccept"><h3>Before you start</h3>${small("Tick the box to take the Co-host role. You can then invite people and pay.")}${consHtml("K5", "#roleacceptgo")}${S.roleErr ? `<p class="zc-small zc-warnt" role="alert">${esc(S.roleErr)}</p>` : ""}<div class="zc-foot"><button class="zc-btn" type="button" id="roleacceptgo"${consOff("K5")}>Accept the Co-host role</button></div></div></div></div>`, false);
+  const roleAcceptView = () => frame(`<div class="zc-body"><div class="zc-main"><div class="zc-block" id="roleaccept"><h3>Before you start</h3>${small("Press the button to take the Co-host role. You can then invite people and pay.")}${consHtml("K5", "#roleacceptgo")}${S.roleErr ? `<p class="zc-small zc-warnt" role="alert">${esc(S.roleErr)}</p>` : ""}<div class="zc-foot"><button class="zc-btn" type="button" id="roleacceptgo"${consOff("K5")}>Accept the Co-host role</button></div></div></div></div>`, false);
   function cohostView() {
     if (S.coh && S.coh.roleAccepted === false) return roleAcceptView();
     const side = `<aside class="zc-side"><div class="zc-me"><span class="zc-num zc-num-dark">C</span><span><span class="zc-muted">You are</span><br><b>Co-host</b></span></div><div class="zc-small zc-nomargin">Your game at a glance</div>${synHtml()}</aside>`;
@@ -1141,11 +1141,11 @@
   }
   async function googleDone(resp, intent) {
     try {
-      const consent = consPayload("K2"); if (!consent) { S.loginMsg = "Please tick the box first, then continue with Google."; S.setupMsg = S.loginMsg; return redraw(); } // K2: never sent without the tick
+      const consent = consPayload("K2"); if (!consent) { S.loginMsg = "The page is still getting ready. Please wait a moment, then continue with Google."; S.setupMsg = S.loginMsg; return redraw(); } // K2: never sent without the tick
       const r = await call("POST", "/api/auth/google", { credential: resp && resp.credential, intent, consent, ...(intent === "host" ? { hostKey: secret } : {}) });
       const k = r.token || r.key || r.organizerKey || r.hostKey; if (k) { secret = k; ss.set("cbz-org", k); }
       S.loginMsg = ""; S.setupMsg = ""; S.setup = null; bootstrap();
-    } catch (e) { S.loginMsg = consFail("K2", e) ? "Please read and tick the box again, then continue with Google." : e.message; S.setupMsg = S.loginMsg; redraw(); }
+    } catch (e) { S.loginMsg = consFail("K2", e) ? "Please continue with Google once more." : e.message; S.setupMsg = S.loginMsg; redraw(); }
   }
   // K2: the sign-in boxes go with Google's button, which stays inert until they are ticked
   const googleBlock = () => ""; // one way in: the e-mail (Option 1 code, Option 2 tap). No Google button, no pasted key.
@@ -1162,7 +1162,7 @@
   }
   async function setupStep(path, body, okSent) {
     try { const r = await call("POST", path, body); if (r && r.token) { secret = r.token; ss.set("cbz-org", secret); } /* the e-mail is confirmed: this device gets its own key */ S.setupMsg = ""; if (okSent) S.setupSent = true; if (path.indexOf("/email/verify") > 0) delete (S.sv || {}).setupcode; S.setup = await call("GET", "/api/host/setup"); if (S.setup && S.setup.ready !== false && !S.setup.needAccept) { S.setup = null; S.setupSent = false; return bootstrap(); } }
-    catch (e) { S.setupMsg = /\/accept$/.test(path) && consFail("K5", e) ? "Please read and tick the box again, then press the button." : friendly(e); }
+    catch (e) { S.setupMsg = /\/accept$/.test(path) && consFail("K5", e) ? "Please press the button once more." : friendly(e); }
     redraw();
   }
   // ---------- what the console loads ----------
@@ -1449,7 +1449,7 @@
     if ($("hostall")) $("hostall").onclick = () => { leaveGame(); bootstrap(); };
     if ($("hostswitchorg")) $("hostswitchorg").onclick = () => { const a = altRole(); if (a) takeKey(a.token, "You are now in your Organizer view."); };
     if ($("hostbecome")) $("hostbecome").onclick = async () => {
-      if (!CBConsent.all($app, "K2")) { S.becomeErr = "Please tick the box to continue."; return redraw(); }
+      if (!CBConsent.all($app, "K2")) { S.becomeErr = "The page is still getting ready. Please wait a moment and try again."; return redraw(); }
       try { const r = await call("POST", "/api/host/become-organizer", { consent: CBConsent.payload($app, "K2") }); S.becomeErr = ""; takeKey(r.token, "Your Organizer account is ready. Start your new game below."); }
       catch (e) { S.becomeErr = friendly(e); redraw(); }
     };
@@ -1492,7 +1492,7 @@
       const consent = consPayload("K1"); if (!consent) { S.pubNote = "Please tick both boxes first."; return redraw(); } // never sent without both ticks
       $("pubgo").disabled = true;
       try { const pr = await call("POST", `/api/z/${eid}/publish`, { email: S.contact.email.trim(), phone: S.contact.phone, consent }); ss.set("cbz-email", S.contact.email.trim()); ss.set("cbz-phone", S.contact.phone); S.pubOpen = false; S.pubNote = ""; S.note = pr && pr.needsOrganizer ? "Not published. Only the Organizer publishes, with one tap. If you are a Help Desk helper, ask the Organizer from the Help Desk page." : "Published. Send the link in step 6 to your participants. Then pay in step 8 before the start time, or the game will not begin."; }
-      catch (e) { ss.set("cbz-email", S.contact.email.trim()); ss.set("cbz-phone", S.contact.phone); S.pubNote = consFail("K1", e) ? "Please read and tick the boxes again, then press the button." : e.message + (e.needPack ? " (a pack for up to " + e.needPack + " participants)" : ""); }
+      catch (e) { ss.set("cbz-email", S.contact.email.trim()); ss.set("cbz-phone", S.contact.phone); S.pubNote = consFail("K1", e) ? "Please press the button once more." : e.message + (e.needPack ? " (a pack for up to " + e.needPack + " participants)" : ""); }
       refreshEng();
     };
     // cancel the game
@@ -1689,7 +1689,7 @@
     if ($("cloneno")) $("cloneno").onclick = () => { S.clone = null; redraw(); };
     if ($("clonego")) $("clonego").onclick = async () => {
       const K = S.clone, consent = K.hasPeople && K.withPeople ? consPayload("K6") : null; // K6: a guest list is only brought along once the box is ticked
-      if (K.hasPeople && K.withPeople && !consent) { K.err = "Please tick the box first."; return redraw(); }
+      if (K.hasPeople && K.withPeople && !consent) { K.err = "The page is still getting ready. Please wait a moment and try again."; return redraw(); }
       K.busy = true; K.err = ""; redraw();
       try {
         const r = await call("POST", `/api/z/${K.from}/clone`, { ...(K.hasPeople && K.withPeople ? { withPeople: true, consent } : {}) });
@@ -1697,7 +1697,7 @@
         S.store = null; S.f = null; S.fFor = ""; S.openInit = ""; S.cfg = null; S.info = null; S.sum = null; S.life = null; S.people = []; S.pp.list = null; S.pp.sentFor = ""; S.cancel = null; S.cancelDone = false; S.creditMsg = ""; S.screen = "eng";
         S.clone = null; S.cloneNew = r.id; S.cloneDated = ""; S.note = "Your new game is ready to check. Pick the date and time, then publish.";
         refreshTeam(); refreshEng();
-      } catch (e) { K.busy = false; K.err = consFail("K6", e) ? "Please read and tick the box again, then create the game." : e.status === 404 ? "This is not switched on yet. Please try again a little later." : friendly(e); redraw(); }
+      } catch (e) { K.busy = false; K.err = consFail("K6", e) ? "Please create the game once more." : e.status === 404 ? "This is not switched on yet. Please try again a little later." : friendly(e); redraw(); }
     };
     if ($("usecredit")) $("usecredit").onclick = async () => {
       S.creditErr = ""; $("usecredit").disabled = true;
@@ -1707,7 +1707,7 @@
     };
     all("[data-open-game]", (b) => (b.onclick = () => { eid = b.dataset.openGame; S.store = null; S.f = null; S.fFor = ""; S.openInit = ""; S.cfg = null; S.info = null; refreshTeam(); refreshEng(); }));
     all("[data-reuse]", (b) => (b.onclick = async () => {
-      const consent = consPayload("K6"); if (!consent) return noteAndDraw("Please tick the box first."); // K6: checked before the new game is made
+      const consent = consPayload("K6"); if (!consent) return noteAndDraw("The page is still getting ready. Please wait a moment and try again."); // K6: checked before the new game is made
       try { // a new game that starts with the earlier roster already on it
         const now = await latestRound(); const id = randId();
         const old = S.history.engagements.find((e) => e.id === b.dataset.reuse);
@@ -1716,7 +1716,7 @@
         await TBControl.ensureKey(id, { token: secret, base: BASE, prefix: "/api/z" });
         eid = id; history.replaceState(null, "", "?e=" + id); S.store = null; S.f = null; S.fFor = ""; S.openInit = ""; S.cfg = null; S.info = null; S.screen = "eng";
         S.note = `Created with ${r.copied} participants from the earlier game. It starts in 20 minutes; participants use the new link.`; refreshEng();
-      } catch (e) { noteAndDraw(consFail("K6", e) ? "Please read and tick the box again, then press Reuse." : e.message); }
+      } catch (e) { noteAndDraw(consFail("K6", e) ? "Please press Reuse once more." : e.message); }
     }));
     all("[data-retirekey]", (b) => (b.onclick = async () => { if (!confirm("Retire this key? It will stop working at once.")) return; try { await call("POST", "/api/org/keys/revoke", { id: b.dataset.retirekey }); S.note = "Key retired."; } catch (e) { S.note = e.message; } eid ? loadAccount() : refreshHome(); }));
     if ($("aiaudit")) $("aiaudit").onclick = async () => { try { S.aiTrail = (await call("GET", "/api/org/ai/audit")).trail || []; } catch (e) { S.note = e.message; } redraw(); };
@@ -1743,10 +1743,10 @@
     if ($("setupverify")) $("setupverify").onclick = () => { const v = $("setupcode").value.trim(); if (!/^\d{6}$/.test(v)) { S.setupMsg = "The code has 6 digits."; return redraw(); } setupStep("/api/host/setup/email/verify", { code: v }); };
     if ($("setupmobilego")) $("setupmobilego").onclick = () => { const v = $("setupmobile").value.trim(); if (!cleanPhone(v)) { S.setupMsg = "Please check your mobile number."; return redraw(); } setupStep("/api/host/setup/mobile", { mobile: v }); };
     if ($("roleacceptgo")) $("roleacceptgo").onclick = async () => {
-      const consent = consPayload("K5"); if (!consent) { S.roleErr = "Please tick the box to continue."; return redraw(); }
+      const consent = consPayload("K5"); if (!consent) { S.roleErr = "The page is still getting ready. Please wait a moment and try again."; return redraw(); }
       try { await call("POST", "/api/org/role/accept", { consent }); S.roleErr = ""; await refreshCohost(); } catch (e) { S.roleErr = consFail("K5", e) ? "Please read the box and tick it again." : friendly(e); redraw(); }
     };
-    if ($("setupacceptgo")) $("setupacceptgo").onclick = () => { const consent = consPayload("K5"); if (!consent) { S.setupMsg = "Please tick the box first."; return redraw(); } setupStep("/api/host/setup/accept", { consent }); };
+    if ($("setupacceptgo")) $("setupacceptgo").onclick = () => { const consent = consPayload("K5"); if (!consent) { S.setupMsg = "The page is still getting ready. Please wait a moment and try again."; return redraw(); } setupStep("/api/host/setup/accept", { consent }); };
     if ($("gbtn")) mountGoogle(secret ? "host" : "signin");
   }
 

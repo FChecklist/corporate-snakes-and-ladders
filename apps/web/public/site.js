@@ -137,14 +137,14 @@
     $("frForm").addEventListener("submit", async (e) => {
       e.preventDefault(); const m = $("fMail").value.trim().toLowerCase();
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(m)) return setErr("Please enter a valid e-mail address.");
-      const consent = k2Payload(); if (!consent) return setErr("Please tick the box first.");
+      const consent = k2Payload(); if (!consent) return setErr("The page is still getting ready. Please wait a moment and try again.");
       const b = $("frGo"); b.disabled = true; setErr("");
       try {
         const r = await TB.api("POST", "/api/start", { email: m, consent, ...(passTok() ? { pass: passTok() } : {}) });
         if (r.exists) { TB.toast("You already have an account, so a code is being e-mailed to you to confirm it is you"); return askCode(m, b); }
         try { CTK.set("cbz-org", r.token); sessionStorage.setItem("cbz-aimsg", r.aiMessage); CTK.set("cbz-email", m); } catch {}
         location.href = "/zc.html";
-      } catch (x) { if (x.code === "consent-required" || x.code === "terms-changed") { k2Fresh(x.consent); setErr("Please read and tick the box again, then press the button."); return; } b.disabled = false; setErr(x.message); }
+      } catch (x) { if (x.code === "consent-required" || x.code === "terms-changed") { k2Fresh(x.consent); setErr("Please press the button once more."); return; } b.disabled = false; setErr(x.message); }
     });
     k2Mount(["frGo"]);
     mountGoogle("signup");
@@ -189,13 +189,13 @@
     const showTerms = (info) => {
       termsShown = true; if (info && Array.isArray(info.boxes)) K2.info = info; Object.keys(K2.state).forEach((k) => delete K2.state[k]);
       const k = $("k2slot"); if (!k) return;
-      k.innerHTML = `<p class="small muted" style="margin:12px 0 4px"><b>New here?</b> Tick the box below and your organizer account is created at once. It is free to build and publish.</p><div id="k2box"></div>`;
+      k.innerHTML = `<p class="small muted" style="margin:12px 0 4px"><b>New here?</b> Press the button below and your organizer account is created at once. It is free to build and publish.</p><div id="k2box"></div>`;
       k2Mount(["lgGo"]); setErr(""); const f = k.querySelector("input"); if (f) f.focus();
     };
     $("lgForm").addEventListener("submit", async (e) => {
       e.preventDefault(); const m = $("lMail").value.trim().toLowerCase();
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(m)) return setErr("Please enter a valid e-mail address.");
-      const consent = termsShown ? k2Payload() : null; if (termsShown && !consent) return setErr("Please tick the box to continue.");
+      const consent = termsShown ? k2Payload() : null; if (termsShown && !consent) return setErr("The page is still getting ready. Please wait a moment and try again.");
       const b = $("lgGo"); b.disabled = true; setErr("");
       try { // one door for everyone: an address that already has an account is sent a code; a new address gets an account (after the Terms box) and goes straight in
         const r = await TB.api("POST", "/api/start", consent ? { email: m, consent } : { email: m });
@@ -204,7 +204,7 @@
         location.href = nextAfterSignIn();
       } catch (x) {
         b.disabled = false;
-        if (x.code === "consent-required" || x.code === "terms-changed") { showTerms(x.consent); if (termsShown && x.code === "terms-changed") setErr("The Terms have changed. Please read and tick the box again."); return; }
+        if (x.code === "consent-required" || x.code === "terms-changed") { showTerms(x.consent); if (termsShown && x.code === "terms-changed") setErr("The Terms have changed. Please press the button once more."); return; }
         setErr(x.message);
       }
     });
@@ -255,7 +255,7 @@
       } catch (e) {
         if (e.code === "consent-required" || e.code === "terms-changed") { // the e-mail code stays valid: show the Terms box now, and Submit stays off until it is ticked
           if (e.consent && Array.isArray(e.consent.boxes)) K2.info = e.consent; Object.keys(K2.state).forEach((k) => delete K2.state[k]);
-          k2Mount(["cdGo"]); setErr("Please tick the box, then press Submit. Your code is still good."); return;
+          k2Mount(["cdGo"]); setErr("Please press Submit once more. Your code is still good."); return;
         }
         b.disabled = false; setErr(e.message); boxes[0].focus();
       }

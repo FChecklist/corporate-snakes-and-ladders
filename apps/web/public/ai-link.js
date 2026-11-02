@@ -51,7 +51,7 @@
         const r = await api("POST", "/api/auth/verify", { email, code: document.getElementById("cd").value, consent }, "-");
         token = r.token; ss.set("cbz-org", token); show();
       } catch (e) {
-        if (e.code === "consent-required" || e.code === "terms-changed") { if (e.consent && Array.isArray(e.consent.boxes)) k2 = e.consent; Object.keys(k2State).forEach((x) => delete k2State[x]); return signIn("Please read and tick the box again, then press the button. Your code is still good.", email, codeStep); }
+        if (e.code === "consent-required" || e.code === "terms-changed") { if (e.consent && Array.isArray(e.consent.boxes)) k2 = e.consent; Object.keys(k2State).forEach((x) => delete k2State[x]); return signIn("Please press the button once more. Your code is still good.", email, codeStep); }
         signIn(e.message, email, codeStep);
       }
     };
