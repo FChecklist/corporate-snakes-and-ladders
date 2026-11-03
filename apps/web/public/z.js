@@ -903,7 +903,7 @@
     const showRead = () => { if (!em || !empRead) return; const raw = String(em.value || ""), nf = raw.normalize("NFKC"); let msg = "";
       if (INFO.idKind === "email") { const c = nf.trim().replace(/[\s\u200B-\u200D\u2060\uFEFF\u0085\u2028\u2029]+/g, "").toLowerCase(); if (c && c !== raw) msg = "The system will read this as " + c; }
       else if (nf.includes("@")) msg = "This looks like an Email ID. This game asks for an employee ID: letters and numbers only.";
-      else if (INFO.idClean) { const c = nf.toUpperCase().replace(/[^A-Z0-9]/g, ""); if (c.length > 30) msg = "This ID is too long. An employee ID may be up to 30 characters once cleaned."; else if (c && c !== raw) msg = "The system will read this as " + c; }
+      else if (INFO.idClean) { const c = nf.toUpperCase().replace(/[^A-Z0-9]/g, ""); if (c.length > 30) msg = "This Employee ID is too long. An employee ID may be up to 30 characters once cleaned."; else if (c && c !== raw) msg = "The system will read this as " + c; }
       empRead.textContent = msg; };
     if (em) { em.addEventListener("input", showRead); showRead(); }
     if (nm) nm.oninput = () => { J.name = nm.value; };

@@ -71,7 +71,7 @@ export const normId = (raw: unknown, kind: "emp" | "email", clean = false): stri
   if (looksLikeEmail(raw)) return null; // one plain refusal for an email in an employee-ID box, in every game
   return normEmp(raw, clean);
 };
-export const badIdMessage = (raw: unknown, kind: "emp" | "email", clean = false): string => kind === "email" ? "Please check your Email ID. It looks incomplete." : looksLikeEmail(raw) ? "This looks like an Email ID. This game asks for an employee ID: letters and numbers only." : clean && cleanEmpId(raw).length > 30 ? "This ID is too long. An employee ID may be up to 30 characters once cleaned." : "An employee ID has letters and numbers only (up to 30).";
+export const badIdMessage = (raw: unknown, kind: "emp" | "email", clean = false): string => kind === "email" ? "Please check your Email ID. It looks incomplete." : looksLikeEmail(raw) ? "This looks like an Email ID. This game asks for an employee ID: letters and numbers only." : clean && cleanEmpId(raw).length > 30 ? "This Employee ID is too long. An employee ID may be up to 30 characters once cleaned." : "An employee ID has letters and numbers only (up to 30).";
 /** The identity of a person who is known by employee ID alone (no mobile number needed). One hash for the same ID in every game, like the phone hash. */
 export const empHashOf = (env: { PHONE_SALT?: string; ORGANIZER_SECRET?: string }, id: string) => sha(`${env.PHONE_SALT ?? env.ORGANIZER_SECRET ?? "unset"}|emp|${id}`);
 /** What the organizer asked people to give to get in, read from the game's stored settings. */
@@ -300,17 +300,17 @@ async function addPeople(c: Ctx, who: Caller, b: any): Promise<Response> {
       let digits = "";
       if (phoneTyped) { const cl = cleanPhone(x?.phone); if (!cl.ok) { invalid.push({ raw, why: cl.why }); continue; } digits = keptFromClean(cl.digits); }
       const ph = await empHashOf(c.env, emp);
-      if (seen.has(ph)) { duplicates++; duplicateRows.push({ raw: typed, why: "Same person as an earlier row (the ID reads the same after cleaning)." }); continue; }
+      if (seen.has(ph)) { duplicates++; duplicateRows.push({ raw: typed, why: "Same person as an earlier row (the Employee ID reads the same after cleaning)." }); continue; }
       seen.add(ph); todo.push({ name: cleanName(x?.name), digits, ph, empId: emp, typed }); continue;
     }
     const cl = cleanPhone(x?.phone);
     if (!cl.ok) { invalid.push({ raw, why: cl.why }); continue; }
     const ph = await phoneHashOf(c.env, cl.digits);
-    if (seen.has(ph)) { duplicates++; duplicateRows.push({ raw: typed, why: "Same person as an earlier row (the ID reads the same after cleaning)." }); continue; }
+    if (seen.has(ph)) { duplicates++; duplicateRows.push({ raw: typed, why: "Same person as an earlier row (the Employee ID reads the same after cleaning)." }); continue; }
     const idHash = vf.mode === "either" && emp ? await empHashOf(c.env, emp) : undefined; // "mobile number or employee ID": a listed person with both can come in with either, so the ID points to the mobile-number identity
     if (idHash) { // the same employee ID on two people of one list would let the second take over the first's ID: the second is a duplicate
       const al = await c.env.DB.prepare("SELECT v FROM kv WHERE k=?").bind(`idx/${c.eid}/${idHash}`).first<{ v: string }>();
-      if ((al && al.v !== ph && (await c.env.DB.prepare("SELECT 1 AS x FROM person WHERE eid=? AND ph=? AND status<>'removed'").bind(c.eid, al.v).first())) || seen.has("I" + idHash)) { duplicates++; duplicateRows.push({ raw: typed, why: "Same person as an earlier row (the ID reads the same after cleaning)." }); continue; }
+      if ((al && al.v !== ph && (await c.env.DB.prepare("SELECT 1 AS x FROM person WHERE eid=? AND ph=? AND status<>'removed'").bind(c.eid, al.v).first())) || seen.has("I" + idHash)) { duplicates++; duplicateRows.push({ raw: typed, why: "Same person as an earlier row (the Employee ID reads the same after cleaning)." }); continue; }
       seen.add("I" + idHash);
     }
     seen.add(ph); todo.push({ name: cleanName(x?.name), digits: keptFromClean(cl.digits), ph, typed, ...(emp && vf.mode !== "mobile" ? { empId: emp } : {}), ...(idHash ? { idHash } : {}) });
