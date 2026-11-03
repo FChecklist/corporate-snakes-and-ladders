@@ -340,7 +340,7 @@ export function validateCfg(input: { verify?: unknown; employeesOnly?: unknown; 
     if (input.roundTurns !== 10 && cfg.engine) cfg.roundTurns = input.roundTurns as number; else delete cfg.roundTurns;
   }
   if (input.idKind !== undefined) {
-    if (input.idKind !== "email" && input.idKind !== "emp") return { ok: false, error: "What the ID is: an employee ID or an Email ID." };
+    if (input.idKind !== "email" && input.idKind !== "emp") return { ok: false, error: "Choose an Employee ID or an Email ID." };
     if (input.idKind === "email") cfg.idKind = "email"; else delete cfg.idKind;
   }
   if (input.employeesOnly !== undefined) {
