@@ -50,9 +50,9 @@ describe("how far ahead a game time can be set", () => {
   test("the refund page and the Terms carry the same rule, and no sentence about a 30-day move window remains", () => {
     const rd = (f: string) => readFileSync(new URL("../../web/public/" + f, import.meta.url), "utf8");
     const sd = (f: string) => readFileSync(new URL("../../../site/" + f, import.meta.url), "utf8");
-    for (const page of [rd("refund-policy.html"), sd("refund-policy.html")]) {
-      expect(page).toContain("There is no refund after payment, and the game can be rescheduled to any date within 365 days of payment");
-      expect(page).toContain("any date within 365 days from the date of payment");
+    for (const page of [rd("terms.html"), sd("terms.html")]) {
+      expect(page).toContain("Once the payment is made, it stays with the game as credit for 365 days rather than being refunded");
+      expect(page).toContain("moved to any date within 365 days of payment");
       expect(page).not.toMatch(/30 days after you cancel|within 30 days of the cancel|or 30 days pass/i);
     }
     for (const f of ["terms.html", "legal.html", "trust.html", "llms.txt"]) expect(rd(f), f).not.toMatch(/30 days after you cancel|For 30 days after|or 30 days pass|move it to a new date for 30 days/i);

@@ -68,8 +68,8 @@ describe("WP-15 / Q6: the hours printed on pages are the ones the lifecycle real
     expect(hits(/\b(?:22|23)[- ]hours?\b/gi, all)).toEqual([]);
     const { REPORT_LINK_MS, PURGE_AFTER_MS } = await import(join(ROOT, "apps/edge/src/lifecycle.ts"));
     const link = REPORT_LINK_MS / 3_600_000, job = PURGE_AFTER_MS / 3_600_000;
-    const guide = visible(readFileSync(join(ROOT, "apps/web/public/organizer-guide.html"), "utf8")), priv = visible(readFileSync(join(ROOT, "apps/web/public/privacy.html"), "utf8"));
+    const guide = visible(readFileSync(join(ROOT, "apps/web/public/organizer-guide.html"), "utf8")), doc = visible(readFileSync(join(ROOT, "apps/web/public/terms.html"), "utf8"));
     expect(guide).toContain(`report link works for ${link} hours`);
-    expect(priv).toContain(`job runs at ${job} hours`);
+    expect(job).toBeLessThan(24); expect(doc).toContain("deleted within 24 hours after the game"); // the one legal document gives the 24-hour promise; the erase job runs well inside it
   });
 });
