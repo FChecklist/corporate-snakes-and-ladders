@@ -50,7 +50,7 @@ export const phoneHashOf = (env: { PHONE_SALT?: string; ORGANIZER_SECRET?: strin
 
 /** An employee ID as typed: spaces dropped, upper case. "" = nothing typed, null = not a usable ID. */
 /** UNIFORM EMPLOYEE ID (owner rule, 30 Oct 2026): NFKC, upper case, then everything that is not A-Z or 0-9 is dropped, so 1B-678, 1b-678, 1B/678 and 1B 678 are all 1B678. One function for every path. */
-export const cleanEmpId = (raw: unknown): string => String(raw ?? "").normalize("NFKC").toUpperCase().replace(/[^A-Z0-9]/g, "");
+export const cleanEmpId = (raw: unknown): string => String(raw ?? "").normalize("NFKC").replace(/[^A-Za-z0-9]/g, "").toUpperCase(); // strip first, then upper-case: the same order as the common engine (vendor core ids.ts) and Tambola empid.ts, so ß, ı, ǰ never turn into SS, I, J (smoke rule T-72)
 import { cleanEmail } from "./emailclean";
 export { cleanEmail };
 /** Games created before this instant keep the old reading of an ID. SET AT DEPLOY (placeholder: year 2100 = nobody gets the new rule until the boss sets it). */
@@ -81,7 +81,7 @@ export { cleanPhone, maskedPhone, keptPhone, phoneDigits, keptFromClean } from "
 export type { Cleaned } from "./phonekit";
 import { cleanPhone, maskedPhone, keptFromClean, phoneDigits } from "./phonekit";
 /** A name as kept: no control or invisible characters, no markup characters, and nothing at the front that a spreadsheet would run as a formula (= + - @). Also the server's answer to a hand-made request: the page already sends only tidy names. */
-export const cleanName = (n: unknown) => (typeof n === "string" ? Array.from(n).filter((ch) => { const c = ch.charCodeAt(0); return !(c < 32 || c === 127 || (c >= 0x200b && c <= 0x200f) || c === 0x2028 || c === 0x2029 || c === 0xfeff); }).join("").replace(/[<>`]/g, "").replace(/\s+/g, " ").replace(/^[=+\-@\s]+/, "").trim().slice(0, 60) : "");
+export const cleanName = (n: unknown) => (typeof n === "string" ? Array.from(n).filter((ch) => { const c = ch.charCodeAt(0); return !(c < 32 || c === 127 || (c >= 0x200b && c <= 0x200f) || c === 0x2028 || c === 0x2029 || c === 0xfeff); }).join("").replace(/[<>`]/g, "").replace(/\s+/g, " ").replace(/^[=+\-@\s]+/, "").trim().slice(0, 60).replace(/[\uD800-\uDBFF]$/, "").trim() : ""); // cut to 60, then drop half an emoji and any blank the cut left at the end (smoke rules P-10, P-11, T-73)
 
 /** What a `from=` code on a common link means. */
 export type FromOwner = { kind: "org" } | { kind: "host"; hex: string } | { kind: "cohost"; hex: string } | { kind: "guest"; seq: number };
