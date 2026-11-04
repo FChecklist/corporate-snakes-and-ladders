@@ -269,8 +269,8 @@ export const snakesRules: RulesModule<SnakesState, SnakesEvent> = {
       w.note = noteFor(r); if (r.special === "reward") w.extra = (w.extra ?? 0) + REWARD_THROWS; if (r.special === "punishment") w.skip = (w.skip ?? 0) + 1;
       if (w.at === s.boards[p]!.size) w.finishedTurn = turn;
     }
-    // R24-R25: this turn's finishers take the next places in tie-break order
-    const fin = Object.keys(pawns).filter((p) => pawns[p]!.finishedTurn === turn).sort((a, b) => (raceOrder(pawns[a]!, pawns[b]!) || byId(a, b)));
+    // R24-R25: this turn's finishers (not already placed: an extra throw keeps the turn number) take the next places in tie-break order
+    const fin = Object.keys(pawns).filter((p) => pawns[p]!.finishedTurn === turn && !s.finishers.includes(p)).sort((a, b) => (raceOrder(pawns[a]!, pawns[b]!) || byId(a, b)));
     const finishers = [...s.finishers, ...fin].slice(0, 5);
     fin.forEach((p, i) => { if (s.finishers.length + i < 5) out.push({ kind: "win", player: p, position: ["1st", "2nd", "3rd", "4th", "5th"][s.finishers.length + i]! }); });
     // R23: the first on or past a milestone square at the end of a turn
