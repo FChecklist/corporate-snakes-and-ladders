@@ -1,6 +1,7 @@
-// Terms checkboxes. Every point where a person accepts the Terms has its own box wording (consent-text.json), one version string (TERMS_VERSION in brand.ts)
-// and one rule: never pre-ticked; the action button stays disabled until every box is ticked; THE SERVER refuses the request without the tick and without the
-// current version; each acceptance is stored (consent_log) and asked again when the version changes.
+// The agreement. Every point where a person goes ahead under the Terms has its own wording (consent-text.json), one version string (TERMS_VERSION in brand.ts)
+// and one rule: no tick-boxes since 1 Nov 2026. The page shows one small notice line with three links (consent.js) and never holds a button back for it; going ahead
+// is the agreement. THE SERVER still refuses a request that does not carry the current version and every point of the step (a stale tab, or a script that skips the page);
+// each acceptance is stored (consent_log: version, sha256 of the shown line, time; nothing personal) and asked again when the version changes.
 import { TERMS_VERSION } from "./brand";
 import TEXT from "./consent-text.json";
 import type { D1 } from "./worker";
@@ -9,6 +10,11 @@ export type ConsentKind = "K1" | "K2" | "K3" | "K4" | "K5" | "K6" | "K9";
 export interface Box { id: "A" | "B"; text: string }
 
 const WORDING = TEXT as unknown as Record<string, Record<"A" | "B", string | undefined>>;
+/** The one line every page shows where the boxes used to be (the same wording as on the other games; the links point to the one legal document). Its sha256 is the stored proof of what was shown. */
+export const NOTICE_TEXT = "By continuing, you agree to the Terms and Conditions, Privacy and Data, and Game rules.";
+/** What a stale tab hears when it sends an old version or leaves out a point: plain, kind, no mention of boxes. */
+export const STALE_PAGE_MESSAGE = "This page is out of date. Please reload it and try again. Sorry for the trouble.";
+
 export const CONSENT_KINDS: ConsentKind[] = ["K1", "K2", "K3", "K4", "K5", "K6", "K9"];
 export const isKind = (k: unknown): k is ConsentKind => typeof k === "string" && (CONSENT_KINDS as string[]).includes(k);
 
@@ -25,15 +31,15 @@ export const CONSENT_SCHEMA: string[] = [
 ];
 
 export type ConsentRefusal = { ok: false; status: 400; code: "consent-required"; error: string; kind: ConsentKind; version: string };
-/** The body of a refusal: the page redraws the boxes (unticked) from `consent`. */
+/** The body of a refusal: the page takes the fresh version from `consent` and sends again. */
 export const refusalBody = (kind: ConsentKind, r: ConsentRefusal) => ({ error: r.error, code: r.code, kind, version: TERMS_VERSION, consent: consentInfo(kind) });
 
 /**
- * Checks what the page sent: `consent: { v, boxes: ["A","B"] }`. Every box of the point must be listed and `v` must be the current version.
+ * Checks what the page sent: `consent: { v, boxes: ["A","B"], notice: true }`. Every point of the step must be listed and `v` must be the current version.
  * Anything else (nothing sent, one box missing, an old version) is refused, so a script that skips the page cannot get round it.
  */
 export function checkConsent(kind: ConsentKind, input: unknown): { ok: true } | ConsentRefusal {
-  const refuse: ConsentRefusal = { ok: false, status: 400, code: "consent-required", error: "Please tick the box to continue.", kind, version: TERMS_VERSION };
+  const refuse: ConsentRefusal = { ok: false, status: 400, code: "consent-required", error: STALE_PAGE_MESSAGE, kind, version: TERMS_VERSION };
   const c = input as { v?: unknown; boxes?: unknown } | null | undefined;
   if (!c || typeof c !== "object" || c.v !== TERMS_VERSION) return refuse;
   const got = Array.isArray(c.boxes) ? c.boxes : [];
@@ -41,8 +47,8 @@ export function checkConsent(kind: ConsentKind, input: unknown): { ok: true } | 
 }
 
 const hex = (b: ArrayBuffer) => Array.from(new Uint8Array(b), (x) => x.toString(16).padStart(2, "0")).join("");
-/** sha256 of the exact wording of the boxes of a point (what the person saw). */
-export const textHash = async (kind: ConsentKind): Promise<string> => hex(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(boxesFor(kind).map((b) => `${b.id}: ${b.text}`).join("\n"))));
+/** sha256 of the exact line the person saw (the notice; the same for every point since the boxes were retired). */
+export const textHash = async (_kind: ConsentKind): Promise<string> => hex(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(NOTICE_TEXT)));
 const rid = () => Array.from(crypto.getRandomValues(new Uint8Array(12)), (x) => x.toString(16).padStart(2, "0")).join("");
 
 /** Stores one acceptance. Safe to repeat: the same subject, point, game and version are stored once. */
@@ -58,12 +64,12 @@ export async function hasConsent(db: D1, kind: ConsentKind, subject: string, ref
     : await db.prepare("SELECT 1 AS x FROM consent_log WHERE kind=? AND subject=? AND version=? AND ref=?").bind(kind, subject, TERMS_VERSION, ref).first();
   return !!r;
 }
-/** A player's acceptance is erased with the game's other personal data (the 24-hour job). Organizers' rows stay with the account. */
+/** A player's acceptance is auto-deleted with the game's other personal data (the 24-hour job). Organizers' rows stay with the account. */
 export async function eraseParticipantConsent(db: D1, eid: string): Promise<void> {
   await db.prepare("DELETE FROM consent_log WHERE ref=? AND kind='K4'").bind(eid).run();
 }
 
-/** The answer to send (HTTP 400, code consent-required, the boxes to draw) when the request does not carry the current Terms version and every box of this point; null when it does. Same behaviour as checkConsent, in the shape the shared platform code (Corporate Tambola) uses. */
+/** The answer to send (HTTP 400, code consent-required, the fresh version) when the request does not carry the current Terms version and every box of this point; null when it does. Same behaviour as checkConsent, in the shape the shared platform code (Corporate Tambola) uses. */
 export function consentMissing(b: any, kind: ConsentKind): Response | null {
   const k = checkConsent(kind, b?.consent);
   if (k.ok) return null;

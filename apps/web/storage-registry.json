@@ -58,7 +58,6 @@
         "cbz-aimsg",
         "cbz-email",
         "cbz-phone",
-        "cbz-name",
         "cbz-pl",
         "cbz-shield",
         "cbz-alt",
@@ -95,6 +94,14 @@
       ]
     },
     {
+      "id": "pay-draft",
+      "store": "sessionStorage",
+      "say": "On the screen of whoever is paying: the country chosen, the Game ID typed on the payment test and, after paying, the payment's reference and the optional invoice details typed (name, company, tax number). Kept only in this tab so nothing is lost if the page reloads, and gone when the tab closes.",
+      "keys": [
+        "cbz-paydraft-*"
+      ]
+    },
+    {
       "id": "console-progress",
       "store": "localStorage",
       "say": "In an organizer's browser: which setup steps are done and which messages were sent, for each game.",
@@ -125,7 +132,9 @@
       "store": "localStorage",
       "say": "The colour choice.",
       "keys": [
-        "cb-theme"
+        "cb-theme",
+        "ct-theme",
+        "cg-theme"
       ]
     },
     {
@@ -165,7 +174,7 @@
     {
       "id": "guide-return",
       "store": "sessionStorage",
-      "say": "On any page, in this tab only: when we send you to fix something, a note of where you were working, so one tap brings you back. It is removed when you come back or close the tab.",
+      "say": "On any page, in this tab only: when you are sent to fix something, a note of where you were working, so one tap brings you back. It is removed when you come back or close the tab.",
       "keys": [
         "ctz-return"
       ]

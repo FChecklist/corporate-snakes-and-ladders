@@ -26,7 +26,7 @@ const joinAs = (id: string, i: number, extra: Record<string, unknown> = {}, now 
 async function setup(opts: { closed?: boolean; cap?: number; invites?: unknown } = {}) {
   const st = await j(await handle(new Request("http://x/api/start", { method: "POST", headers: { "content-type": "application/json", "cf-connecting-ip": `7.7.7.${++ipN}` }, body: JSON.stringify({ consent: TICKS, email: `o${ipN}@acme.com` }) }), env as Env, T));
   const master = st.token as string, ai = st.aiKey as string;
-  await call("POST", "/api/z", { id: "PPL-1", startRound: START, callSeconds: 20, cap: opts.cap ?? 100, ...(opts.closed ? { whoCanJoin: "list" } : {}) }, master);
+  await call("POST", "/api/z", { id: "PPL-1", startRound: START, callSeconds: 10, cap: opts.cap ?? 100, ...(opts.closed ? { whoCanJoin: "list" } : {}) }, master);
   await call("POST", "/api/z/PPL-1/publish", { email: "boss@acme.com", phone: "98765 43210" }, master);
   if (opts.invites) await call("PATCH", "/api/z/PPL-1/settings", { guestInvites: opts.invites }, master);
   const host = (await j(await call("POST", "/api/org/host", { label: "Priya", email: "priya@acme.com", mobile: "9876500001" }, master))).hostKey as string;
@@ -38,7 +38,7 @@ const list = async (key: string, id = "PPL-1", q = "") => j(await call("GET", `/
 const tokenOf = (link: string) => link.split("/j/")[1]!;
 const rowsOf = (sql: string, ...v: unknown[]) => raw.prepare(sql).all(...(v as any[])) as any[];
 
-beforeEach(() => { const d = makeD1(); raw = d.raw; env = { DB: d.db, ORGANIZER_SECRET: "plat", DAILY_WRITE_BUDGET: "1000000", PUBLIC_ORIGIN: "https://bingo.test", PHONE_SALT: "salt" }; (globalThis as any).fetch = async () => new Response("{}", { status: 404 }); });
+beforeEach(() => { const d = makeD1(); raw = d.raw; env = { DB: d.db, ORGANIZER_SECRET: "plat", RUNNER_KEY: "test-runner-key-test-runner-key-test0000", DAILY_WRITE_BUDGET: "1000000", PUBLIC_ORIGIN: "https://bingo.test", PHONE_SALT: "salt" }; (globalThis as any).fetch = async () => new Response("{}", { status: 404 }); });
 afterEach(() => { globalThis.fetch = realFetch; });
 
 describe("cleaning numbers", () => {
@@ -148,7 +148,7 @@ describe("who may call", () => {
   });
   test("settings: guestInvites per goes up to 10, whoCanJoin is list or anyone and is the same switch as closed", async () => {
     const t = await setup();
-    expect((await call("PATCH", "/api/z/PPL-1/settings", { guestInvites: { on: true, per: 10 } }, t.master)).status).toBe(200);
+    expect((await call("PATCH", "/api/z/PPL-1/settings", { guestInvites: { on: true, per: 4 } }, t.master)).status).toBe(200);
     expect((await call("PATCH", "/api/z/PPL-1/settings", { guestInvites: { on: true, per: 11 } }, t.master)).status).toBe(400);
     expect((await call("PATCH", "/api/z/PPL-1/settings", { whoCanJoin: "everyone" }, t.master)).status).toBe(400);
     expect((await j(await call("PATCH", "/api/z/PPL-1/settings", { whoCanJoin: "list" }, t.host))).closed).toBe(true);

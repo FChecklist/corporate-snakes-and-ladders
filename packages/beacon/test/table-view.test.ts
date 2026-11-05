@@ -112,7 +112,7 @@ describe("spectator and presence", () => {
     const rec = new ThrowRecord();
     for (let t = 0; t < 30; t++) { rec.add(2, t); rec.add(3, t); } // seat 1 claimed nothing in time
     const st = playRace({ ...defaultRaceCfg("pres", 3), play: "presence" }, { b0: B0, betas: betas(30), thrown: rec.thrown });
-    expect(st.runs[0]!.pos.every((p) => p === 1)).toBe(true); expect(st.runs[0]!.missed).toBe(30);
+    expect(st.runs[0]!.pos.every((p) => p === 1)).toBe(true); expect(st.runs[0]!.missed).toBe(26);
     expect(st.runs[1]!.missed).toBe(0);
   });
 

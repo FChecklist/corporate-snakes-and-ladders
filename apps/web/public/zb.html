@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex">
+<title>Snakes and Ladders board</title><link rel="stylesheet" href="reactions.css"><style id="zbcss"></style></head>
+<body style="margin:0;padding:12px 16px;font-family:system-ui,sans-serif">
+<h1 style="font-size:20px">Snakes and Ladders: the new board</h1>
+<p><button id="look">Retro / Modern</button> <button id="go">Throw for everyone</button> <span id="clock"></span></p>
+<div class="zb-note" id="note"></div><div id="board"></div><div class="zb-stand" id="stand"></div>
+<script src="zboard.js"></script>
+<script>
+// Engine-flag demo (not linked from any live page): 6 players, local dice, phone-side clock. Nothing is sent to a server.
+document.getElementById("zbcss").textContent = ZBoard.BOARD_CSS;
+var ids = ["a","b","c","d","e","f"], t0 = Date.now() - 125000, ms = 125000, look = "retro", n = 0;
+var race = new ZBoard.Race("demo-game", ids, t0, function (p, t) { return 1 + ((p.charCodeAt(0) * 7 + t * 13 + t * t) % 6); }, "a", 8);
+function draw() {
+  ZBoard.renderBoard(document.getElementById("board"), race.board, race.st, "a", look);
+  document.getElementById("stand").innerHTML = "<span>" + ZBoard.standLine(race.st, "a") + "</span>";
+  document.getElementById("note").textContent = race.note("a");
+  document.getElementById("clock").textContent = race.phase(Date.now() - t0 + 125000) + " / turn " + race.st.turn;
+}
+document.getElementById("look").onclick = function () { look = look === "retro" ? "modern" : "retro"; draw(); };
+document.getElementById("go").onclick = function () { ms += 10000; race.settle(t0 + ms, ids.filter(function (p, i) { return (i + n) % 5 !== 0; })); n++; draw(); };
+draw();
+</script></body></html>

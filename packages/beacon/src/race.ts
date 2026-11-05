@@ -5,7 +5,7 @@ import { advance, fateOf, newRun, rollFor, squareOf, type Run } from "./play";
 
 export type Mode = "race" | "team" | "table";
 export type Play = "fate" | "presence";
-export const DEFAULT_TURN_CAP = 60, MAX_TURN_CAP = 150, DEFAULT_END_PRIZES = 5, MAX_END_PRIZES = 5, DEFAULT_MILESTONE = 75;
+export const DEFAULT_TURN_CAP = 26, MAX_TURN_CAP = 150, DEFAULT_END_PRIZES = 5, MAX_END_PRIZES = 5, DEFAULT_MILESTONE = 75;
 
 /** What the game needs to know to play (public settings, the same on every device). */
 export interface RaceCfg {
@@ -79,7 +79,7 @@ export function playRace(cfg: RaceCfg, input: RaceInput): RaceState {
 /* ---------------- ranking (no ties, ever) ---------------- */
 
 export interface RankRow { rank: number; seat: number; finishedTurn: number | null; square: number; ladders: number; missed: number; note: string }
-const KEYS = ["finished earlier", "a higher square", "more ladders climbed", "fewer turns missed", "fate"] as const;
+const KEYS = ["finished earlier", "a higher square", "more ladders climbed", "fewer turns missed", "chance"] as const;
 
 /** Compares two players by the chain of section 6: earlier finish, higher square, more ladders, fewer missed turns, then fate. Returns the order and the index of the key that decided it. */
 function compareChain(gameId: string, a: Run, b: Run, label: string): { order: number; key: number } {

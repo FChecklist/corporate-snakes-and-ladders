@@ -22,7 +22,7 @@ async function runGame(o: Opts) {
   const j = async (r: Response) => (await r.json()) as any;
   const org = await j(await req("POST", "/api/start", { email: "boss@acme.com", consent: TICKS }, { "cf-connecting-ip": "1.1.1.1" }));
   const h = { "x-organizer": org.token as string };
-  const window = o.window ?? 20, startMs = vt + 10 * 60_000, startRound = roundAt(startMs);
+  const window = o.window ?? 10, startMs = vt + 10 * 60_000, startRound = roundAt(startMs);
   expect((await req("POST", "/api/z", { id: "SIM-1", startRound, callSeconds: window, cap: Math.max(100, o.players), ...(o.extra ?? {}) }, h)).status).toBe(200);
   expect((await req("POST", "/api/z/SIM-1/publish", { email: "boss@acme.com", phone: "9876543210", consent: TICKS }, h)).status).toBe(200);
   raw.prepare("UPDATE engagement SET pack=?").run(Math.max(100, o.players)); // paid (payment itself is tested elsewhere)
@@ -92,7 +92,7 @@ describe("a scripted whole game, in virtual time", () => {
     const g = await runGame({ players: 8, seed: "simT", extra: { mode: "team", teams: 4, rewards: [{ pattern: "team", ordinal: 1, text: "Hamper" }, { pattern: "team", ordinal: 2, text: "" }] }, maxSteps: 1100 });
     expect(g.phones.flatMap((p) => p.errors)).toEqual([]);
     expect(g.phones.every((p) => p.rt.phase === "ended")).toBe(true);
-    const ref = independent("simT", g.startRound, 8, g.window, { teams: 4, turnCap: 60 });
+    const ref = independent("simT", g.startRound, 8, g.window, { teams: 4, turnCap: 26 });
     const b0 = randomnessOf(g.startRound + 1, "simT");
     const want = teamTable(ref.cfg, ref, teamsOf(ref.cfg, b0));
     for (const p of g.phones) { const v = p.rt.view(); expect(v.team!.rows.map((r) => r.team)).toEqual(want.map((r) => r.team)); }

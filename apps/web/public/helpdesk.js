@@ -40,7 +40,7 @@
     const m = S.me;
     return `<p class="zsmall" style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin:0 0 6px"><b>Corporate Snakes and Ladders · Help Desk</b><a href="#" class="hdl" id="out">Sign out</a></p>
       ${S.note ? `<div class="zbanner ok" role="status">${esc(S.note)}</div>` : ""}${S.err ? `<div class="zbanner bad" role="alert">${esc(S.err)}</div>` : ""}
-      <div class="zcard zform"><h2>Add an Organizer</h2><p class="zsmall" style="margin-top:0">We e-mail them a short note. Nothing is published or paid without their OK.</p>
+      <div class="zcard zform"><h2>Add an Organizer</h2><p class="zsmall" style="margin-top:0">They get a short note by e-mail. Nothing is published or paid without their OK.</p>
         <label for="oe">Their e-mail</label><input class="hdi" id="oe" type="email" inputmode="email" autocomplete="off" placeholder="the organizer's e-mail">
         <label for="on">Their name (optional)</label><input class="hdi" id="on" maxlength="60" autocomplete="off">
         <button class="zbtn" id="inv">Send the invitation</button></div>
@@ -55,7 +55,7 @@
     if ($("on")) $("on").onclick = () => run($("on"), async () => { await api("POST", "/api/helpdesk/join", { email: $("em").value.trim() }); S.note = "Help Desk is on."; });
     if ($("out")) $("out").onclick = (e) => { e.preventDefault(); ls.del("cbz-pkey"); S.me = null; S.err = ""; S.note = ""; draw(signInView()); };
     if ($("inv")) $("inv").onclick = () => run($("inv"), async () => { await api("POST", "/api/helpdesk/invite", { email: $("oe").value.trim(), name: $("on").value.trim() }); S.note = "The invitation is on its way."; });
-    $app.querySelectorAll("[data-ask]").forEach((b) => (b.onclick = () => run(b, async () => { await api("POST", "/api/helpdesk/request-publish", { linkId: b.dataset.link, eid: b.dataset.ask }); S.note = "We e-mailed the Organizer. They publish with one tap."; })));
+    $app.querySelectorAll("[data-ask]").forEach((b) => (b.onclick = () => run(b, async () => { await api("POST", "/api/helpdesk/request-publish", { linkId: b.dataset.link, eid: b.dataset.ask }); S.note = "The Organizer was e-mailed. They publish with one tap."; })));
     $app.querySelectorAll("[data-stop]").forEach((a) => (a.onclick = (e) => { e.preventDefault(); if (!confirm("End this? Your access to this Organizer's account stops at once.")) return; run(null, async () => { await api("POST", "/api/helpdesk/stop", { linkId: a.dataset.stop }); S.note = "Done."; }); }));
     $app.querySelectorAll("[data-copy]").forEach((b) => (b.onclick = async () => { try { await navigator.clipboard.writeText(b.dataset.copy); b.textContent = "Copied"; } catch { b.textContent = "Select and copy it from the console"; } }));
   }

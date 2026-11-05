@@ -18,11 +18,11 @@ const dev = (i: number) => String(i).padStart(2, "0").repeat(16); // 32 hex char
 async function game(id: string, over: Record<string, unknown> = {}) {
   const r = await j(await call("POST", "/api/start", { email: `o${++n}@acme.com` }, { "cf-connecting-ip": `10.0.0.${n}` }));
   const h = { "x-organizer": r.token as string };
-  expect((await call("POST", "/api/z", { id, startRound: START, callSeconds: 20, cap: 100, ...over }, h)).status).toBe(200);
+  expect((await call("POST", "/api/z", { id, startRound: START, callSeconds: 10, cap: 100, ...over }, h)).status).toBe(200);
   expect((await call("POST", `/api/z/${id}/publish`, { email: "boss@acme.com", phone: "98765 43210" }, h)).status).toBe(200);
   return h;
 }
-beforeEach(() => { const d = makeD1(); raw = d.raw; env = { DB: d.db, ORGANIZER_SECRET: "plat", DAILY_WRITE_BUDGET: "1000000", PUBLIC_ORIGIN: "https://bingo.test", PHONE_SALT: "salt", DATA_KEY: "k" } as Env; n = 0; });
+beforeEach(() => { const d = makeD1(); raw = d.raw; env = { DB: d.db, ORGANIZER_SECRET: "plat", RUNNER_KEY: "test-runner-key-test-runner-key-test0000", DAILY_WRITE_BUDGET: "1000000", PUBLIC_ORIGIN: "https://bingo.test", PHONE_SALT: "salt", DATA_KEY: "k" } as Env; n = 0; });
 
 describe("joining with a name only", () => {
   test("a name and the phone's own id are enough: a seat, a card id, no number stored", async () => {

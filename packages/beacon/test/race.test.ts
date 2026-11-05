@@ -101,7 +101,7 @@ describe("group race", () => {
     expect(order.slice(0, fin.length).every((r) => r.finishedTurn !== null)).toBe(true);
     // when several finished on the same turn the note says so and names the deciding measure
     const sameTurn = rows.filter((r) => r.finishedTurn !== null && rows.filter((x) => x.finishedTurn === r.finishedTurn).length > 1);
-    for (const r of sameTurn) expect(r.note).toMatch(/players finished on turn \d+; decided by (more ladders climbed|fewer turns missed|fate)/);
+    for (const r of sameTurn) expect(r.note).toMatch(/players finished on turn \d+; decided by (more ladders climbed|fewer turns missed|chance)/);
   });
 
   test("R25 the chain: same turn -> more ladders wins, then fewer missed turns, then fate", () => {
@@ -120,7 +120,7 @@ describe("group race", () => {
     const st = playRace(cfgOf(12), { b0: B0, betas: betas(0) }); // nothing thrown yet: everybody on square 1, all measures equal -> fate decides
     const rows = rankPlayers(st, 10);
     expect(new Set(rows.map((r) => r.seat)).size).toBe(10);
-    expect(rows[0]!.note).toMatch(/12 players are on square 1; decided by fate/);
+    expect(rows[0]!.note).toMatch(/12 players are on square 1; decided by chance/);
   });
 
   test("R28 a player may win more than one prize; with one-prize-per-person nobody wins two", () => {
@@ -223,6 +223,6 @@ describe("team race", () => {
     const st = playRace(teamCfg(8, 4), { b0: B0, betas: betas(0) });
     const t = teamTable(st.cfg, st, teamsOf(st.cfg, B0));
     expect(t.map((r) => r.rank)).toEqual([1, 2, 3, 4]);
-    expect(t[0]!.note).toMatch(/4 teams level; decided by fate/);
+    expect(t[0]!.note).toMatch(/4 teams level; decided by chance/);
   });
 });

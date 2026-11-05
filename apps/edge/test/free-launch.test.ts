@@ -10,11 +10,11 @@ const call = (method: string, path: string, body?: unknown, headers: Record<stri
   handle(new Request("http://x" + path, { method, headers: { "content-type": "application/json", ...headers }, body: withDevice(method, path, body) }), env as Env, now);
 const roundAt = (ms: number) => Math.floor((ms / 1000 - 1692803367) / 3) + 1;
 const FUT = roundAt(T) + 1200; // an hour ahead
-const eng = (id: string, cap = 100) => ({ id, startRound: FUT, callSeconds: 20, cap });
+const eng = (id: string, cap = 100) => ({ id, startRound: FUT, callSeconds: 10, cap });
 
 beforeEach(() => {
   const d = makeD1(); raw = d.raw;
-  env = { DB: d.db, ORGANIZER_SECRET: "plat", DAILY_WRITE_BUDGET: "100000", PUBLIC_ORIGIN: "https://bingo.test" };
+  env = { DB: d.db, ORGANIZER_SECRET: "plat", RUNNER_KEY: "test-runner-key-test-runner-key-test0000", DAILY_WRITE_BUDGET: "100000", PUBLIC_ORIGIN: "https://bingo.test" };
 });
 
 /** A new organizer types an email and the console opens at once: no mail, no code. */

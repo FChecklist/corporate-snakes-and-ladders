@@ -30,7 +30,7 @@ beforeEach(() => {
     if (pm) { const p = payments[pm[1]!]; if (pm[2]) p.status = "captured"; return new Response(JSON.stringify(p)); }
     return new Response("{}", { status: 404 });
   };
-  env = { DB: d.db, ORGANIZER_SECRET: "plat", DAILY_WRITE_BUDGET: "1000000", RAZORPAY_KEY_ID: "rzp_test_x", RAZORPAY_KEY_SECRET: "sek", RAZORPAY_WEBHOOK_SECRET: "whsec", RAZORPAY_BASE_URL: "https://rzp.test/v1", PUBLIC_ORIGIN: "https://bingo.test", OWNER_EMAIL: "owner@platform.test" };
+  env = { DB: d.db, ORGANIZER_SECRET: "plat", RUNNER_KEY: "test-runner-key-test-runner-key-test0000", DAILY_WRITE_BUDGET: "1000000", RAZORPAY_KEY_ID: "rzp_test_x", RAZORPAY_KEY_SECRET: "sek", RAZORPAY_WEBHOOK_SECRET: "whsec", RAZORPAY_BASE_URL: "https://rzp.test/v1", PUBLIC_ORIGIN: "https://bingo.test", OWNER_EMAIL: "owner@platform.test" };
 });
 afterEach(() => { globalThis.fetch = realFetch; });
 
@@ -43,7 +43,7 @@ const REWARDS = [{ pattern: "climb", text: "Hamper" }, { pattern: "finish", text
 /** An Organizer, a Host and a Co-host; OLD-1 (300 people, 2 tickets, 2 rounds, list-only, prizes, brand, guest invites) with a guest, a listed person and a waiting request. */
 const world = async (publish = true) => {
   const master = await start("boss@acme.com"); const ai = lastAi;
-  expect((await call("POST", "/api/z", { id: "OLD-1", startRound: roundAt(GAME_START), callSeconds: 20, cap: 300, rewards: REWARDS, brand: BRAND, name: "Diwali Party" }, master)).status).toBe(200);
+  expect((await call("POST", "/api/z", { id: "OLD-1", startRound: roundAt(GAME_START), callSeconds: 10, cap: 300, rewards: REWARDS, brand: BRAND, name: "Diwali Party" }, master)).status).toBe(200);
   expect((await call("PATCH", "/api/z/OLD-1/settings", { guestInvites: { on: true, per: 3 }, whoCanJoin: "list", coHostLimit: 50 }, master)).status).toBe(200);
   const host = (await j(await call("POST", "/api/org/host", { mobile: "9876500009", label: "Priya", email: "priya@acme.com" }, master))).hostKey as string;
   const cohost = (await j(await call("POST", "/api/org/cohost", { label: "Ravi", phone: "98765 00001", e: "OLD-1" }, master))).cohostKey as string;
@@ -80,7 +80,7 @@ describe("what the new game is", () => {
     expect({ ok: b.ok, openUrl: b.openUrl, peopleCopied: b.peopleCopied }).toEqual({ ok: true, openUrl: `https://bingo.test/zc.html?e=${newId}`, peopleCopied: 0 });
     expect(Array.isArray(b.copied)).toBe(true); expect(b.copied).toContain("Prizes (all of them, with their texts)"); expect(b.copied).toContain("Brand strip"); expect(b.copied).toContain("Guest invites"); expect(b.copied).toContain("Rounds");
     const n = row(newId);
-    expect(n).toMatchObject({ org: before.org, pack: 0, cap: 300, call_seconds: 20, closed: 1, cohost_limit: 50, cancelled_ms: null, unplayed_ms: null });
+    expect(n).toMatchObject({ org: before.org, pack: 0, cap: 300, call_seconds: 10, closed: 1, cohost_limit: 50, cancelled_ms: null, unplayed_ms: null });
     expect(JSON.parse(n.config)).toEqual(JSON.parse(before.config)); // prizes, brand, rounds, invites, brand moments, name: all of it
     expect(JSON.parse(n.config).brand.name).toBe("Acme Foods"); expect(JSON.parse(n.config).rewards.map((x: any) => x.text)).toEqual(expect.arrayContaining(["Hamper", "Voucher", "Mug"])); expect(JSON.parse(n.config).invites).toMatchObject({ on: true, per: 3 });
     expect(row("OLD-1")).toEqual(before);
@@ -137,7 +137,7 @@ describe("what the new game is", () => {
     await call("POST", "/api/z/OLD-1/cancel", { confirmations: 3 }, t.master);
     expect((await clone(t.master)).status).toBe(200);
     const m2 = await start("two@acme.com");
-    await call("POST", "/api/z", { id: "CLS-1", startRound: roundAt(GAME_START), callSeconds: 20, cap: 100, brand: BRAND }, m2); await call("POST", "/api/z/CLS-1/publish", { email: "two@acme.com", phone: "9876543210" }, m2);
+    await call("POST", "/api/z", { id: "CLS-1", startRound: roundAt(GAME_START), callSeconds: 10, cap: 100, brand: BRAND }, m2); await call("POST", "/api/z/CLS-1/publish", { email: "two@acme.com", phone: "9876543210" }, m2);
     await lifecycleTick(env as any, T + 3 * H + 40 * H);
     expect(row("CLS-1").unplayed_ms).not.toBeNull();
     const r = await clone(m2, {}, "CLS-1", T + 3 * H + 41 * H); expect(r.status).toBe(200);
@@ -168,7 +168,7 @@ describe("bring my people list", () => {
     expect((await j(await clone(t.master, {}))).peopleCopied).toBe(0);
     await call("POST", "/api/z/OLD-1/erase", {}, t.master);
     const b = await j(await clone(t.master, { withPeople: true }));
-    expect(b.peopleCopied).toBe(0); expect(b.peopleNote).toBe("The old guest list has been erased, so add your people again.");
+    expect(b.peopleCopied).toBe(0); expect(b.peopleNote).toBe("The old guest list has been auto-deleted, so add your people again.");
     expect(count("SELECT COUNT(*) AS c FROM person WHERE eid=?", b.id)).toBe(0);
   });
   test("the copy belongs to the new game and follows ITS clock: the old game's copy is erased on the old clock, the new list survives", async () => {

@@ -14,11 +14,11 @@ const call = (method: string, path: string, body?: unknown, key?: string, extra:
   handle(new Request("http://x" + path, { method, headers: { "content-type": "application/json", ...(key ? { "x-organizer": key } : {}), ...extra }, body: withDevice(method, path, body) }), env, T);
 const j = async (r: Response) => (await r.json()) as any;
 const sql = (q: string, ...a: unknown[]) => raw.query(q).all(...(a as any[])) as any[];
-beforeEach(() => { const d = makeD1(); raw = d.raw; env = { DB: d.db, ORGANIZER_SECRET: "plat", DAILY_WRITE_BUDGET: "100000", PUBLIC_ORIGIN: "https://snl.test", DATA_KEY: "k", PHONE_SALT: "s" } as unknown as Env; ip = 0; });
+beforeEach(() => { const d = makeD1(); raw = d.raw; env = { DB: d.db, ORGANIZER_SECRET: "plat", RUNNER_KEY: "test-runner-key-test-runner-key-test0000", DAILY_WRITE_BUDGET: "100000", PUBLIC_ORIGIN: "https://snl.test", DATA_KEY: "k", PHONE_SALT: "s" } as unknown as Env; ip = 0; });
 
 async function team() {
   const master = (await j(await handle(new Request("http://x/api/start", { method: "POST", headers: { "content-type": "application/json", "cf-connecting-ip": `9.9.9.${++ip}` }, body: JSON.stringify({ consent: TICKS, email: "boss@acme.com" }) }), env, T))).token as string;
-  expect((await call("POST", "/api/z", { id: "CO-1", startRound: FAR_START, callSeconds: 20, cap: 300 }, master)).status).toBe(200);
+  expect((await call("POST", "/api/z", { id: "CO-1", startRound: FAR_START, callSeconds: 10, cap: 300 }, master)).status).toBe(200);
   const cohost = (await j(await call("POST", "/api/org/cohost", { label: "Ravi", phone: "9876500001", e: "CO-1" }, master))).cohostKey as string;
   const cohost2 = (await j(await call("POST", "/api/org/cohost", { label: "Meera", phone: "9876500002", e: "CO-1" }, master))).cohostKey as string;
   return { master, cohost, cohost2 };

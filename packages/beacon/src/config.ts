@@ -94,11 +94,13 @@ export function checkBrandLogo(v: unknown): { ok: true; bytes: number } | { ok: 
   if (long > short * LOGO_MAX_RATIO) return { ok: false, error: `The logo is too long and thin. It may be at most ${LOGO_MAX_RATIO} times wider than tall.` };
   return { ok: true, bytes: raw.length };
 }
-export const MAX_INVITES_PER_PERSON = 10;
+export const MAX_INVITES_PER_PERSON = 4;
 export const defaultInvites = (): InviteCfg => ({ on: false, per: 4, cats: ["family", "colleagues"] });
 export type VerifyMode = "mobile" | "id" | "either" | "both";
 export const VERIFY_MODES: VerifyMode[] = ["mobile", "id", "either", "both"];
-export interface EngagementCfg { /** What a person must give to get in: their mobile number (default), their employee ID, or both. */ verify?: VerifyMode; /** Only the people on my list may play, and nobody may invite anyone. */ employeesOnly?: true; /** A friendly name the organizer gives the game (optional, up to 60 characters). */ name?: string; /** Always 1: each player has one pawn. Kept so older stored settings stay valid. */ tickets: 1; rewards: RewardLine[]; breaks: BreakCfg[]; rounds: number; invites?: InviteCfg; /** Before the first turn (at most one). Always present after validateCfg. */ opening?: BrandSlot[]; /** On the final screen (at most one). Always present after validateCfg. */ closing?: BrandSlot[]; /** The company's mark on the board (name, colour, optional logo). Absent = the plain board. */ brand?: BrandCfg; /** Unused in this game (kept for older stored settings). */ mark?: "auto" | "tap"; /** How a guest joins from the common link: "name" (the default: just a nickname) or "phone" (a mobile number is asked for as well, to match an invite list). */ join?: "name" | "phone"; /** The organizer's time zone (an IANA name such as America/New_York), used to word times in mails and the report. Absent = Asia/Kolkata. */ tz?: string;
+/** Most people in a game on the new rules (owner, spec 410). Flagged games only. */
+export const ENGINE_CAP = 2000;
+export interface EngagementCfg { /** What a person must give to get in: their mobile number (default), their employee ID, or both. */ verify?: VerifyMode; /** Only the people on my list may play, and nobody may invite anyone. */ employeesOnly?: true; /** What the ID is: an employee ID (default) or an Email ID. One criterion for the whole game; the list decides who is in. */ idKind?: "email"; /** A friendly name the organizer gives the game (optional, up to 60 characters). */ name?: string; /** Always 1: each player has one pawn. Kept so older stored settings stay valid. */ tickets: 1; rewards: RewardLine[]; breaks: BreakCfg[]; rounds: number; invites?: InviteCfg; /** Before the first turn (at most one). Always present after validateCfg. */ opening?: BrandSlot[]; /** On the final screen (at most one). Always present after validateCfg. */ closing?: BrandSlot[]; /** The company's mark on the board (name, colour, optional logo). Absent = the plain board. */ brand?: BrandCfg; /** Unused in this game (kept for older stored settings). */ mark?: "auto" | "tap"; /** How a guest joins from the common link: "name" (the default: just a nickname) or "phone" (a mobile number is asked for as well, to match an invite list). */ join?: "name" | "phone"; /** Common engine (flag, default off): when true this game runs on the vendored game-core rules (elimination rounds, Pause/Resume by role, auto-claimed "You won"). Absent = the live rules, unchanged. */ engine?: true; /** Engine only: players who stay in after each round (0 or absent = nobody is sent out). */ survivors?: number; /** Engine only: turns in a round (default 10). */ roundTurns?: number; /** The organizer's time zone (an IANA name such as America/New_York), used to word times in mails and the report. Absent = Asia/Kolkata. */ tz?: string;
   /** How the game is played: "race" (the default: every player has their own board), "team" (a race between teams) or "table" (2 to 20 players share one board and take turns). */ mode?: Mode;
   /** "fate" (the default: every throw happens by itself when the window closes) or "presence" (a player who does not throw inside the window misses the turn). */ play?: Play;
   /** The board: size 100, 144 or 225, 6 to 12 snakes and as many ladders, and how the last square is reached. Absent = the classic board. */ board?: { size: 100 | 144 | 225; snakes: number; ladders: number; finish: "exact" | "pass" };
@@ -172,8 +174,8 @@ export const SITE_MEDIA = /^\/[A-Za-z0-9._-]{1,80}\.(mp4|webm|m4a|mp3)$/i;
 export const DEFAULT_TZ = "Asia/Kolkata";
 /** True for a real IANA time zone name this runtime knows. */
 export const isTimeZone = (z: unknown): z is string => { if (typeof z !== "string" || z.length > 64 || !/^[A-Za-z][A-Za-z0-9_+-]*(\/[A-Za-z0-9_+-]+){0,2}$/.test(z)) return false; try { new Intl.DateTimeFormat("en-US", { timeZone: z }); return true; } catch { return false; } };
-export function validateCfg(input: { verify?: unknown; employeesOnly?: unknown; tz?: unknown; join?: unknown; mark?: unknown; tickets?: unknown; rewards?: unknown; breaks?: unknown; rounds?: unknown; invites?: unknown; opening?: unknown; closing?: unknown; name?: unknown; brand?: unknown; mode?: unknown; play?: unknown; board?: unknown; milestones?: unknown; turnCap?: unknown; endPrizes?: unknown; exclusive?: unknown; teams?: unknown; theme?: unknown }, base: EngagementCfg = defaultCfg(), opts: { stored?: boolean } = {}): { ok: true; cfg: EngagementCfg } | { ok: false; error: string } {
-  const cfg: EngagementCfg & { opening: BrandSlot[]; closing: BrandSlot[] } = { tickets: base.tickets, rewards: base.rewards, breaks: base.breaks, rounds: base.rounds ?? 1, invites: base.invites ?? defaultInvites(), opening: base.opening ?? [], closing: base.closing ?? [], ...(base.verify ? { verify: base.verify } : {}), ...(base.employeesOnly ? { employeesOnly: true as const } : {}), ...(base.name ? { name: base.name } : {}), ...(base.brand ? { brand: base.brand } : {}), ...(base.mark ? { mark: base.mark } : {}), ...(base.join ? { join: base.join } : {}), ...(base.tz ? { tz: base.tz } : {}), ...(base.mode ? { mode: base.mode } : {}), ...(base.play ? { play: base.play } : {}), ...(base.board ? { board: base.board } : {}), ...(base.milestones ? { milestones: base.milestones } : {}), ...(base.turnCap ? { turnCap: base.turnCap } : {}), ...(base.endPrizes ? { endPrizes: base.endPrizes } : {}), ...(base.exclusive ? { exclusive: base.exclusive } : {}), ...(base.teams ? { teams: base.teams } : {}), ...(base.theme ? { theme: base.theme } : {}) };
+export function validateCfg(input: { verify?: unknown; employeesOnly?: unknown; idKind?: unknown; tz?: unknown; join?: unknown; mark?: unknown; tickets?: unknown; rewards?: unknown; breaks?: unknown; rounds?: unknown; invites?: unknown; opening?: unknown; closing?: unknown; name?: unknown; brand?: unknown; mode?: unknown; play?: unknown; board?: unknown; milestones?: unknown; turnCap?: unknown; engine?: unknown; survivors?: unknown; roundTurns?: unknown; endPrizes?: unknown; exclusive?: unknown; teams?: unknown; theme?: unknown }, base: EngagementCfg = defaultCfg(), opts: { stored?: boolean } = {}): { ok: true; cfg: EngagementCfg } | { ok: false; error: string } {
+  const cfg: EngagementCfg & { opening: BrandSlot[]; closing: BrandSlot[] } = { tickets: base.tickets, rewards: base.rewards, breaks: base.breaks, rounds: base.rounds ?? 1, invites: base.invites ?? defaultInvites(), opening: base.opening ?? [], closing: base.closing ?? [], ...(base.verify ? { verify: base.verify } : {}), ...(base.employeesOnly ? { employeesOnly: true as const } : {}), ...(base.idKind === "email" ? { idKind: "email" as const } : {}), ...(base.name ? { name: base.name } : {}), ...(base.brand ? { brand: base.brand } : {}), ...(base.mark ? { mark: base.mark } : {}), ...(base.join ? { join: base.join } : {}), ...(base.tz ? { tz: base.tz } : {}), ...(base.mode ? { mode: base.mode } : {}), ...(base.play ? { play: base.play } : {}), ...(base.board ? { board: base.board } : {}), ...(base.milestones ? { milestones: base.milestones } : {}), ...(base.turnCap ? { turnCap: base.turnCap } : {}), ...(base.endPrizes ? { endPrizes: base.endPrizes } : {}), ...(base.exclusive ? { exclusive: base.exclusive } : {}), ...(base.teams ? { teams: base.teams } : {}), ...(base.theme ? { theme: base.theme } : {}) };
   if (input.rounds !== undefined) {
     if (!Number.isInteger(input.rounds) || (input.rounds as number) < 1 || (input.rounds as number) > MAX_ROUNDS) return { ok: false, error: "A game has one round. To play again, use Play again: it makes a new game with the same settings." };
     cfg.rounds = input.rounds as number;
@@ -305,6 +307,7 @@ export function validateCfg(input: { verify?: unknown; employeesOnly?: unknown; 
       if (sorted.length === 1 && sorted[0] === DEFAULT_MILESTONE) delete cfg.milestones; else cfg.milestones = sorted;
     }
   }
+  if ((input as any).timeLimit !== undefined && (input as any).timeLimit !== null && input.turnCap === undefined) { const m = (input as any).timeLimit; if (m === 8) delete cfg.turnCap; else if (m === 7) cfg.turnCap = 23; else return { ok: false, error: "The time limit is 7 or 8 minutes." }; } // 7 minutes = 23 turns of 18 seconds, 8 minutes = 26 turns (the default)
   if (input.turnCap !== undefined) { const v = input.turnCap as any; if (v === null || v === DEFAULT_TURN_CAP) delete cfg.turnCap; else if (!Number.isInteger(v) || v < 10 || v > MAX_TURN_CAP) return { ok: false, error: `The turn limit is 10 to ${MAX_TURN_CAP}.` }; else cfg.turnCap = v; }
   if (input.endPrizes !== undefined) { const v = input.endPrizes as any; if (v === null || v === DEFAULT_END_PRIZES) delete cfg.endPrizes; else if (!Number.isInteger(v) || v < 1 || v > MAX_END_PRIZES) return { ok: false, error: `The game can end when 1 to ${MAX_END_PRIZES} players are home.` }; else cfg.endPrizes = v; }
   if (input.exclusive !== undefined) { if (input.exclusive === true) cfg.exclusive = true; else if (input.exclusive === false || input.exclusive === null) delete cfg.exclusive; else return { ok: false, error: "One prize per person is on (true) or off (false)." }; }
@@ -323,6 +326,22 @@ export function validateCfg(input: { verify?: unknown; employeesOnly?: unknown; 
   if (input.verify !== undefined) {
     if (!VERIFY_MODES.includes(input.verify as VerifyMode)) return { ok: false, error: "What a person must give: choose mobile number, employee ID, mobile number or employee ID, or both." };
     if (input.verify === "mobile") delete cfg.verify; else cfg.verify = input.verify as VerifyMode;
+  }
+  if (input.engine !== undefined) {
+    if (typeof input.engine !== "boolean") return { ok: false, error: "The new rules: say yes or no." };
+    if (input.engine) cfg.engine = true; else { delete cfg.engine; delete cfg.survivors; delete cfg.roundTurns; }
+  }
+  if (input.survivors !== undefined) {
+    if (!Number.isInteger(input.survivors) || (input.survivors as number) < 0 || (input.survivors as number) > 2000) return { ok: false, error: "Players who stay in after each round: a whole number from 0 to 2000 (0 = nobody is sent out)." };
+    if (input.survivors && cfg.engine) cfg.survivors = input.survivors as number; else delete cfg.survivors;
+  }
+  if (input.roundTurns !== undefined) {
+    if (!Number.isInteger(input.roundTurns) || (input.roundTurns as number) < 1 || (input.roundTurns as number) > 60) return { ok: false, error: "Turns in a round: a whole number from 1 to 60." };
+    if (input.roundTurns !== 10 && cfg.engine) cfg.roundTurns = input.roundTurns as number; else delete cfg.roundTurns;
+  }
+  if (input.idKind !== undefined) {
+    if (input.idKind !== "email" && input.idKind !== "emp") return { ok: false, error: "Choose an Employee ID or an Email ID." };
+    if (input.idKind === "email") cfg.idKind = "email"; else delete cfg.idKind;
   }
   if (input.employeesOnly !== undefined) {
     if (typeof input.employeesOnly !== "boolean") return { ok: false, error: "Employees only: say yes or no." };
@@ -344,7 +363,7 @@ export function validateCfg(input: { verify?: unknown; employeesOnly?: unknown; 
 }
 
 /** The game-specific settings, picked out of any object (a request body, stored JSON) so every place that reads or writes settings handles them the same way. */
-export const GAME_FIELDS = ["mode", "play", "board", "milestones", "turnCap", "endPrizes", "exclusive", "teams", "theme"] as const;
+export const GAME_FIELDS = ["mode", "play", "board", "milestones", "turnCap", "timeLimit", "endPrizes", "exclusive", "teams", "theme"] as const;
 export const gameFields = (src: any): Record<string, unknown> => { const o: Record<string, unknown> = {}; if (src && typeof src === "object") for (const k of GAME_FIELDS) if (src[k] !== undefined) o[k] = src[k]; return o; };
 /** The same settings out of a validated config, only those that differ from the defaults (validateCfg already drops the defaults). */
 export const gameOut = (c: EngagementCfg): Record<string, unknown> => { const o: Record<string, unknown> = {}; for (const k of GAME_FIELDS) if ((c as any)[k] !== undefined) o[k] = (c as any)[k]; return o; };

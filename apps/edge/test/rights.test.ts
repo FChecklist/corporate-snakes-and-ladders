@@ -22,7 +22,7 @@ async function game(id: string) {
   orgMail = `org${++n}@acme.com`;
   const r = await j(await call("POST", "/api/start", { email: orgMail }, { "cf-connecting-ip": `10.0.0.${n}` }));
   const h = { "x-organizer": r.token as string };
-  expect((await call("POST", "/api/z", { id, startRound: START, callSeconds: 20, cap: 100 }, h)).status).toBe(200);
+  expect((await call("POST", "/api/z", { id, startRound: START, callSeconds: 10, cap: 100 }, h)).status).toBe(200);
   expect((await call("POST", `/api/z/${id}/publish`, { email: "boss@acme.com", phone: "98765 43210" }, h)).status).toBe(200);
   return h;
 }
@@ -31,7 +31,7 @@ const leave = (id: string, pid: string, device: string) => call("POST", `/api/z/
 const ask = (id: string, pid: string, device: string, kind: string, extra: Record<string, unknown> = {}, now = T) => call("POST", `/api/z/${id}/datareq`, { pid, device, kind, ...extra }, {}, now);
 const count = (sql: string, ...a: any[]) => (raw.prepare(sql).get(...a) as any).c as number;
 
-beforeEach(() => { const d = makeD1(); raw = d.raw; env = { DB: d.db, ORGANIZER_SECRET: "plat", DAILY_WRITE_BUDGET: "1000000", PUBLIC_ORIGIN: "https://bingo.test", PHONE_SALT: "salt", DATA_KEY: "k" } as Env; n = 0; });
+beforeEach(() => { const d = makeD1(); raw = d.raw; env = { DB: d.db, ORGANIZER_SECRET: "plat", RUNNER_KEY: "test-runner-key-test-runner-key-test0000", DAILY_WRITE_BUDGET: "1000000", PUBLIC_ORIGIN: "https://bingo.test", PHONE_SALT: "salt", DATA_KEY: "k" } as Env; n = 0; });
 
 describe("U5: a player can leave at any time", () => {
   test("before the game starts the seat, the name and the consent record are deleted, and the answer says so in plain words", async () => {
@@ -184,7 +184,7 @@ describe("the answer time the pages promise is the one constant", () => {
     for (const f of ["apps/web/public/legal.html", "apps/web/public/privacy.html"]) {
       const file = Bun.file(new URL(f, root)); if (!(await file.exists())) continue;
       const t = plain(await file.text()); if (!/A player can leave/.test(t)) continue; // the page that carries the player's rights sentence
-      expect([f, t.includes(`We answer within ${PROMISE_DAYS} days.`)]).toEqual([f, true]);
+      expect([f, t.includes(`An answer is sent within ${PROMISE_DAYS} days.`)]).toEqual([f, true]);
     }
     const doc = await Bun.file(new URL("docs/PRIVACY_AND_LIFECYCLE.md", root)).text();
     expect(doc).toContain(`(\`PROMISE_DAYS = ${PROMISE_DAYS}\``);
