@@ -11,7 +11,7 @@ import { withDevice } from "./device";
 const T = Date.UTC(2026, 9, 6, 10, 0, 0);
 let env: PayEnv;
 const call = (method: string, path: string, body?: unknown) => handle(new Request("http://x" + path, { method, headers: { "content-type": "application/json", "cf-connecting-ip": "9.9.9.9" }, body: withDevice(method, path, body) }), env as Env, T);
-beforeEach(() => { const d = makeD1(); resetRate(); env = { DB: d.db, ORGANIZER_SECRET: "plat", DAILY_WRITE_BUDGET: "1000000", PUBLIC_ORIGIN: "https://snakes.test", DATA_KEY: "dk", PHONE_SALT: "salt" } as unknown as PayEnv; });
+beforeEach(() => { const d = makeD1(); resetRate(); env = { DB: d.db, ORGANIZER_SECRET: "plat", RUNNER_KEY: "test-runner-key-test-runner-key-test0000", DAILY_WRITE_BUDGET: "1000000", PUBLIC_ORIGIN: "https://snakes.test", DATA_KEY: "dk", PHONE_SALT: "salt" } as unknown as PayEnv; });
 
 describe("test sign-ins exist only in TEST mode", () => {
   test("LIVE mode: every test address with the fixed code is refused and no key is made", async () => {

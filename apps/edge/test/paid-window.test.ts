@@ -13,7 +13,7 @@ let env: PayEnv; let raw: ReturnType<typeof makeD1>["raw"];
 const call = (method: string, path: string, body?: unknown, headers: Record<string, string> = {}, now = T) =>
   handle(new Request("http://x" + path, { method, headers: { "content-type": "application/json", ...headers }, body: withDevice(method, path, body) }), env as Env, now);
 const j = async (r: Response) => (await r.json()) as any;
-beforeEach(() => { const d = makeD1(); raw = d.raw; env = { DB: d.db, ORGANIZER_SECRET: "plat", DAILY_WRITE_BUDGET: "100000", PUBLIC_ORIGIN: "https://snakes.test", DATA_KEY: "k", TEST_MODE: "1" } as any; });
+beforeEach(() => { const d = makeD1(); raw = d.raw; env = { DB: d.db, ORGANIZER_SECRET: "plat", RUNNER_KEY: "test-runner-key-test-runner-key-test0000", DAILY_WRITE_BUDGET: "100000", PUBLIC_ORIGIN: "https://snakes.test", DATA_KEY: "k", TEST_MODE: "1" } as any; });
 async function game() {
   const o = await j(await call("POST", "/api/start", { email: "boss@acme.com" }, { "cf-connecting-ip": "1.1.1.1" }));
   expect((await call("POST", "/api/z", { id: "WIN-1", startRound: roundOf(T + 5 * DAY), callSeconds: 10, cap: 100 }, { "x-organizer": o.token }, T)).status).toBe(200);

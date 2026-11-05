@@ -22,7 +22,7 @@ async function game(id = "SL-1", over: Record<string, unknown> = {}, publish = t
 const join = (i: number, id = "SL-1", now = T + 1000) => call("POST", `/api/z/${id}/join`, { name: "Player" + i, device: (() => { const d = String(i).padStart(32, "0"); SEEN_DEVICES.add(d); return d; })() }, {}, now);
 beforeEach(async () => {
   const d = makeD1(); raw = d.raw;
-  env = { DB: d.db, ORGANIZER_SECRET: "plat", DAILY_WRITE_BUDGET: "1000000", JOIN_PER_IP_DAY: "1000000", JOIN_PER_IP_MINUTE: "1000000", DATA_KEY: "k", TEST_MODE: "1" } as any;
+  env = { DB: d.db, ORGANIZER_SECRET: "plat", RUNNER_KEY: "test-runner-key-test-runner-key-test0000", DAILY_WRITE_BUDGET: "1000000", JOIN_PER_IP_DAY: "1000000", JOIN_PER_IP_MINUTE: "1000000", DATA_KEY: "k", TEST_MODE: "1" } as any;
   const o = await j(await call("POST", "/api/start", { email: "boss@acme.com" }, { "cf-connecting-ip": "1.1.1.1" }));
   h = { "x-organizer": o.token };
 });

@@ -21,7 +21,7 @@ type Row = { id: string; subject: string; kind: string; ref: string | null; vers
 const rows = (kind?: string): Row[] => (kind ? raw.prepare("SELECT * FROM consent_log WHERE kind=? ORDER BY at_ms, id").all(kind) : raw.prepare("SELECT * FROM consent_log ORDER BY at_ms, id").all()) as Row[];
 const START = Math.floor((T / 1000 - 1692803367) / 3) + 1200;
 const OLD = "2026-01-01";
-beforeEach(() => { const d = makeD1(); raw = d.raw; env = { DB: d.db, ORGANIZER_SECRET: "plat", DAILY_WRITE_BUDGET: "100000", PUBLIC_ORIGIN: "https://snakes.test", DATA_KEY: "k", TEST_MODE: "1", JOIN_PER_IP_DAY: "100000", JOIN_PER_IP_MINUTE: "100000" } as any; });
+beforeEach(() => { const d = makeD1(); raw = d.raw; env = { DB: d.db, ORGANIZER_SECRET: "plat", RUNNER_KEY: "test-runner-key-test-runner-key-test0000", DAILY_WRITE_BUDGET: "100000", PUBLIC_ORIGIN: "https://snakes.test", DATA_KEY: "k", TEST_MODE: "1", JOIN_PER_IP_DAY: "100000", JOIN_PER_IP_MINUTE: "100000" } as any; });
 async function organizerWithDraft(id = "CONS-1") {
   const o = await j(await call("POST", "/api/start", { email: "boss@acme.com" }, { "cf-connecting-ip": "1.1.1.1" }));
   await call("POST", "/api/z", { id, startRound: START, callSeconds: 10, cap: 100 }, { "x-organizer": o.token }, T + 10);

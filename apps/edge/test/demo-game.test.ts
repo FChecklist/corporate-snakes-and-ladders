@@ -11,7 +11,7 @@ const call = (method: string, path: string, body?: unknown, headers: Record<stri
   handle(new Request("http://x" + path, { method, headers: { "content-type": "application/json", ...headers }, body: body === undefined ? undefined : JSON.stringify(body) }), env, T);
 const j = async (r: Response) => (await r.json()) as any;
 const dev = (i: number) => String(i).padStart(2, "0").repeat(16);
-const mk = (extra: Record<string, unknown> = {}) => { const d = makeD1(); raw = d.raw; env = { DB: d.db, ORGANIZER_SECRET: "plat", DAILY_WRITE_BUDGET: "1000000", PUBLIC_ORIGIN: "https://snakesladders.test", PHONE_SALT: "salt", DATA_KEY: "k", ...extra } as any; };
+const mk = (extra: Record<string, unknown> = {}) => { const d = makeD1(); raw = d.raw; env = { DB: d.db, ORGANIZER_SECRET: "plat", RUNNER_KEY: "test-runner-key-test-runner-key-test0000", DAILY_WRITE_BUDGET: "1000000", PUBLIC_ORIGIN: "https://snakesladders.test", PHONE_SALT: "salt", DATA_KEY: "k", ...extra } as any; };
 async function organizer(email: string, ip: string) { const s = await j(await call("POST", "/api/start", { email }, { "cf-connecting-ip": ip })); return { "x-organizer": s.token as string, "cf-connecting-ip": ip }; }
 const demoBody = (id: string, extra: Record<string, unknown> = {}) => ({ id, startRound: START, callSeconds: 10, cap: 500, demo: true, ...extra });
 const count = (sql: string) => (raw.query(sql).get() as any).c as number;

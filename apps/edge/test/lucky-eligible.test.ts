@@ -21,7 +21,7 @@ const DRAW_MS = roundTimeMs(luckyRound(null, roundAt(START_MS) + GRACE_ROUNDS, t
 /** `removals`: the organizer removes player i (the person's line on the organizer's list) when virtual time first reaches `at`. */
 async function drawGame(players: number, flagged: number[], winners: 1 | 3 | 5 | 10, seed: string, removals: { i: number; at: number }[] = []) {
   const d = makeD1(); const raw = d.raw;
-  const env = { DB: d.db, ORGANIZER_SECRET: "plat", DAILY_WRITE_BUDGET: "100000000", JOIN_PER_IP_DAY: "1000000", JOIN_PER_IP_MINUTE: "1000000", DATA_KEY: "k", TEST_MODE: "1" } as unknown as Env;
+  const env = { DB: d.db, ORGANIZER_SECRET: "plat", RUNNER_KEY: "test-runner-key-test-runner-key-test0000", DAILY_WRITE_BUDGET: "100000000", JOIN_PER_IP_DAY: "1000000", JOIN_PER_IP_MINUTE: "1000000", DATA_KEY: "k", TEST_MODE: "1" } as unknown as Env;
   let vt = Date.UTC(2026, 9, 20, 10, 0, 0);
   const req = (method: string, path: string, body?: unknown, headers: Record<string, string> = {}) => handle(new Request("http://x" + path, { method, headers: { "content-type": "application/json", ...headers }, body: body === undefined ? undefined : JSON.stringify(body) }), env, vt);
   const j = async (r: Response) => (await r.json()) as any;

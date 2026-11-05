@@ -14,7 +14,7 @@ const call = (method: string, path: string, body?: unknown, headers: Record<stri
 const j = async (r: Response) => (await r.json()) as any;
 const rd = (f: string) => readFileSync(new URL("../../web/public/" + f, import.meta.url), "utf8");
 const rows = () => raw.prepare("SELECT org, version, via, at_ms FROM organizer_terms ORDER BY at_ms, via").all() as { org: string; version: string; via: string; at_ms: number }[];
-beforeEach(() => { const d = makeD1(); raw = d.raw; env = { DB: d.db, ORGANIZER_SECRET: "plat", DAILY_WRITE_BUDGET: "100000", PUBLIC_ORIGIN: "https://bingo.test", DATA_KEY: "k", TEST_MODE: "1" }; });
+beforeEach(() => { const d = makeD1(); raw = d.raw; env = { DB: d.db, ORGANIZER_SECRET: "plat", RUNNER_KEY: "test-runner-key-test-runner-key-test0000", DAILY_WRITE_BUDGET: "100000", PUBLIC_ORIGIN: "https://bingo.test", DATA_KEY: "k", TEST_MODE: "1" }; });
 const LINKS = ["/terms.html", "/dpa.html", "/organizer-guide.html"]; // the uniform footer (games-ops/footer/ufooter.py) links these three documents
 
 describe("the document pages", () => {
