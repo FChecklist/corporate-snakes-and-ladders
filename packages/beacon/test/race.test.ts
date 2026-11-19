@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { sha256 } from "@noble/hashes/sha256";
 import { bytesToHex, utf8ToBytes } from "@noble/hashes/utils";
 import { defaultRaceCfg, crowdOf, orderPlayers, playRace, rankPlayers, settleRace, teamTable, teamsOf, validateRaceCfg, type RaceCfg } from "../src/race";
-import { squareOf } from "../src/play";
+import { newRun, squareOf } from "../src/play";
 
 const hex = (s: string) => bytesToHex(sha256(utf8ToBytes(s)));
 const B0 = hex("b0-race");
@@ -224,5 +224,35 @@ describe("team race", () => {
     const t = teamTable(st.cfg, st, teamsOf(st.cfg, B0));
     expect(t.map((r) => r.rank)).toEqual([1, 2, 3, 4]);
     expect(t[0]!.note).toMatch(/4 teams level; decided by fate/);
+  });
+  test("R23b a milestone tie on the same turn is decided by the square each player ARRIVED on, and stays decided while the game runs", () => {
+    const mk = (seat: number, pos: number[]) => ({ ...newRun(seat), pos });
+    const base = playRace(cfgOf(2, { milestones: [60] }), { b0: B0, betas: betas(2) });
+    const at = (a: number[], b: number[]) => ({ ...base, runs: [mk(1, a), mk(2, b)] });
+    const win = (st: typeof base) => settleRace(st, [{ pattern: "milestone", ordinal: 1 }], (s) => `p${s}`)[0]!;
+    // turn 1: seat 1 lands on 62, seat 2 on 65, so seat 2 arrived further and wins
+    const early = win(at([10, 62], [10, 65]));
+    expect(early.pids[0]).toBe("p2"); expect(early.idx).toBe(1);
+    // later seat 2 meets a snake and seat 1 climbs on: the CURRENT squares now favour seat 1, the winner must not change
+    const late = win(at([10, 62, 70, 80], [10, 65, 20, 25]));
+    expect(late.pids[0]).toBe("p2"); expect(late.idx).toBe(1);
+    expect(late.tied).toBe(2);
+    // and the other way round
+    expect(win(at([10, 66, 30], [10, 61, 90])).pids[0]).toBe("p1");
+    // a player who got there an earlier turn still beats a player who arrived later on a higher square
+    expect(win(at([10, 61, 61], [10, 40, 99])).pids[0]).toBe("p1");
+  });
+
+  test("R23b over real games the milestone winner arrived on the highest square of everyone who reached it on that turn", () => {
+    for (const n of [20, 60, 150]) {
+      const st = playRace(cfgOf(300, { milestones: [40, 70] }), { b0: B0, betas: betas(n, `m${n}`) });
+      for (const o of [1, 2]) {
+        const w = settleRace(st, [{ pattern: "milestone", ordinal: o }], (s) => `p${s}`)[0];
+        if (!w) continue;
+        const m = [40, 70][o - 1]!, seat = Number(w.pids[0]!.slice(1));
+        const arrival = (r: (typeof st.runs)[number]) => { const t = r.pos.findIndex((p) => p >= m); return t === w.idx ? r.pos[t]! : -1; };
+        for (const r of st.runs) expect(arrival(r) <= arrival(st.runs[seat - 1]!)).toBe(true);
+      }
+    }
   });
 });
