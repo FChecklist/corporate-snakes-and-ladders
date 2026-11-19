@@ -93,7 +93,7 @@
     ORDER = { pack };
     const def = TB.guessCountry();
     TB.sheet(`${xbtn}<div class="eyebrow">Your order</div><h2>Up to ${nf(pack)} players</h2>
-      <ul class="facts"><li>${ic("ticket")}Every guest gets their own board on their phone</li><li>${ic("phone")}Nickname only. No app to download, no password for guests</li><li>${ic("users")}A private game for your closed group, in any country</li><li>${ic("gift")}Players never pay. You give the gifts</li></ul>
+      <ul class="facts"><li>${ic("ticket")}Every guest gets their own board on their phone</li><li>${ic("phone")}Nickname only. No app to download, no password for guests</li><li>${ic("users")}A close group game for your company, in any country</li><li>${ic("gift")}Players never pay. You give the gifts</li></ul>
       <div class="sum" id="ordSum"></div>
       <form id="coForm" novalidate>
         <label class="lb" for="oName">Organization name</label><input class="inp" id="oName" autocomplete="organization" placeholder="e.g. Acme Industries">
@@ -128,7 +128,7 @@
     TB.sheet(`${xbtn}<div class="openfree" role="group" aria-labelledby="ofTitle">
       <div class="sheethead"><span class="rolepill">For the organizer or host</span><span class="sbrand" role="img" aria-label="Corporate Snakes and Ladders"><span class="mark"><img src="/logo-mark.svg" alt="Corporate Snakes and Ladders logo" width="34" height="34"></span><span class="word">Corporate Snakes and Ladders<i>.</i></span></span></div>
       <div class="eyebrow ofeye">Build it and publish it free.</div><h2 id="ofTitle">Create your game</h2>
-      <ul class="bgrid"><li><span class="bico">${ic("play")}</span><span>Add a message, video or lucky draw between turns</span></li><li><span class="bico">${ic("trophy")}</span><span>Pick your gifts: a milestone gift and 1st to 5th place</span></li><li><span class="bico">${ic("users")}</span><span>A closed-group Snakes and Ladders for your company</span></li><li><span class="bico">${ic("ticket")}</span><span>Every board is different, and equally hard</span></li><li><span class="bico">${ic("phone")}</span><span>Each guest gets their own board on their phone</span></li><li><span class="bico">${ic("star")}</span><span>A free AI assistant sets it up for you</span></li><li><span class="bico">${ic("gift")}</span><span>Players never pay. You provide the gifts</span></li><li><span class="bico">${ic("trash")}</span><span>Guest nicknames are erased within 24 hours of the game ending</span></li><li><span class="bico">${ic("shield")}</span><span>Designed to follow DPDP Act, GDPR and CCPA</span></li></ul>
+      <ul class="bgrid"><li><span class="bico">${ic("play")}</span><span>Add a message, video or lucky draw between turns</span></li><li><span class="bico">${ic("trophy")}</span><span>Pick your gifts: a milestone gift and 1st to 5th place</span></li><li><span class="bico">${ic("users")}</span><span>A close group Snakes and Ladders game for your company</span></li><li><span class="bico">${ic("ticket")}</span><span>Every board is different, and equally hard</span></li><li><span class="bico">${ic("phone")}</span><span>Each guest gets their own board on their phone</span></li><li><span class="bico">${ic("star")}</span><span>A free AI assistant sets it up for you</span></li><li><span class="bico">${ic("gift")}</span><span>Players never pay. You provide the gifts</span></li><li><span class="bico">${ic("trash")}</span><span>Guest nicknames are erased within 24 hours of the game ending</span></li><li><span class="bico">${ic("shield")}</span><span>Designed to follow DPDP Act, GDPR and CCPA</span></li></ul>
       ${k2Box}${gBox}<form id="frForm" novalidate><label class="lb" for="fMail">Your e-mail</label><input class="inp big" id="fMail" type="email" inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" placeholder="your e-mail" aria-describedby="fErr"><div id="fErr" role="alert"></div>
       <button class="btn block big" style="margin-top:14px" type="submit" id="frGo" disabled aria-disabled="true">Create my game ${ic("arrow")}</button></form>
       <p class="trust">${ic("shield")}Free to build and publish. No password.</p>
@@ -283,7 +283,8 @@
       const k = (await r.json()).kind, who = k === "host" ? "Host" : k === "master" ? "Organizer" : "";
       if (!who) return;
       let both = false; try { both = !!CTK.get("cbz-alt"); } catch {}
-      a.textContent = `Signed in as ${who}${both ? " (also " + (who === "Host" ? "Organizer" : "Host") + ")" : ""} · Open my console`;
+      const said = `Signed in as ${who}${both ? " (also " + (who === "Host" ? "Organizer" : "Host") + ")" : ""} · Open my console`; // the label stays "Log in" (the six menu words never change); the rest is said in the tooltip and to screen readers
+      a.title = said; a.setAttribute("aria-label", "Log in. " + said);
       a.href = "/zc.html"; a.classList.add("signedin");
       a.addEventListener("click", (e) => e.stopImmediatePropagation(), true);
     } catch { /* offline: the normal link stays */ }

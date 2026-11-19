@@ -50,7 +50,7 @@ describe("test 5: the box wording is the agreed wording, and the version is one 
     const t = rd("terms.html");
     expect(t).toContain(`Version ${TERMS_VERSION}`);
     for (const must of ["In short", "No collection and no payment by IT Services", "Invitation record (chain)", "24-hour erasure", "Adults only", "Electronic contract; how you accept", "We do not collect any money, deposit, contribution", "Grievance Officer", "Governing law, disputes and jurisdiction"]) expect(t).toContain(must);
-    const body = t.replace(/<footer class="uf"[\s\S]*?<\/footer>/, ""); // the uniform footer names the sister games on purpose
+    const body = t.replace(/<footer class="ck-foot"[\s\S]*?<\/footer>/, ""); // the kit's footer names the sister games on purpose
     expect(body).not.toContain("Luck by Chance"); expect(body).not.toContain("Tambola");
   });
   test("the page code draws labelled checkboxes, never pre-ticked, with the policy words as links that open in a new tab, and disables the button until all are ticked", () => {

@@ -54,7 +54,7 @@
     const el = document.createElement(kind === "video" ? "video" : "audio");
     el.src = b.mediaUrl; el.controls = true; el.autoplay = true; el.setAttribute("playsinline", ""); el.preload = "auto";
     el.style.cssText = kind === "video" ? "width:100%;height:100%;background:#000" : "position:absolute;left:8px;right:8px;top:50%;transform:translateY(-50%);width:calc(100% - 16px)";
-    if (kind === "audio") { mediaHost.style.background = "#0B5D5B"; const t = document.createElement("div"); t.textContent = b.title; t.style.cssText = "position:absolute;left:0;right:0;top:18%;text-align:center;color:#fff;font:700 18px system-ui,sans-serif;padding:0 12px"; mediaHost.appendChild(t); }
+    if (kind === "audio") { mediaHost.style.background = "#0B3D91"; const t = document.createElement("div"); t.textContent = b.title; t.style.cssText = "position:absolute;left:0;right:0;top:18%;text-align:center;color:#fff;font:700 18px system-ui,sans-serif;padding:0 12px"; mediaHost.appendChild(t); }
     el.addEventListener("error", () => { const n = document.getElementById("pvnote"); if (n) n.innerHTML = "<b>This link did not play.</b> Check that it starts with https:// and opens a video or audio file directly (for a YouTube video, that the owner allows it to be shown on other sites)."; });
     mediaHost.appendChild(el);
     const p = typeof el.play === "function" ? el.play() : null; if (p && p.catch) p.catch(() => { el.muted = true; const r = el.play(); if (r && r.catch) r.catch(() => {}); soundButton(() => { el.muted = false; }); });
@@ -106,7 +106,7 @@
       if (!b || typeof b !== "object") return null;
       const name = String(b.name == null ? "" : b.name).replace(/\s+/g, " ").trim().slice(0, 60);
       let color = String(b.color || ""); if (/^#[0-9a-f]{3}$/i.test(color)) color = "#" + color.slice(1).split("").map((c) => c + c).join("");
-      if (!/^#[0-9a-f]{6}$/i.test(color)) color = "#0B5D5B";
+      if (!/^#[0-9a-f]{6}$/i.test(color)) color = "#0B3D91";
       const logo = typeof b.logo === "string" && b.logo.length < 90000 && /^data:image\/(png|jpeg|webp|gif);base64,[A-Za-z0-9+/=]+$/.test(b.logo) ? b.logo : "";
       if (!name && !logo) return null;
       const L = 0.2126 * lin(color.slice(1, 3)) + 0.7152 * lin(color.slice(3, 5)) + 0.0722 * lin(color.slice(5, 7));
@@ -135,7 +135,7 @@
         <div class="zcard"><h2>What you can win</h2><ul class="zlist">${prizeLi}</ul></div>
         <div class="zcard zbreak"><h2>A short break</h2><div style="font:700 20px var(--sans,inherit);margin:2px 0 4px">${esc(brk ? brk.title : "A message from your organizer")}</div><div class="zsmall" style="margin:0">Please listen to the host. The game continues in ${esc(String(brk && brk.seconds ? brk.seconds : 60))}s.</div></div>
         <div class="zcard"><h2>Lucky draw</h2><div class="zrow"><span>${esc(luckyTitle)}<br><small class="zsmall" style="margin:0">${luckyN} ${luckyN === 1 ? "person is" : "people are"} picked at random</small></span><i>at the end of the break</i></div></div>`;
-      const b0 = document.getElementById("pvbrand0"); if (b0) { b0.style.background = "#0B5D5B"; b0.style.color = "#ffffff"; }
+      const b0 = document.getElementById("pvbrand0"); if (b0) { b0.style.background = "#0B3D91"; b0.style.color = "#ffffff"; }
       const b = document.getElementById("pvbrand"); if (b && brand) { b.style.background = brand.color; b.style.color = brand.fg; }
     }
     try { document.title = "See what guests see | Corporate Snakes and Ladders"; } catch {}

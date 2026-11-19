@@ -1,6 +1,6 @@
 // Refer & earn: sales partners who sell Corporate Snakes and Ladders.
 //   - A partner's reference code is a random 8-character code (no mobile number in it); the number and e-mail are kept only as salted hashes. Enrolling needs an e-mailed 6-digit code, and the answer never says whether a number or e-mail is already enrolled. Their link is  /?ref=<code>.
-//   - Anyone can enrol (a participant from the ticket, or a stranger from the page) by giving a mobile number and agreeing; they get a private partner key (shown once)
+//   - Anyone can enrol (a participant from the ticket, or a stranger from the page) by giving a mobile number and agreeing; they get a personal partner key (shown once)
 //     to see their own sales. Nobody else can see a partner's sales, and a partner never sees who the buyer is (only date, pack and amount).
 //   - A commission row is written when a referred purchase is PAID (never earlier). The commission RATE is not decided yet: rows wait as `pending_rate` with the
 //     taxable value recorded, and we apply a rate later (or set PARTNER_COMMISSION_RATE) without losing anything. Self-referral is blocked with a reason.

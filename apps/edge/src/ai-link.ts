@@ -230,7 +230,7 @@ export function frontDoorText(origin: string, key: string, role: LinkRole): stri
     `1. Start a new game: ${base}/go/new`,
     `2. Change a game that has not started yet: ${base}/go/games`,
     `3. Show the links of a game: ${base}/go/games?then=links`,
-    `4. Is the software safe, private, legal? (the 10 facts): ${base}/facts`,
+    `4. Is the software safe, legal, careful with data? (the 10 facts): ${base}/facts`,
     `5. Everything you can do for them: ${base}/map`,
     `6. Try the free demo first (a practice game of about a minute; the organizer opens it and taps Roll the dice): ${origin}/demo.html`,
     "",
