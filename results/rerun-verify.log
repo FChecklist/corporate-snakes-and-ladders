@@ -1,0 +1,32 @@
+bun test v1.4.4 (38afee6c8)
+
+apps/edge/test/verify.test.ts:
+183 | 
+184 | describe("the owner's three test sign-ins", () => {
+185 |   test("demo1/2/3@xyz.in sign in with 123456, no e-mail is sent, the same account comes back each time, and a wrong code or another address is refused", async () => {
+186 |     for (const em of ["demo1@xyz.in", "demo2@xyz.in", "demo3@xyz.in"]) {
+187 |       expect((await call("POST", "/api/auth/email", { email: em })).status).toBe(200);
+188 |       const a = await j(await call("POST", "/api/auth/verify", { email: em, code: "123456" })); expect(a.token).toMatch(/^cbk_/);
+                                                                                                                      ^
+error: Received value must be a string: undefined
+      at <anonymous> (/home/user/corporate-snakes-and-ladders/apps/edge/test/verify.test.ts:188:113)
+(fail) the owner's three test sign-ins > demo1/2/3@xyz.in sign in with 123456, no e-mail is sent, the same account comes back each time, and a wrong code or another address is refused [36.52ms]
+193 |     expect(rowsOf("SELECT COUNT(*) c FROM organizer_email")[0].c).toBe(3);
+194 |     expect((await call("POST", "/api/auth/verify", { email: "demo4@xyz.in", code: "123456" })).status).toBe(400);
+195 |   });
+196 |   test("the test sign-ins are limited per network per day, record no Terms consent, never send mail, and keep only their latest six keys", async () => {
+197 |     const em = "demo2@xyz.in"; const fire = () => call("POST", "/api/auth/verify", { email: em, code: "123456" });
+198 |     for (let i = 0; i < 30; i++) expect((await fire()).status).toBe(200);
+                                                                     ^
+error: expect(received).toBe(expected)
+
+Expected: 200
+Received: 400
+
+      at <anonymous> (/home/user/corporate-snakes-and-ladders/apps/edge/test/verify.test.ts:198:64)
+(fail) the owner's three test sign-ins > the test sign-ins are limited per network per day, record no Terms consent, never send mail, and keep only their latest six keys [28.36ms]
+
+ 17 pass
+ 2 fail
+ 145 expect() calls
+Ran 19 tests across 1 file. [981.00ms]
