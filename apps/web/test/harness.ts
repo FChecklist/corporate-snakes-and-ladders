@@ -27,12 +27,12 @@ export function newWorld(extra: Record<string, string> = {}) {
 export type Page = { win: any; text: () => string; html: () => string; $: (sel: string) => any; click: (sel: string) => void; waitFor: (pred: (text: string) => boolean, ms?: number) => Promise<string>; close: () => Promise<void>; errors: string[] };
 
 /** scripts: file names under apps/web/public, in the order the page loads them. */
-export async function openPage(world: { env: Env; now: number }, o: { url: string; html: string; scripts: string[]; tick?: boolean; session?: Record<string, string>; beaconNowMs?: () => number; afterLoad?: (win: any, file: string) => void }): Promise<Page> {
+export async function openPage(world: { env: Env; now: number }, o: { url: string; html: string; scripts: string[]; tick?: boolean; session?: Record<string, string>; beaconNowMs?: () => number; afterLoad?: (win: any, file: string) => void; pub?: string }): Promise<Page> {
   const win: any = new Window({ url: o.url, settings: { disableJavaScriptFileLoading: true, disableCSSFileLoading: true } });
   const errors: string[] = [];
   // the page scripts run as `with (window)`: the typed arrays a real browser has must be visible to them too
   for (const n of ["Uint8Array", "Uint16Array", "Uint32Array", "Int16Array", "Int32Array", "Float64Array"]) if (!win[n]) win[n] = (globalThis as any)[n];
-  win.document.write(readFileSync(join(PUB, o.html), "utf8").replace(/<script[\s\S]*?<\/script>/g, "").replace(/<link[^>]*>/g, ""));
+  win.document.write(readFileSync(join(o.pub ?? PUB, o.html), "utf8").replace(/<script[\s\S]*?<\/script>/g, "").replace(/<link[^>]*>/g, ""));
   for (const [k, v] of Object.entries(o.session ?? {})) win.sessionStorage.setItem(k, v);
   win.fetch = async (input: any, init?: any) => { // the page talks to the real Worker; nothing else is reachable
     const u = new URL(String(input), "http://localhost");
@@ -48,7 +48,7 @@ export async function openPage(world: { env: Env; now: number }, o: { url: strin
   win.addEventListener("error", (e: any) => errors.push(String(e?.message ?? e)));
   win.addEventListener("unhandledrejection", (e: any) => errors.push(String(e?.reason?.message ?? e?.reason ?? e)));
   for (const f of o.scripts.includes("consent.js") ? o.scripts : ["consent.js", ...o.scripts]) {
-    const code = readFileSync(join(PUB, f), "utf8");
+    const code = readFileSync(join(o.pub ?? PUB, f), "utf8");
     try { new Function("window", `with (window) { ${code}\n}`).call(win, win); } catch (e: any) { errors.push(f + ": " + e.message); }
     if (f === "consent.js" && win.CBConsent && o.tick !== false) { // the person in these tests ticks every Terms box on the page (pass tick:false to see the unticked page)
       const bind0 = win.CBConsent.bind;

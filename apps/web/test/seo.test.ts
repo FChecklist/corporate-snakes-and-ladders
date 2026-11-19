@@ -71,9 +71,9 @@ describe("each indexable page", () => {
   });
   test("quick loading: fonts are self-hosted and swap in, the two main fonts are preloaded, scripts do not block the page, nothing third-party is loaded on the home page", () => {
     const h = rd("index.html"), f = rd("fonts.css");
-    expect(f.match(/font-display: swap/g)!.length).toBe(f.match(/@font-face/g)!.length);
+    expect(f.match(/font-display:\s*swap/g)!.length).toBe(f.match(/@font-face/g)!.length);
     for (const w of ["Inter-normal-400.woff2", "Fraunces-normal-500-700.woff2"]) expect(h).toContain(`<link rel="preload" href="/fonts/${w}" as="font" type="font/woff2" crossorigin>`);
-    for (const s of h.match(/<script\b[^>]*\bsrc="[^"]+"[^>]*>/g) ?? []) if (!/theme\.js|keep\.js|common\.js|google\.js|consent\.js|site\.js/.test(s)) expect(s).toMatch(/\bdefer\b/); // consent.js must be loaded before site.js runs (a "#login" address opens the sign-in sheet at once); theme.js must run first (no flash of the wrong colours); common.js and site.js are the last thing in the body
+    for (const s of h.match(/<script\b[^>]*\bsrc="[^"]+"[^>]*>/g) ?? []) if (!/theme\.js|theme-init\.js|keep\.js|common\.js|google\.js|consent\.js|site\.js/.test(s)) expect(s).toMatch(/\bdefer\b/); // consent.js must be loaded before site.js runs (a "#login" address opens the sign-in sheet at once); theme.js and theme-init.js (brand kit, loaded without defer by kit rule) must run first (no flash of the wrong colours); common.js and site.js are the last thing in the body
     expect(h).toMatch(/<script src="\/common\.js"><\/script><script src="\/consent\.js"><\/script><script src="\/google\.js"><\/script><script src="\/site\.js"><\/script>\s*<\/body>/); // the page scripts sit at the very end
     expect(h).not.toMatch(/<(script|link|img|iframe|source|video|audio)\b[^>]*\b(src|href)="https?:\/\/(?!snakes\.corporatetambola\.com|shobhakamalsolutions\.pages\.dev)/); // nothing is LOADED from elsewhere; the uniform footer only links to the sister sites
     expect(rd("../../../pages/build.mjs" as any).includes("max-age=31536000, immutable")).toBe(true);

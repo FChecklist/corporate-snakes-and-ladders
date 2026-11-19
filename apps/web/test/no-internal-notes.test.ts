@@ -21,12 +21,17 @@ function walk(dir: string, out: string[] = []): string[] {
   return out;
 }
 
+// apps/web/public/pack/ is vendored byte for byte from the console repo and uses "todo" as a CSS state class (.zf-ready.todo, class "todo"). Only those exact uses are
+// blanked, so the rest of the pack is still scanned and a real TODO note (the check is case-insensitive) in it is still caught.
+const PACK_TODO_CLASS = /\.zf-ready\.todo\b|\? "ok" : "todo"/g;
+const scanText = (f: string, t: string) => (f.replace(/\\/g, "/").includes("/public/pack/") ? t.replace(PACK_TODO_CLASS, "") : t);
+
 describe("no internal notes in anything that is deployed", () => {
   const files = DEPLOYED.flatMap((d) => { try { return walk(join(ROOT, d)); } catch { return []; } });
   test("there are files to scan", () => { expect(files.length).toBeGreaterThan(20); });
   test("no file contains an internal note, a review or approval remark, a TODO, or the name of another legal entity", () => {
     const bad: string[] = [];
-    for (const f of files) { const t = readFileSync(f, "utf8"); const m = FORBIDDEN.exec(t); if (m) bad.push(`${f.slice(ROOT.length)}: ${m[0]} ... ${t.slice(Math.max(0, m.index - 40), m.index + 60).replace(/\s+/g, " ")}`); }
+    for (const f of files) { const t = scanText(f, readFileSync(f, "utf8")); const m = FORBIDDEN.exec(t); if (m) bad.push(`${f.slice(ROOT.length)}: ${m[0]} ... ${t.slice(Math.max(0, m.index - 40), m.index + 60).replace(/\s+/g, " ")}`); }
     expect(bad).toEqual([]);
   });
   test("the legal pages never use the word draft", () => {
@@ -37,6 +42,13 @@ describe("no internal notes in anything that is deployed", () => {
       if (m) bad.push(`${f.slice(ROOT.length)}: ${t.slice(Math.max(0, m.index - 40), m.index + 60).replace(/\s+/g, " ")}`);
     }
     expect(bad).toEqual([]);
+  });
+  test("the pack exemption is narrow: the vendored class is ignored, a real TODO note in a pack file is still caught", () => {
+    const f = "/x/apps/web/public/pack/zc-flow.js";
+    expect(FORBIDDEN.test(scanText(f, '.zf-ready.todo { background: #fff; } class: "zf-ready " + (ok ? "ok" : "todo")'))).toBe(false);
+    expect(FORBIDDEN.test(scanText(f, "// TODO: fix this"))).toBe(true);
+    expect(FORBIDDEN.test(scanText(f, "a todo item"))).toBe(true);
+    expect(FORBIDDEN.test(scanText("/x/apps/web/public/z.js", ".zf-ready.todo {}"))).toBe(true); // outside the pack nothing is exempt
   });
   test("the scan itself works: each kind of note is caught", () => {
     for (const s of ["for counsel", "[●]", "legal review", "pending approval", "awaiting lawyer", "the advocate", "owner's order", "TODO", "FIXME", "under review", "not yet approved", "Shobha Kamal"]) expect(FORBIDDEN.test(s)).toBe(true);

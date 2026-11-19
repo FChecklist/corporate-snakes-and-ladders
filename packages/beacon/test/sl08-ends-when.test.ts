@@ -23,8 +23,8 @@ describe("SL-08: the phone knows when the game ends", () => {
   test("the phone and projector pages show 'ends when N players are home' for race games and never 'Turn x of 60' for them", () => {
     const pub = (f: string) => readFileSync(new URL("../../../apps/web/public/" + f, import.meta.url), "utf8");
     const z = pub("z.js"), big = pub("big.js");
-    expect(z).toContain("ends when ${v.endPrizes}");
-    expect(big).toContain("ends when ${v.endPrizes}");
+    expect(z).toContain("ends sooner when ${v.kind === \"team\" ? \"the first whole team is\" : v.endPrizes"); // 1.4.1 item 6: the phone chip also names the turn cap and the team rule (behaviour: apps/web/test/audit141-console.test.ts)
+    expect(big).toContain("ends sooner when ${v.kind === \"team\" ? \"the first whole team is\" : v.endPrizes"); // 1.4.1 round 2: the projector says the same as the phone (turn cap + team rule)
     expect(z).not.toMatch(/Turn \$\{turnNo\} of \$\{v\.turnCap\}`\}?<\/span>`;\s*\/\/ SL-08/);
     expect(big).not.toMatch(/Turn \$\{Math\.min\(v\.turnsPlayed \+ \(v\.ended \? 0 : 1\), v\.turnCap\)\} of at most \$\{v\.turnCap\}`;/);
   });

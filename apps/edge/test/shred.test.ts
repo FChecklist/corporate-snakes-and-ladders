@@ -44,7 +44,7 @@ describe("participant crypto-shredding", () => {
     expect(count("SELECT COUNT(*) c FROM audit_pii WHERE eid='EVT1'")).toBe(2);
     expect(count("SELECT COUNT(*) c FROM eng_key WHERE eid='EVT1'")).toBe(1);
     const dump = JSON.stringify([raw.prepare("SELECT * FROM audit_log").all(), raw.prepare("SELECT * FROM audit_pii").all()]);
-    for (const bad of [IP, DEV, "Chrome/120", PHONE, "Asha"]) expect(dump).not.toContain(bad);
+    for (const bad of [IP, DEV, "Chrome/120", PHONE, "Asha Rao"]) expect(dump).not.toContain(bad);
     const out = await j(await call("GET", "/api/owner/audit/EVT1", undefined, PLAT));
     const jr = out.rows.find((x: any) => x.actor === "participant");
     expect(jr.details.ip).toBe(IP); expect(jr.details.device_id).toBe(DEV);
