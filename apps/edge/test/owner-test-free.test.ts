@@ -3,9 +3,10 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { lazyTickReset } from "../src/worker";
 import { sentReports } from "../src/pay";
 import { OWNER_TEST_FREE } from "../src/worker";
-import { W, create, j, one, organizer, reset, restore, uid } from "./param-harness";
+import { setMode } from "../src/mode";
+import { T, W, create, j, one, organizer, reset, restore, uid } from "./param-harness";
 
-beforeEach(() => { reset(); lazyTickReset(); sentReports.length = 0; });
+beforeEach(async () => { reset(); lazyTickReset(); sentReports.length = 0; await setMode(W.env as any, "TEST", "the free test pack exists only in TEST mode", T); });
 afterEach(restore);
 
 describe("owner test accounts", () => {

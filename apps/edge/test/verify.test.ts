@@ -6,6 +6,7 @@ import { handle } from "./cohost-accepted";
 import type { PayEnv } from "../src/pay";
 import { normEmp, empHashOf } from "../src/people";
 import { makeD1 } from "./d1-sqlite";
+import { setMode } from "../src/mode";
 
 const T = Date.UTC(2026, 9, 1, 10, 0, 0);
 const GEN = 1692803367;
@@ -182,6 +183,7 @@ describe("the list download carries the ID", () => {
 });
 
 describe("the owner's three test sign-ins", () => {
+  beforeEach(async () => { await setMode(env as any, "TEST", "the test sign-ins exist only in TEST mode", Date.now()); });
   test("demo1/2/3@xyz.in sign in with 123456, no e-mail is sent, the same account comes back each time, and a wrong code or another address is refused", async () => {
     for (const em of ["demo1@xyz.in", "demo2@xyz.in", "demo3@xyz.in"]) {
       expect((await call("POST", "/api/auth/email", { email: em })).status).toBe(200);

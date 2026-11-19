@@ -10,7 +10,7 @@
 //   - E-mails (Organizer + Hosts only, once each per credit): on cancel/arrival, 30 days before the lapse, 3 days before, on use, on lapse.
 // `expires_ms` is the instant the credit lapses: 00:00 IST at the START of day 366 (= the end of day 365 in India time). A credit is usable while now < expires_ms.
 import { PACKS, price } from "../../../packages/shared/src/pricing";
-import { fulfil, PAYER, sendMail, type PayEnv } from "./pay";
+import { DEMO_NO_PAY, fulfil, isDemoCfg, PAYER, sendMail, type PayEnv } from "./pay";
 import { openText } from "./pii";
 import { orgIsTest, testFlag } from "./mode";
 import type { D1, Env } from "./worker";
@@ -232,6 +232,7 @@ export async function creditRoute(req: Request, env: PayEnv, now: number, spend:
   if (a.kind === "cohost" && a.eid && a.eid !== e.id) return json({ error: "Your Co-host link is for a different game." }, 403);
   if (e.cancelled_ms) return json({ error: "This game was cancelled. It cannot be paid for.", code: "cancelled" }, 409);
   if (e.unplayed_ms) return json({ error: "This game did not start and is closed. It cannot be paid for.", code: "did-not-start" }, 409);
+  if (isDemoCfg(e.config)) return json({ error: DEMO_NO_PAY, code: "demo-free" }, 409); // a free demo is never paid for, with credit or in any other way
   const pack = PACKS.find((x) => x[0] >= e.cap)?.[0] ?? null;
   if (!pack) return json({ error: "That many participants needs a custom arrangement. Please write to us." }, 400);
   const bodyText = await req.text(); let b: any = {}; try { b = bodyText ? JSON.parse(bodyText) : {}; } catch { b = {}; }
