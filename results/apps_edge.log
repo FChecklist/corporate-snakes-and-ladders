@@ -1,0 +1,67 @@
+bun test v1.4.4 (38afee6c8)
+
+apps/edge/test/branding.test.ts:
+101 |       expect(title).toMatch(/(^Corporate Snakes and Ladders|\| Corporate Snakes and Ladders$)/); expect(title).not.toMatch(/CORPORATE|Bingo Corporate/);
+102 |       for (const needle of ['rel="icon"', "apple-touch-icon", 'rel="manifest"', 'name="theme-color" content="#0B5D5B"']) expect(s).toContain(needle);
+103 |     });
+104 |   }
+105 |   test("the PWA manifest and the build ship the brand", () => {
+106 |     const m = JSON.parse(read("apps/web/public/manifest.webmanifest")); expect(m.name).toBe("Corporate Snakes and Ladders"); expect(m.short_name).toBe("Corporate Snakes and Ladders"); expect(m.theme_color).toBe("#0B5D5B");
+                                                                                                                                                        ^
+error: expect(received).toBe(expected)
+
+Expected: "Corporate Snakes and Ladders"
+Received: "Snakes and Ladders"
+
+      at <anonymous> (/home/user/corporate-snakes-and-ladders/apps/edge/test/branding.test.ts:106:147)
+(fail) pages: one title pattern, icons, manifest, theme colour > the PWA manifest and the build ship the brand [13.66ms]
+
+apps/edge/test/pay.test.ts:
+central order unreachable Error: down
+
+apps/edge/test/verify.test.ts:
+183 | 
+184 | describe("the owner's three test sign-ins", () => {
+185 |   test("demo1/2/3@xyz.in sign in with 123456, no e-mail is sent, the same account comes back each time, and a wrong code or another address is refused", async () => {
+186 |     for (const em of ["demo1@xyz.in", "demo2@xyz.in", "demo3@xyz.in"]) {
+187 |       expect((await call("POST", "/api/auth/email", { email: em })).status).toBe(200);
+188 |       const a = await j(await call("POST", "/api/auth/verify", { email: em, code: "123456" })); expect(a.token).toMatch(/^cbk_/);
+                                                                                                                      ^
+error: Received value must be a string: undefined
+      at <anonymous> (/home/user/corporate-snakes-and-ladders/apps/edge/test/verify.test.ts:188:113)
+(fail) the owner's three test sign-ins > demo1/2/3@xyz.in sign in with 123456, no e-mail is sent, the same account comes back each time, and a wrong code or another address is refused [26.33ms]
+193 |     expect(rowsOf("SELECT COUNT(*) c FROM organizer_email")[0].c).toBe(3);
+194 |     expect((await call("POST", "/api/auth/verify", { email: "demo4@xyz.in", code: "123456" })).status).toBe(400);
+195 |   });
+196 |   test("the test sign-ins are limited per network per day, record no Terms consent, never send mail, and keep only their latest six keys", async () => {
+197 |     const em = "demo2@xyz.in"; const fire = () => call("POST", "/api/auth/verify", { email: em, code: "123456" });
+198 |     for (let i = 0; i < 30; i++) expect((await fire()).status).toBe(200);
+                                                                     ^
+error: expect(received).toBe(expected)
+
+Expected: 200
+Received: 400
+
+      at <anonymous> (/home/user/corporate-snakes-and-ladders/apps/edge/test/verify.test.ts:198:64)
+(fail) the owner's three test sign-ins > the test sign-ins are limited per network per day, record no Terms consent, never send mail, and keep only their latest six keys [14.75ms]
+
+apps/edge/test/usecases.test.ts:
+84 |     expect(last).toBe(429); // too many codes in an hour
+85 |     expect(o.token).toMatch(/^cbk_/);
+86 |   });
+87 |   test("UC-5 invalid emails are refused everywhere", async () => {
+88 |     for (const email of ["", "nope", "a@b", "a b@c.com", "x".repeat(300) + "@a.com", 42 as any]) {
+89 |       expect((await call("POST", "/api/start", { email })).status).toBe(400);
+                                                                        ^
+error: expect(received).toBe(expected)
+
+Expected: 400
+Received: 200
+
+      at <anonymous> (/home/user/corporate-snakes-and-ladders/apps/edge/test/usecases.test.ts:89:68)
+(fail) A. organizer: getting in > UC-5 invalid emails are refused everywhere [22.92ms]
+
+ 1372 pass
+ 4 fail
+ 10519 expect() calls
+Ran 1376 tests across 79 files. [111.45s]
