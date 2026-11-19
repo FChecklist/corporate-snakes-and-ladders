@@ -1,0 +1,42 @@
+BREAKCHECK empid  (scratch copy: /tmp/claude-0/-home-user-corporate-snakes-and-ladders/117805c9-be35-5a9a-b7a1-0275cf74a649/scratchpad/breakcheck-s1bQi4; tests: apps/edge/test/t30-m2-empid.test.ts)
+  baseline: GREEN  23 pass, 0 fail
+  break 1: the cleaner keeps dashes (1B-678 stays 1B-678)  [apps/edge/src/people.ts]  -> RED  7 pass, 16 fail
+      failing: employee ID cleaner (unit) > the four spellings all become 1B678
+      failing: employee ID cleaner (unit) > tabs, newlines, dots, underscores, backslashes, brackets and mixed separators are dropped
+      failing: employee ID cleaner (unit) > full-width letters, digits and dash read as the plain ID
+  break 2: no Unicode folding: full-width letters are dropped  [apps/edge/src/people.ts]  -> RED  19 pass, 4 fail
+      failing: employee ID cleaner (unit) > full-width letters, digits and dash read as the plain ID
+      failing: employee ID through the real Worker, game made after the switch (new reading) > list upload: unicode, full-width, zero-width and emoji spellings of different IDs are each stored once under the cleaned ID
+      failing: employee ID through the real Worker, game made after the switch (new reading) > 'who' check: every spelling finds the same listed person and shows the same first name
+  break 3: the 30 character cap becomes 31  [apps/edge/src/people.ts]  -> RED  20 pass, 3 fail
+      failing: employee ID cleaner (unit) > the 30 character cap counts characters AFTER cleaning: 30 passes, 31 is refused, 30 letters hidden among 100 symbols pass
+      failing: employee ID through the real Worker, game made after the switch (new reading) > list upload refuses symbols-only and over-30 with the plain words, and does not store them
+      failing: employee ID through the real Worker, game made after the switch (new reading) > join: symbols-only and over-30 are refused with bad-id (400) and nothing is stored
+  break 4: symbols only is accepted as an empty ID instead of refused  [apps/edge/src/people.ts]  -> RED  19 pass, 4 fail
+      failing: employee ID cleaner (unit) > a non-Latin letter is not an ID character (it is dropped), so an ID made only of them is refused
+      failing: employee ID cleaner (unit) > only symbols or only emoji is refused (null), only blanks is 'nothing typed' (empty string)
+      failing: employee ID through the real Worker, game made after the switch (new reading) > list upload refuses symbols-only and over-30 with the plain words, and does not store them
+  break 5: a game created exactly at the switch instant is treated as old  [apps/edge/src/people.ts]  -> RED  22 pass, 1 fail
+      failing: employee ID cleaner (unit) > the switch: a game is new only when its created_ms is at or after the threshold, and a missing or odd created_ms is old
+  break 6: organizer list upload ignores the new reading  [apps/edge/src/people.ts]  -> RED  19 pass, 4 fail
+      failing: employee ID through the real Worker, game made after the switch (new reading) > organizer list upload: the four spellings are ONE person (1 added, 3 duplicates counted after cleaning)
+      failing: employee ID through the real Worker, game made after the switch (new reading) > list upload: unicode, full-width, zero-width and emoji spellings of different IDs are each stored once under the cleaned ID
+      failing: employee ID through the real Worker, game made after the switch (new reading) > 'who' check: every spelling finds the same listed person and shows the same first name
+  break 7: the 'who' check ignores the new reading  [apps/edge/src/worker.ts]  -> RED  21 pass, 2 fail
+      failing: employee ID through the real Worker, game made after the switch (new reading) > list upload: unicode, full-width, zero-width and emoji spellings of different IDs are each stored once under the cleaned ID
+      failing: employee ID through the real Worker, game made after the switch (new reading) > 'who' check: every spelling finds the same listed person and shows the same first name
+  break 8: join ignores the new reading  [apps/edge/src/worker.ts]  -> RED  20 pass, 3 fail
+      failing: employee ID through the real Worker, game made after the switch (new reading) > join: each spelling joins as the listed person; the same phone and same spelling or another spelling returns the SAME participant (same board), a second phone is refused
+      failing: employee ID through the real Worker, game made after the switch (new reading) > different cleaned IDs are different people (1B678 and 1B679)
+      failing: employee ID through the real Worker, game made after the switch (new reading) > 'either' mode: a listed person with a mobile and an ID can come in with the ID in any spelling, and a person known by ID alone is stored under the cleaned ID hash
+  break 9: the old reading changes: dashes are dropped in old games too  [apps/edge/src/people.ts]  -> RED  19 pass, 4 fail
+      failing: employee ID cleaner (unit) > old reading (clean=false) keeps dots, dashes and slashes, drops only spaces, and is upper case
+      failing: employee ID through the real Worker, game made BEFORE the switch (old reading kept) > list upload keeps dashes and slashes: 1B-678 and 1B/678 are two different people, 1B 678 equals 1B678
+      failing: employee ID through the real Worker, game made BEFORE the switch (old reading kept) > a listed 1B-678 is found by 1b-678 (case, as before) but NOT by 1B678 or 1B/678
+  break 10: the ID hash no longer depends on the ID (everyone is the same person)  [apps/edge/src/people.ts]  -> RED  16 pass, 7 fail
+      failing: employee ID cleaner (unit) > the hash of an ID is the same for every spelling and differs for another ID
+      failing: employee ID through the real Worker, game made after the switch (new reading) > list upload: unicode, full-width, zero-width and emoji spellings of different IDs are each stored once under the cleaned ID
+      failing: employee ID through the real Worker, game made after the switch (new reading) > 'who' check: every spelling finds the same listed person and shows the same first name
+  restored: GREEN  23 pass, 0 fail
+  branch product code untouched: yes
+RESULT empid: every planted break was caught

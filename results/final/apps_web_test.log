@@ -1,0 +1,125 @@
+bun test v1.4.4 (38afee6c8)
+
+apps/web/test/t30-finding-f2-lone-player.test.ts:
+43 |   test("after the turn limit the page shows 'Game over' and must not show the Rules fold; the ended banner must appear", async () => {
+44 |     const w = await game("T30-LONE"); const p = await phone(w, "T30-LONE", ["audio.js", "zgame.js", "screenrules.js", "z.js"]);
+45 |     goTo(w, roundMs(START) + 3 * 3_600_000);
+46 |     await p.waitFor((x) => /Game over/.test(x), 120000);
+47 |     await new Promise((r) => setTimeout(r, 3000));
+48 |     expect(!!p.$("#rulesfold")).toBe(false);
+                                     ^
+error: expect(received).toBe(expected)
+
+Expected: false
+Received: true
+
+      at <anonymous> (/home/user/corporate-snakes-and-ladders/apps/web/test/t30-finding-f2-lone-player.test.ts:48:33)
+(fail) F-2: a game with one player > after the turn limit the page shows 'Game over' and must not show the Rules fold; the ended banner must appear [6756.52ms]
+
+apps/web/test/seo.test.ts:
+69 |     for (const f of [...INDEXABLE, ...NOINDEX]) { let h = ""; try { h = rd(f); } catch { continue; } for (const img of h.match(/<img\b[^>]*>/g) ?? []) { expect([f, /\balt="[^"]+"/.test(img)]).toEqual([f, true]); expect([f, /\bwidth="\d+"/.test(img) && /\bheight="\d+"/.test(img)]).toEqual([f, true]); } }
+70 |     expect(rd("index.html")).toMatch(/<img src="\/img\/card\.png"[^>]*fetchpriority="high"/);
+71 |   });
+72 |   test("quick loading: fonts are self-hosted and swap in, the two main fonts are preloaded, scripts do not block the page, nothing third-party is loaded on the home page", () => {
+73 |     const h = rd("index.html"), f = rd("fonts.css");
+74 |     expect(f.match(/font-display: swap/g)!.length).toBe(f.match(/@font-face/g)!.length);
+                                             ^
+TypeError: null is not an object (evaluating 'f.match(/font-display: swap/g).length')
+      at <anonymous> (/home/user/corporate-snakes-and-ladders/apps/web/test/seo.test.ts:74:41)
+(fail) each indexable page > quick loading: fonts are self-hosted and swap in, the two main fonts are preloaded, scripts do not block the page, nothing third-party is loaded on the home page [0.30ms]
+
+apps/web/test/t30-finding-f10-landing-script.test.ts:
+34 |   return { ctx, page, errors, csp };
+35 | }
+36 | 
+37 | describe("FINDING F-10: the old buy box and the pricing section on the landing page (RED on release/snakes-1.4.0, see docs/TEST_FINDINGS.md)", () => {
+38 |   test("no script error when the page loads", async () => {
+39 |     const { ctx, errors } = await open(1280, "light"); expect(errors).toEqual([]); await ctx.close();
+                                                                           ^
+error: expect(received).toEqual(expected)
+
+- []
++ [
++   "Cannot read properties of null (reading 'addEventListener')",
++ ]
+
+- Expected  - 1
++ Received  + 3
+
+      at <anonymous> (/home/user/corporate-snakes-and-ladders/apps/web/test/t30-finding-f10-landing-script.test.ts:39:71)
+(fail) FINDING F-10: the old buy box and the pricing section on the landing page (RED on release/snakes-1.4.0, see docs/TEST_FINDINGS.md) > no script error when the page loads [919.86ms]
+39 |     const { ctx, errors } = await open(1280, "light"); expect(errors).toEqual([]); await ctx.close();
+40 |   });
+41 |   test("the 'Number of players' list has packs in it and the pricing section shows a price card", async () => {
+42 |     const { ctx, page } = await open(1280, "light");
+43 |     const n = await page.evaluate(() => ({ options: document.querySelectorAll("#pack option").length, cards: document.querySelectorAll("#packs > *").length, price: (document.querySelector("#packs")?.textContent ?? "").trim().length }));
+44 |     expect(n.options).toBeGreaterThanOrEqual(4); expect(n.cards).toBeGreaterThanOrEqual(1); expect(n.price).toBeGreaterThan(20); await ctx.close();
+                           ^
+error: expect(received).toBeGreaterThanOrEqual(expected)
+
+Expected: >= 4
+Received: 0
+
+      at <anonymous> (/home/user/corporate-snakes-and-ladders/apps/web/test/t30-finding-f10-landing-script.test.ts:44:23)
+(fail) FINDING F-10: the old buy box and the pricing section on the landing page (RED on release/snakes-1.4.0, see docs/TEST_FINDINGS.md) > the 'Number of players' list has packs in it and the pricing section shows a price card [854.44ms]
+44 |     expect(n.options).toBeGreaterThanOrEqual(4); expect(n.cards).toBeGreaterThanOrEqual(1); expect(n.price).toBeGreaterThan(20); await ctx.close();
+45 |   });
+46 |   test("'Create your Corporate Snakes and Ladders' opens the checkout sheet without a script error", async () => {
+47 |     const { ctx, page, errors } = await open(1280, "light"); await page.click("#payBtn"); await page.waitForTimeout(500);
+48 |     const sheet = await page.evaluate(() => !!document.querySelector(".sheet, .modal, [role=dialog], #sheet") && (document.querySelector(".sheet, .modal, [role=dialog], #sheet") as HTMLElement).getBoundingClientRect().height > 50);
+49 |     expect(errors).toEqual([]); expect(sheet).toBe(true); await ctx.close();
+                        ^
+error: expect(received).toEqual(expected)
+
+- []
++ [
++   "Cannot read properties of null (reading 'addEventListener')",
++   "Cannot access 'xbtn' before initialization",
++ ]
+
+- Expected  - 1
++ Received  + 4
+
+      at <anonymous> (/home/user/corporate-snakes-and-ladders/apps/web/test/t30-finding-f10-landing-script.test.ts:49:20)
+(fail) FINDING F-10: the old buy box and the pricing section on the landing page (RED on release/snakes-1.4.0, see docs/TEST_FINDINGS.md) > 'Create your Corporate Snakes and Ladders' opens the checkout sheet without a script error [1433.50ms]
+
+apps/web/test/pwa.test.ts:
+10 | const filesInSw: string[] = JSON.parse(sw.match(/const FILES = (\[[\s\S]*?\]);/)![1]!);
+11 | 
+12 | describe("installable app (PWA)", () => {
+13 |   test("manifest is installable: name, standalone, start url, 192 and 512 icons, one maskable", () => {
+14 |     expect(manifest.name).toBe("Corporate Snakes and Ladders"); expect(manifest.display).toBe("standalone");
+15 |     expect(manifest.start_url).toBe("/z.html"); expect(manifest.scope).toBe("/");
+                                    ^
+error: expect(received).toBe(expected)
+
+Expected: "/z.html"
+Received: "/"
+
+      at <anonymous> (/home/user/corporate-snakes-and-ladders/apps/web/test/pwa.test.ts:15:32)
+(fail) installable app (PWA) > manifest is installable: name, standalone, start url, 192 and 512 icons, one maskable [0.20ms]
+27 |     for (const f of ["zsw.js", "pwa.js", "manifest.webmanifest", "icon-192.png", "icon-512.png", "icon-maskable-512.png", "apple-touch-icon.png"]) expect(BUILD.includes(`"${f}"`)).toBe(true);
+28 |   });
+29 |   test("the game pages (every file the phone screen loads) are all in the saved set", () => {
+30 |     const html = readFileSync(join(PUB, "z.html"), "utf8");
+31 |     const used = [...html.matchAll(/(?:src|href)="(\/[^"]+\.(?:js|css))"/g)].map((m) => m[1]!).filter((u) => u !== "/rum.js");
+32 |     for (const u of used) expect(filesInSw).toContain(u);
+                                                 ^
+error: expect(received).toContain(expected)
+
+Expected to contain: "/screenrules.js"
+Received: [
+  "/offline.html", "/offline.js", "/z.html", "/zc.html", "/big.html", "/z.js", "/rights.js", "/zc.js",
+  "/big.js", "/zgame.js", "/consent.js", "/blackbox.js", "/guide.js", "/control.js", "/audio.js",
+  "/common.js", "/app.css", "/z.css", "/big.css", "/fonts.css", "/pwa.js", "/autoupdate.js", "/keep.js",
+  "/manifest.webmanifest", "/icon-192.png", "/icon-512.png", "/fonts/Fraunces-italic-500.woff2",
+  "/fonts/Fraunces-normal-500-700.woff2", "/fonts/IBMPlexMono-normal-500.woff2", "/fonts/Inter-normal-400.woff2"
+]
+
+      at <anonymous> (/home/user/corporate-snakes-and-ladders/apps/web/test/pwa.test.ts:32:45)
+(fail) installable app (PWA) > the game pages (every file the phone screen loads) are all in the saved set [0.31ms]
+
+ 182 pass
+ 7 fail
+ 3724 expect() calls
+Ran 189 tests across 32 files. [44.15s]

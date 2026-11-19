@@ -1,0 +1,23 @@
+BREAKCHECK release-line  (scratch copy: /tmp/claude-0/-home-user-corporate-snakes-and-ladders/117805c9-be35-5a9a-b7a1-0275cf74a649/scratchpad/breakcheck-G0kAt6; tests: apps/web/test/t30-m1-release-line.test.ts)
+  baseline: GREEN  10 pass, 0 fail
+  break 1: a 'pending' date is printed as if it were real  [apps/web/public/release-line.js]  -> RED  8 pass, 2 fail
+      failing: release-line.js writes the version line into the footer > a release.json whose date starts with 'pending' gives exactly 'Version 1.4.0' (no date, no 'released')
+      failing: release-line.js writes the version line into the footer > the version shown is the version in the file (not a fixed text)
+  break 2: a real date is never printed  [apps/web/public/release-line.js]  -> RED  6 pass, 4 fail
+      failing: release-line.js writes the version line into the footer > a release.json whose date starts with 'pending' gives exactly 'Version 1.4.0' (no date, no 'released')
+      failing: release-line.js writes the version line into the footer > a real IST string gives 'Version 1.4.0, released <IST> IST'
+      failing: release-line.js writes the version line into the footer > the version shown is the version in the file (not a fixed text)
+  break 3: a failed fetch writes an error text  [apps/web/public/release-line.js]  -> RED  8 pass, 2 fail
+      failing: release-line.js writes the version line into the footer > a failed fetch (network error) shows nothing in the line and raises no error
+      failing: release-line.js writes the version line into the footer > a page that is not JSON (HTML error page) shows nothing and raises no error
+  break 4: the line says Release instead of Version  [apps/web/public/release-line.js]  -> RED  4 pass, 6 fail
+      failing: release-line.js writes the version line into the footer > a release.json whose date starts with 'pending' gives exactly 'Version 1.4.0' (no date, no 'released')
+      failing: release-line.js writes the version line into the footer > a real IST string gives 'Version 1.4.0, released <IST> IST'
+      failing: release-line.js writes the version line into the footer > a missing date gives the version only
+  break 5: the line asks for another address  [apps/web/public/release-line.js]  -> RED  9 pass, 1 fail
+      failing: release-line.js writes the version line into the footer > it asks only for /release.json (nothing personal, no other address)
+  break 6: the shipped release.json is not 1.4.0  [apps/web/public/release.json]  -> RED  9 pass, 1 fail
+      failing: release-line.js writes the version line into the footer > the shipped release.json is version 1.4.0 and still pending (the boss sets the date at release)
+  restored: GREEN  10 pass, 0 fail
+  branch product code untouched: yes
+RESULT release-line: every planted break was caught

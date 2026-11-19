@@ -1,0 +1,35 @@
+BREAKCHECK erase-log-consent  (scratch copy: /tmp/claude-0/-home-user-corporate-snakes-and-ladders/117805c9-be35-5a9a-b7a1-0275cf74a649/scratchpad/breakcheck-1V6s23; tests: apps/edge/test/t30-regress-erase-log-consent.test.ts)
+  baseline: GREEN  12 pass, 0 fail
+  break 1: guests' data is kept 30 hours instead of 20  [apps/edge/src/lifecycle.ts]  -> RED  9 pass, 3 fail
+      failing: 24-hour erase > constants: the personal purge is at 20 hours (inside the 24-hour promise), the report link ends at 19 hours, one hour before
+      failing: 24-hour erase > before the 20 hours the guests are still there; after them every participant, seat, person, consent tick and name is gone
+      failing: 24-hour erase > by 24 hours no guest is left in ANY table: not their sealed name, not the hash of their mobile number (whole-database scan before and after)
+  break 2: the report link outlives the data  [apps/edge/src/lifecycle.ts]  -> RED  11 pass, 1 fail
+      failing: 24-hour erase > constants: the personal purge is at 20 hours (inside the 24-hour promise), the report link ends at 19 hours, one hour before
+  break 3: the 365 days become 364  [apps/edge/src/lifecycle.ts]  -> RED  11 pass, 1 fail
+      failing: 24-hour erase > the 365-day end of everything falls on an IST midnight, 365 to 366 days after the game, and never earlier than 365 days
+  break 4: the deletion is not on an IST midnight  [apps/edge/src/lifecycle.ts]  -> RED  11 pass, 1 fail
+      failing: 24-hour erase > the 365-day end of everything falls on an IST midnight, 365 to 366 days after the game, and never earlier than 365 days
+  break 5: the erase leaves the participants  [apps/edge/src/lifecycle.ts]  -> RED  10 pass, 2 fail
+      failing: 24-hour erase > before the 20 hours the guests are still there; after them every participant, seat, person, consent tick and name is gone
+      failing: 24-hour erase > by 24 hours no guest is left in ANY table: not their sealed name, not the hash of their mobile number (whole-database scan before and after)
+  break 6: the erase leaves the seats  [apps/edge/src/lifecycle.ts]  -> RED  10 pass, 2 fail
+      failing: 24-hour erase > before the 20 hours the guests are still there; after them every participant, seat, person, consent tick and name is gone
+      failing: 24-hour erase > by 24 hours no guest is left in ANY table: not their sealed name, not the hash of their mobile number (whole-database scan before and after)
+  break 7: the erase leaves the guests' consent ticks  [apps/edge/src/lifecycle.ts]  -> RED  11 pass, 1 fail
+      failing: 24-hour erase > before the 20 hours the guests are still there; after them every participant, seat, person, consent tick and name is gone
+  break 8: the end of 365 days never deletes the game  [apps/edge/src/worker.ts]  -> RED  11 pass, 1 fail
+      failing: the permanent game log > the record is still there after the game's own rows are erased at 365 days (it is never deleted); the count is not overwritten by zero
+  break 9: the game record loses its count when the guests are gone  [apps/edge/src/gamerecord.ts]  -> RED  11 pass, 1 fail
+      failing: the permanent game log > the record is still there after the game's own rows are erased at 365 days (it is never deleted); the count is not overwritten by zero
+  break 10: an acceptance of an old Terms version still counts  [apps/edge/src/consent.ts]  -> RED  11 pass, 1 fail
+      failing: consent that is safe across Terms versions > an acceptance of an OLD version does not count: the person is asked again (hasConsent false), and the current one does
+  break 11: the same acceptance is stored twice  [apps/edge/src/consent.ts]  -> RED  11 pass, 1 fail
+      failing: consent that is safe across Terms versions > recording the same acceptance twice stores one row; the row keeps the version, the boxes and a hash of the wording shown
+  break 12: erasing a game's guests also erases the organizers' ticks for it  [apps/edge/src/consent.ts]  -> RED  11 pass, 1 fail
+      failing: consent that is safe across Terms versions > erasing a game's guests removes only the K4 ticks of that game, not other games' and not organizers' ticks
+  break 13: any TERMS_VERSION text is accepted  [apps/edge/src/consent.ts]  -> RED  11 pass, 1 fail
+      failing: consent that is safe across Terms versions > checkConsent accepts only the current version with every box; an old, future, missing or partial tick is refused
+  restored: GREEN  12 pass, 0 fail
+  branch product code untouched: yes
+RESULT erase-log-consent: every planted break was caught

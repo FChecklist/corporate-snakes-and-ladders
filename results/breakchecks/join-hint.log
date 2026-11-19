@@ -1,0 +1,20 @@
+BREAKCHECK join-hint  (scratch copy: /tmp/claude-0/-home-user-corporate-snakes-and-ladders/117805c9-be35-5a9a-b7a1-0275cf74a649/scratchpad/breakcheck-NJ12m9; tests: apps/web/test/t30-m2-join-hint.test.ts)
+  baseline: GREEN  4 pass, 0 fail
+  break 1: the hint shows even when cleaning changes nothing  [apps/web/public/z.js]  -> RED  2 pass, 2 fail
+      failing: join page: 'The system will read this as ...' > the hint appears only when cleaning changes the text, and shows the cleaned ID
+      failing: join page: 'The system will read this as ...' > the page's reading equals the server's cleanEmpId for 60 spellings
+  break 2: the hint never shows  [apps/web/public/z.js]  -> RED  2 pass, 2 fail
+      failing: join page: 'The system will read this as ...' > the hint appears only when cleaning changes the text, and shows the cleaned ID
+      failing: join page: 'The system will read this as ...' > the page's reading equals the server's cleanEmpId for 60 spellings
+  break 3: the page reads the ID differently from the server (keeps dashes)  [apps/web/public/z.js]  -> RED  2 pass, 2 fail
+      failing: join page: 'The system will read this as ...' > the hint appears only when cleaning changes the text, and shows the cleaned ID
+      failing: join page: 'The system will read this as ...' > the page's reading equals the server's cleanEmpId for 60 spellings
+  break 4: the hint wording changes  [apps/web/public/z.js]  -> RED  2 pass, 2 fail
+      failing: join page: 'The system will read this as ...' > the hint appears only when cleaning changes the text, and shows the cleaned ID
+      failing: join page: 'The system will read this as ...' > the page's reading equals the server's cleanEmpId for 60 spellings
+  break 5: the hint is not updated while typing  [apps/web/public/z.js]  -> RED  2 pass, 2 fail
+      failing: join page: 'The system will read this as ...' > the hint appears only when cleaning changes the text, and shows the cleaned ID
+      failing: join page: 'The system will read this as ...' > the page's reading equals the server's cleanEmpId for 60 spellings
+  restored: GREEN  4 pass, 0 fail
+  branch product code untouched: yes
+RESULT join-hint: every planted break was caught

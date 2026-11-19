@@ -1,0 +1,29 @@
+BREAKCHECK landing  (scratch copy: /tmp/claude-0/-home-user-corporate-snakes-and-ladders/117805c9-be35-5a9a-b7a1-0275cf74a649/scratchpad/breakcheck-yacVN4; tests: apps/web/test/t30-m3-landing.test.ts)
+  baseline: GREEN  17 pass, 0 fail
+  break 1: a menu item (Brochure) is missing  [apps/web/public/index.html]  -> RED  16 pass, 1 fail
+      failing: landing: kit header > the main menu has exactly the six items, in order, with the right links
+  break 2: the Guide link points to the wrong page  [apps/web/public/index.html]  -> RED  15 pass, 2 fail
+      failing: landing: kit header > the main menu has exactly the six items, in order, with the right links
+      failing: landing: kit footer > every menu and footer link that points into this site has a file behind it (no dead page)
+  break 3: the old header (.snav) comes back  [apps/web/public/index.html]  -> RED  16 pass, 1 fail
+      failing: landing: kit header > the old header is gone: no .snav element anywhere in the page or in its styles
+  break 4: the Version slot is removed from the footer  [apps/web/public/index.html]  -> RED  16 pass, 1 fail
+      failing: landing: kit footer > there is a footer with a Version slot (#relline) at the bottom of the page, after the legal text
+  break 5: a theme dot is missing  [apps/web/public/index.html]  -> RED  15 pass, 2 fail
+      failing: landing: kit header > three theme dots (blue, maroon, emerald) with labels; blue is pressed at first
+      failing: landing: kit header behaviour (the real brandkit.js) > a theme dot sets data-theme on the page, marks only itself pressed, and remembers the choice
+  break 6: the Menu button does not open the menu  [apps/web/public/brandkit.js]  -> RED  16 pass, 1 fail
+      failing: landing: kit header behaviour (the real brandkit.js) > Menu opens the nav (class open, aria-expanded true, text Close); a second click closes; Escape closes
+  break 7: a theme dot does not change the theme  [apps/web/public/brandkit.js]  -> RED  15 pass, 2 fail
+      failing: landing: kit header behaviour (the real brandkit.js) > a theme dot sets data-theme on the page, marks only itself pressed, and remembers the choice
+      failing: landing: kit header behaviour (the real brandkit.js) > storage blocked (private window, cleared data) does not stop the buttons
+  break 8: Escape no longer closes the menu  [apps/web/public/brandkit.js]  -> RED  16 pass, 1 fail
+      failing: landing: kit header behaviour (the real brandkit.js) > Menu opens the nav (class open, aria-expanded true, text Close); a second click closes; Escape closes
+  break 9: a legal link points to a page that does not exist  [apps/web/public/index.html]  -> RED  15 pass, 2 fail
+      failing: landing: kit footer > the legal links go to this site's own pages (relative paths) and every one of those files exists
+      failing: landing: kit footer > every menu and footer link that points into this site has a file behind it (no dead page)
+  break 10: the page stops loading release-line.js  [apps/web/public/index.html]  -> RED  16 pass, 1 fail
+      failing: landing: kit footer > the page loads release-line.js and it comes after the footer
+  restored: GREEN  17 pass, 0 fail
+  branch product code untouched: yes
+RESULT landing: every planted break was caught
