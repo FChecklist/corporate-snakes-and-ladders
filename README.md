@@ -13,3 +13,6 @@ A separate product, built as a one-time copy of another game's source and then r
 - Cloudflare config for a NEW project `corporate-snakes-and-ladders` and D1 database `corporate-snakes-and-ladders`: `pages/wrangler.toml`, `apps/edge/wrangler.toml` (the database id is in `pages/wrangler.toml`; `apps/edge/wrangler.toml` keeps a placeholder)
 
 Layout: `packages/shared` (pricing and shared helpers), `packages/beacon` (random beacon, engine, phone runtime), `packages/billing`, `apps/edge` (Worker API), `apps/web/public` (all pages), `apps/cron`, `pages/` (Pages build and functions), `tools/sim2` (simulation harness).
+
+
+See [KNOWLEDGE-MAP.md](KNOWLEDGE-MAP.md) for what this repository is for and what the other repositories are for (updated 14 Nov 2026).
