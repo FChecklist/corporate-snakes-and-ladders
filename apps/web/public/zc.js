@@ -341,7 +341,7 @@
       + small(rulesNow() ? "Every turn lasts this long. The throw happens by itself when the window closes." : "Every turn lasts this long. In \"Players throw\" play, a player must throw inside the window. In automatic play the throw happens by itself when the window closes.")
       + small(durationLine(f))
       + gameBlock()
-      + (rulesNow() ? `<span class="zc-lbl zc-sec zc-sub">Invite people with just an ID</span>` + small("No names or personal details are needed. You paste or upload the IDs in step 6. Your invitee opens the game link and enters their ID. If it is not on your list, you get a request to approve or decline.") : "")
+      + (rulesNow() ? `<span class="zc-lbl zc-sec zc-sub">Invite people with just an ID</span>` + small("No names or personal details are needed. You paste or upload the IDs in step 6. Your invitee opens the game link and enters their ID. If it is not on your list, you get a request to approve or decline. An ID is matched to your list, it is not proven: anyone who types an ID on your list takes that person's place, so send the game link only to the people you invite. Wrong IDs are limited for each network, but a right ID is never counted.") : "")
       + (rulesNow() ? "" : (""
       + `<span class="zc-lbl zc-sec zc-sub">Who is this game for?</span><div class="zc-chips">${bchip("emp", "Only your employees (nobody can invite anyone)")}</div>`
       + small(f.emp ? "Only the employees on your list can play. Guests cannot invite anyone. Anyone else who opens your link waits for you to say yes." : "Employees, vendors, customers, families: everyone can play. Put the people you know on your list; others can still come in with the link.")

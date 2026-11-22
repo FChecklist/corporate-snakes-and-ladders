@@ -1,1 +1,1 @@
-{ "name": "@snakes/billing", "version": "1.5.0", "type": "module", "main": "src/index.ts" }
+{ "name": "@snakes/billing", "version": "1.5.1", "type": "module", "main": "src/index.ts" }

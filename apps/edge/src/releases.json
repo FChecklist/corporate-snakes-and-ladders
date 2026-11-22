@@ -1,5 +1,18 @@
 [
   {
+    "version": "1.5.1",
+    "date": "2026-11-22",
+    "commit": "",
+    "title": "Fixes after the first two audits of 1.5.0",
+    "changes": [
+      "Wrong employee IDs are limited for each network: 30 in 10 minutes for each game, counted together for \"Is this you?\" and joining, and one phone network on mobile data counts as one",
+      "A right ID is never counted or refused by that limit (an office shares one address). An ID is matched to your list, it is not proven, so send the game link only to the people you invite",
+      "One order id can never mark two games paid, a game that is already paid does not use up a second order id, and a secret shorter than 32 characters is not accepted",
+      "The AI guide now calls the button Your people, as the screens do",
+      "The counters of wrong IDs are deleted with the game's other participant data"
+    ]
+  },
+  {
     "version": "1.5.0",
     "date": "2026-11-22",
     "commit": "",

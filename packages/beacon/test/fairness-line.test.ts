@@ -25,7 +25,6 @@ describe("it is true: nobody can know the next roll", () => {
     const src = rollFor.toString(); expect(src).not.toMatch(/Math\.random|Date\.now|cfg|config|organizer|host/i);
   });
   test("(2) with everything known before the window closes fixed (game, seat, turn, every earlier value) all six faces stay possible and equally likely", () => {
-    const early = Array.from({ length: 20 }, (_, i) => hex("earlier" + i)); void early; // the earlier published values do not enter the next roll at all
     const N = 12000, count = [0, 0, 0, 0, 0, 0, 0];
     for (let i = 0; i < N; i++) count[rollFor("G-1", 3, 7, hex("unknown-future-value-" + i))]!++;
     expect(count[0]).toBe(0);

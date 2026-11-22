@@ -424,6 +424,8 @@ export const PAYER: Record<string, string> = { master: "organizer", host: "host"
 
 /** The console's signed notice is valid for this long either side of its time stamp (a copy sent later is refused, so an old notice cannot be replayed for ever). */
 export const CONSOLE_NOTICE_WINDOW_MS = 5 * 60_000;
+/** A shared secret shorter than this is treated as no secret at all (the address stays 404): a short secret can be guessed. Use a long random value. */
+export const CONSOLE_SECRET_MIN = 32;
 const hmacHexOf = async (secret: string, msg: string): Promise<string> => { const k = await crypto.subtle.importKey("raw", new TextEncoder().encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]); return Array.from(new Uint8Array(await crypto.subtle.sign("HMAC", k, new TextEncoder().encode(msg))), (b) => b.toString(16).padStart(2, "0")).join(""); };
 const sameText = (a: string, b: string): boolean => { if (a.length !== b.length) return false; let d = 0; for (let i = 0; i < a.length; i++) d |= a.charCodeAt(i) ^ b.charCodeAt(i); return d === 0; };
 /**
@@ -434,7 +436,7 @@ const sameText = (a: string, b: string): boolean => { if (a.length !== b.length)
  */
 async function consolePaid(req: Request, env: PayEnv, now: number): Promise<Response> {
   const secret = env.CONSOLE_PAID_SECRET;
-  if (!secret || env.OWNER_RULES !== "1.1" || req.method !== "POST") return json({ error: "Not found" }, 404);
+  if (!secret || secret.length < CONSOLE_SECRET_MIN || env.OWNER_RULES !== "1.1" || req.method !== "POST") return json({ error: "Not found" }, 404);
   if (Number(req.headers.get("content-length") ?? 0) > 1024) return json({ error: "Too large." }, 413); // refused before the body is read
   const raw = await req.text();
   if (raw.length > 1024) return json({ error: "Too large." }, 413);
@@ -445,18 +447,20 @@ async function consolePaid(req: Request, env: PayEnv, now: number): Promise<Resp
   const orderId = typeof b?.orderId === "string" ? b.orderId : "", gameId = typeof b?.gameId === "string" ? b.gameId : "";
   if (!/^[A-Za-z0-9_-]{6,64}$/.test(orderId) || !/^[A-Za-z0-9_-]{3,40}$/.test(gameId)) return json({ error: "A notice needs an order id and a game id.", code: "bad-notice" }, 400);
   const db = env.DB, key = `cpaid/${orderId}`;
+  const answerSeen = (v: string): Response => { let was: any = {}; try { was = JSON.parse(v); } catch { /* unreadable: treated as another game */ } return was.gameId === gameId ? json({ ok: true, already: true, gameId }) : json({ error: "This order id was already used for another game.", code: "order-reused" }, 409); };
   const seen = await db.prepare("SELECT v FROM kv WHERE k=?").bind(key).first<{ v: string }>();
-  if (seen) { let was: any = {}; try { was = JSON.parse(seen.v); } catch { /* unreadable: treated as another game */ } return was.gameId === gameId ? json({ ok: true, already: true, gameId }) : json({ error: "This order id was already used for another game.", code: "order-reused" }, 409); }
+  if (seen) return answerSeen(seen.v);
   const g = await db.prepare("SELECT id, org, cap, pack, start_round, cancelled_ms, unplayed_ms FROM engagement WHERE id=?").bind(gameId).first<any>();
   if (!g) return json({ error: "No such game.", code: "no-game" }, 404);
   if (g.cancelled_ms || g.unplayed_ms) return json({ error: "This game was cancelled or closed, so it cannot be marked paid.", code: "game-closed" }, 409);
   const pack = PACKS.find((x) => x[0] >= g.cap)?.[0] ?? null;
   if (!pack) return json({ error: "That many people needs a custom arrangement.", code: "no-pack" }, 400);
-  const res = await db.batch([
-    db.prepare("INSERT INTO kv(k,v) VALUES(?,?) ON CONFLICT(k) DO NOTHING").bind(key, JSON.stringify({ gameId, ms: now })),
-    db.prepare("UPDATE engagement SET pack=?, cap=MIN(cap, ?) WHERE id=? AND pack=0 AND cancelled_ms IS NULL AND unplayed_ms IS NULL").bind(pack, pack, gameId),
-  ]);
-  const changed = (res[1] as any)?.meta?.changes ?? 0;
+  if ((g.pack ?? 0) > 0) return json({ ok: true, gameId, paid: true, already: true }); // already paid: nothing to mark, and this order id is not used up for no effect
+  // The order id is claimed FIRST, on its own. Only the notice that won the claim may mark a game paid: two notices with one order id for two games, sent at the same moment, cannot both do it.
+  const claim = await db.prepare("INSERT INTO kv(k,v) VALUES(?,?) ON CONFLICT(k) DO NOTHING").bind(key, JSON.stringify({ gameId, ms: now })).run();
+  if (((claim as any)?.meta?.changes ?? 0) === 0) { const w = await db.prepare("SELECT v FROM kv WHERE k=?").bind(key).first<{ v: string }>(); return w ? answerSeen(w.v) : json({ error: "This order id was already used for another game.", code: "order-reused" }, 409); } // (the claim was released a moment ago by a notice that lost a race with a cancel: refused, the console can send it again)
+  const upd = await db.prepare("UPDATE engagement SET pack=?, cap=MIN(cap, ?) WHERE id=? AND pack=0 AND cancelled_ms IS NULL AND unplayed_ms IS NULL").bind(pack, pack, gameId).run();
+  const changed = (upd as any)?.meta?.changes ?? 0;
   if (changed === 0) { // nothing was marked: either the game was paid already, or it was cancelled between the check and the write. In the second case the order id is released and the notice is refused.
     const now0 = await db.prepare("SELECT pack FROM engagement WHERE id=?").bind(gameId).first<{ pack: number | null }>();
     if (!now0 || (now0.pack ?? 0) === 0) { await db.prepare("DELETE FROM kv WHERE k=?").bind(key).run(); return json({ error: "This game was cancelled or closed, so it cannot be marked paid.", code: "game-closed" }, 409); }

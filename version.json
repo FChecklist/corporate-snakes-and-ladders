@@ -1,9 +1,15 @@
 {
   "product": "Corporate Snakes and Ladders",
-  "version": "1.5.0",
+  "version": "1.5.1",
   "commit": "set by the build",
   "builtAt": "set by the build",
   "changes": [
+    {
+      "id": "2026-11-22-audit-fixes-1-5-1",
+      "what": "Wrong employee IDs are now limited for each network in a way that holds (one count for \"Is this you?\" and joining, counted in one step, an IPv6 network counted as one), a right ID is never counted and the screens and notes now say so; one order id can never mark two games paid; the AI guide names the Your people button correctly; a too-short signing code for the console's notice is refused",
+      "where": "apps/edge/src (worker.ts, pay.ts, lifecycle.ts, ai-functions.ts, price-adjust.ts), apps/web/public/zc.js",
+      "pr": "p1/owner-rules-v1-1"
+    },
     {
       "id": "2026-11-22-owner-rules-1-1",
       "what": "Invite by employee ID only (A-1101, A 1101 and A/1101 are one ID; an ID not on your list waits for your yes or no); the game starts by itself and every throw happens by itself; a game is paid only from the console; every organizer and host screen says you; rupee sign, one privacy line, one fairness sentence",

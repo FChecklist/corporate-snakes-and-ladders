@@ -37,6 +37,17 @@ describe("console voice: the organizer and host screens say you, never I, my, me
     const hits = present.flatMap((f) => firstPersonIn(f, readFileSync(join(PUB, f), "utf8")));
     expect(hits).toEqual([]);
   });
+  test("the texts the server sends to the organizer (the AI guide) name the buttons as the screens do, and say you", () => {
+    for (const f of ["apps/edge/src/ai-functions.ts"]) {
+      const src = rd(f); expect([f, /My people/.test(src)]).toEqual([f, false]); expect(src).toContain("Your people");
+      expect(firstPersonIn(f, src).filter((h) => !h.includes("I do not know that") && !h.includes("Answer questions about the software"))).toEqual([]); // the one allowed exception is the AI's own quoted reply "I do not know that"
+    }
+    expect(rd("apps/web/public/zc.js")).not.toMatch(/"My people"|>My people</); // the button is named Your people
+  });
+  test("the console says what an ID check is: matched, not proven; wrong IDs are limited for each network, a right ID is never counted", () => {
+    const z = rd("apps/web/public/zc.js"); expect(z).toContain("it is not proven"); expect(z).toContain("a right ID is never counted");
+    for (const f of ["docs/KNOWLEDGE.md", "CHANGELOG.md"]) { const t = rd(f); expect([f, t.includes("matched, not proven")]).toEqual([f, true]); expect([f, /right ID is never counted/.test(t)]).toEqual([f, true]); }
+  });
   test("the approved start, throws and invite words are on the screens", () => {
     const zc = rd("apps/web/public/zc.js");
     for (const w of ["The game starts by itself at this time. You do nothing.", "Every throw happens by itself", "Invite people with just an ID", "No names or personal details are needed.", "Just upload or paste the IDs of the people you want to invite: employee ID, associate ID, vendor ID or customer ID, whichever you use.", "Your invitee opens the game link and enters their ID. If it is on your list, they join and play. If it is not, you get a request to approve or decline.", "The list and all IDs are deleted within 24 hours after the game ends."]) expect(zc).toContain(w);
