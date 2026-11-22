@@ -1,5 +1,7 @@
 # Versioning to do (Corporate Snakes and Ladders)
 
+Status 22 Nov 2026 (version 1.5.0 PR): items 1, 2 and 5 are done; item 3 is partly done (the footer shows "Version X" from `release.json`); items 4 and 6 are still to do.
+
 Not done in the docs-only pass (no app code was changed). The game's own session does these inside its PR:
 1. Add `version.json` (source file, schema in the standard section 2.1: product, version, commit, builtAt, changes[last 20]: id, what, where, pr). Today `pages/version.mjs` writes only commit, dirty, builtAt, game; extend it to also copy version and changes.
 2. Pick the first version number and write it: no version yet; propose 1.0.0 for the current live build (commit 042b4d666c68).

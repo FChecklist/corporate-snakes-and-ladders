@@ -1,0 +1,20 @@
+{
+  "product": "Corporate Snakes and Ladders",
+  "version": "1.5.0",
+  "commit": "set by the build",
+  "builtAt": "set by the build",
+  "changes": [
+    {
+      "id": "2026-11-22-owner-rules-1-1",
+      "what": "Invite by employee ID only (A-1101, A 1101 and A/1101 are one ID; an ID not on your list waits for your yes or no); the game starts by itself and every throw happens by itself; a game is paid only from the console; every organizer and host screen says you; rupee sign, one privacy line, one fairness sentence",
+      "where": "apps/edge/src (worker.ts, pay.ts, people.ts), packages/beacon/src/config.ts, apps/web/public (zc.js, z.js, pay.js, guide.js), pages/wrangler.toml",
+      "pr": "p1/owner-rules-v1-1"
+    },
+    {
+      "id": "2026-11-19-milestone-tiebreak",
+      "what": "Milestone prize tie on the same turn is decided by the square at arrival, not the current square",
+      "where": "packages/beacon/src/race.ts",
+      "pr": "12"
+    }
+  ]
+}

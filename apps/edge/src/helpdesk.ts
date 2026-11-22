@@ -92,7 +92,7 @@ export async function helperRefFor(db: D1, eid: string | null | undefined): Prom
   if (!eid) return null;
   try { return (await db.prepare("SELECT partner_code FROM helpdesk_game WHERE eid=?").bind(eid).first<{ partner_code: string }>())?.partner_code ?? null; } catch { return null; }
 }
-/** Hook for "Close my organizer account": the statements that remove every Help Desk row of that account (before the key rows go). */
+/** Hook for "Close your organizer account": the statements that remove every Help Desk row of that account (before the key rows go). */
 export function helpdeskCloseStatements(db: D1, org: string) {
   return [
     db.prepare("DELETE FROM helpdesk_game WHERE link_id IN (SELECT id FROM helpdesk_link WHERE org=?)").bind(org),

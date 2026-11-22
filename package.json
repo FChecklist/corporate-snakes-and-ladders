@@ -1,5 +1,6 @@
 {
   "name": "corporate-snakes-and-ladders",
+  "version": "1.5.0",
   "private": true,
   "workspaces": [
     "packages/*",

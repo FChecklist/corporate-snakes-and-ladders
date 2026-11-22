@@ -144,7 +144,7 @@ describe("owner price: pending to paid at Rs 1", () => {
     const html = await (await call("GET", res.invoiceUrl)).text(); expect(html).toContain("price as agreed"); expect(html).not.toMatch(/coupon|discount|2,399|2399/i);
     expect(JSON.stringify(res)).not.toMatch(SECRET_WORDS);
     const owner = q("SELECT body, subject FROM outbox WHERE subject LIKE '%Paid order%'").map((m) => m.subject + "\n" + m.body).join("\n");
-    expect(owner).toMatch(/owner set price: list Rs 2,399, adjustment minus Rs 2,398/); // the owner's own paid-order mail keeps the full picture
+    expect(owner).toMatch(/owner set price: list ₹2,399, adjustment minus ₹2,398/); // the owner's own paid-order mail keeps the full picture
     const orgMail = q("SELECT body, subject FROM outbox WHERE subject NOT LIKE '%Paid order%'").map((m) => m.subject + "\n" + m.body).join("\n");
     expect(orgMail).toContain("price as agreed"); expect(orgMail).not.toMatch(/coupon|discount|promo|2,399|2399/i); // the organizer's mails say nothing else
     expect(one("SELECT seq FROM invoice WHERE payment_id=?", c.body.paymentId).seq).toBe(1); // invoice numbering is unchanged

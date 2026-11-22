@@ -30,3 +30,7 @@ The owner's decisions for every Corporate Games product. Full text: `plans/ID-IN
 - **Console voice.** The organizer console speaks to the organizer as "you", never "I" or "my", in simple words. Start wording: "The game starts by itself" / "You start the game"; numbers (Tambola and Bingo only): "Numbers come by themselves" / "You call the numbers". Rules and examples: [docs/CONSOLE_VOICE.md](docs/CONSOLE_VOICE.md). Ledger notes: `plans/ID-INVITE-AND-ARCHITECTURE-RULES-2026-11-20.md` in the private `marketing-ledger` repo.
 
 suiteRulesVersion: 1.1 (20 Nov 2026). Owner rules copy: docs/SUITE_RULES.md. Source: marketing-ledger plans/SUITE-RULES-VERSION-2026-11-20.md.
+
+## Version 1.5.0 (22 Nov 2026): owner rules 1.1 built
+
+Invite by employee ID only, the game and every throw by themselves, a game paid only by the console's signed notice (`POST /api/console/paid`), organizer and host screens that say "you", the rupee sign, one privacy line and one fairness sentence. Switch: `OWNER_RULES = "1.1"` in `pages/wrangler.toml`. What it does and what is left for the owner: [CHANGELOG.md](CHANGELOG.md) and [docs/KNOWLEDGE.md](docs/KNOWLEDGE.md) section 4a.

@@ -20,16 +20,19 @@
     if (!r.ok) { const err = Object.assign(new Error(j.error || "Something went wrong. Please try again."), { status: r.status }); if (window.CTG) { CTG.wrap(err, { what: method + " " + path.split("?")[0].replace(/\/[0-9a-f]{16,}/gi, "/...") }); if (method !== "GET") { err.guided = true; CTG.watch(err, { retry: () => call(method, path, body) }); } } throw err; }
     return j;
   };
-  const back = () => `<p style="margin:0 0 6px"><a class="pk-link" id="pkback" href="/zc.html?e=${encodeURIComponent(eid)}">← Back to my game</a></p>`;
+  const back = () => `<p style="margin:0 0 6px"><a class="pk-link" id="pkback" href="/zc.html?e=${encodeURIComponent(eid)}">← Back to your game</a></p>`;
   const head = (title, lead) => `<h1 class="pk-h1" id="pk-h1" tabindex="-1">${esc(title)}</h1>${lead ? `<p class="pk-lead">${lead}</p>` : ""}`;
   const packFor = (cap) => { const p = TB.PACKS.find((x) => x[0] >= cap); return p ? p[0] : null; };
   const when = (ms) => ms ? `${PK.istDate(ms)}, ${PK.istTime(ms)}` : "";
 
   /** calm card while a payment may be on its way: no pay form, no second payment */
-  const waitCard = () => `${back()}${head("We are checking your payment")}<section class="pk-card" id="paywait" role="status"><p class="pk-sub">${S.busy ? "Please keep this page open. This can take a few minutes." : "A payment for this game is still being confirmed. If money left your account, the game starts as soon as the bank confirms. Please do not pay again."}</p>${PK.errBox()}<button class="pk-btn${S.busy ? " is-busy" : ""}" id="chkpay" type="button"${S.busy ? " disabled" : ""}>${S.busy ? "Checking…" : "Check my payment"}</button>${S.wait === "hold" && !S.busy ? '<p class="pk-note"><button type="button" class="pk-link" id="payagain">No money was taken. Let me pay again.</button></p>' : ""}</section>${PK.live()}`;
-  const open = (label) => `<a class="pk-btn" href="/zc.html?e=${encodeURIComponent(label)}">Open my game</a>`;
+  const waitCard = () => `${back()}${head("We are checking your payment")}<section class="pk-card" id="paywait" role="status"><p class="pk-sub">${S.busy ? "Please keep this page open. This can take a few minutes." : "A payment for this game is still being confirmed. If money left your account, the game starts as soon as the bank confirms. Please do not pay again."}</p>${PK.errBox()}<button class="pk-btn${S.busy ? " is-busy" : ""}" id="chkpay" type="button"${S.busy ? " disabled" : ""}>${S.busy ? "Checking…" : "Check your payment"}</button>${S.wait === "hold" && !S.busy ? '<p class="pk-note"><button type="button" class="pk-link" id="payagain">No money was taken. Pay again.</button></p>' : ""}</section>${PK.live()}`;
+  const open = (label) => `<a class="pk-btn" href="/zc.html?e=${encodeURIComponent(label)}">Open your game</a>`;
 
+  /** Owner rules 1.1: this page takes no money. A game is paid in the console, and the console tells the game. */
+  const inConsole = () => `${back()}${head("You pay in the console")}<section class="pk-card" id="payinconsole" role="status"><p class="pk-sub">This page does not take payments. Open the console, press Pay on your game, and come back here. As soon as the console tells us the game is paid, your game starts by itself at the time you set.</p><a class="pk-btn" href="https://console.corporatetambola.com/">Open the console</a></section>`;
   function view() {
+    if (S.rules) return inConsole();
     if (!secret) return `${head("Please sign in first")}<section class="pk-card"><p class="pk-sub">Open your console from the home page, or sign in with your e-mail: we send you a 6-digit code.</p><a class="pk-btn" href="/#login" id="goLogin">Sign in with email</a></section>`;
     if (S.done) {
       const d = S.done, gid = d.eid || eid, pack = d.pack || (S.info && packFor(S.info.cap)) || 0;
@@ -46,7 +49,7 @@
     if (!S.info) return `${back()}${S.err ? head("We could not open this game", esc(S.err)) : PK.layout({ title: "Publish your game", lead: "Loading the game details…", wait: 1, step: 1, aside: PK.summarySkeleton(), col: '<section class="pk-card" aria-busy="true"><div class="pk-skel l1"></div><div class="pk-skel l2"></div><div class="pk-skel l3"></div></section>' })}`;
     if (S.wait) return waitCard();
     const pack = packFor(S.info.cap);
-    if (!S.info.draft && !S.info.unpaid) return `${back()}${head("This game is already paid and published")}<section class="pk-card pk-single"><a class="pk-btn" href="/zc.html?e=${encodeURIComponent(eid)}">Open my game</a></section>`;
+    if (!S.info.draft && !S.info.unpaid) return `${back()}${head("This game is already paid and published")}<section class="pk-card pk-single"><a class="pk-btn" href="/zc.html?e=${encodeURIComponent(eid)}">Open your game</a></section>`;
     if (!pack) return `${back()}${head("A custom arrangement is needed", "An game for more than 10,000 participants is arranged with us directly. Please write to us from the contact page.")}`;
     const c = cur(), known = !!PK.cur(S), x = TB.price(pack, c);
     const applied = c === "INR" ? Math.max(Number(S.credited) || 0, Number(S.info.creditApplied) || 0) : 0; // credit already put on this game (by you, or by a Host); it comes off what you pay
@@ -62,7 +65,7 @@
       aside: PK.summary({ game: { id: eid, name: S.info.name || eid, startMs: S.info.startMs, participants: pack }, noPrice: !known, price: { total: due, base: x.base, gst: x.tax, currency: c }, listTotal: applied ? x.total : null, creditUsed: applied || 0, totalLabel: applied ? "To pay now" : "Total to pay" }) + PK.trust(),
       col: `${off ? '<div class="pk-msg info" role="status">' + PK.icons.info + '<span><b>Online payment opens soon.</b> Your game is saved and nothing is lost. Come back to this page when payment is switched on. Until then it stays held at its start time.</span></div>' : ""}
         <section class="pk-card"><h2>About this payment</h2><p class="pk-sub">Every participant gets their own ticket on their phone. Participants never pay: you give the rewards. A paid game cancelled before it starts stays with you as credit for your next game, valid for 365 days. Unused credit lapses at the end of day 365. The credit belongs to your organizer account.</p>${pending}</section>
-        ${avail ? `<section class="pk-card done"><h2>Use your credit</h2><p class="pk-sub">You have credit of <b>${esc(TB.money(avail, "INR"))}</b>${until ? ` (valid until ${esc(until)})` : ""}. Use it for this game.</p>${S.err && S.creditErr ? `<div class="pk-msg bad" role="alert">${PK.icons.alert}<span>${esc(S.err)}</span></div>` : ""}<button class="pk-btn" id="usecredit" type="button" ${S.busy ? "disabled" : ""}>Use my credit</button></section>` : ""}
+        ${avail ? `<section class="pk-card done"><h2>Use your credit</h2><p class="pk-sub">You have credit of <b>${esc(TB.money(avail, "INR"))}</b>${until ? ` (valid until ${esc(until)})` : ""}. Use it for this game.</p>${S.err && S.creditErr ? `<div class="pk-msg bad" role="alert">${PK.icons.alert}<span>${esc(S.err)}</span></div>` : ""}<button class="pk-btn" id="usecredit" type="button" ${S.busy ? "disabled" : ""}>Use your credit</button></section>` : ""}
         ${PK.countryLine(S)}
         ${TB.proformaBox()}
         <section class="pk-card"><h2>Pay</h2><p class="pk-sub">Razorpay's secure page asks for your mobile number and e-mail, and your tax invoice is sent there.</p>
@@ -133,7 +136,7 @@
     if (!eid) { S.err = "No game was chosen."; return draw(); }
     try {
       await PK.where(S);
-      const st = await fetch("/api/payments/status").then((r) => r.json()); S.mode = st.mode;
+      const st = await fetch("/api/payments/status").then((r) => r.json()); S.mode = st.mode; S.rules = st.ownerRules === true;
       const h = await call("GET", `/api/z/${eid}/cohost`); S.wait = (h.payment && (h.payment.status || h.payment)) === "confirming" ? "load" : ""; // only the Organizer, a Host or a Co-host of THIS game's account passes; anyone else gets a 403 and a calm message
       try { S.info = await call("GET", `/api/z/${eid}/info`); }
       catch (e0) { // a Co-host may pay but cannot read the game: use the small game header they are allowed

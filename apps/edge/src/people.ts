@@ -56,7 +56,9 @@ export { cleanEmail };
 /** Games created before this instant keep the old reading of an ID. SET AT DEPLOY (placeholder: year 2100 = nobody gets the new rule until the boss sets it). */
 export const EMP_CLEAN_FROM_MS = 4102444800000;
 /** Does this game (its row has created_ms) use the uniform reading? */
-export const empCleanFor = (e: { created_ms?: number | null } | null | undefined, from: number = EMP_CLEAN_FROM_MS): boolean => typeof e?.created_ms === "number" && e.created_ms >= from;
+export const empCleanFor = (e: { created_ms?: number | null; config?: string | null } | null | undefined, from: number = EMP_CLEAN_FROM_MS): boolean => rulesOf(e) || (typeof e?.created_ms === "number" && e.created_ms >= from);
+/** Owner rules 1.1 (20 Nov 2026): was this game made under them? The mark is stored with the game's settings, so a game keeps the rules it was made with. Under them people come in by employee ID only, with no name and no mobile number kept, and the ID is read the one uniform way (A-1101, A 1101 and A/1101 are all A1101). */
+export const rulesOf = (e: { config?: string | null } | null | undefined): boolean => { try { return !!e?.config && JSON.parse(e.config).rules === "1.1"; } catch { return false; } };
 /** An employee ID as typed. "" = nothing typed, null = not a usable ID. New games: cleanEmpId, at most 30 characters, empty after cleaning = refused. Old games: the old reading. */
 export const normEmp = (raw: unknown, clean = false): string | null => {
   if (clean) { const typed = String(raw ?? "").trim(); if (!typed) return ""; const s = cleanEmpId(typed); return s && s.length <= 30 ? s : null; }
@@ -75,7 +77,7 @@ export const badIdMessage = (raw: unknown, kind: "emp" | "email", clean = false)
 /** The identity of a person who is known by employee ID alone (no mobile number needed). One hash for the same ID in every game, like the phone hash. */
 export const empHashOf = (env: { PHONE_SALT?: string; ORGANIZER_SECRET?: string }, id: string) => sha(`${env.PHONE_SALT ?? env.ORGANIZER_SECRET ?? "unset"}|emp|${id}`);
 /** What the organizer asked people to give to get in, read from the game's stored settings. */
-export const verifyOf = (e: { config?: string | null }): { mode: "mobile" | "id" | "either" | "both"; employeesOnly: boolean; idKind: "emp" | "email" } => { try { const j = e.config ? JSON.parse(e.config) : {}; return { mode: j.verify === "id" || j.verify === "either" || j.verify === "both" ? j.verify : "mobile", employeesOnly: j.employeesOnly === true, idKind: j.idKind === "email" ? "email" : "emp" }; } catch { return { mode: "mobile", employeesOnly: false, idKind: "emp" }; } };
+export const verifyOf = (e: { config?: string | null }): { mode: "mobile" | "id" | "either" | "both"; employeesOnly: boolean; idKind: "emp" | "email" } => { if (rulesOf(e)) return { mode: "id", employeesOnly: true, idKind: "emp" }; try { const j = e.config ? JSON.parse(e.config) : {}; return { mode: j.verify === "id" || j.verify === "either" || j.verify === "both" ? j.verify : "mobile", employeesOnly: j.employeesOnly === true, idKind: j.idKind === "email" ? "email" : "emp" }; } catch { return { mode: "mobile", employeesOnly: false, idKind: "emp" }; } };
 
 export { cleanPhone, maskedPhone, keptPhone, phoneDigits, keptFromClean } from "./phonekit";
 export type { Cleaned } from "./phonekit";
@@ -287,8 +289,9 @@ async function addPeople(c: Ctx, who: Caller, b: any): Promise<Response> {
   if (c.now >= await c.endBound()) return c.json({ error: "The game has ended, so no one can be added." }, 409);
   const invalid: { raw: string; why: string }[] = []; let duplicates = 0; const duplicateRows: { raw: string; why: string }[] = [];
   const seen = new Set<string>(); const todo: { name: string; digits: string; ph: string; empId?: string; idHash?: string; typed: string }[] = [];
-  const vf = verifyOf(c.e);
-  for (const x of b.people) {
+  const vf = verifyOf(c.e), idOnly = rulesOf(c.e); // idOnly (owner rules 1.1): only the ID is read from each row; a name or a mobile number sent along is dropped, never kept
+  for (let x of b.people) {
+    if (idOnly) x = { empId: x?.empId ?? x?.employeeId };
     const raw = `${cleanName(x?.name)} ${String(x?.phone ?? "")}`.trim().slice(0, 100);
     const empRaw = x?.empId ?? x?.employeeId, emp = normId(empRaw, vf.idKind, empCleanFor(c.e));
     const typed = (String(empRaw ?? "").trim() || String(x?.phone ?? "").trim() || raw).slice(0, 100); // what the person typed in the ID (or number) cell
@@ -423,7 +426,7 @@ async function removePerson(c: Ctx, who: Caller, id: string, b: any): Promise<Re
   await batched(db, stmts);
   if (c.started) await refreshBlocked(db, c.eid);
   if (who.kind === "host") { // a Host's removal tells the Organizer (the people are not named: the Organizer sees them in the console)
-    try { const to = await c.orgEmail(); if (to) await c.sendMail(to, `A Host removed ${targets.length === 1 ? "someone" : targets.length + " people"} from ${c.gameName}`, `${(await labelsOf(c))(who.id)} removed ${targets.length === 1 ? "one person" : targets.length + " people"} from ${c.gameName} at ${c.istTime(c.now)}.\n\nYou can see who in your console, under My people.`); } catch { /* a mail is a nudge, never a requirement */ }
+    try { const to = await c.orgEmail(); if (to) await c.sendMail(to, `A Host removed ${targets.length === 1 ? "someone" : targets.length + " people"} from ${c.gameName}`, `${(await labelsOf(c))(who.id)} removed ${targets.length === 1 ? "one person" : targets.length + " people"} from ${c.gameName} at ${c.istTime(c.now)}.\n\nYou can see who in your console, under Your people.`); } catch { /* a mail is a nudge, never a requirement */ }
   }
   return c.json({ ok: true, removed: targets.length, during: c.started });
 }
@@ -479,7 +482,7 @@ async function myOwnSeat(c: Ctx, who: Caller, b: any): Promise<Response> {
   const ph = await phoneHashOf(c.env, digits);
   const label = await labelsOf(c);
   let row = await db.prepare(`SELECT ${PERSON_COLS} FROM person WHERE eid=? AND ph=?`).bind(c.eid, ph).first<PersonRow>();
-  if (row && row.status === "removed") return c.json({ error: "That number was removed from this game. Add it back from My people first." }, 409);
+  if (row && row.status === "removed") return c.json({ error: "That number was removed from this game. Add it back from Your people first." }, 409);
   if (!row) {
     if (!(await c.spend(2))) return c.busy();
     const token = newToken(), up = who.kind === "organizer" ? "o" : (await db.prepare("SELECT created_by FROM organizer_key WHERE org=? AND substr(hash,1,7)=? AND revoked=0").bind(c.e.org, c.keyId7).first<{ created_by: string | null }>())?.created_by ?? "o";
