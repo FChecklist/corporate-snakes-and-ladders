@@ -395,9 +395,13 @@ export async function wrongIdOverLimit(env: Env, req: Request, eid: string, now:
 /** RUNNER_KEY (owner order 5 Nov 2026): a long secret set as a Worker secret. The owner's test programs send it as X-Runner-Key; ONLY then are the test sign-in, the free owner-test packs and the join-guard bypass honoured.
  *  Without the header (or when no key is set) everything behaves exactly as for the public. Compared in constant time; a short key counts as no key. */
 function runnerOk(env: Env, req: Request): boolean {
-  const k = String((env as any).RUNNER_KEY ?? ""), h = req.headers.get("x-runner-key") ?? "";
-  if (k.length < 32 || h.length !== k.length) return false;
-  let d = 0; for (let i = 0; i < k.length; i++) d |= k.charCodeAt(i) ^ h.charCodeAt(i);
+  const k = String((env as any).RUNNER_KEY ?? "");
+  return k.length >= 32 && sameSecret(req.headers.get("x-runner-key") ?? "", k);
+}
+/** Two secrets compared in constant time (security audit L1, 23 Nov 2026): the time taken does not tell how many leading characters were right. A different length is a plain "no". */
+export function sameSecret(presented: string, secret: string): boolean {
+  if (presented.length !== secret.length || secret.length === 0) return false;
+  let d = 0; for (let i = 0; i < secret.length; i++) d |= presented.charCodeAt(i) ^ secret.charCodeAt(i);
   return d === 0;
 }
 /** The join guard is skipped only for the runner's own test games: a valid key AND an engagement id that starts with SMK10M- AND is_test=1. A real customer never matches. */
@@ -405,8 +409,9 @@ const runnerTestGame = (env: Env, req: Request, e: any): boolean => !!e && Strin
 async function joinOverLimit(env: Env, req: Request, now: number, paidSeats = 0, runner = false): Promise<boolean> {
   if (runner) return false;
   try {
-    const ip = (await sha("jip|" + (req.headers.get("cf-connecting-ip") ?? "local"))).slice(0, 16), perDay = Math.max(Number((env as any).JOIN_PER_IP_DAY ?? JOIN_PER_IP_DAY), paidSeats * 3), perMin = Math.max(Number((env as any).JOIN_PER_IP_MINUTE ?? JOIN_PER_IP_MINUTE), paidSeats);
-    const bump = async (k: string, max: number) => { const n = Number((await env.DB.prepare("SELECT v FROM kv WHERE k=?").bind(k).first<{ v: string }>())?.v ?? 0); if (n >= max) return true; await env.DB.prepare("INSERT INTO kv(k,v) VALUES(?,?) ON CONFLICT(k) DO UPDATE SET v=?").bind(k, String(n + 1), String(n + 1)).run(); return false; };
+    const ip = (await sha("jip|" + networkOf(req.headers.get("cf-connecting-ip")))).slice(0, 16), perDay = Math.max(Number((env as any).JOIN_PER_IP_DAY ?? JOIN_PER_IP_DAY), paidSeats * 3), perMin = Math.max(Number((env as any).JOIN_PER_IP_MINUTE ?? JOIN_PER_IP_MINUTE), paidSeats);
+    // counted in ONE statement (a parallel burst cannot read the same number twice), and by network (an IPv6 phone cannot change its address to start again)
+    const bump = async (k: string, max: number) => { const r = await env.DB.prepare("INSERT INTO kv(k,v) VALUES(?,'1') ON CONFLICT(k) DO UPDATE SET v=CAST(kv.v AS INTEGER)+1 RETURNING v").bind(k).first<{ v: string | number }>(); return Number(r?.v ?? 0) > max; };
     const iso = new Date(now).toISOString();
     return (await bump(`jbm/${iso.slice(0, 16)}/${ip}`, perMin)) || (await bump(`jlim/${iso.slice(0, 10)}/${ip}`, perDay));
   } catch { return false; }
@@ -734,7 +739,7 @@ async function authOf(req: Request, env: Env, now: number): Promise<Auth> {
 }
 async function authOfKey(env: Env, presented: string, now: number): Promise<Auth> {
   if (!presented) return { plat: false, org: null, kind: null };
-  if (env.ORGANIZER_SECRET && presented === env.ORGANIZER_SECRET) return { plat: true, org: null, kind: "platform" };
+  if (env.ORGANIZER_SECRET && sameSecret(presented, env.ORGANIZER_SECRET)) return { plat: true, org: null, kind: "platform" };
   const kh = await sha("key|" + presented);
   const row = await env.DB.prepare("SELECT org, kind, eid, host_id, expires_ms FROM organizer_key WHERE hash=? AND revoked=0 AND (expires_ms IS NULL OR expires_ms>?)").bind(kh, now).first<{ org: string; kind: "master" | "ai" | "host" | "cohost"; eid: string | null; host_id: string | null; expires_ms: number | null }>();
   if (!row) return { plat: false, org: null, kind: null };
@@ -1508,7 +1513,7 @@ async function route0(req: Request, env: Env, now: number, a: Auth): Promise<Res
       await sendMail(env as PayEnv, env.DB, registered, `Confirm the deletion of participant data: ${tok}`, `A request to delete all participant data was received for ${tok}. Nothing is deleted yet.\n\nTo confirm, reply to the e-mail you sent with this code: ${code}\n\nIt works for 30 minutes. Not you? Ignore this e-mail.`, now);
       asked.push(tok);
     }
-    if (done.length) await sendMail(env as PayEnv, env.DB, from, `Deleted: participant data of ${done.join(", ")}`, `Done. All participant data was deleted for: ${done.join(", ")}.\n\n${env.OWNER_RULES === "1.1" ? "The winners record (seat, prize, round, time, whether it was given) is kept for up to 365 days, together with your organizer details. It holds no names or numbers: a winner's confirmed name and mobile number were deleted with everyone else's." : "The winners record (seat, prize, round, time) and winners' prize hand-over details are kept for up to 365 days, together with your organizer details."}`, now);
+    if (done.length) await sendMail(env as PayEnv, env.DB, from, `Deleted: participant data of ${done.join(", ")}`, `Done. All participant data was deleted for: ${done.join(", ")}.\n\nThe winners record (seat, prize, round, time) and winners' prize hand-over details (the name, mobile number and employee ID, if any, each winner confirmed; nothing else about them) are kept for up to 365 days, together with your organizer details.`, now);
     return json({ ok: true, action: done.length ? "deleted" : asked.length ? "confirm-sent" : "no-match", engagements: done });
   }
   if (req.method === "GET" && p === "/api/notices") { // our public news list: the same for everyone, nothing about the reader is stored or asked
@@ -1527,7 +1532,7 @@ async function route0(req: Request, env: Env, now: number, a: Auth): Promise<Res
   if (req.method === "POST" && p === "/api/lifecycle/tick") { // run every minute by the scheduled job: reports, deletions, reminders. Idempotent and bounded per call.
     const jobKey = req.headers.get("x-cron-key") ?? "";
     const jobSecret = (env.CRON_KEY ?? "").trim(); // a secret pasted in with a trailing line break still matches
-    if (!a.plat && !(jobSecret.length >= 16 && jobKey.trim() === jobSecret)) return deny(a);
+    if (!a.plat && !(jobSecret.length >= 16 && sameSecret(jobKey.trim(), jobSecret))) return deny(a);
     return json({ ok: true, ...(await runTick(env, now)) });
   }
   if (req.method === "POST" && p === "/api/purge") { // run daily (Cron trigger) or by hand: removes everything older than the retention period
@@ -2017,7 +2022,8 @@ async function route0(req: Request, env: Env, now: number, a: Auth): Promise<Res
   if (action === "throws" && req.method === "GET") return listThrows(env, eid!, url, json);
   if (action === "vote" && req.method === "POST") return acceptVotes(env as any, e, eid!, await body(req, 65_536), now, json, spend);
   if (action === "confirm" && req.method === "POST") return confirmPrize(env as any, eid!, await body(req), now, json, spend);
-  if (action === "myprizes" && req.method === "GET") return myPrizes(env as any, eid!, url, json);
+  if (action === "myprizes" && req.method === "GET") return myPrizes(env as any, eid!, url, json); // older pages still ask this way (the phone's own id in the address); new pages use POST below (security audit L5, 23 Nov 2026)
+  if (action === "myprizes" && req.method === "POST") { const b = await body(req); const u = new URL(url); u.search = ""; u.searchParams.set("pid", String(b?.pid ?? "")); u.searchParams.set("device", String(b?.device ?? "")); return myPrizes(env as any, eid!, u, json); } // the phone's proof travels in the body, never in an address that network logs can read
   if (action === "prizes" && req.method === "GET") { if (!can(a, e)) return deny(a); const outside = a.kind === "ai" || (a.kind === "host" && req.headers.get("x-cb-link") === "1"); return listPrizes(env as any, eid!, json, outside, !outside && (a.plat || a.kind === "master" || a.kind === "host")); } // an AI (or a co-host's AI link) sees card numbers only
   if (action === "override" && req.method === "POST") { if (!can(a, e) || !(a.plat || a.kind === "master" || a.kind === "host")) return deny(a); return overridePrize(env as any, eid!, await body(req), a.kind, now, json, spend); } // the organizer (or a Host) has the final say on who receives a prize
   if (action === "prizegiven" && req.method === "POST") { if (!can(a, e)) return deny(a); return markGiven(env, eid!, await body(req), a.kind, now, json, spend); }

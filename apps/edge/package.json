@@ -1,1 +1,1 @@
-{ "name": "@snakes/edge", "version": "1.5.3", "type": "module", "main": "src/worker.ts" }
+{ "name": "@snakes/edge", "version": "1.5.4", "type": "module", "main": "src/worker.ts" }

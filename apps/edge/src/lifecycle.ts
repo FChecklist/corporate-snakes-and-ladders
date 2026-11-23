@@ -63,6 +63,8 @@ async function schedule(env: Env, e: any) {
   const st = f ? resolveControl(controlCfg(f), f.messages) : null;
   return { cfg: cfgOfRow(e), st, start: e.start_round + GRACE_ROUNDS, stride: turnRounds(e.call_seconds) };
 }
+/** The game's schedule (public settings, the organizer's pauses and stop, the first turn's round, the turn length in rounds), for the checks of a reported win (verifywin.ts). */
+export const scheduleOf = (env: Env, e: any) => schedule(env, e);
 /** When the window of turn `t` (counted from 0) opens and when it closes, on the server clock: the plain schedule with the brand breaks and the organizer's pauses applied. Null = the game was stopped before that turn. */
 export async function turnWindowMs(env: Env, e: any, t: number): Promise<{ openMs: number; closeMs: number } | null> {
   const s = await schedule(env, e);
@@ -149,7 +151,7 @@ export async function erasePersonal(env: Env, eid: string, now: number, by: stri
     env.DB.prepare("DELETE FROM kv WHERE k=? OR k=? OR k=? OR k=? OR (k >= ? AND k < ?) OR k=?").bind(`seats-base/${eid}`, `rpt/${eid}`, `rptopen/${eid}`, `rptremind/${eid}`, `rptc/${eid}/`, prefixEnd(`rptc/${eid}/`), `seats-blk/${eid}`),
     env.DB.prepare("DELETE FROM kv WHERE (k >= ? AND k < ?) OR (k >= ? AND k < ?) OR (k >= ? AND k < ?)").bind(`present/${eid}/`, prefixEnd(`present/${eid}/`), `ckfail/${eid}/`, prefixEnd(`ckfail/${eid}/`), `idx/${eid}/`, prefixEnd(`idx/${eid}/`)), // the check-in records of every participant go with their data (the winners' evidence, wev/, stays with the winners record for 365 days)
     env.DB.prepare("DELETE FROM kv WHERE (k >= ? AND k < ?) OR (k >= ? AND k < ?)").bind(`thr/${eid}/`, prefixEnd(`thr/${eid}/`), `idmiss/${eid}/`, prefixEnd(`idmiss/${eid}/`)), // idmiss/: the wrong-ID counters of the game (a hash of the network address, no ID), gone with the participants' data
-    ...(env.OWNER_RULES === "1.1" ? [env.DB.prepare("UPDATE prize SET pii=NULL, orig=NULL, trail=NULL WHERE eid=?").bind(eid)] : []), // owner rules 1.1: the privacy line says ALL participant information, IDs included, is deleted within 24 hours, so a winner's sealed ID, name, number and change history go too; the winners record (seat, prize, round, time, given or not) stays
+    env.DB.prepare("DELETE FROM kv WHERE (k >= ? AND k < ?) OR (k >= ? AND k < ?)").bind(`bcn/${eid}/`, prefixEnd(`bcn/${eid}/`), `vok/${eid}/`, prefixEnd(`vok/${eid}/`)), // the public numbers kept to check the phones' reports (verifywin.ts) and the marks of reports already checked
     env.DB.prepare(eraseCohostsSql).bind(eid), // the game's Co-hosts: name, mobile number and key go with the participants' data
     env.DB.prepare("INSERT INTO life(eid,end_ms,end_src,purged_ms,report_state) VALUES(?,?, 'organizer', ?, ?) ON CONFLICT(eid) DO UPDATE SET purged_ms=?, report_state=COALESCE(life.report_state, ?)").bind(eid, now, now, by, now, by),
   ]);
@@ -247,9 +249,7 @@ const bodyFor = (eid: string, d: ReportData, link: string) => [
   `The link works until ${istFull(reportLinkUntil(d.endMs))}; the participants' details are permanently deleted at ${istFull(d.personalDeleteAtMs)}, as promised. Please open it and save the PDF before then: it is the only copy of this data once ours is deleted. You can share the link with your co-host; anyone who has it can read the report, so share it carefully. Winners confirm the name and mobile number their prize goes to on their own phone; the report shows what they confirmed, whether they changed anything, and whether you have handed the prize over, so open it again after you have ticked "Prize given" in your console.`, ``,
   `What happens to the data:`,
   `- By ${istFull(d.personalDeleteAtMs)} (within 24 hours of the game ending) every participant's name, mobile number, seat, join record and invite record is permanently deleted from the systems.`,
-  d.winnersGone
-    ? `- For 365 days only this is kept: the organizer, host and co-host details, the log of what your AI assistant did, and the winners record (which prize, which round, what time, which seat, and whether it was given). The name and mobile number each winner confirmed go with everyone else's, so please hand the prizes over, and keep the details you need from your report.`
-    : `- For 365 days only this is kept: the organizer, host and co-host details, the log of what your AI assistant did, and the winners record (which prize, which round, what time, which seat, and the name and mobile number each winner confirmed so the prize can be handed over, with whether it was given).`,
+  `- For 365 days only this is kept: the organizer, host and co-host details, the log of what your AI assistant did, and the winners record (which prize, which round, what time, which seat, and the name, mobile number and employee ID (if any) each winner confirmed so the prize can be handed over, with whether it was given). No network address or phone details of any winner are kept: they are deleted with everyone else's.`,
   `- Everything about this game is deleted at 00:00 hours IST on ${istDate(d.fullDeleteAtMs)} (the end of the 365th day). Billing data is kept for audit and tax reasons.`,
   ``,
   `The winners were worked out by the software from the public numbers and accepted only when several different phones agreed. You cannot choose or change a winner or a dice throw, and neither can IT Services by Rajat Agarwal.`, ``,
@@ -318,7 +318,7 @@ async function baseData(env: LifeEnv, e: any, cfg: EngagementCfg, sch: Awaited<R
     endReason: held ? "The game did not start." : early ? "Every prize was awarded, so the game ended early." : "The game ran to the end (or the organizer ended it).",
     rounds: cfg.rounds, callSeconds: e.call_seconds, ticketsPerPerson: cfg.tickets, cap: e.cap, inviteOnly: !!e.closed, numbersCalled: early ? Math.max(1, ...wrows.map((w: any) => (w.idx ?? 0) + 1)) : 75,
     agg: st.agg, people: [], prizes, lucky, timeline: st.tl, breaks: cfg.breaks.map((b) => ({ after: b.after, kind: b.kind, title: b.title })),
-    personalDeleteAtMs: personalDeleteAt(endMs), fullDeleteAtMs: fullDeleteAt(endMs), tz: cfg.tz, ...(env.OWNER_RULES === "1.1" ? { winnersGone: true } : {}),
+    personalDeleteAtMs: personalDeleteAt(endMs), fullDeleteAtMs: fullDeleteAt(endMs), tz: cfg.tz,
     ...(cfg.brand ? { brand: { name: cfg.brand.name, ...(cfg.brand.logo ? { logo: cfg.brand.logo } : {}) } } : {}),
   };
 }
@@ -405,8 +405,10 @@ export async function lifecycleTick(env: LifeEnv, now: number): Promise<{ checke
       }
       if (!life.report_ms && life.report_state !== "no-email") {
         out.reportSteps++;
-        if (await reportStep(env, e, life, now)) { await env.DB.prepare("UPDATE life SET report_ms=?, report_state=COALESCE(report_state,'sent') WHERE eid=?").bind(now, e.id).run(); out.reportsDone++; }
-        else await env.DB.prepare("UPDATE life SET tries=tries+1 WHERE eid=?").bind(e.id).run();
+        try { // a report that cannot be made (whatever the reason) must never hold the 24-hour deletion back: the step is tried again at the next tick, the deletion below runs when its time comes (security audit L6, 23 Nov 2026)
+          if (await reportStep(env, e, life, now)) { await env.DB.prepare("UPDATE life SET report_ms=?, report_state=COALESCE(report_state,'sent') WHERE eid=?").bind(now, e.id).run(); out.reportsDone++; }
+          else await env.DB.prepare("UPDATE life SET tries=tries+1 WHERE eid=?").bind(e.id).run();
+        } catch { try { await env.DB.prepare("UPDATE life SET tries=tries+1 WHERE eid=?").bind(e.id).run(); } catch { /* the next tick tries again */ } }
       }
       if (life.report_ms && now >= reportLinkUntil(life.end_ms) - 6 * 3_600_000 && now < reportLinkUntil(life.end_ms)) await remindReport(env, e, life, now);
       if (now >= personalDeleteAt(life.end_ms) && !(await isHeld(env.DB, e.id))) { await erasePersonal(env, e.id, now, "auto"); out.purged++; await mailDataDeleted(env as any, e, now); } // an owner-set legal hold suspends this too

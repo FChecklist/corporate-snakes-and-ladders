@@ -1,12 +1,23 @@
 [
   {
+    "version": "1.5.4",
+    "date": "2026-11-23",
+    "commit": "",
+    "title": "Fix after the security audit of 1.5.3",
+    "changes": [
+      "A winner can no longer be made up: before a report of a win is counted, the server checks it against the public game. The turn must have happened, the game must have started, the seat must exist, and the named player must really have reached the square or got home on that turn (the public beacon numbers are fetched and kept for the check)",
+      "A winner's name and mobile number (and employee ID, if any) are kept for 365 days so the prize can be handed over. Nothing else about the winner is kept past 24 hours: not the network address, browser or phone details, and not the typed ID of anyone who made a wrong try. The pages, the report and the e-mails say exactly that",
+      "A wrong ID typed into a link for a game that does not exist is no longer kept anywhere",
+      "Smaller fixes: secret keys are compared in constant time; the join counter counts by network and in one step; a phone's own proof is no longer sent in the address of the prize call; the 24-hour deletion no longer waits for the report; the log no longer copies a caller's own request id"
+    ]
+  },
+  {
     "version": "1.5.3",
     "date": "2026-11-23",
     "commit": "",
     "title": "Fix after the security audit of 1.5.2",
     "changes": [
-      "A winner's name, mobile number, ID, phone id and network address are no longer kept in the game's security log after the 24-hour deletion: they are sealed under the game's own key, which the deletion destroys (only the fact that a prize was confirmed, and when, stays)",
-      "The pages, the report and the e-mails now say the same thing: a winner's confirmed name and mobile number are deleted with everyone else's within 24 hours; the winners record (seat, prize, round, time) stays 365 days",
+      "(The winners' wording and the security-log change of this version were put right again in 1.5.4.)",
       "If the database commits the console's paid notice but the reply is lost, the order id stays with that game; a repeat of the notice also writes the published and paid-by markers if they were missed"
     ]
   },
@@ -18,7 +29,7 @@
     "changes": [
       "If the database fails while the console's notice marks a game paid, nothing is left half done: the order id is not used up, and the console can send the same notice again to finish the job",
       "A repeat of a notice says \"already\" only when the game really is paid",
-      "A winner's employee ID, name, mobile number and change history are deleted with everyone else's details within 24 hours, as the privacy line says (the winners record stays: seat, prize, round, time, given or not)"
+      "(The change to winners' details of this version was put right again in 1.5.4.)"
     ]
   },
   {

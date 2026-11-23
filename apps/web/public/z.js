@@ -563,7 +563,7 @@
     if (DEMO || v.phase !== "ended" || !PRIZES.length || !v.pid || CF.loading || (CF.loaded && CF.confirmed) || Date.now() - CF.last < 15000) return;
     CF.last = Date.now(); CF.loading = true;
     try {
-      const r = await api("GET", `/api/z/${EID}/myprizes?pid=${encodeURIComponent(v.pid)}&device=${encodeURIComponent(myDevice())}`);
+      const r = await api("POST", `/api/z/${EID}/myprizes`, { pid: v.pid, device: myDevice() }); // the phone's own id goes in the body, not in the address
       CF.prizes = r.prizes || []; if (!CF.edited) { CF.name = r.name || ""; CF.phone = r.phone || ""; } CF.confirmed = !!r.confirmed; CF.loaded = CF.prizes.length > 0;
     } catch { /* tried again shortly */ }
     CF.loading = false;

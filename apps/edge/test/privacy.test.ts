@@ -3,6 +3,7 @@
 import { beforeEach, describe, expect, test } from "bun:test";
 import { SEEN_DEVICES, withDevice, TICKS } from "./device";
 import { settleByPhones } from "./settle";
+import { settleTrue, trueGame } from "./truth";
 import { layoutPeoplePart, layoutReport } from "../src/report-layout";
 import { handle, purgeOld, type Env } from "../src/worker";
 import { makeD1 } from "./d1-sqlite";
@@ -141,19 +142,21 @@ describe("invitations", () => {
 
 describe("the winners record", () => {
   test("results the phones agree on become winner rows (seat, prize, round, time, no names); a phone's own word, and the console, change nothing", async () => {
-    await create(); await joinAs(1, "Asha"); await joinAs(2, "Bala"); await joinAs(3, "Cara");
+    await create("PRV-1", { turnCap: 100 }); await joinAs(1, "Asha"); await joinAs(2, "Bala"); await joinAs(3, "Cara");
     const pids = (raw.query("SELECT pid FROM seat ORDER BY seq").all() as any[]).map((x) => x.pid);
-    expect((await call("POST", "/api/z/PRV-1/settle", { results: [{ pattern: "finish", ordinal: 1, idx: 33, pids: [pids[0]!] }] }, org)).status).toBe(403); // the organizer cannot post a winner
+    const tg = trueGame(raw, "PRV-1"), w = tg.settled.find((x) => x.pattern === "finish" && x.ordinal === 1)!, wseat = Number(w.pids[0]!.split("x")[0]);
+    expect((await call("POST", "/api/z/PRV-1/settle", { results: [{ pattern: "finish", ordinal: 1, idx: w.idx, pids: w.pids }] }, org)).status).toBe(403); // the organizer cannot post a winner
     expect(raw.query("SELECT COUNT(*) c FROM winner").get()).toEqual({ c: 0 });
-    await settleByPhones(call, "PRV-1", [{ pattern: "finish", idx: 33, pids: [pids[0]!] }], pids);
-    expect(raw.query("SELECT round, pattern, ordinal, seat, idx, src FROM winner").all()).toEqual([{ round: 1, pattern: "finish", ordinal: 1, seat: 1, idx: 33, src: "phones" }]);
+    await settleByPhones(call, "PRV-1", [{ pattern: "finish", idx: w.idx, pids: w.pids }], pids, tg.endMs);
+    expect(raw.query("SELECT round, pattern, ordinal, seat, idx, src FROM winner").all()).toEqual([{ round: 1, pattern: "finish", ordinal: 1, seat: wseat, idx: w.idx, src: "phones" }]);
     const at = (raw.query("SELECT at_ms FROM winner").get() as any).at_ms; expect(at).toBeGreaterThan(T - 3 * 3_600_000); expect(at).toBeLessThan(T);
     // an older phone page still reporting its own win: accepted politely, recorded as nothing
     expect((await call("POST", "/api/z/PRV-1/won", { pid: pids[1], wins: [{ round: 1, pattern: "milestone", ordinal: 1, idx: 72 }] })).status).toBe(200);
     expect(raw.query("SELECT COUNT(*) c FROM winner").get()).toEqual({ c: 1 });
-    // a result already accepted is never replaced by later reports
-    await settleByPhones(call, "PRV-1", [{ pattern: "finish", idx: 30, pids: [pids[2]!] }], pids);
-    expect(raw.query("SELECT seat, idx FROM winner WHERE pattern='finish'").all()).toEqual([{ seat: 1, idx: 33 }]);
+    // a result already accepted is never replaced by later reports (and a made-up one is not even counted)
+    const other = pids.find((p) => p !== w.pids[0])!;
+    await settleByPhones(call, "PRV-1", [{ pattern: "finish", idx: w.idx - 1, pids: [other] }], pids, tg.endMs);
+    expect(raw.query("SELECT seat, idx FROM winner WHERE pattern='finish'").all()).toEqual([{ seat: wseat, idx: w.idx }]);
   });
   test("a game is over only when several different phones say so, and never before it could be", async () => {
     await create(); for (let i = 1; i <= 5; i++) await joinAs(i, "P" + i);
@@ -171,13 +174,16 @@ describe("the winners record", () => {
 });
 
 describe("the report and the deletion", () => {
+  const won = { lines: 0, milestoneSeat: 0 }; // how many prize lines were settled, and which seat won the milestone
   const prep = async (n = 6) => {
-    await create(); await call("PATCH", "/api/z/PRV-1/settings", { invites: { on: true, per: 4, cats: ["family", "colleagues"] } }, org, T - 4 * 3_600_000);
+    await create("PRV-1", { turnCap: 100 }); await call("PATCH", "/api/z/PRV-1/settings", { invites: { on: true, per: 4, cats: ["family", "colleagues"] } }, org, T - 4 * 3_600_000);
     await setContact("PRV-1");
     await joinAs(1, "Organizer Olga"); await call("POST", "/api/z/PRV-1/mark", { phone: "9876500001", role: "organizer" }, org, T - 3 * 3_600_000);
     for (let i = 2; i <= n; i++) await joinAs(i, i === 4 ? "Zed अन" : "Guest " + i, "PRV-1", { from: 1, cat: "family" });
     const pids = (raw.query("SELECT pid FROM seat ORDER BY seq").all() as any[]).map((x) => x.pid);
-    await settleByPhones(call, "PRV-1", [{ pattern: "milestone", idx: 72, pids: [pids[2]!] }, { pattern: "finish", idx: 30, pids: [pids[0]!, pids[3]!] }], pids);
+    // the phones report the TRUE result of this game (the server checks it against the public numbers): the milestone and every home place
+    const reported = await settleTrue(call, raw, "PRV-1", pids, ["milestone", "finish"]);
+    won.lines = reported.length; won.milestoneSeat = Number(reported.find((x) => x.pattern === "milestone")!.pids[0]!.split("x")[0]);
     return pids;
   };
   /** What the report page does in the organizer's browser: asks for the base, then the people 250 at a time, then lays the PDF out on that device. */
@@ -223,13 +229,13 @@ describe("the report and the deletion", () => {
   });
   test("the report shows what each winner confirmed, whether they changed it, and whether the prize was given", async () => {
     const pids = await prep();
-    const dev = String(3).padStart(32, "0"); // joinAs(3) used this device
-    expect((await call("POST", "/api/z/PRV-1/confirm", { pid: pids[2], device: dev, name: "Gita Menon", phone: "9000000003" }, {}, T)).status).toBe(200);
-    expect((await call("POST", "/api/z/PRV-1/prizegiven", { round: 1, pattern: "milestone", ordinal: 1, seat: 3, given: true }, org, T)).status).toBe(200);
+    const ws = won.milestoneSeat, dev = String(ws).padStart(32, "0"); // joinAs(ws) used this device
+    expect((await call("POST", "/api/z/PRV-1/confirm", { pid: pids[ws - 1], device: dev, name: "Gita Menon", phone: "9000000003" }, {}, T)).status).toBe(200);
+    expect((await call("POST", "/api/z/PRV-1/prizegiven", { round: 1, pattern: "milestone", ordinal: 1, seat: ws, given: true }, org, T)).status).toBe(200);
     const end = await endBoundMs(env as any, raw.query("SELECT * FROM engagement WHERE id='PRV-1'").get());
     let guard = 0; while (!sentReports.length && guard++ < 20) await tick(end + 5 * 60_000);
     const r = await buildReport(linkOf(sentReports[0]!));
-    expect(r.text).toContain("Gita Menon"); expect(r.text).toContain("90000 00003"); expect(r.text).toMatch(/details changed after the game/); expect(r.text).toMatch(/joined as Guest 3/);
+    expect(r.text).toContain("Gita Menon"); expect(r.text).toContain("90000 00003"); expect(r.text).toMatch(/details changed after the game/); expect(r.text).toMatch(ws === 1 ? /joined as Organizer Olga/ : ws === 4 ? /joined as Zed/ : new RegExp("joined as Guest " + ws));
   });
   test("22 hours after the end every participant record is gone (working copies too); the winners record, the organizer's details and the engagement stay", async () => {
     await prep();
@@ -244,7 +250,7 @@ describe("the report and the deletion", () => {
     expect((raw.query("SELECT COUNT(*) c FROM kv WHERE k LIKE 'rpt%' OR k LIKE 'seats-base%'").get() as any).c).toBe(0);
     const link = linkOf(sentReports[0]!);
     expect((await call("GET", `/api/report/PRV-1?k=${new URL(link).searchParams.get("k")}&part=base`)).status).toBe(404); // the link no longer opens anything
-    expect((raw.query("SELECT COUNT(*) c FROM winner").get() as any).c).toBe(3); // what, which round, when, which seat
+    expect((raw.query("SELECT COUNT(*) c FROM winner").get() as any).c).toBe(won.lines); // what, which round, when, which seat
     expect(JSON.stringify(raw.query("SELECT * FROM winner").all())).not.toMatch(/Olga|Guest|98765/);
     expect(raw.query("SELECT v FROM kv WHERE k='contact/PRV-1'").get()).toBeTruthy(); expect(raw.query("SELECT id FROM engagement").get()).toEqual({ id: "PRV-1" });
     expect(JSON.stringify(raw.query("SELECT * FROM outbox").all())).not.toMatch(/Olga|Guest/);
@@ -295,9 +301,9 @@ describe("exact deletion dates", () => {
     expect((raw.query("SELECT COUNT(*) c FROM kv WHERE k LIKE 'contact/%'").get() as any).c).toBe(0);
   });
   test("the scheduler's own door needs the platform key, and the console's Erase deletes personal data at once but keeps the winners record", async () => {
-    await create(); await joinAs(1, "Asha"); await joinAs(2, "Bala");
+    await create("PRV-1", { turnCap: 100 }); await joinAs(1, "Asha"); await joinAs(2, "Bala");
     const pids = (raw.query("SELECT pid FROM seat ORDER BY seq").all() as any[]).map((x) => x.pid);
-    await settleByPhones(call, "PRV-1", [{ pattern: "milestone", idx: 70, pids: [pids[1]!] }], pids);
+    expect((await settleTrue(call, raw, "PRV-1", pids, ["milestone"])).length).toBe(1);
     expect((await call("POST", "/api/lifecycle/tick")).status).toBe(403);
     expect((await call("POST", "/api/lifecycle/tick", {}, org)).status).toBe(200);
     expect((await call("POST", "/api/z/PRV-1/erase", {})).status).toBe(403);

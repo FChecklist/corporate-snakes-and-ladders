@@ -1,1 +1,1 @@
-{ "name": "@snakes/shared", "version": "1.5.3", "type": "module", "main": "src/index.ts", "dependencies": { "libphonenumber-js": "^1.11.4" } }
+{ "name": "@snakes/shared", "version": "1.5.4", "type": "module", "main": "src/index.ts", "dependencies": { "libphonenumber-js": "^1.11.4" } }
