@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, test } from "bun:test";
 import { SEEN_DEVICES, deviceOf, withDevice } from "./device";
 import { settleByPhones } from "./settle";
+import { luckyTruth, settleTrue } from "./truth";
 import { handle, type Env } from "../src/worker";
 import { makeD1 } from "./d1-sqlite";
 
@@ -219,12 +220,13 @@ describe("roster, history, erase and 365-day retention", () => {
     expect((await call("POST", "/api/z/ENG3/reuse", { from: "ENG3" }, org)).status).toBe(400);
   });
   test("erase removes the people, claims and results of one engagement and leaves the others alone", async () => {
-    const pid = ((await (await join(1)).json()) as any).pid;
+    const pid = ((await (await join(1)).json()) as any).pid; await join(2);
+    await call("PATCH", "/api/z/ENG1/settings", { turnCap: 100 }, org);
     await call("POST", "/api/z/ENG1/claims", { pid, claims: [{ pattern: "finish", idx: 4 }] });
-    await settleByPhones(call, "ENG1", [{ pattern: "finish", idx: 4, pids: [pid] }], [pid]);
+    expect((await settleTrue(call, raw, "ENG1", [pid], ["finish"])).length).toBeGreaterThan(0); // the phones report the true result; the server checks it against the public numbers
     await create({ id: "ENG2" }); await join(9, "ENG2");
     const r = await (await call("POST", "/api/z/ENG1/erase", {}, org)).json() as any;
-    expect(r.erased).toBe(1);
+    expect(r.erased).toBe(2);
     for (const t of ["participant", "claim", "settled"]) expect((raw.query(`SELECT COUNT(*) c FROM ${t} WHERE eid='ENG1'`).get() as any).c).toBe(0);
     expect((raw.query("SELECT COUNT(*) c FROM participant WHERE eid='ENG2'").get() as any).c).toBe(1);
   });
@@ -553,11 +555,13 @@ describe("lucky draw results", () => {
   const pub = async () => (await (await call("GET", "/api/z/LUCK1/results")).json()) as any;
   test("the winners are accepted when several phones agree, and are shown by opaque ids so each phone can tell if it won", async () => {
     expect((await call("POST", "/api/z/LUCK1/settle", { results: [{ pattern: "lucky", ordinal: 1, idx: 20, pids: [pids[0]!] }] }, org)).status).toBe(403);
-    await settleByPhones(call, "LUCK1", [{ pattern: "lucky", idx: 20, pids: [pids[0]!, pids[1]!, pids[2]!] }], pids.slice(0, 3));
-    expect((await pub()).results[0]).toEqual({ pattern: "lucky", ordinal: 1, round: 1, idx: 20, count: 3, winners: [pids[0]!, pids[1]!, pids[2]!].sort() });
+    const lt = luckyTruth(raw, "LUCK1"); expect(lt.pids.length).toBe(3);
+    await settleByPhones(call, "LUCK1", [{ pattern: "lucky", idx: lt.idx, pids: lt.pids }], pids.slice(0, 3), lt.nowMs); // the server works the draw out again from the round that ends the break
+    expect((await pub()).results[0]).toEqual({ pattern: "lucky", ordinal: 1, round: 1, idx: 20, count: 3, winners: lt.pids });
   });
   test("house results still carry counts only", async () => {
-    await settleByPhones(call, "LUCK1", [{ pattern: "climb", idx: 70, pids: [pids[0]!] }], pids);
+    await call("PATCH", "/api/z/LUCK1/settings", { turnCap: 80 }, org);
+    expect((await settleTrue(call, raw, "LUCK1", pids, ["finish"])).length).toBeGreaterThan(0);
     expect(/phone|mobile|9876/i.test(JSON.stringify(await pub()))).toBe(false); // seat ids may be named, never names or numbers
   });
   test("a draw that is not in the engagement's settings, or with too many winners, is ignored", async () => {
@@ -566,9 +570,10 @@ describe("lucky draw results", () => {
     expect((await pub()).results).toEqual([]);
   });
   test("an accepted draw is final: a later report does not add a second set of winners", async () => {
-    await settleByPhones(call, "LUCK1", [{ pattern: "lucky", idx: 20, pids: [pids[0]!] }], pids.slice(0, 3));
-    await settleByPhones(call, "LUCK1", [{ pattern: "lucky", idx: 20, pids: [pids[1]!] }], pids);
-    expect((await pub()).results.map((x: any) => x.winners)).toEqual([[pids[0]!]]);
+    const lt = luckyTruth(raw, "LUCK1");
+    await settleByPhones(call, "LUCK1", [{ pattern: "lucky", idx: 20, pids: lt.pids }], pids.slice(0, 3), lt.nowMs);
+    await settleByPhones(call, "LUCK1", [{ pattern: "lucky", idx: 20, pids: [pids.find((p) => !lt.pids.includes(p))!] }], pids, lt.nowMs);
+    expect((await pub()).results.map((x: any) => x.winners)).toEqual([lt.pids]);
   });
   test("an engagement with no lucky draw ignores lucky results", async () => {
     await call("POST", "/api/z", { id: "PLAIN1", startRound: FUT, callSeconds: 10, cap: 50 }, org);

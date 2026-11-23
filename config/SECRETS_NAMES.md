@@ -43,6 +43,8 @@ Where things are set:
 | `COMPANY_JSON` | Company details shown on invoices and the contact page (public) | wrangler var | setting |
 | `TEST_MODE` | "1" lets a local or test run show codes instead of mailing them; never set on the live site | Local and test runs only | setting |
 | `FREE_LAUNCH` | "1" lets small games be made without payment | Optional Pages variable | setting |
+| `OWNER_RULES` | Set to the version 1.1 to apply the owner rules of 20 Nov 2026 to every game made from now on: invite by employee ID only, every throw by itself, no payment taken by this site (only the console's signed notice marks a game paid). Not set means the older rules | wrangler var | setting |
+| `CONSOLE_PAID_SECRET` | Signs the console's "paid" notice (`POST /api/console/paid`, HMAC-SHA-256 of `timestamp.body`); with no value that address answers 404 and no game can be marked paid that way | Pages secret | secret |
 | `PARTNER_COMMISSION_RATE` | Partner commission rate | Optional Pages variable | setting |
 | `DAILY_WRITE_BUDGET` | Most database writes the Worker allows itself per day | wrangler var | setting |
 | `STRICT_KEYS` | "1" on the live site: the Worker refuses every request unless the required secrets are set | Pages variable | setting |

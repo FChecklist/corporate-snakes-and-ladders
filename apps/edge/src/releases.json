@@ -1,5 +1,65 @@
 [
   {
+    "version": "1.5.4",
+    "date": "2026-11-23",
+    "commit": "",
+    "title": "Fix after the security audit of 1.5.3",
+    "changes": [
+      "A winner can no longer be made up: before a report of a win is counted, the server checks it against the public game. The turn must have happened, the game must have started, the seat must exist, and the named player must really have reached the square or got home on that turn (the public beacon numbers are fetched and kept for the check)",
+      "A winner's name and mobile number (and employee ID, if any) are kept for 365 days so the prize can be handed over. Nothing else about the winner is kept past 24 hours: not the network address, browser or phone details, and not the typed ID of anyone who made a wrong try. The pages, the report and the e-mails say exactly that",
+      "A wrong ID typed into a link for a game that does not exist is no longer kept anywhere",
+      "Smaller fixes: secret keys are compared in constant time; the join counter counts by network and in one step; a phone's own proof is no longer sent in the address of the prize call; the 24-hour deletion no longer waits for the report; the log no longer copies a caller's own request id"
+    ]
+  },
+  {
+    "version": "1.5.3",
+    "date": "2026-11-23",
+    "commit": "",
+    "title": "Fix after the security audit of 1.5.2",
+    "changes": [
+      "(The winners' wording and the security-log change of this version were put right again in 1.5.4.)",
+      "If the database commits the console's paid notice but the reply is lost, the order id stays with that game; a repeat of the notice also writes the published and paid-by markers if they were missed"
+    ]
+  },
+  {
+    "version": "1.5.2",
+    "date": "2026-11-23",
+    "commit": "",
+    "title": "Fixes after the two audits of 1.5.1",
+    "changes": [
+      "If the database fails while the console's notice marks a game paid, nothing is left half done: the order id is not used up, and the console can send the same notice again to finish the job",
+      "A repeat of a notice says \"already\" only when the game really is paid",
+      "(The change to winners' details of this version was put right again in 1.5.4.)"
+    ]
+  },
+  {
+    "version": "1.5.1",
+    "date": "2026-11-22",
+    "commit": "",
+    "title": "Fixes after the first two audits of 1.5.0",
+    "changes": [
+      "Wrong employee IDs are limited for each network: 30 in 10 minutes for each game, counted together for \"Is this you?\" and joining, and one phone network on mobile data counts as one",
+      "A right ID is never counted or refused by that limit (an office shares one address). An ID is matched to your list, it is not proven, so send the game link only to the people you invite",
+      "One order id can never mark two games paid, a game that is already paid does not use up a second order id, and a secret shorter than 32 characters is not accepted",
+      "The AI guide now calls the button Your people, as the screens do",
+      "The counters of wrong IDs are deleted with the game's other participant data"
+    ]
+  },
+  {
+    "version": "1.5.0",
+    "date": "2026-11-22",
+    "commit": "",
+    "title": "Owner rules 1.1: invite by ID only, everything by itself, paid only from the console",
+    "changes": [
+      "People are invited by employee ID only: you paste or upload IDs, nobody's name or mobile number is asked or kept. A-1101, A 1101 and A/1101 are the same ID",
+      "An ID that is not on your list waits for your yes or no",
+      "The game starts by itself and every throw happens by itself: nobody presses anything and no one can pick a number",
+      "A game becomes paid only when the console sends its signed notice, once for each order. This site takes no money itself",
+      "Every screen you read as an organizer or host now says you, never I or my",
+      "Prices carry the rupee sign; one privacy line and one fairness sentence are shown, and a test proves the fairness sentence is true"
+    ]
+  },
+  {
     "version": "1.3.0",
     "date": "2026-10-27",
     "commit": "778e6dc",

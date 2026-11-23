@@ -609,7 +609,7 @@ export default [
       await y.page.goto(`${H.SIM}/helpdesk-accept.html?t=${inv3.token}`); await y.page.waitForSelector("#stop", { timeout: 10000 });
       await y.page.click("#stop"); await y.page.waitForFunction(() => /Stopped\./i.test(document.body.innerText), null, { timeout: 8000 });
       const c3 = await clientOf(w.h, inv3.id);
-      t.check("'I do not want this' stops the invitation without signing in", c3.state === "stopped" && !c3.consoleUrl, JSON.stringify(c3).slice(0, 120));
+      t.check("'Skip this' stops the invitation without signing in", c3.state === "stopped" && !c3.consoleUrl, JSON.stringify(c3).slice(0, 120));
       t.check("the helper is told the Organizer did not allow it", /did not allow/i.test((await newMail(t, w.h.email, /did not allow/i)).text));
     },
   },

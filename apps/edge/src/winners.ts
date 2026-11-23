@@ -2,6 +2,8 @@
 //   - Every phone works out the winners from the public numbers and the public seat list, and reports them here (`vote`).
 //   - A result is accepted only when `quorumFor(people)` DIFFERENT phones (one card per phone) reported exactly the same winners. The organizer, co-host and AI have no way to
 //     post, change or remove a winner.
+//   - Every report is first checked against the public game by the server itself (verifywin.ts): the turn must have happened, the seats must exist, the game must be over for the prizes
+//     that need all of it, and the named seat must really have reached the square or got home on that turn. A report that fails is never counted, so a few seats cannot make a win up.
 //   - Each accepted winner gets a prize record: the winner confirms their name and mobile number on their own phone after the game (every change is kept as an audit trail and
 //     shown to the organizer / co-host), and the organizer / co-host ticks "prize given" with the date.
 //   - Every call the organizer's external AI makes is written to an audit trail with where it came from.
@@ -12,6 +14,7 @@ import { openPii, openText, sealPii, sealText, type PiiEnv } from "./pii";
 import { cfgOfRow, recordWinners } from "./lifecycle";
 import { transientDb } from "./transient";
 import { checkinRequired, deviceMatches } from "./checkin";
+import { checkClaim } from "./verifywin";
 import type { D1, Env } from "./worker";
 import { cleanPhone, keptFromClean, keptPhone } from "./phonekit";
 
@@ -40,7 +43,7 @@ export async function acceptVotes(env: Env & PiiEnv, e: any, eid: string, b: any
   const cfg = cfgOfRow(e), valid = new Set<string>(keysInPlay(cfg.rewards)), luckyCount = cfg.breaks.filter((x) => x.kind === "lucky").length;
   const people = (await env.DB.prepare("SELECT COUNT(*) AS c FROM participant WHERE eid=?").bind(eid).first<{ c: number }>())?.c ?? 1;
   const need = quorumFor(people);
-  let accepted = 0, counted = 0; const done: string[] = [];
+  let accepted = 0, counted = 0; const done: string[] = [], deferred: string[] = [], refused: string[] = [];
   for (const x of b.results) {
     const lucky = x?.pattern === "lucky";
     if ((!lucky && !valid.has(x?.pattern)) || (lucky && (!Number.isInteger(x?.ordinal) || x.ordinal < 1 || x.ordinal > luckyCount)) || !Number.isInteger(x?.ordinal) || x.ordinal < 1 || (!lucky && !linesFor(cfg.rewards, x.pattern).some((l) => l.ordinal === x.ordinal))
@@ -49,6 +52,14 @@ export async function acceptVotes(env: Env & PiiEnv, e: any, eid: string, b: any
     if (await env.DB.prepare("SELECT 1 AS x FROM settled WHERE eid=? AND round=? AND pattern=? AND ordinal=?").bind(eid, x.round, x.pattern, x.ordinal).first()) { done.push(`${x.round}:${x.pattern}:${x.ordinal}`); continue; }
     const pids: string[] = [...new Set<string>(x.pids)].sort();
     const digest = (await sha(JSON.stringify([x.pattern, x.ordinal, x.round, x.idx, pids]))).slice(0, 32);
+    // the server checks the report against the public game; a report that was checked once is not checked again for every phone that repeats it
+    const label = `${x.round}:${x.pattern}:${x.ordinal}`, vok = `vok/${eid}/${digest}`;
+    if (!(await env.DB.prepare("SELECT 1 AS x FROM kv WHERE k=?").bind(vok).first())) {
+      if (!(await spend(env, now, 1))) return json({ error: "Busy day. Your report is kept on your phone and will be sent again.", counted }, 503);
+      const verdict = await checkClaim(env, e, eid, { pattern: x.pattern, ordinal: x.ordinal, round: x.round, idx: x.idx, pids }, now, (n) => spend(env, now, n));
+      if (!verdict.ok) { (verdict.later ? deferred : refused).push(label); continue; }
+      await env.DB.prepare("INSERT OR IGNORE INTO kv(k,v) VALUES(?,?)").bind(vok, "1").run();
+    }
     if (!(await spend(env, now, 3))) return json({ error: "Busy day. Your report is kept on your phone and will be sent again.", counted }, 503);
     const v = await env.DB.prepare("INSERT OR IGNORE INTO rvote(eid,round,pattern,ordinal,seat,digest) VALUES(?,?,?,?,?,?)").bind(eid, x.round, x.pattern, x.ordinal, seat, digest).run();
     if (v.meta?.changes ?? 0) { // a phone repeating its report adds nothing, but the SAME report repeated may still finish a settlement a passing database hiccup left open
@@ -64,7 +75,9 @@ export async function acceptVotes(env: Env & PiiEnv, e: any, eid: string, b: any
     if (!(ins.meta?.changes ?? 0)) continue;
     accepted++;
   }
-  return json({ ok: true, counted, accepted, done, need });
+  // a report that may become true a little later (its turn or the end of the game has not come) is answered "not yet": the phone keeps it and sends it again
+  if (deferred.length) return json({ error: "Not yet: the game has not got there. Your report is kept on your phone and will be sent again.", code: "not-yet", counted, accepted, done, need, deferred, ...(refused.length ? { refused } : {}) }, 409);
+  return json({ ok: true, counted, accepted, done, need, ...(refused.length ? { refused } : {}) });
 }
 
 /** One record per winning seat, holding the sealed name and number the person joined with (they are asked to confirm it after the game). */

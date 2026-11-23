@@ -38,7 +38,7 @@ describe("paid first on a game with the owner's price", () => {
     expect(one("SELECT status, amount FROM payment WHERE id=?", pid)).toMatchObject({ status: "paid", amount: 1999 });
     // the owner's mail at the capture keeps the full picture
     const owner = q("SELECT body, subject FROM outbox WHERE subject LIKE '%Paid order%'").map((m) => m.subject + "\n" + m.body).join("\n");
-    expect(owner).toMatch(/owner set price: list Rs 2,399, adjustment minus Rs 400/);
+    expect(owner).toMatch(/owner set price: list ₹2,399, adjustment minus ₹400/);
     // Skip: ONE line, only the amount actually charged; nothing about how the price came about
     const s = await skip(pid); expect(s.status, JSON.stringify(s.body)).toBe(200); expect(s.body.invoiceUrl).toMatch(/^\/api\/invoice\//);
     expect(JSON.stringify(s.body)).not.toMatch(SECRET_WORDS);

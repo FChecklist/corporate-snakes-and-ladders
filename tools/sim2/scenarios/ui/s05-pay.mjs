@@ -131,7 +131,7 @@ export default [
       t.check("1st confirmation says there is no refund and offers 'Change the date instead'", /no refund/i.test(await t.text(c.page, "#sec7")) && !!(await c.page.$("#cancelresched")));
       await c.page.click("#cancel1"); await c.page.waitForSelector("#cancel2");
       const t2 = await t.text(c.page, "#sec7");
-      t.check("2nd confirmation shows the credit amount and its end date", /Your credit: Rs 2,399/.test(t2) && /valid until \d/.test(t2), t2.slice(t2.search(/Your credit/), t2.search(/Your credit/) + 160));
+      t.check("2nd confirmation shows the credit amount and its end date", /Your credit: ₹2,399/.test(t2) && /valid until \d/.test(t2), t2.slice(t2.search(/Your credit/), t2.search(/Your credit/) + 160));
       t.check("Submit is disabled until the box is ticked", await c.page.isDisabled("#cancel2") || true);
       await c.page.check("#cancelagree"); await c.page.click("#cancel2");
       await c.page.waitForSelector("#cancel3, #cancelfinal, #sec7 button:has-text('Yes, this game is cancelled')", { timeout: 6000 });
@@ -146,8 +146,8 @@ export default [
       const g2 = await t.game(org, { pay: false });
       const c2 = await openConsole(t, org, g2.id, { device: "laptop" }); await openStep(c2.page, 8);
       const txt8 = await t.text(c2.page, "#sec8");
-      t.check("Pay step offers the credit", /credit of Rs 2,399/.test(txt8) && /Use my credit/i.test(txt8), txt8.slice(txt8.search(/credit/i), txt8.search(/credit/i) + 200));
-      const btn = c2.page.locator("#sec8 button:has-text('Use my credit')").first();
+      t.check("Pay step offers the credit", /credit of ₹2,399/.test(txt8) && /Use your credit/i.test(txt8), txt8.slice(txt8.search(/credit/i), txt8.search(/credit/i) + 200));
+      const btn = c2.page.locator("#sec8 button:has-text('Use your credit')").first();
       if (await btn.count()) { await btn.click(); await c2.page.waitForTimeout(2000); }
       t.check("game 2 is paid, marked as paid by credit (paidVia credit)", (await payStatus(org, g2.id)) === "paid" && (await org.summary(g2.id)).body.payment?.paidVia === "credit", JSON.stringify((await org.summary(g2.id)).body.payment));
       const cr2 = (await org.api("GET", "/api/org/credit")).body.credits ?? [];

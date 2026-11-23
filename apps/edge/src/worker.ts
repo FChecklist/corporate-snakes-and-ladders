@@ -41,7 +41,7 @@ import { turnRounds } from "../../../packages/beacon/src/schedule";
 import { DEFAULT_TURN_CAP } from "../../../packages/beacon/src/race";
 import { PARTNER_SCHEMA, partnerRoute } from "./partners";
 import { HELPDESK_SCHEMA, HELPER_MANUAL_NOTE, helpdeskCloseStatements, helpdeskRoute, helpdeskSweep, isDeskKeyId, isHelperKey, noteHelperGame } from "./helpdesk";
-import { normEmp, normId, badIdMessage, empCleanFor, empHashOf, verifyOf, keptPhone, phoneDigits, cleanName as cleanPersonName, PEOPLE_SCHEMA, COHOST_FROM, HOST_FROM, ORG_FROM, COHOST_LIMIT_DEFAULT, COHOST_LIMIT_MIN, COHOST_LIMIT_MAX, WAITING_MAX, addWaiting, chainOf, cleanPhone, fromCodeOf, inviterOf, joinLinkPage, limitOfInviter, listCount, parseFrom, peopleRoute, personByPhone, personByToken, srcOf, waitingWho, type PersonRow } from "./people";
+import { normEmp, normId, badIdMessage, empCleanFor, rulesOf, empHashOf, verifyOf, keptPhone, phoneDigits, cleanName as cleanPersonName, PEOPLE_SCHEMA, COHOST_FROM, HOST_FROM, ORG_FROM, COHOST_LIMIT_DEFAULT, COHOST_LIMIT_MIN, COHOST_LIMIT_MAX, WAITING_MAX, addWaiting, chainOf, cleanPhone, fromCodeOf, inviterOf, joinLinkPage, limitOfInviter, listCount, parseFrom, peopleRoute, personByPhone, personByToken, srcOf, waitingWho, type PersonRow } from "./people";
 import { PAYLINK_SCHEMA, PAYLINK_TOKEN, createPayLink, packFor } from "./paylink";
 import { purgePaytestCounters } from "./payfirst";
 import { HOST_LINK_TTL_MS, HOST_SCHEMA, confirmHostEmail, emailHashOf, hostForEmail, hostKeyStatus, hostSetupRoute, hostStateRow, identityRow, maskEmail, maskMobile, mintDeviceKey, retireHost } from "./hostsetup";
@@ -66,6 +66,10 @@ export interface D1Stmt { bind(...v: unknown[]): D1Stmt; run(): Promise<D1Result
 export interface D1 { prepare(sql: string): D1Stmt; batch(s: D1Stmt[]): Promise<D1Result[]> }
 export interface R2Like { put(key: string, value: string, opts?: unknown): Promise<unknown>; delete(key: string): Promise<unknown> }
 export interface Env {
+  /** "1.1" = the owner rules of 20 Nov 2026 apply to every game made from now on (invite by employee ID only, throws by themselves, payment only by the console's signed notice). Not set = the older rules, so existing games and tests behave as before. */
+  OWNER_RULES?: string;
+  /** The secret the master console signs its "paid" notice with (POST /api/console/paid). Not set = that address answers 404 and nothing can be marked paid that way. */
+  CONSOLE_PAID_SECRET?: string;
   DB: D1; ORGANIZER_SECRET?: string; DAILY_WRITE_BUDGET?: string; RUNNER_KEY?: string; PHONE_SALT?: string;
   /** The secret that seals names and mobile numbers at rest (AES-256-GCM). Never stored in the database. */
   DATA_KEY?: string;
@@ -104,8 +108,8 @@ const tracks = (e: { cap: number }) => e.cap <= CLAIM_TRACKING_MAX_CAP;
 /** The part of the settings every phone needs, public by design: how many tickets, what each house wins, and when the brand breaks are. */
 /** The brand strip as phones see it: the full brand (with the logo) from `info`; everywhere else only name and colour (a logo can be 40 KB and a 10,000-person list must not carry it). */
 const brandOut = (c: EngagementCfg, withLogo: boolean) => (c.brand ? { brand: withLogo ? c.brand : { name: c.brand.name, color: c.brand.color, ...(c.brand.logo ? { hasLogo: true } : {}) } } : {});
-const pub = (e: any, withLogo = false) => { const c = cfgOf(e); return { ...gameOut(c), ...(c.mark ? { mark: c.mark } : {}), joinPhone: c.join === "phone" || !!c.employeesOnly || c.verify !== undefined, verify: c.verify ?? "mobile", employeesOnly: !!c.employeesOnly, idKind: c.idKind === "email" ? "email" : "emp", idClean: empCleanFor(e), tickets: c.tickets, rewards: c.rewards, breaks: c.breaks, rounds: c.rounds, invites: c.invites, opening: c.opening, closing: c.closing, ...(c.name ? { name: c.name } : {}), ...brandOut(c, withLogo) }; };
-const cfgJson = (c: EngagementCfg) => JSON.stringify({ ...gameOut(c), rewards: c.rewards, breaks: c.breaks, rounds: c.rounds, invites: c.invites, opening: c.opening, closing: c.closing, ...(c.name ? { name: c.name } : {}), ...(c.brand ? { brand: c.brand } : {}), ...(c.mark ? { mark: c.mark } : {}), ...(c.join ? { join: c.join } : {}), ...(c.tz ? { tz: c.tz } : {}), ...(c.verify ? { verify: c.verify } : {}), ...(c.employeesOnly ? { employeesOnly: true } : {}), ...(c.idKind === "email" ? { idKind: "email" } : {}) });
+const pub = (e: any, withLogo = false) => { const c = cfgOf(e); return { ...gameOut(c), ...(c.mark ? { mark: c.mark } : {}), joinPhone: c.join === "phone" || !!c.employeesOnly || c.verify !== undefined, verify: c.verify ?? "mobile", employeesOnly: !!c.employeesOnly, ownerRules: c.rules === "1.1", idKind: c.idKind === "email" ? "email" : "emp", idClean: empCleanFor(e), tickets: c.tickets, rewards: c.rewards, breaks: c.breaks, rounds: c.rounds, invites: c.invites, opening: c.opening, closing: c.closing, ...(c.name ? { name: c.name } : {}), ...brandOut(c, withLogo) }; };
+const cfgJson = (c: EngagementCfg) => JSON.stringify({ ...gameOut(c), rewards: c.rewards, breaks: c.breaks, rounds: c.rounds, invites: c.invites, opening: c.opening, closing: c.closing, ...(c.name ? { name: c.name } : {}), ...(c.brand ? { brand: c.brand } : {}), ...(c.mark ? { mark: c.mark } : {}), ...(c.join ? { join: c.join } : {}), ...(c.tz ? { tz: c.tz } : {}), ...(c.rules ? { rules: c.rules } : {}), ...(c.verify ? { verify: c.verify } : {}), ...(c.employeesOnly ? { employeesOnly: true } : {}), ...(c.idKind === "email" ? { idKind: "email" } : {}) });
 
 /** Privacy and lifecycle: sealed personal data, the role / inviter / invite kind / source of a seat, when each game ended, the winners record that outlives the personal data, and the votes that tell us a game is over. */
 export const PRIVACY_SCHEMA: string[] = [
@@ -199,7 +203,7 @@ export const SCHEMA: string[] = [
 const PATTERNS = new Set<string>([...HOUSE_ORDER, "lucky"]); // houses a phone may claim
 /** What the organizer set for this engagement (tickets per participant, reward lines, brand breaks); plain defaults when nothing was set. */
 const cfgOf = (e: { tickets?: number; config?: string | null }): EngagementCfg => {
-  try { const j = e.config ? JSON.parse(e.config) : {}; const v = validateCfg({ tickets: e.tickets ?? 1, rewards: j.rewards, breaks: j.breaks, rounds: j.rounds, invites: j.invites, opening: j.opening, closing: j.closing, name: j.name, brand: j.brand, mark: j.mark, join: j.join, tz: j.tz, verify: j.verify, employeesOnly: j.employeesOnly, idKind: j.idKind, ...gameFields(j) }, undefined, { stored: true }); if (v.ok) return v.cfg; } catch { /* fall through */ }
+  try { const j = e.config ? JSON.parse(e.config) : {}; const v = validateCfg({ tickets: e.tickets ?? 1, rewards: j.rewards, breaks: j.breaks, rounds: j.rounds, invites: j.invites, opening: j.opening, closing: j.closing, name: j.name, brand: j.brand, mark: j.mark, join: j.join, tz: j.tz, verify: j.verify, employeesOnly: j.employeesOnly, idKind: j.idKind, ...gameFields(j) }, undefined, { stored: true, rules: j.rules === "1.1" }); if (v.ok) return v.cfg; } catch { /* fall through */ }
   return defaultCfg();
 };
 const json = (o: unknown, status = 200) => new Response(JSON.stringify(o), { status, headers: { "content-type": "application/json", "cache-control": "no-store" } });
@@ -365,12 +369,39 @@ const CONSOLE_ONLY = () => json({ error: "Names and mobile numbers are handled b
  *  A whole office or hall sits behind ONE address, so the allowance of a PAID game never falls below its pack: one address may seat up to the pack's size in a minute (and three times that in a day).
  *  The base figures (the environment's JOIN_PER_IP_MINUTE / JOIN_PER_IP_DAY, else the defaults below) still apply to an unpaid game and to the waiting room, so a script cannot use a big free game to burn the write budget. */
 const JOIN_PER_IP_DAY = 1500, JOIN_PER_IP_MINUTE = 200, ID_MISS_PER_10MIN = 30;
+/** The "network" a request comes from, for limits that must not be dodged by changing address: an IPv4 address as it is; an IPv6 address by its first 64 bits (one phone on mobile data, or one home, owns a whole /64 and can change the rest at will).
+ *  A request with no address (never on the live site, where Cloudflare always adds it) shares one bucket, "local". */
+export function networkOf(ip: string | null | undefined): string {
+  const raw = (ip ?? "").trim().toLowerCase().replace(/^\[|\]$/g, "").replace(/%.*$/, "");
+  if (!raw) return "local";
+  if (!raw.includes(":")) return raw;
+  const mapped = raw.match(/^(?:0*:)*:?ffff:(\d{1,3}(?:\.\d{1,3}){3})$/); if (mapped) return mapped[1]!; // an IPv4 address written the IPv6 way
+  let head = raw, tail = ""; const dc = raw.indexOf("::"); if (dc >= 0) { head = raw.slice(0, dc); tail = raw.slice(dc + 2); }
+  const h = head ? head.split(":") : [], t = tail ? tail.split(":") : [];
+  if (dc < 0 && h.length !== 8) return raw; // not an address we can read: used as it is
+  const groups = dc >= 0 ? [...h, ...Array(Math.max(0, 8 - h.length - t.length)).fill("0"), ...t] : h;
+  return "v6/" + groups.slice(0, 4).map((g) => (g || "0").replace(/^0+(?=.)/, "")).join(":");
+}
+/** Wrong employee IDs (an ID that is not on the game's list), counted per game, per network and per 10 minutes. ONE counter is shared by "is this you?" and join, and it counts in ONE step in the database (increase, then read the answer),
+ *  so parallel guesses cannot all read the same old number. Returns true when this wrong ID is over the limit: it is then refused (429) and not looked at again.
+ *  An ID that IS on the list is never counted here (owner decision, docs/SUITE_RULES.md: an office shares one address, and the ID is matched, not proven). Fails open when the counter cannot be written, as the other counters do. */
+export async function wrongIdOverLimit(env: Env, req: Request, eid: string, now: number): Promise<boolean> {
+  try {
+    const ipk = (await sha("jip|" + networkOf(req.headers.get("cf-connecting-ip")))).slice(0, 16), k = `idmiss/${eid}/${new Date(now).toISOString().slice(0, 15)}/${ipk}`;
+    const r = await env.DB.prepare("INSERT INTO kv(k,v) VALUES(?,'1') ON CONFLICT(k) DO UPDATE SET v=CAST(kv.v AS INTEGER)+1 RETURNING v").bind(k).first<{ v: string | number }>();
+    return Number(r?.v ?? 0) > ID_MISS_PER_10MIN;
+  } catch { return false; }
+}
 /** RUNNER_KEY (owner order 5 Nov 2026): a long secret set as a Worker secret. The owner's test programs send it as X-Runner-Key; ONLY then are the test sign-in, the free owner-test packs and the join-guard bypass honoured.
  *  Without the header (or when no key is set) everything behaves exactly as for the public. Compared in constant time; a short key counts as no key. */
 function runnerOk(env: Env, req: Request): boolean {
-  const k = String((env as any).RUNNER_KEY ?? ""), h = req.headers.get("x-runner-key") ?? "";
-  if (k.length < 32 || h.length !== k.length) return false;
-  let d = 0; for (let i = 0; i < k.length; i++) d |= k.charCodeAt(i) ^ h.charCodeAt(i);
+  const k = String((env as any).RUNNER_KEY ?? "");
+  return k.length >= 32 && sameSecret(req.headers.get("x-runner-key") ?? "", k);
+}
+/** Two secrets compared in constant time (security audit L1, 23 Nov 2026): the time taken does not tell how many leading characters were right. A different length is a plain "no". */
+export function sameSecret(presented: string, secret: string): boolean {
+  if (presented.length !== secret.length || secret.length === 0) return false;
+  let d = 0; for (let i = 0; i < secret.length; i++) d |= presented.charCodeAt(i) ^ secret.charCodeAt(i);
   return d === 0;
 }
 /** The join guard is skipped only for the runner's own test games: a valid key AND an engagement id that starts with SMK10M- AND is_test=1. A real customer never matches. */
@@ -378,8 +409,9 @@ const runnerTestGame = (env: Env, req: Request, e: any): boolean => !!e && Strin
 async function joinOverLimit(env: Env, req: Request, now: number, paidSeats = 0, runner = false): Promise<boolean> {
   if (runner) return false;
   try {
-    const ip = (await sha("jip|" + (req.headers.get("cf-connecting-ip") ?? "local"))).slice(0, 16), perDay = Math.max(Number((env as any).JOIN_PER_IP_DAY ?? JOIN_PER_IP_DAY), paidSeats * 3), perMin = Math.max(Number((env as any).JOIN_PER_IP_MINUTE ?? JOIN_PER_IP_MINUTE), paidSeats);
-    const bump = async (k: string, max: number) => { const n = Number((await env.DB.prepare("SELECT v FROM kv WHERE k=?").bind(k).first<{ v: string }>())?.v ?? 0); if (n >= max) return true; await env.DB.prepare("INSERT INTO kv(k,v) VALUES(?,?) ON CONFLICT(k) DO UPDATE SET v=?").bind(k, String(n + 1), String(n + 1)).run(); return false; };
+    const ip = (await sha("jip|" + networkOf(req.headers.get("cf-connecting-ip")))).slice(0, 16), perDay = Math.max(Number((env as any).JOIN_PER_IP_DAY ?? JOIN_PER_IP_DAY), paidSeats * 3), perMin = Math.max(Number((env as any).JOIN_PER_IP_MINUTE ?? JOIN_PER_IP_MINUTE), paidSeats);
+    // counted in ONE statement (a parallel burst cannot read the same number twice), and by network (an IPv6 phone cannot change its address to start again)
+    const bump = async (k: string, max: number) => { const r = await env.DB.prepare("INSERT INTO kv(k,v) VALUES(?,'1') ON CONFLICT(k) DO UPDATE SET v=CAST(kv.v AS INTEGER)+1 RETURNING v").bind(k).first<{ v: string | number }>(); return Number(r?.v ?? 0) > max; };
     const iso = new Date(now).toISOString();
     return (await bump(`jbm/${iso.slice(0, 16)}/${ip}`, perMin)) || (await bump(`jlim/${iso.slice(0, 10)}/${ip}`, perDay));
   } catch { return false; }
@@ -707,7 +739,7 @@ async function authOf(req: Request, env: Env, now: number): Promise<Auth> {
 }
 async function authOfKey(env: Env, presented: string, now: number): Promise<Auth> {
   if (!presented) return { plat: false, org: null, kind: null };
-  if (env.ORGANIZER_SECRET && presented === env.ORGANIZER_SECRET) return { plat: true, org: null, kind: "platform" };
+  if (env.ORGANIZER_SECRET && sameSecret(presented, env.ORGANIZER_SECRET)) return { plat: true, org: null, kind: "platform" };
   const kh = await sha("key|" + presented);
   const row = await env.DB.prepare("SELECT org, kind, eid, host_id, expires_ms FROM organizer_key WHERE hash=? AND revoked=0 AND (expires_ms IS NULL OR expires_ms>?)").bind(kh, now).first<{ org: string; kind: "master" | "ai" | "host" | "cohost"; eid: string | null; host_id: string | null; expires_ms: number | null }>();
   if (!row) return { plat: false, org: null, kind: null };
@@ -1068,7 +1100,7 @@ async function route0(req: Request, env: Env, now: number, a: Auth): Promise<Res
     await auditAi(env.DB, a.org, new Request(new URL(req.url).origin + "/api/org/ai/replace", { method: "POST", headers: req.headers }), (await sha("key|" + presented)).slice(0, 10), 200, now);
     return json({ ok: true, ...r });
   }
-  if (req.method === "GET" && p === "/api/org/ai/link") { // the signed-in organizer reads their lasting AI link again (the page "Show my AI work link"); never an AI key, never in a mail
+  if (req.method === "GET" && p === "/api/org/ai/link") { // the signed-in organizer reads their lasting AI link again (the page "Show your AI work link"); never an AI key, never in a mail
     if (a.kind !== "master" || !a.org) return deny(a);
     const sealed = await env.DB.prepare("SELECT v FROM kv WHERE k=?").bind(`aikey/${a.org}`).first<{ v: string }>();
     const key = await openText(env as any, sealed?.v);
@@ -1078,7 +1110,7 @@ async function route0(req: Request, env: Env, now: number, a: Auth): Promise<Res
   if (req.method === "POST" && p === "/api/org/ai/fresh") { // "Get a fresh AI link": a new 24-hour key, e-mailed to the organizer; the lasting key and other links are untouched
     if (a.kind !== "master" || !a.org) return deny(a);
     const live = (await env.DB.prepare("SELECT COUNT(*) AS c FROM organizer_key WHERE org=? AND kind='ai' AND revoked=0 AND expires_ms>?").bind(a.org, now).first<{ c: number }>())?.c ?? 0;
-    if (live >= 5) return json({ error: "You already asked for several fresh links today. Use the latest e-mail, or press Replace my AI link." }, 429);
+    if (live >= 5) return json({ error: "You already asked for several fresh links today. Use the latest e-mail, or press Replace your AI link." }, 429);
     if (!(await spend(env, now, 3))) return BUSY();
     return json({ ok: true, ...(await mailTempLink(env, req, a.org, "ai", "fresh", now)) });
   }
@@ -1130,10 +1162,11 @@ async function route0(req: Request, env: Env, now: number, a: Auth): Promise<Res
     if (plm && req.method === "POST") {
       if (a.kind === "ai") return json({ error: "A pay link is for people to make themselves. It is not available through an AI link. Ask the owner to make it in the console (Check, publish and pay)." }, 403);
       if (!a.org || a.viaLink || (a.kind !== "master" && a.kind !== "host" && a.kind !== "cohost")) return deny(a);
-      const pe = await env.DB.prepare("SELECT id, org, cap, pack, cancelled_ms FROM engagement WHERE id=?").bind(plm[1]!).first<{ id: string; org: string | null; cap: number; pack: number | null; cancelled_ms: number | null }>();
+      const pe = await env.DB.prepare("SELECT id, org, cap, pack, cancelled_ms, config FROM engagement WHERE id=?").bind(plm[1]!).first<{ id: string; org: string | null; cap: number; pack: number | null; cancelled_ms: number | null; config: string | null }>();
       if (!pe || pe.org !== a.org) return json({ error: "No such game." }, 404);
       if (a.kind === "cohost" && a.eid && a.eid !== pe.id) return json({ error: "Your Co-host link is for a different game." }, 403);
       if (pe.cancelled_ms) return json({ error: "This game was cancelled. It cannot be paid for." }, 409);
+      if (rulesOf(pe)) return json({ error: "You make the payment link in the console, not here.", code: "pay-in-console" }, 410); // owner rules 1.1: this game takes no money
       if (pe.pack !== 0) return json({ error: "This game is already paid for.", code: "already-paid" }, 409);
       if (!packFor(pe.cap)) return json({ error: "That many participants needs a custom arrangement. Please write from the contact page." }, 400);
       if (!(await spend(env, now, 2))) return BUSY();
@@ -1262,7 +1295,7 @@ async function route0(req: Request, env: Env, now: number, a: Auth): Promise<Res
       return json({ error: "Not found" }, 404);
     }
   }
-  if (req.method === "POST" && p === "/api/org/close") { // "Close my organizer account": only the organizer's own sign-in key, never an AI key. Deletes the account and every engagement; payment and invoice records stay because the law requires them.
+  if (req.method === "POST" && p === "/api/org/close") { // "Close your organizer account": only the organizer's own sign-in key, never an AI key. Deletes the account and every engagement; payment and invoice records stay because the law requires them.
     if (a.kind !== "master" || !a.org) return deny(a);
     const b = await body(req);
     if (b?.confirm !== true) return json({ error: "Please confirm in your console." }, 400);
@@ -1424,7 +1457,7 @@ async function route0(req: Request, env: Env, now: number, a: Auth): Promise<Res
     if (b.engine === true && b.cap > ENGINE_CAP) return json({ error: `A game on the new rules takes up to ${ENGINE_CAP} people.`, code: "engine-cap" }, 400); // flagged games only; the live path is unchanged
     if (b.whoCanJoin !== undefined && b.whoCanJoin !== "list" && b.whoCanJoin !== "anyone") return json({ error: "Who can join: choose \"list\" (only people on a list) or \"anyone\" (anyone with the link)." }, 400);
     if (roundMs(b.startRound) > now + MAX_AHEAD_MS) return json({ error: TOO_FAR, code: "too-far" }, 400);
-    const vc = validateCfg({ tickets: b.tickets, rewards: b.rewards, breaks: b.breaks, rounds: b.rounds, opening: b.opening, closing: b.closing, name: b.name, brand: b.brand, mark: b.mark, join: b.join, tz: b.tz, verify: b.verify, employeesOnly: b.employeesOnly, idKind: b.idKind, engine: b.engine, survivors: b.survivors, roundTurns: b.roundTurns, ...gameFields(b) });
+    const vc = validateCfg({ tickets: b.tickets, rewards: b.rewards, breaks: b.breaks, rounds: b.rounds, opening: b.opening, closing: b.closing, name: b.name, brand: b.brand, mark: b.mark, join: b.join, tz: b.tz, verify: b.verify, employeesOnly: b.employeesOnly, idKind: b.idKind, engine: b.engine, survivors: b.survivors, roundTurns: b.roundTurns, ...gameFields(b) }, undefined, { rules: env.OWNER_RULES === "1.1" });
     if (!vc.ok) return json({ error: vc.error }, 400);
     const have = await env.DB.prepare("SELECT org FROM engagement WHERE id=?").bind(b.id).first<{ org: string | null }>();
     if (have) return json({ ok: true, existed: true }); // creating twice never overwrites (and never reveals whose it is)
@@ -1480,7 +1513,7 @@ async function route0(req: Request, env: Env, now: number, a: Auth): Promise<Res
       await sendMail(env as PayEnv, env.DB, registered, `Confirm the deletion of participant data: ${tok}`, `A request to delete all participant data was received for ${tok}. Nothing is deleted yet.\n\nTo confirm, reply to the e-mail you sent with this code: ${code}\n\nIt works for 30 minutes. Not you? Ignore this e-mail.`, now);
       asked.push(tok);
     }
-    if (done.length) await sendMail(env as PayEnv, env.DB, from, `Deleted: participant data of ${done.join(", ")}`, `Done. All participant data was deleted for: ${done.join(", ")}.\n\nThe winners record (seat, prize, round, time) and winners' prize hand-over details are kept for up to 365 days, together with your organizer details.`, now);
+    if (done.length) await sendMail(env as PayEnv, env.DB, from, `Deleted: participant data of ${done.join(", ")}`, `Done. All participant data was deleted for: ${done.join(", ")}.\n\nThe winners record (seat, prize, round, time) and winners' prize hand-over details (the name, mobile number and employee ID, if any, each winner confirmed; nothing else about them) are kept for up to 365 days, together with your organizer details.`, now);
     return json({ ok: true, action: done.length ? "deleted" : asked.length ? "confirm-sent" : "no-match", engagements: done });
   }
   if (req.method === "GET" && p === "/api/notices") { // our public news list: the same for everyone, nothing about the reader is stored or asked
@@ -1499,7 +1532,7 @@ async function route0(req: Request, env: Env, now: number, a: Auth): Promise<Res
   if (req.method === "POST" && p === "/api/lifecycle/tick") { // run every minute by the scheduled job: reports, deletions, reminders. Idempotent and bounded per call.
     const jobKey = req.headers.get("x-cron-key") ?? "";
     const jobSecret = (env.CRON_KEY ?? "").trim(); // a secret pasted in with a trailing line break still matches
-    if (!a.plat && !(jobSecret.length >= 16 && jobKey.trim() === jobSecret)) return deny(a);
+    if (!a.plat && !(jobSecret.length >= 16 && sameSecret(jobKey.trim(), jobSecret))) return deny(a);
     return json({ ok: true, ...(await runTick(env, now)) });
   }
   if (req.method === "POST" && p === "/api/purge") { // run daily (Cron trigger) or by hand: removes everything older than the retention period
@@ -1609,12 +1642,7 @@ async function route0(req: Request, env: Env, now: number, a: Auth): Promise<Res
     let hit = await personByPhone(env, eid!, eh);
     if (!hit) { const al = await env.DB.prepare("SELECT v FROM kv WHERE k=?").bind(`idx/${eid}/${eh}`).first<{ v: string }>(); if (al) hit = await personByPhone(env, eid!, al.v); }
     if (!hit || hit.status === "removed") {
-      try {
-        const ipk = (await sha("jip|" + (req.headers.get("cf-connecting-ip") ?? "local"))).slice(0, 16), k = `idmiss/${eid}/${new Date(now).toISOString().slice(0, 15)}/${ipk}`;
-        const n = Number((await env.DB.prepare("SELECT v FROM kv WHERE k=?").bind(k).first<{ v: string }>())?.v ?? 0);
-        if (n >= ID_MISS_PER_10MIN) return json({ error: "Too many tries with an employee ID that is not on the list. Please ask your organizer for help.", code: "too-many-tries" }, 429);
-        await env.DB.prepare("INSERT INTO kv(k,v) VALUES(?,?) ON CONFLICT(k) DO UPDATE SET v=excluded.v").bind(k, String(n + 1)).run();
-      } catch { /* a counter never blocks */ }
+      if (await wrongIdOverLimit(env, req, eid!, now)) return json({ error: "Too many tries with an employee ID that is not on the list. Please ask your organizer for help.", code: "too-many-tries" }, 429);
       return json({ known: false });
     }
     const nm = ((await openPii(env, hit.pii))?.name ?? "").trim().split(/\s+/);
@@ -1622,6 +1650,7 @@ async function route0(req: Request, env: Env, now: number, a: Auth): Promise<Res
   }
   if (action === "join" && req.method === "POST") {
     const b = await body(req);
+    if (b && rulesOf(e)) { delete b.phone; delete b.name; } // owner rules 1.1: a person comes in by ID alone; no name and no mobile number is read or kept
     { const c = checkConsent("K4", b?.consent); if (!c.ok) return consentRefusal("K4", c); } // K4: both boxes ticked before anything is stored (the page shows them before the name field)
     // a personal link (/j/<token>) stands for one listed person: their number is then not typed at all. The strong proof is the secret in the link, a typed number is only matched to a list.
     let tok: PersonRow | null = null, tokPii: { phone: string; name: string | null } | null = null;
@@ -1692,14 +1721,7 @@ async function route0(req: Request, env: Env, now: number, a: Auth): Promise<Res
     if (vf.mode !== "mobile" && empNorm && !tok && !admitted) {
       if (vf.mode === "both") { const pp0 = pr ? await openPii(env, pr.pii) : null; if (!pr || (pp0?.empId && pp0.empId !== empNorm)) { pr = null; idMiss = true; } }
       else if (!pr) idMiss = true; // ID alone, not on the list
-      if (idMiss) { // guessing IDs: only so many wrong IDs per network per game per 10 minutes
-        try {
-          const ipk = (await sha("jip|" + (req.headers.get("cf-connecting-ip") ?? "local"))).slice(0, 16), k = `idmiss/${eid}/${new Date(now).toISOString().slice(0, 15)}/${ipk}`;
-          const n = Number((await env.DB.prepare("SELECT v FROM kv WHERE k=?").bind(k).first<{ v: string }>())?.v ?? 0);
-          if (n >= ID_MISS_PER_10MIN) return json({ error: "Too many tries with an employee ID that is not on the list. Please ask your organizer for help.", code: "too-many-tries" }, 429);
-          await env.DB.prepare("INSERT INTO kv(k,v) VALUES(?,?) ON CONFLICT(k) DO UPDATE SET v=excluded.v").bind(k, String(n + 1)).run();
-        } catch { /* a counter never blocks a join */ }
-      }
+      if (idMiss && (await wrongIdOverLimit(env, req, eid!, now))) return json({ error: "Too many tries with an employee ID that is not on the list. Please ask your organizer for help.", code: "too-many-tries" }, 429); // guessing IDs: only so many wrong IDs per network per game per 10 minutes (a right ID is never counted)
     } else if (vf.mode === "both" && pr && !tok && !admitted) { const pp0 = await openPii(env, pr.pii); if (pp0?.empId) needIdAfterConsent = true; } // asked only after the consent box is ticked: an untick-and-ask cannot be used to find out who is on the list
     if (pr?.status === "removed") return removedReply();
     const tickedBefore = !!(await env.DB.prepare("SELECT 1 AS x FROM consent_log WHERE kind='K4' AND ref=? AND subject=?").bind(eid, await pidOf(ph)).first()); // ticked when they asked to come in; the page does not keep it across a reload
@@ -1881,7 +1903,7 @@ async function route0(req: Request, env: Env, now: number, a: Auth): Promise<Res
       credit: creditNow ? creditNow.activeTotalInr : null, creditExpiresMs: creditNow ? creditNow.nextExpiryMs : null, creditApplied: creditNow ? await creditAppliedFor(env.DB, e.id) : null, payable: creditNow ? payablePublic(await adjustAnyCur(env.DB, e.id, packOf(e.cap))) : null,
       status: didNotStart ? "did not start (closed)" : cancelled ? "cancelled by the organizer" : isDraft ? "draft" : unpaid ? (locked ? "published, NOT PAID, held because the start time passed" : "published, payment due before the start") : "published and paid",
       startsAtIST: istTime(roundMs(e.start_round), tzOfRow(e)), tz: tzOfRow(e), startMs: roundMs(e.start_round), startRound: e.start_round, callSeconds: e.call_seconds, limit: e.cap, closed: !!e.closed, whoCanJoin: e.closed ? "list" : "anyone", coHostLimit: e.cohost_limit ?? COHOST_LIMIT_DEFAULT, guestInvites: cfgOf(e).invites,
-      tickets: c.tickets, rounds: c.rounds, rewards: c.rewards, breaks: c.breaks, opening: c.opening, closing: c.closing, invites: c.invites, verify: c.verify ?? "mobile", employeesOnly: !!c.employeesOnly, idKind: c.idKind === "email" ? "email" : "emp", idClean: empCleanFor(e), brandMomentsAllowed: brandMomentsFor(c.tickets), participants: n, ...(c.name ? { name: c.name } : {}), ...(c.brand ? { brand: c.brand } : {}),
+      tickets: c.tickets, rounds: c.rounds, rewards: c.rewards, breaks: c.breaks, opening: c.opening, closing: c.closing, invites: c.invites, verify: c.verify ?? "mobile", employeesOnly: !!c.employeesOnly, ownerRules: c.rules === "1.1", idKind: c.idKind === "email" ? "email" : "emp", idClean: empCleanFor(e), brandMomentsAllowed: brandMomentsFor(c.tickets), participants: n, ...(c.name ? { name: c.name } : {}), ...(c.brand ? { brand: c.brand } : {}),
       paid: !unpaid, payment, ...(unpaid ? { pack: PACKS.find((x) => x[0] >= e.cap)?.[0] ?? null, priceInr: PACKS.find((x) => x[0] >= e.cap) ? price(PACKS.find((x) => x[0] >= e.cap)![0], "INR").total : null, priceUsd: PACKS.find((x) => x[0] >= e.cap) ? price(PACKS.find((x) => x[0] >= e.cap)![0], "USD").total : null, startsAt: istTime(roundMs(e.start_round), tzOfRow(e)), payUntil: istTime(await erasureOf(env, e), tzOfRow(e)) } : { pack: e.pack }),
       gameMinutes: Math.round((((c.mode === "table" ? 200 : c.turnCap ?? DEFAULT_TURN_CAP) * turnRounds(e.call_seconds)) * 3 + c.breaks.reduce((t: number, b: any) => t + b.seconds, 0) + 120) / 60),
       links, nextSteps, consoleUrl: `${origin}/zc.html?e=${e.id}`, ...(isDraft ? {} : { shareUrl: `${origin}/z.html?e=${e.id}` }), ...(unpaid && !isDraft ? { payUrl: `${origin}/pay.html?e=${e.id}` } : {}) });
@@ -2000,7 +2022,8 @@ async function route0(req: Request, env: Env, now: number, a: Auth): Promise<Res
   if (action === "throws" && req.method === "GET") return listThrows(env, eid!, url, json);
   if (action === "vote" && req.method === "POST") return acceptVotes(env as any, e, eid!, await body(req, 65_536), now, json, spend);
   if (action === "confirm" && req.method === "POST") return confirmPrize(env as any, eid!, await body(req), now, json, spend);
-  if (action === "myprizes" && req.method === "GET") return myPrizes(env as any, eid!, url, json);
+  if (action === "myprizes" && req.method === "GET") return myPrizes(env as any, eid!, url, json); // older pages still ask this way (the phone's own id in the address); new pages use POST below (security audit L5, 23 Nov 2026)
+  if (action === "myprizes" && req.method === "POST") { const b = await body(req); const u = new URL(url); u.search = ""; u.searchParams.set("pid", String(b?.pid ?? "")); u.searchParams.set("device", String(b?.device ?? "")); return myPrizes(env as any, eid!, u, json); } // the phone's proof travels in the body, never in an address that network logs can read
   if (action === "prizes" && req.method === "GET") { if (!can(a, e)) return deny(a); const outside = a.kind === "ai" || (a.kind === "host" && req.headers.get("x-cb-link") === "1"); return listPrizes(env as any, eid!, json, outside, !outside && (a.plat || a.kind === "master" || a.kind === "host")); } // an AI (or a co-host's AI link) sees card numbers only
   if (action === "override" && req.method === "POST") { if (!can(a, e) || !(a.plat || a.kind === "master" || a.kind === "host")) return deny(a); return overridePrize(env as any, eid!, await body(req), a.kind, now, json, spend); } // the organizer (or a Host) has the final say on who receives a prize
   if (action === "prizegiven" && req.method === "POST") { if (!can(a, e)) return deny(a); return markGiven(env, eid!, await body(req), a.kind, now, json, spend); }
@@ -2112,7 +2135,7 @@ export async function retentionSweep(env: Env, now: number): Promise<void> {
   const safe = async (f: () => Promise<unknown>) => { try { await f(); } catch { /* one failing step must not stop the others */ } };
   const cutoff = new Date(now - 2 * DAY).toISOString().slice(0, 10);
   await safe(async () => {
-    const r = await db.prepare("SELECT k FROM kv WHERE k LIKE 'start/%' OR k LIKE 'linkfail/%' OR k LIKE 'plim/%' OR k LIKE 'jlim/%' OR k LIKE 'jbm/%' LIMIT 2000").all<{ k: string }>();
+    const r = await db.prepare("SELECT k FROM kv WHERE k LIKE 'start/%' OR k LIKE 'linkfail/%' OR k LIKE 'plim/%' OR k LIKE 'jlim/%' OR k LIKE 'jbm/%' OR k LIKE 'idmiss/%' LIMIT 2000").all<{ k: string }>();
     for (const x of r.results ?? []) { const d = x.k.match(/\d{4}-\d{2}-\d{2}/)?.[0]; if (d && d < cutoff) await db.prepare("DELETE FROM kv WHERE k=?").bind(x.k).run(); }
   });
   await safe(() => db.prepare("DELETE FROM login_code WHERE expires_ms < ?").bind(now - DAY).run());

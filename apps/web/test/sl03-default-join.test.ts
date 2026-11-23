@@ -45,7 +45,7 @@ describe("SL-03: a game set to 'only people on a list' with an empty list is fla
     const see = async (id: string) => {
       const p = await openPage(w.world, { url: `http://localhost/zc.html?e=${id}`, html: "zc.html", scripts: ["zgame.js", "zc.js"], session: { "cbz-org": s.token } });
       open.push(p); await p.waitFor((x) => /Check and publish/.test(x), 20000);
-      p.click('.zc-sech[data-open="7"]'); await p.waitFor((x) => /Publish my game, free/.test(x), 20000);
+      p.click('.zc-sech[data-open="7"]'); await p.waitFor((x) => /Publish your game, free/.test(x), 20000);
       return p.html().includes("your list is empty"); // true or false only: never dump the page into a failure message
     };
     expect(await see("LISTMODE")).toBe(true);

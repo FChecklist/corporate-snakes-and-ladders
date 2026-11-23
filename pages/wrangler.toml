@@ -20,6 +20,7 @@ JOIN_PER_IP_MINUTE = "600"   # new places one network address may open a minute:
 JOIN_PER_IP_DAY = "20000"    # and in a day (the game size is the real limit)
 AI_LINK_MAIL_AT_SIGNUP = "0"   # the AI work link is hidden in the console, so its welcome e-mail is not sent
 PUBLIC_ORIGIN = "https://snakes.corporatetambola.com"
+OWNER_RULES = "1.1"   # owner rules 1.1 (20 Nov 2026): invite by ID only, throws by themselves, paid only by the console's signed notice. Remove this line to go back to the older rules (games already made keep the rules they were made with)
 PAY_HOP_URL = "https://itservices-rajat-agarwal.pages.dev/payframe/"   # Option 1: the Razorpay window runs on the website registered with Razorpay
 MAIL_FROM = "Corporate Snakes and Ladders <hello@corporatetambola.com>"
 OWNER_EMAIL = "hello@corporatetambola.com"

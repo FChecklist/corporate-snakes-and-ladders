@@ -9,7 +9,10 @@
 //   - PARTICIPANTS' personal details (their rows' IP, user agent, raw device id, field changes) are NOT kept in `audit_log.sealed`: they live in `audit_pii`, sealed under a per-engagement key
 //     (pii.ts `sealEng`: HKDF of DATA_KEY with a random salt stored in `eng_key`). The hash chain covers only the non-personal core of each row plus `pdig` = SHA-256 of that sealed blob.
 //     20 hours after the game ends `shredParticipantAudit` deletes the blobs AND the salt and writes a `shred` marker: the personal part is unrecoverable and `verifyChain` still passes,
-//     because it never needs the blob. Rows of the organizer, host, co-host, AI key and the winners' prize confirmations ("prize" events) keep everything until 365 days.
+//     because it never needs the blob. Rows of the organizer, host, co-host and AI key keep everything until 365 days.
+//   - A WINNER'S confirmation of the name and mobile number the prize goes to ("prize" event) is split too: the winner's own name and mobile number (and the seat) stay in the core of the
+//     row for 365 days, together with the winners record, because the owner keeps the winner's name and contact on purpose; the network address, browser, phone id, participant id and every
+//     other detail of the request go into the sealed part and are shredded with everyone else's (security audit M1, 23 Nov 2026). This does not depend on any switch.
 import { openEng, openText, sealEng, sealText, type PiiEnv } from "./pii";
 import type { D1, Env } from "./worker";
 
@@ -106,7 +109,7 @@ export interface Ctx { corr: string; ip: string; country: string; asn: string; u
 export function ctxOf(req: Request): Ctx {
   const h = req.headers, cf = (req as any).cf ?? {};
   return {
-    corr: clip(h.get("x-request-id") ?? h.get("cf-ray") ?? "", 64) || crypto.randomUUID(),
+    corr: clip(h.get("cf-ray") ?? "", 64) || crypto.randomUUID(), // only what our own network adds: a caller's own "x-request-id" is free text and is never copied into the log
     ip: clip(h.get("cf-connecting-ip") ?? "", 64), country: clip(h.get("cf-ipcountry") ?? "", 8),
     asn: clip(String(cf.asn ?? h.get("x-cb-asn") ?? ""), 12), ua: clip(h.get("user-agent") ?? "", 400),
   };
@@ -134,6 +137,7 @@ export function classify(method: string, path: string, status: number, actor: Ac
     else if (a === "clone") event = writes ? "clone" : null;
     else if (a === "pay-with-credit") event = writes ? "pay" : null;
     else if (a === "announce") event = "announce";
+    else if (a === "myprizes") event = null; // a read, asked with POST so the phone's proof is not in the address: it is not a write worth a row
     else if (a === "confirm" || a === "prizegiven") event = "prize";
     else if (a === "erase" || a === "forget" || a === "person") event = writes ? "erase_request" : null;
     else if (a === "unbind") event = "unbind";
@@ -168,8 +172,19 @@ export interface RecordIn {
 }
 const rowHash = (r: { chain: string; seq: number; prev: string; at: number; actor: string; event: string; target: string | null; corr: string; status: number | null; country: string | null; asn: string | null; vendor: string | null; key: string | null; proof: string | null; mismatch: number; sealed: string; pdig?: string | null }) =>
   sha(JSON.stringify([r.chain, r.seq, r.prev, r.at, r.actor, r.event, r.target, r.corr, r.status, r.country, r.asn, r.vendor, r.key, r.proof, r.mismatch, r.sealed, ...(r.pdig ? [r.pdig] : [])]));
-/** Participant rows keep their personal part apart (shreddable). Winners' prize confirmations are kept whole for 365 days. */
-const splitsPersonal = (r: { actor: string; eid: string | null; event: string }) => r.actor === "participant" && !!r.eid && !/^prize/.test(r.event);
+/** Participant rows keep their personal part apart (shreddable), a winner's prize confirmation too: see `winnerPart` for the little of it that stays. */
+const splitsPersonal = (r: { actor: string; eid: string | null }) => r.actor === "participant" && !!r.eid;
+/**
+ * What of a winner's prize confirmation is kept for 365 days: the seat and the name and mobile number the winner confirmed (the owner keeps these on purpose, so the prize can be handed over
+ * and the winner found). Nothing else about the request is kept: not the network address, the browser, the phone id or the participant id.
+ */
+export function winnerPart(details: any): { winner: { seat: number | null; name: string; phone: string }; method: unknown; path: unknown; status: unknown; server_utc: unknown } {
+  const c = details?.changes && typeof details.changes === "object" ? details.changes : {};
+  const m = typeof c.pid === "string" ? /^(\d{1,7})x/.exec(c.pid) : null;
+  return { winner: { seat: m ? Number(m[1]) : null, name: typeof c.name === "string" ? c.name.slice(0, 60) : "", phone: typeof c.phone === "string" ? c.phone.slice(0, 32) : "" }, method: details?.method ?? null, path: details?.path ?? null, status: details?.status ?? null, server_utc: details?.server_utc ?? null };
+}
+/** The rest of a winner's confirmation (everything but what `winnerPart` keeps): sealed under the game's own key and destroyed with it. */
+const withoutWinnerPart = (details: any) => { const d = { ...(details ?? {}) }; if (d.changes && typeof d.changes === "object") { const { name: _n, phone: _p, ...rest } = d.changes; d.changes = rest; } return d; };
 export const isShredded = async (db: D1, eid: string) => !!(await db.prepare("SELECT 1 AS x FROM shred WHERE eid=?").bind(eid).first());
 /** The engagement's random participant-key salt; made on first use. Null once shredded (a shredded engagement never gets a new one). */
 async function engSalt(env: AuditEnv, eid: string, now: number): Promise<string | null> {
@@ -207,10 +222,14 @@ export function truncateIp(ip: string): string {
 export async function appendAudit(env: AuditEnv, r: RecordIn): Promise<boolean> {
   try {
     const chain = chainOf(r.eid, r.org, r.actor), split = splitsPersonal(r);
-    const json = JSON.stringify(r.details);
+    // a participant's call for a game id that is not a game (a mistyped or old link, or a script) leaves no row and no key: nobody's details are kept for a game that does not exist (security audit M2, 23 Nov 2026)
+    if (split && !(await env.DB.prepare("SELECT 1 AS x FROM engagement WHERE id=?").bind(r.eid).first())) return true;
+    const winner = split && r.event === "prize" ? winnerPart(r.details) : null;
+    const json = JSON.stringify(winner ? withoutWinnerPart(r.details) : r.details);
     let sealed = "", pii: string | null = null, pdig: string | null = null;
     if (!split) sealed = await sealText(env, json);
     else {
+      if (winner) sealed = await sealText(env, JSON.stringify(winner)); // the winner's own name, mobile number and seat: kept 365 days with the winners record
       const salt = await engSalt(env, r.eid!, r.now); // null = already shredded: a late participant row keeps its non-personal core only
       if (salt) { pii = await sealEng(env, r.eid!, salt, json); pdig = await sha(pii); }
     }
@@ -218,7 +237,7 @@ export async function appendAudit(env: AuditEnv, r: RecordIn): Promise<boolean> 
       const last = await env.DB.prepare("SELECT seq, row_hash FROM audit_log WHERE chain=? ORDER BY seq DESC LIMIT 1").bind(chain).first<{ seq: number; row_hash: string }>();
       const seq = (last?.seq ?? 0) + 1, prev = last?.row_hash ?? GENESIS;
       // a participant's network number is personal too: it lives in the sealed part only
-      const f = { chain, seq, prev, at: r.now, actor: r.actor, event: r.event, target: r.target, corr: r.corr, status: r.status, country: r.country || null, asn: split ? null : r.asn || null, vendor: r.aiVendor ?? null, key: r.keyId ?? null, proof: r.proof ?? null, mismatch: r.mismatch ? 1 : 0, sealed, pdig };
+      const f = { chain, seq, prev, at: r.now, actor: r.actor, event: r.event, target: r.target, corr: r.corr, status: r.status, country: split ? null : r.country || null, asn: split ? null : r.asn || null, vendor: r.aiVendor ?? null, key: r.keyId ?? null, proof: r.proof ?? null, mismatch: r.mismatch ? 1 : 0, sealed, pdig };
       try {
         const ins = env.DB.prepare("INSERT INTO audit_log(chain,seq,eid,org,at_ms,actor,event,target,corr,status,country,asn,ai_vendor,key_id,proof,mismatch,sealed,prev_hash,row_hash,pdig) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
           .bind(chain, seq, r.eid, r.org, r.now, r.actor, r.event, r.target, r.corr, r.status, f.country, f.asn, f.vendor, f.key, f.proof, f.mismatch, sealed, prev, await rowHash(f), pdig);
@@ -297,6 +316,7 @@ export async function loadRows(env: AuditEnv, chain: string, limit = 5000, offse
       const pii = (await env.DB.prepare("SELECT sealed FROM audit_pii WHERE chain=? AND seq=?").bind(x.chain, x.seq).first<{ sealed: string }>())?.sealed ?? null;
       const t = pii ? await openEng(env, eid, salts.get(eid), pii) : null;
       details = t !== null ? JSON.parse(t) : pii ? { unreadable: true } : { personal_data_erased: true };
+      if (x.sealed) { const kept = await openText(env, x.sealed); if (kept !== null) details = { ...details, ...JSON.parse(kept) }; } // a winner's confirmation: the winner's own part stays readable after the rest is shredded
     } else if (x.sealed === "") details = { personal_data_erased: true };
     else { const t = await openText(env, x.sealed); details = t === null ? { unreadable: true } : JSON.parse(t); }
     out.push({ id: x.id, chain: x.chain, seq: x.seq, eid: x.eid, org: x.org, at_ms: x.at_ms, at_utc: new Date(x.at_ms).toISOString(), actor: x.actor, event: x.event, target: x.target, corr: x.corr, status: x.status, country: x.country, asn: x.asn, ai_vendor: x.ai_vendor, key_id: x.key_id, proof: x.proof, mismatch: !!x.mismatch, details, prev_hash: x.prev_hash, row_hash: x.row_hash });

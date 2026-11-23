@@ -48,7 +48,7 @@ describe("E9: the owner is told of each paid order", () => {
     const m = ownerMails(); expect(m.length).toBe(1);
     const txn = (raw.query("SELECT txn_id FROM payment").get() as any).txn_id as string; expect(txn).toMatch(/^SNL-/);
     expect(m[0]!.subject).toContain("Paid order"); expect(m[0]!.subject).toContain("Corporate Snakes and Ladders");
-    for (const part of ["Game: Corporate Snakes and Ladders", "up to 500", txn, "Asha Rao", "asha@acme.com", "Rs"]) expect(m[0]!.body).toContain(part);
+    for (const part of ["Game: Corporate Snakes and Ladders", "up to 500", txn, "Asha Rao", "asha@acme.com", "₹"]) expect(m[0]!.body).toContain(part);
   });
   test("the webhook and the verify call for the same payment send the note only once, whichever comes first", async () => {
     const o = (await (await buy()).json()) as any;

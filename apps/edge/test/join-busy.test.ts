@@ -4,6 +4,8 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { W, call, dev, j, mob, one, paidGame, reset, restore, uid } from "./param-harness";
 import { joinRetry, retryKind, transientDb } from "../src/worker";
+import { installBeacon, trueGame } from "./truth";
+import { voteAgain } from "./settle";
 
 const OVERLOAD = "D1_ERROR: D1 DB is overloaded. Too many resources consumed within a 10 second window";
 const wrapStmt = (s: any, fail: (sql: string) => void, sql: string): any => new Proxy(s, {
@@ -164,9 +166,10 @@ describe("the winners' vote when the database hiccups in the middle (round 2 aud
   const settledN = (id: string) => one("SELECT COUNT(*) c FROM settled WHERE eid=?", id).c as number;
   const winnersN = (id: string) => one("SELECT COUNT(*) c FROM winner WHERE eid=?", id).c as number;
   test("a hiccup while the winner record is written: 503 busy, the prize is NOT settled; the same phone's repeat finishes it with the winner record in place", async () => {
-    const id = uid("BZ"); await paidGame({ id });
+    const id = uid("BZ"); await paidGame({ id, over: { turnCap: 100 } });
     const pids: string[] = []; for (let i = 1; i <= 8; i++) pids.push((await j(await join(id, i))).pid);
-    const rep = (pid: string) => call("POST", `/api/z/${id}/vote`, { pid, device: dev(pids.indexOf(pid) + 1), results: [{ pattern: "finish", ordinal: 1, round: 1, idx: 70, pids: [pids[1], pids[2]] }] });
+    installBeacon(); const t = trueGame(W.raw, id), w = t.settled.find((x) => x.pattern === "finish" && x.ordinal === 1)!; // the phones report the TRUE first home (the server checks it against the public numbers)
+    const rep = (pid: string) => voteAgain(call, id, { pid, device: dev(pids.indexOf(pid) + 1), results: [{ pattern: "finish", ordinal: 1, round: 1, idx: w.idx, pids: w.pids }] }, t.endMs);
     let fails = 1; flaky((sql) => { if (fails > 0 && sql.startsWith("INSERT INTO winner")) { fails--; throw new Error(OVERLOAD); } });
     let bad: Response | null = null, who = "";
     for (const pid of pids) { const r = await rep(pid); if (r.status === 503) { bad = r; who = pid; break; } }
@@ -174,6 +177,6 @@ describe("the winners' vote when the database hiccups in the middle (round 2 aud
     expect((await j(bad!)).code).toBe("busy");
     expect(settledN(id)).toBe(0); // not marked settled over a missing winner record
     const ok = await j(await rep(who)); // the phone sends the same report again
-    expect(ok.accepted).toBe(1); expect(settledN(id)).toBe(1); expect(winnersN(id)).toBe(2);
+    expect(ok.accepted).toBe(1); expect(settledN(id)).toBe(1); expect(winnersN(id)).toBe(1);
   });
 });

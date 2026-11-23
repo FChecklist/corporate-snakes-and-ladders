@@ -22,7 +22,7 @@
   };
   // ---------- what the game's public settings say besides the plan: the brand strip, a cancelled game; and a personal invite link's token ----------
   const TOKEN = (q.get("t") || "").trim().slice(0, 80); // a personal link: sent as `token` when joining, so no mobile number is needed
-  const INFO = { brand: null, cancelled: null, dns: false, joinPhone: false, verify: "mobile", empOnly: false }; // dns = "this game did not start": nobody paid, the time and 20 hours passed, the guest data was auto-deleted
+  const INFO = { brand: null, cancelled: null, dns: false, joinPhone: false, verify: "mobile", empOnly: false, ownerRules: false }; // dns = "this game did not start": nobody paid, the time and 20 hours passed, the guest data was auto-deleted
   const cleanBrand = (b) => {
     if (!b || typeof b !== "object") return null;
     const name = String(b.name == null ? "" : b.name).replace(/\s+/g, " ").trim().slice(0, 60);
@@ -38,7 +38,7 @@
     if (!r || typeof r !== "object") return;
     if ("brand" in r && !(fromJoin && INFO.brand)) { INFO.brand = cleanBrand(r.brand); if (!DEMO && EID && INFO.brand && INFO.brand.logo !== undefined) { try { store.set("cbz:" + EID + ":brand", JSON.stringify(INFO.brand)); } catch { /* storage full or blocked: the strip just is not kept */ } } } // a join answer carries the brand without its logo: never let it replace the full one read from info
     if ("joinPhone" in r) INFO.joinPhone = r.joinPhone === true;
-    if ("verify" in r) { INFO.verify = r.verify === "id" || r.verify === "both" ? r.verify : "mobile"; INFO.empOnly = r.employeesOnly === true; INFO.idKind = r.idKind === "email" ? "email" : "emp"; INFO.idClean = r.idClean === true; }
+    if ("verify" in r) { INFO.verify = r.verify === "id" || r.verify === "both" ? r.verify : "mobile"; INFO.empOnly = r.employeesOnly === true; INFO.idKind = r.idKind === "email" ? "email" : "emp"; INFO.idClean = r.idClean === true; INFO.ownerRules = r.ownerRules === true; }
     if (r.demo === true) INFO.demo = true;
     if (r.didNotStart === true) INFO.dns = true; else if ("startRound" in r && !fromJoin) INFO.dns = false;
     if ("cancelled" in r || "startRound" in r) INFO.cancelled = r.cancelled ? { message: String(r.message || "").slice(0, 200) } : null;
@@ -125,6 +125,7 @@
     const phone = (label, hint) => `<label for="ph">${label}</label><input id="ph" inputmode="tel" autocomplete="tel" placeholder="+1 555 010 0100" value="${pv}">${hint ? `<p class="zsmall zflush">${hint}</p>` : ""}`;
     const EM = INFO.idKind === "email", idw = (t) => EM ? t.replace(/employee ID/g, "Email ID") : t;
     const emp = (label, hint) => `<label for="emp">${idw(label)}</label><input id="emp" ${EM ? 'type="text" inputmode="email" autocomplete="email" spellcheck="false" autocapitalize="none" maxlength="254"' : 'autocomplete="off" autocapitalize="characters"'} value="${ev}"><p class="zsmall zflush" id="empread" aria-live="polite"></p>${hint ? `<p class="zsmall zflush">${hint}</p>` : ""}`;
+    if (INFO.ownerRules) return emp("Your employee ID", "Dashes, slashes and spaces do not matter: A-1101, A 1101 and A/1101 are the same ID. If your ID is not on the list, the host decides.");
     if (vm === "id") return emp("Your employee ID", eo ? "This game is for employees only." : "") + (eo ? "" : phone("No employee ID? Type your mobile number instead", "Vendors, customers and families use their mobile number."));
     if (vm === "both") return phone("Your mobile number", "") + emp(eo ? "Your employee ID" : "Your employee ID (employees only)", eo ? "This game is for employees only." : "Not an employee? Leave this empty.");
     return phone("Your mobile number", "");
@@ -142,18 +143,18 @@
     const m = msg || J.msg;
     return `${brandStrip()}${head}
     <div class="zcard zform zjoin"><h2>Join the game</h2>
-    <ol class="zsteps" aria-label="How to join"><li><b>1</b><span>Tick the boxes</span></li><li><b>2</b><span>${personal ? "Press Join" : "Type a nickname"}</span></li><li><b>3</b><span>${personal ? "Wait for the start" : "Press Join"}</span></li></ol>
+    <ol class="zsteps" aria-label="How to join"><li><b>1</b><span>Tick the boxes</span></li><li><b>2</b><span>${personal ? "Press Join" : INFO.ownerRules ? "Type your employee ID" : "Type a nickname"}</span></li><li><b>3</b><span>${personal ? "Wait for the start" : "Press Join"}</span></li></ol>
     <p class="zgoalline zflush">Race a board of snakes and ladders. Land on the last square to win. The game plays by itself: nothing to download.</p>${INVITE_FROM ? `<div class="zbanner ok zflush">A colleague invited you. Join with your nickname to get your own board.</div>` : ""}
     ${J.mode === "needPhone" ? `<div class="zbanner info zflush" role="status">${J.note ? esc(J.note) : "This link was already opened on another phone. Please type your mobile number to join."}</div>` : ""}
     <div id="k4box">${K4.info && CBC() ? CBC().html(K4.info, K4.state) : consentLoading(K4.failed, "k4retry")}</div>
     ${personal ? `<p class="zsmall">Your personal link is ready. Tick the boxes and press the button to join.</p>` : ""}
-    ${personal ? "" : `<label for="nm">Your nickname</label><input id="nm" autocomplete="off" maxlength="60" value="${esc(J.name)}">`}
+    ${personal || INFO.ownerRules ? "" : `<label for="nm">Your nickname</label><input id="nm" autocomplete="off" maxlength="60" value="${esc(J.name)}">`}
     ${personal || !needPhone ? "" : joinWho()}
     ${m ? `<div class="zbanner bad" role="alert">${esc(m)}</div>` : ""}
     <button class="zbtn" id="go" type="button" disabled aria-disabled="true">Join the game</button>
     <p class="zsmall" id="same-app"><b>Stay in this app.</b> Your board stays with the app or browser you join in. If you open this link in Teams, keep using Teams: do not switch to Chrome later.</p>
     <p class="spriv">Players are 18 or older. Playing is free: you never pay, and no prize money is held or paid by IT Services.</p>
-    <p class="spriv"><a href="/privacy.html" target="_blank" rel="noopener">Privacy Policy</a></p></div>`;
+    <p class="spriv" id="fairline">No one knows the next roll: not the organizer, not the host, not even the software.</p><p class="spriv" id="privline">Designed to follow US privacy laws, EU GDPR and India's DPDP. All participant information, including IDs, is deleted within 24 hours after the game ends.</p><p class="spriv"><a href="/privacy.html" target="_blank" rel="noopener">Privacy Policy</a></p></div>`;
   };
   const cancelledView = () => `${brandStrip()}${head}<div class="zcard" role="status"><h2>This game was cancelled</h2><p class="zsmall zflush">${esc((INFO.cancelled && INFO.cancelled.message) || "The organizer cancelled this game.")} There is nothing to do on this page. Thank you for your interest.</p></div>`;
   const dnsView = () => `${brandStrip()}${head}<div class="zcard" role="status"><h2>This game did not start</h2><p class="zsmall zflush">This game did not start. Your details have been auto-deleted. There is nothing to do on this page. Thank you for your interest.</p></div>`;
@@ -562,7 +563,7 @@
     if (DEMO || v.phase !== "ended" || !PRIZES.length || !v.pid || CF.loading || (CF.loaded && CF.confirmed) || Date.now() - CF.last < 15000) return;
     CF.last = Date.now(); CF.loading = true;
     try {
-      const r = await api("GET", `/api/z/${EID}/myprizes?pid=${encodeURIComponent(v.pid)}&device=${encodeURIComponent(myDevice())}`);
+      const r = await api("POST", `/api/z/${EID}/myprizes`, { pid: v.pid, device: myDevice() }); // the phone's own id goes in the body, not in the address
       CF.prizes = r.prizes || []; if (!CF.edited) { CF.name = r.name || ""; CF.phone = r.phone || ""; } CF.confirmed = !!r.confirmed; CF.loaded = CF.prizes.length > 0;
     } catch { /* tried again shortly */ }
     CF.loading = false;

@@ -7,7 +7,7 @@
 // `withPeople: true` brings the old game's people list (names and numbers stay sealed; each person gets a NEW personal link, the old links stay with the old game). It works only while the
 // old list still exists (before its auto-deletion); otherwise `peopleCopied` is 0 and `peopleNote` says so calmly. The old game's own copy is auto-deleted on its own clock as always.
 import { sealText } from "./pii";
-import { newToken, tokenHash, randHex, normId, empHashOf, verifyOf, empCleanFor } from "./people";
+import { newToken, tokenHash, randHex, normId, empHashOf, verifyOf, empCleanFor, rulesOf } from "./people";
 import { openPii } from "./pii";
 import { MAX_AHEAD_MS } from "./lifecycle";
 import { MAX_DRAFTS } from "./pay";
@@ -65,6 +65,10 @@ export async function cloneGame(env: Env, e: any, b: any, now: number, origin: s
     if (n >= MAX_DRAFTS) return json({ error: `You have ${MAX_DRAFTS} unpublished drafts. Publish one, or delete one you do not need (open Your games, then press Delete next to it). An unpublished draft is also forgotten after 30 days.`, code: "draft-limit" }, 409);
   }
   if (!(await spend(6))) return json({ error: "It is very busy right now. Please try again in a few minutes." }, 503);
+  // OWNER RULES 1.1: a new game is always made under them. A copy of an older game keeps its prizes, brand and turn length but is by employee ID only, throws by itself, and takes no mobile-number list along.
+  const toRules = env.OWNER_RULES === "1.1" && !rulesOf(e);
+  let newConfig: string | null = e.config ?? null;
+  if (toRules) { try { const j = e.config ? JSON.parse(e.config) : {}; delete j.idKind; delete j.play; j.rules = "1.1"; j.verify = "id"; j.employeesOnly = true; j.join = "phone"; j.invites = { on: false, per: j.invites?.per ?? 4, cats: j.invites?.cats ?? ["family", "colleagues"] }; if (Array.isArray(j.rewards)) j.rewards = j.rewards.filter((l: any) => l?.pattern !== "nevermissed"); newConfig = JSON.stringify(j); } catch { newConfig = e.config ?? null; } }
   const base = String(e.id).replace(/-[A-Z2-9]{4}$/, "").slice(0, 34);
   let id = "", made = false;
   const pending = startRound === null;
@@ -73,14 +77,14 @@ export async function cloneGame(env: Env, e: any, b: any, now: number, origin: s
   for (let i = 0; i < 6 && !made; i++) {
     id = `${base}-${suffix()}`;
     const r = await db.prepare("INSERT OR IGNORE INTO engagement(id,start_round,call_seconds,cap,created_ms,org,closed,pack,tickets,config,is_test,cohost_limit) VALUES(?,?,?,?,?,?,?,0,?,?,?,?)")
-      .bind(id, sr, e.call_seconds, e.cap, now, org, e.closed ? 1 : 0, e.tickets, e.config, test, e.cohost_limit ?? null).run();
+      .bind(id, sr, e.call_seconds, e.cap, now, org, e.closed || toRules ? 1 : 0, e.tickets, newConfig, test, e.cohost_limit ?? null).run();
     made = (r.meta?.changes ?? 0) > 0;
   }
   if (!made) return json({ error: "Could not make a new game code. Please try again." }, 503);
   if (pending) await db.prepare("INSERT OR REPLACE INTO kv(k,v) VALUES(?,?)").bind(`startpending/${id}`, String(now)).run();
   let peopleCopied = 0, peopleNote: string | undefined;
-  if (b?.withPeople === true) {
-    const r = await copyPeople(env, e.id, id, e.cap, now, spend, { config: e.config ?? null, created_ms: now });
+  if (b?.withPeople === true && !toRules) { // (an older game's list holds mobile numbers and names: a game under the owner rules starts with an empty list of IDs)
+    const r = await copyPeople(env, e.id, id, e.cap, now, spend, { config: newConfig, created_ms: now });
     peopleCopied = r.copied;
     if (!r.copied) peopleNote = r.busy ? "It is very busy right now. Add your people again in a few minutes." : "The old guest list has been auto-deleted, so add your people again.";
   }

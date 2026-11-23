@@ -43,7 +43,7 @@ describe("replace the report link (G-07)", () => {
   });
 });
 
-describe("Close my organizer account", () => {
+describe("Close your organizer account", () => {
   test("only the organizer's own key, with a confirmation; it deletes the account and every engagement; payments stay; all keys die", async () => {
     const o = await org(); await game(o, "CLS-1"); await game(o, "CLS-2");
     await call("POST", "/api/z/CLS-1/join", { phone: "9811111111", name: "Asha", device: "1".repeat(32) });
@@ -64,7 +64,7 @@ describe("Close my organizer account", () => {
     const o = await org(); await game(o, "CLS-3", 0);
     const r = await call("POST", "/api/org/close", { confirm: true }, o.h, T + 5 * 60_000); expect(r.status).toBe(409);
     expect((raw.prepare("SELECT COUNT(*) AS c FROM engagement").get() as any).c).toBe(1);
-    const z = rd("zc.js"); expect(z).toContain("Close my account"); expect(z).toContain("This cannot be undone.");
+    const z = rd("zc.js"); expect(z).toContain("Close your account"); expect(z).toContain("This cannot be undone.");
   });
 });
 

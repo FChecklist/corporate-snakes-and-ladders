@@ -421,13 +421,99 @@ const publicReceipt = (r: any) => { const { organizerKey, ...rest } = r ?? {}; r
 
 /** Which keys may pay a game of their account, and how the payment is shown. */
 export const PAYER: Record<string, string> = { master: "organizer", host: "host", cohost: "co-host" };
+
+/** The console's signed notice is valid for this long either side of its time stamp (a copy sent later is refused, so an old notice cannot be replayed for ever). */
+export const CONSOLE_NOTICE_WINDOW_MS = 5 * 60_000;
+/** A shared secret shorter than this is treated as no secret at all (the address stays 404): a short secret can be guessed. Use a long random value. */
+export const CONSOLE_SECRET_MIN = 32;
+const hmacHexOf = async (secret: string, msg: string): Promise<string> => { const k = await crypto.subtle.importKey("raw", new TextEncoder().encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]); return Array.from(new Uint8Array(await crypto.subtle.sign("HMAC", k, new TextEncoder().encode(msg))), (b) => b.toString(16).padStart(2, "0")).join(""); };
+const sameText = (a: string, b: string): boolean => { if (a.length !== b.length) return false; let d = 0; for (let i = 0; i < a.length; i++) d |= a.charCodeAt(i) ^ b.charCodeAt(i); return d === 0; };
+/**
+ * POST /api/console/paid (owner rules 1.1): the master console says "this game is paid". The notice is {orderId, gameId} signed with CONSOLE_PAID_SECRET:
+ * header x-console-timestamp = milliseconds, header x-console-signature = hex HMAC-SHA-256 of `${timestamp}.${exact body}`. Without the secret, or without OWNER_RULES=1.1,
+ * the address answers 404 and no money switch exists. One order id counts once: a repeat of the same notice answers ok with already:true and changes nothing; an order id
+ * that was used for another game is refused. No money is taken here and nothing is charged: the game only learns that the console already took the payment.
+ */
+async function consolePaid(req: Request, env: PayEnv, now: number): Promise<Response> {
+  const secret = env.CONSOLE_PAID_SECRET;
+  if (!secret || secret.length < CONSOLE_SECRET_MIN || env.OWNER_RULES !== "1.1" || req.method !== "POST") return json({ error: "Not found" }, 404);
+  if (Number(req.headers.get("content-length") ?? 0) > 1024) return json({ error: "Too large." }, 413); // refused before the body is read
+  const raw = await req.text();
+  if (raw.length > 1024) return json({ error: "Too large." }, 413);
+  const ts = Number(req.headers.get("x-console-timestamp")), sig = (req.headers.get("x-console-signature") ?? "").trim().toLowerCase();
+  if (!Number.isFinite(ts) || Math.abs(now - ts) > CONSOLE_NOTICE_WINDOW_MS) return json({ error: "This notice is too old or has no time.", code: "stale" }, 401);
+  if (!/^[0-9a-f]{64}$/.test(sig) || !sameText(sig, await hmacHexOf(secret, `${ts}.${raw}`))) return json({ error: "The signature does not match.", code: "bad-signature" }, 401);
+  let b: any = null; try { b = JSON.parse(raw); } catch { /* answered below */ }
+  const orderId = typeof b?.orderId === "string" ? b.orderId : "", gameId = typeof b?.gameId === "string" ? b.gameId : "";
+  if (!/^[A-Za-z0-9_-]{6,64}$/.test(orderId) || !/^[A-Za-z0-9_-]{3,40}$/.test(gameId)) return json({ error: "A notice needs an order id and a game id.", code: "bad-notice" }, 400);
+  const db = env.DB, key = `cpaid/${orderId}`;
+  const answerSeen = (v: string): Response => { let was: any = {}; try { was = JSON.parse(v); } catch { /* unreadable: treated as another game */ } return was.gameId === gameId ? json({ ok: true, already: true, gameId }) : json({ error: "This order id was already used for another game.", code: "order-reused" }, 409); };
+  const gameOfClaim = (v: string): string | null => { try { const x = JSON.parse(v); return typeof x?.gameId === "string" ? x.gameId : null; } catch { return null; } };
+  const seen = await db.prepare("SELECT v FROM kv WHERE k=?").bind(key).first<{ v: string }>();
+  if (seen && gameOfClaim(seen.v) !== gameId) return answerSeen(seen.v); // this order id belongs to another game (or is unreadable): refused
+  const g = await db.prepare("SELECT id, org, cap, pack, start_round, cancelled_ms, unplayed_ms FROM engagement WHERE id=?").bind(gameId).first<any>();
+  if (!g) return json({ error: "No such game.", code: "no-game" }, 404);
+  // A repeat of a notice answers "already" ONLY when the game really is paid. A claim row with an unpaid game (a notice that stopped half way) is not a success: the repeat finishes the job below (audit 1 M1, 22 Nov).
+  // The published and paid-by markers are written by an earlier try that stopped after the batch (audit 2 L2, 23 Nov), so a repeat writes them again (insert-or-ignore: harmless when they exist).
+  const markers = async () => {
+    await db.prepare("INSERT OR IGNORE INTO kv(k,v) VALUES(?,?)").bind(`pub/${gameId}`, String(now)).run();
+    await db.prepare("INSERT OR IGNORE INTO kv(k,v) VALUES(?,?)").bind(`paidby/${gameId}`, JSON.stringify({ by: "console", ms: now })).run();
+  };
+  if (seen && (g.pack ?? 0) > 0) { await markers(); return json({ ok: true, already: true, gameId }); }
+  if (g.cancelled_ms || g.unplayed_ms) return json({ error: "This game was cancelled or closed, so it cannot be marked paid.", code: "game-closed" }, 409);
+  const pack = PACKS.find((x) => x[0] >= g.cap)?.[0] ?? null;
+  if (!pack) return json({ error: "That many people needs a custom arrangement.", code: "no-pack" }, 400);
+  if ((g.pack ?? 0) > 0) return json({ ok: true, gameId, paid: true, already: true }); // already paid: nothing to mark, and this order id is not used up for no effect
+  // The order id is claimed and the game is marked in ONE batch (all or nothing), and the game is marked only if the claim row names THIS game: so a failure half way leaves no claim behind,
+  // and two notices with one order id for two games, sent at the same moment, cannot both mark a game.
+  const mine = JSON.stringify({ gameId, ms: now });
+  let done: any[];
+  try {
+    done = await db.batch([
+      db.prepare("INSERT INTO kv(k,v) VALUES(?,?) ON CONFLICT(k) DO NOTHING").bind(key, mine),
+      db.prepare("UPDATE engagement SET pack=?, cap=MIN(cap, ?) WHERE id=? AND pack=0 AND cancelled_ms IS NULL AND unplayed_ms IS NULL AND EXISTS (SELECT 1 FROM kv WHERE k=? AND json_extract(v,'$.gameId')=?)").bind(pack, pack, gameId, key, gameId),
+    ]);
+  } catch {
+    // The reply may have been lost AFTER the database committed (audit 2 L1, 23 Nov): look before letting the order id go. If the game is paid and the claim row is this notice's own, the batch did
+    // commit, so the claim stays and the notice is finished as a success below; only an unpaid game gives the claim up.
+    let committed = false;
+    try {
+      const nowG = await db.prepare("SELECT pack FROM engagement WHERE id=?").bind(gameId).first<{ pack: number | null }>();
+      const mineNow = await db.prepare("SELECT v FROM kv WHERE k=?").bind(key).first<{ v: string }>();
+      committed = (nowG?.pack ?? 0) > 0 && mineNow?.v === mine;
+      if (!committed) await db.prepare("DELETE FROM kv WHERE k=? AND v=?").bind(key, mine).run();
+    } catch { /* the claim is only ever honoured for an unpaid game (above), so a leftover cannot hide it */ }
+    if (!committed) return json({ error: "The database could not finish this just now. Send the same notice again.", code: "try-again" }, 503);
+    done = [null, { meta: { changes: 1 } }]; // it did commit: carry on as for any marked game
+  }
+  const changed = (done[1] as any)?.meta?.changes ?? 0;
+  if (changed === 0) { // nothing was marked: the order id belongs to another game, or the game was paid or cancelled between the check and the write
+    const w = await db.prepare("SELECT v FROM kv WHERE k=?").bind(key).first<{ v: string }>();
+    if (w && gameOfClaim(w.v) !== gameId) return answerSeen(w.v);
+    const now0 = await db.prepare("SELECT pack FROM engagement WHERE id=?").bind(gameId).first<{ pack: number | null }>();
+    if (!now0 || (now0.pack ?? 0) === 0) { await db.prepare("DELETE FROM kv WHERE k=? AND v=?").bind(key, mine).run(); return json({ error: "This game was cancelled or closed, so it cannot be marked paid.", code: "game-closed" }, 409); } // the order id is released: the console can send it again
+  }
+  if (changed > 0) {
+    await markers();
+    if ((1692803367 + (g.start_round - 1) * 3) * 1000 <= now) { // held because it was not paid at its start time: the first number comes 2 minutes after the payment, as for any late payment
+      const restart = Math.floor((now / 1000 - 1692803367) / 3) + 2 + LATE_PAY_LEAD_ROUNDS - GRACE_ROUNDS;
+      await db.prepare("UPDATE engagement SET start_round=? WHERE id=?").bind(restart, gameId).run();
+    }
+  }
+  return json({ ok: true, gameId, paid: true, ...(changed > 0 ? {} : { already: true }) });
+}
+
 /** Returns a Response for payment routes, or null when the path is not one of ours. */
 export async function payRoute(req: Request, env: PayEnv, now: number, spend: (n: number) => Promise<boolean>): Promise<Response | null> {
   const url = new URL(req.url); const p = url.pathname; const db = env.DB;
   const rzp = rzpOf(env); const mode = payMode(env);
   const busy = () => json({ error: "It is very busy right now. Please try again in a few minutes." }, 503);
 
-  if (req.method === "GET" && p === "/api/payments/status") { const co = company(env); return json({ mode: (await getMode(env)) === "TEST" ? "test" : mode, siteMode: await getMode(env), freeLaunch: freeLaunch(env), freeCap: FREE_CAP, brand: brand.name, legalEntity: co.legalName, missingCompanyDetails: companyGaps(co), international: env.RAZORPAY_INTERNATIONAL === "1" }); }
+  // OWNER RULES 1.1: this game takes no money itself. The one way a game becomes paid is the console's signed notice (below).
+  if (p === "/api/console/paid") return consolePaid(req, env, now);
+  if (env.OWNER_RULES === "1.1" && req.method === "POST" && (p === "/api/checkout" || p === "/api/payments/test" || p === "/api/payments/paytest" || /^\/api\/paylink\/[0-9a-f]{48}\/checkout$/.test(p))) return json({ error: "You pay in the console. This page does not take payments.", code: "pay-in-console" }, 410);
+
+  if (req.method === "GET" && p === "/api/payments/status") { const co = company(env); return json({ mode: (await getMode(env)) === "TEST" ? "test" : mode, siteMode: await getMode(env), freeLaunch: freeLaunch(env), freeCap: FREE_CAP, brand: brand.name, legalEntity: co.legalName, missingCompanyDetails: companyGaps(co), international: env.RAZORPAY_INTERNATIONAL === "1", ownerRules: env.OWNER_RULES === "1.1" }); }
 
   // The public pay link (paylink.ts): anyone holding the token sees the game's name, start and price, and may pay for THIS game only.
   const plm = p.match(/^\/api\/paylink\/([0-9a-f]{48})(\/checkout)?$/);
@@ -502,7 +588,7 @@ export async function payRoute(req: Request, env: PayEnv, now: number, spend: (n
     // credit already applied to THIS game (by the Organizer, a Host or a Co-host, before this checkout) reduces what is charged; nothing else about credit is ever shown or used here
     const credited = boundEid ? Math.round((await creditAppliedFor(db, boundEid)) * 100) / 100 : 0;
     const cash = Math.round((full.total - credited) * 100) / 100;
-    if (boundEid && credited > 0 && cash < 1) return json({ error: "Credit already covers this game. Tap Use my credit to finish.", code: "use-credit" }, 409);
+    if (boundEid && credited > 0 && cash < 1) return json({ error: "Credit already covers this game. Tap Use your credit to finish.", code: "use-credit" }, 409);
     const pr = credited > 0 ? { total: cash, base: cur === "INR" ? Math.round((cash / 1.18) * 100) / 100 : cash, tax: cur === "INR" ? Math.round((cash - cash / 1.18) * 100) / 100 : 0 } : full;
     const id = "pay_" + randHex(8), payEmail = first ? pendingEmail(id) : cleanEmail(b.email);
     const meta = { org: orgName.slice(0, 120), name: payerName.slice(0, 120), ...(first ? { deferInvoice: true } : {}), ...(contact ? { phone: contact } : {}), country: chosenCountry(b) ?? "IN", taxId: typeof b.taxId === "string" ? b.taxId.trim().slice(0, 20) : "", origin: env.PUBLIC_ORIGIN ?? url.origin, ...(boundOrg ? { orgId: boundOrg, eid: boundEid, gameId: boundEid, paidBy, ...(credited > 0 ? { creditInr: credited } : {}) } : {}), ...adjustMeta(cpn) };
