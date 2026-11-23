@@ -448,22 +448,36 @@ async function consolePaid(req: Request, env: PayEnv, now: number): Promise<Resp
   if (!/^[A-Za-z0-9_-]{6,64}$/.test(orderId) || !/^[A-Za-z0-9_-]{3,40}$/.test(gameId)) return json({ error: "A notice needs an order id and a game id.", code: "bad-notice" }, 400);
   const db = env.DB, key = `cpaid/${orderId}`;
   const answerSeen = (v: string): Response => { let was: any = {}; try { was = JSON.parse(v); } catch { /* unreadable: treated as another game */ } return was.gameId === gameId ? json({ ok: true, already: true, gameId }) : json({ error: "This order id was already used for another game.", code: "order-reused" }, 409); };
+  const gameOfClaim = (v: string): string | null => { try { const x = JSON.parse(v); return typeof x?.gameId === "string" ? x.gameId : null; } catch { return null; } };
   const seen = await db.prepare("SELECT v FROM kv WHERE k=?").bind(key).first<{ v: string }>();
-  if (seen) return answerSeen(seen.v);
+  if (seen && gameOfClaim(seen.v) !== gameId) return answerSeen(seen.v); // this order id belongs to another game (or is unreadable): refused
   const g = await db.prepare("SELECT id, org, cap, pack, start_round, cancelled_ms, unplayed_ms FROM engagement WHERE id=?").bind(gameId).first<any>();
   if (!g) return json({ error: "No such game.", code: "no-game" }, 404);
+  // A repeat of a notice answers "already" ONLY when the game really is paid. A claim row with an unpaid game (a notice that stopped half way) is not a success: the repeat finishes the job below (audit 1 M1, 22 Nov).
+  if (seen && (g.pack ?? 0) > 0) return json({ ok: true, already: true, gameId });
   if (g.cancelled_ms || g.unplayed_ms) return json({ error: "This game was cancelled or closed, so it cannot be marked paid.", code: "game-closed" }, 409);
   const pack = PACKS.find((x) => x[0] >= g.cap)?.[0] ?? null;
   if (!pack) return json({ error: "That many people needs a custom arrangement.", code: "no-pack" }, 400);
   if ((g.pack ?? 0) > 0) return json({ ok: true, gameId, paid: true, already: true }); // already paid: nothing to mark, and this order id is not used up for no effect
-  // The order id is claimed FIRST, on its own. Only the notice that won the claim may mark a game paid: two notices with one order id for two games, sent at the same moment, cannot both do it.
-  const claim = await db.prepare("INSERT INTO kv(k,v) VALUES(?,?) ON CONFLICT(k) DO NOTHING").bind(key, JSON.stringify({ gameId, ms: now })).run();
-  if (((claim as any)?.meta?.changes ?? 0) === 0) { const w = await db.prepare("SELECT v FROM kv WHERE k=?").bind(key).first<{ v: string }>(); return w ? answerSeen(w.v) : json({ error: "This order id was already used for another game.", code: "order-reused" }, 409); } // (the claim was released a moment ago by a notice that lost a race with a cancel: refused, the console can send it again)
-  const upd = await db.prepare("UPDATE engagement SET pack=?, cap=MIN(cap, ?) WHERE id=? AND pack=0 AND cancelled_ms IS NULL AND unplayed_ms IS NULL").bind(pack, pack, gameId).run();
-  const changed = (upd as any)?.meta?.changes ?? 0;
-  if (changed === 0) { // nothing was marked: either the game was paid already, or it was cancelled between the check and the write. In the second case the order id is released and the notice is refused.
+  // The order id is claimed and the game is marked in ONE batch (all or nothing), and the game is marked only if the claim row names THIS game: so a failure half way leaves no claim behind,
+  // and two notices with one order id for two games, sent at the same moment, cannot both mark a game.
+  const mine = JSON.stringify({ gameId, ms: now });
+  let done: any[];
+  try {
+    done = await db.batch([
+      db.prepare("INSERT INTO kv(k,v) VALUES(?,?) ON CONFLICT(k) DO NOTHING").bind(key, mine),
+      db.prepare("UPDATE engagement SET pack=?, cap=MIN(cap, ?) WHERE id=? AND pack=0 AND cancelled_ms IS NULL AND unplayed_ms IS NULL AND EXISTS (SELECT 1 FROM kv WHERE k=? AND json_extract(v,'$.gameId')=?)").bind(pack, pack, gameId, key, gameId),
+    ]);
+  } catch {
+    try { await db.prepare("DELETE FROM kv WHERE k=? AND v=?").bind(key, mine).run(); } catch { /* the claim is only ever honoured for an unpaid game (above), so a leftover cannot hide it */ }
+    return json({ error: "The database could not finish this just now. Send the same notice again.", code: "try-again" }, 503);
+  }
+  const changed = (done[1] as any)?.meta?.changes ?? 0;
+  if (changed === 0) { // nothing was marked: the order id belongs to another game, or the game was paid or cancelled between the check and the write
+    const w = await db.prepare("SELECT v FROM kv WHERE k=?").bind(key).first<{ v: string }>();
+    if (w && gameOfClaim(w.v) !== gameId) return answerSeen(w.v);
     const now0 = await db.prepare("SELECT pack FROM engagement WHERE id=?").bind(gameId).first<{ pack: number | null }>();
-    if (!now0 || (now0.pack ?? 0) === 0) { await db.prepare("DELETE FROM kv WHERE k=?").bind(key).run(); return json({ error: "This game was cancelled or closed, so it cannot be marked paid.", code: "game-closed" }, 409); }
+    if (!now0 || (now0.pack ?? 0) === 0) { await db.prepare("DELETE FROM kv WHERE k=? AND v=?").bind(key, mine).run(); return json({ error: "This game was cancelled or closed, so it cannot be marked paid.", code: "game-closed" }, 409); } // the order id is released: the console can send it again
   }
   if (changed > 0) {
     await db.prepare("INSERT OR IGNORE INTO kv(k,v) VALUES(?,?)").bind(`pub/${gameId}`, String(now)).run();

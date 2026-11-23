@@ -1,5 +1,16 @@
 [
   {
+    "version": "1.5.2",
+    "date": "2026-11-23",
+    "commit": "",
+    "title": "Fixes after the two audits of 1.5.1",
+    "changes": [
+      "If the database fails while the console's notice marks a game paid, nothing is left half done: the order id is not used up, and the console can send the same notice again to finish the job",
+      "A repeat of a notice says \"already\" only when the game really is paid",
+      "A winner's employee ID, name, mobile number and change history are deleted with everyone else's details within 24 hours, as the privacy line says (the winners record stays: seat, prize, round, time, given or not)"
+    ]
+  },
+  {
     "version": "1.5.1",
     "date": "2026-11-22",
     "commit": "",

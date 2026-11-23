@@ -1,9 +1,15 @@
 {
   "product": "Corporate Snakes and Ladders",
-  "version": "1.5.1",
+  "version": "1.5.2",
   "commit": "set by the build",
   "builtAt": "set by the build",
   "changes": [
+    {
+      "id": "2026-11-23-audit-fixes-1-5-2",
+      "what": "The console's paid notice can no longer use up an order id and answer ok for a game that is not paid (the order id and the game are now written together, and a repeat finishes the job); a winner's employee ID, name, number and change history are deleted within 24 hours with everyone else's, so the privacy line is true for winners too",
+      "where": "apps/edge/src (pay.ts, lifecycle.ts), apps/edge/test/d1-sqlite.ts",
+      "pr": "p1/owner-rules-v1-1"
+    },
     {
       "id": "2026-11-22-audit-fixes-1-5-1",
       "what": "Wrong employee IDs are now limited for each network in a way that holds (one count for \"Is this you?\" and joining, counted in one step, an IPv6 network counted as one), a right ID is never counted and the screens and notes now say so; one order id can never mark two games paid; the AI guide names the Your people button correctly; a too-short signing code for the console's notice is refused",

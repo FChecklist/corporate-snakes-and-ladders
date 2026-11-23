@@ -298,3 +298,59 @@ describe("the console's notice: a short secret, one order id for two games, an o
     expect(rowsOf("SELECT 1 FROM kv WHERE k='cpaid/ORD-700002'").length).toBe(0);
   });
 });
+
+describe("1.5.2: the paid notice finishes after a failure, and a winner's details go with everyone else's", () => {
+  const paidOf = async (t: { master: string; id: string }) => (await j(await call("GET", `/api/z/${t.id}/summary`, undefined, t.master))).paid;
+  /** Makes the first statement that starts with `prefix` fail once, the way a passing database error would. */
+  const failOnce = (prefix: string) => { const real = env.DB.prepare.bind(env.DB); let hit = 0; (env as any).DB = { ...env.DB, prepare: (sql: string) => { if (!hit && sql.startsWith(prefix)) { hit++; const s: any = real(sql); const wrap = (x: any): any => ({ ...x, bind: (...v: unknown[]) => wrap(x.bind(...v)), run: async () => { throw new Error("D1 error"); }, sync: () => { throw new Error("D1 error"); } }); return wrap(s); } return real(sql); }, batch: env.DB.batch.bind(env.DB) }; return () => hit; };
+
+  test("if the database fails between the claim and the game update, nothing stays behind and the console's retry marks the game paid", async () => {
+    const t = await setup(); const hits = failOnce("UPDATE engagement SET pack");
+    const first = await notice({ orderId: "ORD-800001", gameId: t.id });
+    expect([first.status, (await j(first)).code]).toEqual([503, "try-again"]); expect(hits()).toBe(1);
+    expect(await paidOf(t)).toBe(false); expect(rowsOf("SELECT 1 FROM kv WHERE k='cpaid/ORD-800001'").length).toBe(0);
+    const retry = await j(await notice({ orderId: "ORD-800001", gameId: t.id }));
+    expect([retry.ok, retry.already]).toEqual([true, undefined]); expect(await paidOf(t)).toBe(true);
+  });
+  test("a claim row left for an UNPAID game never answers 'already': the repeat marks the game paid", async () => {
+    const t = await setup(); raw.prepare("INSERT INTO kv(k,v) VALUES(?,?)").run("cpaid/ORD-800002", JSON.stringify({ gameId: t.id, ms: T - 1000 }));
+    const r = await j(await notice({ orderId: "ORD-800002", gameId: t.id }));
+    expect([r.ok, r.paid, r.already]).toEqual([true, true, undefined]); expect(await paidOf(t)).toBe(true);
+    expect((await j(await notice({ orderId: "ORD-800002", gameId: t.id }))).already).toBe(true); // now it really is paid
+  });
+  test("a claim row of ANOTHER game still refuses with 409 and marks nothing", async () => {
+    const t = await setup(); const u = await setup({ id: "IDR-2" });
+    raw.prepare("INSERT INTO kv(k,v) VALUES(?,?)").run("cpaid/ORD-800003", JSON.stringify({ gameId: u.id, ms: T - 1000 }));
+    const r = await notice({ orderId: "ORD-800003", gameId: t.id }); expect([r.status, (await j(r)).code]).toEqual([409, "order-reused"]);
+    expect([await paidOf(t), await paidOf(u)]).toEqual([false, false]);
+  });
+  test("the test database now behaves like D1: a batch that fails leaves none of its statements behind", async () => {
+    raw.prepare("INSERT INTO kv(k,v) VALUES('x/1','a')").run();
+    await expect(env.DB.batch([env.DB.prepare("INSERT INTO kv(k,v) VALUES(?,?)").bind("x/2", "b"), env.DB.prepare("INSERT INTO kv(k,v) VALUES(?,?)").bind("x/1", "dup")])).rejects.toBeDefined();
+    expect(rowsOf("SELECT 1 FROM kv WHERE k='x/2'").length).toBe(0);
+  });
+
+  const winner = async () => {
+    const t = await setup(); await addIds(t.master, [{ empId: "A-1101" }]);
+    const jn = await j(await joinId(t.id, "A1101", 1)); const pid = jn.pid as string; const seat = Number(pid.split("x")[0]);
+    const pii = (rowsOf("SELECT pii FROM participant WHERE eid=? AND pid=?", t.id, pid)[0] as any).pii;
+    raw.prepare("INSERT INTO prize(eid,round,pattern,ordinal,seat,pii,orig) VALUES(?,?,?,?,?,?,?)").run(t.id, 1, "early5", 1, seat, pii, pii);
+    const conf = await call("POST", `/api/z/${t.id}/confirm`, { pid, device: dev(1), name: "Asha Rao", phone: "+919876543210" }); expect(conf.status).toBe(200);
+    return { t, pid, seat };
+  };
+  test("a winner's ID, name, number and change history are gone after the 24-hour deletion; the winners record (seat, prize, round, time) stays", async () => {
+    const { t, pid, seat } = await winner();
+    const before = rowsOf("SELECT pii, orig, trail, confirmed_ms FROM prize WHERE eid=?", t.id)[0]; expect(before.pii).toBeTruthy(); expect(before.orig).toBeTruthy();
+    await erasePersonal(env as unknown as Env, t.id, T + 3_600_000, "test");
+    const after = rowsOf("SELECT seat, round, pattern, ordinal, pii, orig, trail, confirmed_ms FROM prize WHERE eid=?", t.id);
+    expect(after.length).toBe(1); expect(after[0]).toMatchObject({ seat, round: 1, pattern: "early5", ordinal: 1, pii: null, orig: null, trail: null }); expect(after[0].confirmed_ms).toBe(before.confirmed_ms);
+    // nobody can type a name or number in again afterwards: the seat and the phone's link are gone too
+    expect((await call("POST", `/api/z/${t.id}/confirm`, { pid, device: dev(1), name: "Again", phone: "+919876543210" })).status).toBe(403);
+    expect(rowsOf("SELECT 1 FROM prize WHERE eid=? AND pii IS NOT NULL", t.id).length).toBe(0);
+  });
+  test("without owner rules the older winners record is untouched (the older pages say it is kept)", async () => {
+    const { t } = await winner(); delete (env as any).OWNER_RULES;
+    await erasePersonal(env as unknown as Env, t.id, T + 3_600_000, "test");
+    expect(rowsOf("SELECT 1 FROM prize WHERE eid=? AND pii IS NOT NULL", t.id).length).toBe(1);
+  });
+});
