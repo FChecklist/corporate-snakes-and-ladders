@@ -55,6 +55,6 @@ The organizer has a personal link of the form ${ORIGIN}/ai/<key>. If they pasted
 ## Honest limits
 - The wording is "designed to follow" India's DPDP Act 2023, the EU GDPR and the US CCPA: this is the site's own statement, not a certificate. There is no outside certification such as ISO 27001 or SOC 2.
 - Cheating is described as very hard, not impossible.
-- Guests' nicknames and mobile numbers are auto-deleted within 24 hours after a game ends; the organizer's details, the final places (board numbers, no names) and a winner's hand-over details are kept 365 days, then deleted. Billing data is kept for audit and tax reasons.
+- Guests' nicknames and mobile numbers are auto-deleted within 24 hours after a game ends; the organizer's details and the final places (board numbers, no names) are kept 365 days, then deleted. A winner's confirmed name and mobile number go with everyone else's, within 24 hours. Billing data is kept for audit and tax reasons.
 `;
 }

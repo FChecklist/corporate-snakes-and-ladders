@@ -1,5 +1,16 @@
 [
   {
+    "version": "1.5.3",
+    "date": "2026-11-23",
+    "commit": "",
+    "title": "Fix after the security audit of 1.5.2",
+    "changes": [
+      "A winner's name, mobile number, ID, phone id and network address are no longer kept in the game's security log after the 24-hour deletion: they are sealed under the game's own key, which the deletion destroys (only the fact that a prize was confirmed, and when, stays)",
+      "The pages, the report and the e-mails now say the same thing: a winner's confirmed name and mobile number are deleted with everyone else's within 24 hours; the winners record (seat, prize, round, time) stays 365 days",
+      "If the database commits the console's paid notice but the reply is lost, the order id stays with that game; a repeat of the notice also writes the published and paid-by markers if they were missed"
+    ]
+  },
+  {
     "version": "1.5.2",
     "date": "2026-11-23",
     "commit": "",

@@ -31,6 +31,6 @@ The owner's decisions for every Corporate Games product. Full text: `plans/ID-IN
 
 suiteRulesVersion: 1.1 (20 Nov 2026). Owner rules copy: docs/SUITE_RULES.md. Source: marketing-ledger plans/SUITE-RULES-VERSION-2026-11-20.md.
 
-## Version 1.5.2 (23 Nov 2026): owner rules 1.1 built, with the audit fixes
+## Version 1.5.3 (23 Nov 2026): owner rules 1.1 built, with the audit fixes
 
 Invite by employee ID only, the game and every throw by themselves, a game paid only by the console's signed notice (`POST /api/console/paid`), organizer and host screens that say "you", the rupee sign, one privacy line and one fairness sentence. Switch: `OWNER_RULES = "1.1"` in `pages/wrangler.toml`. What it does and what is left for the owner: [CHANGELOG.md](CHANGELOG.md) and [docs/KNOWLEDGE.md](docs/KNOWLEDGE.md) section 4a.

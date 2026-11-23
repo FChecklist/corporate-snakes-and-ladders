@@ -9,7 +9,7 @@
 //   - PARTICIPANTS' personal details (their rows' IP, user agent, raw device id, field changes) are NOT kept in `audit_log.sealed`: they live in `audit_pii`, sealed under a per-engagement key
 //     (pii.ts `sealEng`: HKDF of DATA_KEY with a random salt stored in `eng_key`). The hash chain covers only the non-personal core of each row plus `pdig` = SHA-256 of that sealed blob.
 //     20 hours after the game ends `shredParticipantAudit` deletes the blobs AND the salt and writes a `shred` marker: the personal part is unrecoverable and `verifyChain` still passes,
-//     because it never needs the blob. Rows of the organizer, host, co-host, AI key and the winners' prize confirmations ("prize" events) keep everything until 365 days.
+//     because it never needs the blob. Rows of the organizer, host, co-host and AI key keep everything until 365 days; so do the winners' prize confirmations ("prize" events), except under owner rules 1.1, where their personal part is shredded with everyone else's.
 import { openEng, openText, sealEng, sealText, type PiiEnv } from "./pii";
 import type { D1, Env } from "./worker";
 
@@ -168,8 +168,11 @@ export interface RecordIn {
 }
 const rowHash = (r: { chain: string; seq: number; prev: string; at: number; actor: string; event: string; target: string | null; corr: string; status: number | null; country: string | null; asn: string | null; vendor: string | null; key: string | null; proof: string | null; mismatch: number; sealed: string; pdig?: string | null }) =>
   sha(JSON.stringify([r.chain, r.seq, r.prev, r.at, r.actor, r.event, r.target, r.corr, r.status, r.country, r.asn, r.vendor, r.key, r.proof, r.mismatch, r.sealed, ...(r.pdig ? [r.pdig] : [])]));
-/** Participant rows keep their personal part apart (shreddable). Winners' prize confirmations are kept whole for 365 days. */
-const splitsPersonal = (r: { actor: string; eid: string | null; event: string }) => r.actor === "participant" && !!r.eid && !/^prize/.test(r.event);
+/**
+ * Participant rows keep their personal part apart (shreddable). Under owner rules 1.1 that includes a winner's prize confirmation: its name, mobile number, participant id, phone id
+ * and network address are sealed under the game's own key, which the 24-hour deletion destroys (audit 2 M1, 23 Nov). Without the rules the older promise holds: those rows are kept whole for 365 days.
+ */
+const splitsPersonal = (r: { actor: string; eid: string | null; event: string }, rules11 = false) => r.actor === "participant" && !!r.eid && (rules11 || !/^prize/.test(r.event));
 export const isShredded = async (db: D1, eid: string) => !!(await db.prepare("SELECT 1 AS x FROM shred WHERE eid=?").bind(eid).first());
 /** The engagement's random participant-key salt; made on first use. Null once shredded (a shredded engagement never gets a new one). */
 async function engSalt(env: AuditEnv, eid: string, now: number): Promise<string | null> {
@@ -206,7 +209,7 @@ export function truncateIp(ip: string): string {
 /** Appends one row to a chain. Never throws: the log must not break the work it records. Returns true when written. */
 export async function appendAudit(env: AuditEnv, r: RecordIn): Promise<boolean> {
   try {
-    const chain = chainOf(r.eid, r.org, r.actor), split = splitsPersonal(r);
+    const chain = chainOf(r.eid, r.org, r.actor), split = splitsPersonal(r, env.OWNER_RULES === "1.1");
     const json = JSON.stringify(r.details);
     let sealed = "", pii: string | null = null, pdig: string | null = null;
     if (!split) sealed = await sealText(env, json);

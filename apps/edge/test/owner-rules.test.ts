@@ -9,6 +9,7 @@ import { networkOf, retentionSweep } from "../src/worker";
 import type { PayEnv } from "../src/pay";
 import { CONSOLE_NOTICE_WINDOW_MS, CONSOLE_SECRET_MIN } from "../src/pay";
 import { erasePersonal, PURGE_AFTER_MS } from "../src/lifecycle";
+import { loadRows, verifyChain } from "../src/audit";
 import { makeD1 } from "./d1-sqlite";
 
 const T = Date.UTC(2026, 10, 22, 10, 0, 0);
@@ -330,12 +331,34 @@ describe("1.5.2: the paid notice finishes after a failure, and a winner's detail
     expect(rowsOf("SELECT 1 FROM kv WHERE k='x/2'").length).toBe(0);
   });
 
+  test("audit 2 L1: a reply lost AFTER the database committed does not free the order id; the notice is finished as a success and the id cannot be used for another game", async () => {
+    const t = await setup(); const u = await setup({ id: "IDR-2" });
+    const realBatch = env.DB.batch.bind(env.DB); let n = 0;
+    (env as any).DB = { ...env.DB, prepare: env.DB.prepare.bind(env.DB), batch: async (st: unknown[]) => { const r = await realBatch(st as any); if (!n++) throw new Error("reply lost after commit"); return r; } };
+    const first = await notice({ orderId: "ORD-800010", gameId: t.id });
+    expect([first.status, (await j(first)).paid]).toEqual([200, true]); expect(await paidOf(t)).toBe(true);
+    expect(rowsOf("SELECT 1 FROM kv WHERE k='cpaid/ORD-800010'").length).toBe(1);
+    expect(rowsOf("SELECT 1 FROM kv WHERE k=?", `paidby/${t.id}`).length).toBe(1); // finished like any marked game
+    const other = await notice({ orderId: "ORD-800010", gameId: u.id }); expect([other.status, (await j(other)).code]).toEqual([409, "order-reused"]); expect(await paidOf(u)).toBe(false);
+  });
+  test("audit 2 L2: if the markers fail after the batch, the console's repeat writes them (the game is already paid, and the repeat says so)", async () => {
+    const t = await setup(); const hits = failOnce("INSERT OR IGNORE INTO kv");
+    const first = await notice({ orderId: "ORD-800011", gameId: t.id }).then((r) => r.status, () => 500); expect(first).toBeGreaterThanOrEqual(500); expect(hits()).toBe(1);
+    expect(await paidOf(t)).toBe(true); expect(rowsOf("SELECT 1 FROM kv WHERE k=?", `paidby/${t.id}`).length).toBe(0);
+    const again = await j(await notice({ orderId: "ORD-800011", gameId: t.id })); expect([again.ok, again.already]).toEqual([true, true]);
+    expect(rowsOf("SELECT 1 FROM kv WHERE k=?", `pub/${t.id}`).length).toBe(1); expect(rowsOf("SELECT 1 FROM kv WHERE k=?", `paidby/${t.id}`).length).toBe(1);
+  });
+
+  const WIN_NAME = "Asha Rao", WIN_PHONE = "+917012345678", WIN_IP = "203.0.113.77";
+  /** The winner's own phone confirming its name and number, from a known network address and browser. */
+  const confirm = (id: string, pid: string, name: string, phone: string, now = T) => handle(new Request(`http://x/api/z/${id}/confirm`, { method: "POST", headers: { "content-type": "application/json", "cf-connecting-ip": WIN_IP, "user-agent": "Mozilla/5.0 (Linux; Android 14) Chrome/124.0 Mobile Safari/537.36" }, body: JSON.stringify({ pid, device: dev(1), name, phone }) }), env as Env, now);
   const winner = async () => {
     const t = await setup(); await addIds(t.master, [{ empId: "A-1101" }]);
     const jn = await j(await joinId(t.id, "A1101", 1)); const pid = jn.pid as string; const seat = Number(pid.split("x")[0]);
     const pii = (rowsOf("SELECT pii FROM participant WHERE eid=? AND pid=?", t.id, pid)[0] as any).pii;
     raw.prepare("INSERT INTO prize(eid,round,pattern,ordinal,seat,pii,orig) VALUES(?,?,?,?,?,?,?)").run(t.id, 1, "early5", 1, seat, pii, pii);
-    const conf = await call("POST", `/api/z/${t.id}/confirm`, { pid, device: dev(1), name: "Asha Rao", phone: "+919876543210" }); expect(conf.status).toBe(200);
+    const conf = await confirm(t.id, pid, WIN_NAME, WIN_PHONE);
+    expect(conf.status).toBe(200);
     return { t, pid, seat };
   };
   test("a winner's ID, name, number and change history are gone after the 24-hour deletion; the winners record (seat, prize, round, time) stays", async () => {
@@ -345,8 +368,49 @@ describe("1.5.2: the paid notice finishes after a failure, and a winner's detail
     const after = rowsOf("SELECT seat, round, pattern, ordinal, pii, orig, trail, confirmed_ms FROM prize WHERE eid=?", t.id);
     expect(after.length).toBe(1); expect(after[0]).toMatchObject({ seat, round: 1, pattern: "early5", ordinal: 1, pii: null, orig: null, trail: null }); expect(after[0].confirmed_ms).toBe(before.confirmed_ms);
     // nobody can type a name or number in again afterwards: the seat and the phone's link are gone too
-    expect((await call("POST", `/api/z/${t.id}/confirm`, { pid, device: dev(1), name: "Again", phone: "+919876543210" })).status).toBe(403);
+    expect((await call("POST", `/api/z/${t.id}/confirm`, { pid, device: dev(1), name: "Again", phone: WIN_PHONE })).status).toBe(403);
     expect(rowsOf("SELECT 1 FROM prize WHERE eid=? AND pii IS NOT NULL", t.id).length).toBe(0);
+  });
+  /** Everything a person could read the winner's details from: the opened audit log of the game, plus every column of every table (sealed columns can only be read through the log). */
+  const leftOf = async (t: { id: string }, pid: string, extra: string[] = []) => {
+    const log = JSON.stringify(await loadRows(env as any, t.id));
+    const tables = (raw.prepare("SELECT name FROM sqlite_master WHERE type='table'").all() as any[]).map((x) => x.name as string);
+    let tablesText = ""; for (const n of tables) tablesText += JSON.stringify(raw.prepare(`SELECT * FROM "${n}"`).all());
+    const needles = [WIN_NAME, "7012345678", WIN_IP, dev(1), pid, ...extra];
+    return { found: needles.filter((x) => log.includes(x) || tablesText.includes(x)), foundInLog: needles.filter((x) => log.includes(x)) };
+  };
+  test("audit 2 M1 (23 Nov): after the 24-hour deletion the audit log holds no name, number, participant id, phone id or network address of the winner, and the log still verifies", async () => {
+    const { t, pid } = await winner();
+    // the probe sees the details while the game is live, so an empty result afterwards means something
+    const live = await leftOf(t, pid); expect(live.foundInLog).toEqual(expect.arrayContaining([WIN_NAME, "7012345678", WIN_IP, dev(1), pid]));
+    expect((await loadRows(env as any, t.id)).find((r) => r.event === "prize")?.details?.changes?.name).toBe(WIN_NAME);
+    expect(rowsOf("SELECT COUNT(*) AS c FROM audit_pii WHERE eid=?", t.id)[0].c).toBeGreaterThan(0);
+    await erasePersonal(env as unknown as Env, t.id, T + 3_600_000, "test");
+    expect((await leftOf(t, pid)).found).toEqual([]);
+    expect(rowsOf("SELECT COUNT(*) AS c FROM audit_pii WHERE eid=?", t.id)[0].c).toBe(0);
+    expect(rowsOf("SELECT COUNT(*) AS c FROM eng_key WHERE eid=?", t.id)[0].c).toBe(0);
+    // the row stays (that a confirmation happened, and when, is not personal), its personal part reads as erased, and the chain still verifies
+    const pr = (await loadRows(env as any, t.id)).find((r) => r.event === "prize");
+    expect(pr).toBeDefined(); expect(pr!.details).toEqual({ personal_data_erased: true }); expect(pr!.status).toBe(200);
+    const v = await verifyChain(env.DB as any, t.id); expect([v.ok, v.brokenAtSeq]).toEqual([true, null]);
+    // a late try after the deletion (refused) leaves the typed name and number nowhere either
+    const late = await confirm(t.id, pid, "Late Name", "+917099999999", T + 7_200_000); expect(late.status).toBe(403);
+    expect((await leftOf(t, pid, ["Late Name", "7099999999"])).found).toEqual([]);
+  });
+  test("a legal hold keeps the sealed personal part (nothing is shredded under a hold); it goes once the hold is lifted and the deletion runs again", async () => {
+    const { t, pid } = await winner();
+    raw.prepare("INSERT INTO legal_hold(eid,at_ms,note) VALUES(?,?,?)").run(t.id, T, "test hold");
+    await erasePersonal(env as unknown as Env, t.id, T + 3_600_000, "test");
+    expect((await leftOf(t, pid)).foundInLog).toContain(WIN_NAME);
+    raw.prepare("DELETE FROM legal_hold WHERE eid=?").run(t.id);
+    await erasePersonal(env as unknown as Env, t.id, T + 7_200_000, "test");
+    expect((await leftOf(t, pid)).found).toEqual([]);
+  });
+  test("without owner rules a winner's confirmation in the audit log is kept whole, as the older pages say (365 days)", async () => {
+    const { t, pid } = await winner(); delete (env as any).OWNER_RULES;
+    expect((await confirm(t.id, pid, "Older Rules Name", WIN_PHONE, T + 60_000)).status).toBe(200);
+    await erasePersonal(env as unknown as Env, t.id, T + 3_600_000, "test");
+    expect((await leftOf(t, pid, ["Older Rules Name"])).foundInLog).toContain("Older Rules Name");
   });
   test("without owner rules the older winners record is untouched (the older pages say it is kept)", async () => {
     const { t } = await winner(); delete (env as any).OWNER_RULES;

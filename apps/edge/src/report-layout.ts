@@ -20,6 +20,8 @@ export interface ReportData {
   timeline: { callNo: number; atMs: number; present: number; late: number }[];
   breaks: { after: number; kind: string; title: string }[];
   personalDeleteAtMs: number; fullDeleteAtMs: number;
+  /** Owner rules 1.1: the name and mobile number a winner confirmed are deleted with everyone else's (lifecycle.ts erasePersonal), so the report must not say they are kept. */
+  winnersGone?: boolean;
   /** Totals about the people, when the list itself is spread over several PDFs. */
   agg?: Agg; omitPeople?: boolean; totalPeople?: number;
   /** The organizer's own company name and logo (a data URL). The report page turns the logo into raw pixels (`logoPix`) before laying the PDF out. */
@@ -63,7 +65,9 @@ export function layoutReport(d: ReportData): Uint8Array {
 
   pdf.box("What is kept, and what is deleted", [
     `You have been given ALL the data held about the people in this game. Within 24 hours of the game ending, and no later than ${istFull(d.personalDeleteAtMs, d.tz)}, every participant's name, mobile number, join record, board assignment and invite link record is permanently deleted from the systems. After that nobody at Corporate Snakes and Ladders, and nothing in the software or database, holds them.`,
-    "Kept for 365 days, only: (1) the details of the organizer, host and co-hosts (name, e-mail, mobile number); (2) the winners record: which prize, which round, at what time, and the seat number; and (3) the name and mobile number each winner confirmed for the prize hand-over, with the date it was given. The winners record itself holds no names or numbers.",
+    d.winnersGone
+      ? "Kept for 365 days, only: (1) the details of the organizer, host and co-hosts (name, e-mail, mobile number); and (2) the winners record: which prize, which round, at what time, the seat number, and whether it was handed over. The winners record holds no names or numbers: the name and mobile number each winner confirmed for the prize hand-over are in this report and are deleted with everyone else's, so please keep this report until every prize is handed over."
+      : "Kept for 365 days, only: (1) the details of the organizer, host and co-hosts (name, e-mail, mobile number); (2) the winners record: which prize, which round, at what time, and the seat number; and (3) the name and mobile number each winner confirmed for the prize hand-over, with the date it was given. The winners record itself holds no names or numbers.",
     `Everything about this game, including those two records, is deleted at 00:00 hours (IST) on ${istDate(d.fullDeleteAtMs)}, which is the end of the 365th day. Billing data is kept for audit and tax reasons.`,
     "For your next game you can reuse the people list until it is deleted (the reuse button in your console), or upload your own list again afterwards from this report.",
   ]);

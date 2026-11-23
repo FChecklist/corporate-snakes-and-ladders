@@ -1508,7 +1508,7 @@ async function route0(req: Request, env: Env, now: number, a: Auth): Promise<Res
       await sendMail(env as PayEnv, env.DB, registered, `Confirm the deletion of participant data: ${tok}`, `A request to delete all participant data was received for ${tok}. Nothing is deleted yet.\n\nTo confirm, reply to the e-mail you sent with this code: ${code}\n\nIt works for 30 minutes. Not you? Ignore this e-mail.`, now);
       asked.push(tok);
     }
-    if (done.length) await sendMail(env as PayEnv, env.DB, from, `Deleted: participant data of ${done.join(", ")}`, `Done. All participant data was deleted for: ${done.join(", ")}.\n\nThe winners record (seat, prize, round, time) and winners' prize hand-over details are kept for up to 365 days, together with your organizer details.`, now);
+    if (done.length) await sendMail(env as PayEnv, env.DB, from, `Deleted: participant data of ${done.join(", ")}`, `Done. All participant data was deleted for: ${done.join(", ")}.\n\n${env.OWNER_RULES === "1.1" ? "The winners record (seat, prize, round, time, whether it was given) is kept for up to 365 days, together with your organizer details. It holds no names or numbers: a winner's confirmed name and mobile number were deleted with everyone else's." : "The winners record (seat, prize, round, time) and winners' prize hand-over details are kept for up to 365 days, together with your organizer details."}`, now);
     return json({ ok: true, action: done.length ? "deleted" : asked.length ? "confirm-sent" : "no-match", engagements: done });
   }
   if (req.method === "GET" && p === "/api/notices") { // our public news list: the same for everyone, nothing about the reader is stored or asked

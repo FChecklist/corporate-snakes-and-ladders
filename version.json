@@ -1,9 +1,15 @@
 {
   "product": "Corporate Snakes and Ladders",
-  "version": "1.5.2",
+  "version": "1.5.3",
   "commit": "set by the build",
   "builtAt": "set by the build",
   "changes": [
+    {
+      "id": "2026-11-23-audit-fix-1-5-3",
+      "what": "A winner's name, mobile number, ID, phone id and network address are now deleted from the security log with everyone else's details within 24 hours (they were kept there for 365 days); the home page, the report, the e-mails and the trust page say exactly that; the console's paid notice no longer frees its order id when the database committed but the reply was lost, and a repeat writes the markers a stopped try missed",
+      "where": "apps/edge/src (audit.ts, pay.ts, lifecycle.ts, report-layout.ts, worker.ts, trust-page.ts), apps/web/public (index.html, llms.txt, reportgen.js), apps/edge/test/owner-rules.test.ts",
+      "pr": "p1/owner-rules-v1-1"
+    },
     {
       "id": "2026-11-23-audit-fixes-1-5-2",
       "what": "The console's paid notice can no longer use up an order id and answer ok for a game that is not paid (the order id and the game are now written together, and a repeat finishes the job); a winner's employee ID, name, number and change history are deleted within 24 hours with everyone else's, so the privacy line is true for winners too",

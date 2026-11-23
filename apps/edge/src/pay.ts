@@ -454,7 +454,12 @@ async function consolePaid(req: Request, env: PayEnv, now: number): Promise<Resp
   const g = await db.prepare("SELECT id, org, cap, pack, start_round, cancelled_ms, unplayed_ms FROM engagement WHERE id=?").bind(gameId).first<any>();
   if (!g) return json({ error: "No such game.", code: "no-game" }, 404);
   // A repeat of a notice answers "already" ONLY when the game really is paid. A claim row with an unpaid game (a notice that stopped half way) is not a success: the repeat finishes the job below (audit 1 M1, 22 Nov).
-  if (seen && (g.pack ?? 0) > 0) return json({ ok: true, already: true, gameId });
+  // The published and paid-by markers are written by an earlier try that stopped after the batch (audit 2 L2, 23 Nov), so a repeat writes them again (insert-or-ignore: harmless when they exist).
+  const markers = async () => {
+    await db.prepare("INSERT OR IGNORE INTO kv(k,v) VALUES(?,?)").bind(`pub/${gameId}`, String(now)).run();
+    await db.prepare("INSERT OR IGNORE INTO kv(k,v) VALUES(?,?)").bind(`paidby/${gameId}`, JSON.stringify({ by: "console", ms: now })).run();
+  };
+  if (seen && (g.pack ?? 0) > 0) { await markers(); return json({ ok: true, already: true, gameId }); }
   if (g.cancelled_ms || g.unplayed_ms) return json({ error: "This game was cancelled or closed, so it cannot be marked paid.", code: "game-closed" }, 409);
   const pack = PACKS.find((x) => x[0] >= g.cap)?.[0] ?? null;
   if (!pack) return json({ error: "That many people needs a custom arrangement.", code: "no-pack" }, 400);
@@ -469,8 +474,17 @@ async function consolePaid(req: Request, env: PayEnv, now: number): Promise<Resp
       db.prepare("UPDATE engagement SET pack=?, cap=MIN(cap, ?) WHERE id=? AND pack=0 AND cancelled_ms IS NULL AND unplayed_ms IS NULL AND EXISTS (SELECT 1 FROM kv WHERE k=? AND json_extract(v,'$.gameId')=?)").bind(pack, pack, gameId, key, gameId),
     ]);
   } catch {
-    try { await db.prepare("DELETE FROM kv WHERE k=? AND v=?").bind(key, mine).run(); } catch { /* the claim is only ever honoured for an unpaid game (above), so a leftover cannot hide it */ }
-    return json({ error: "The database could not finish this just now. Send the same notice again.", code: "try-again" }, 503);
+    // The reply may have been lost AFTER the database committed (audit 2 L1, 23 Nov): look before letting the order id go. If the game is paid and the claim row is this notice's own, the batch did
+    // commit, so the claim stays and the notice is finished as a success below; only an unpaid game gives the claim up.
+    let committed = false;
+    try {
+      const nowG = await db.prepare("SELECT pack FROM engagement WHERE id=?").bind(gameId).first<{ pack: number | null }>();
+      const mineNow = await db.prepare("SELECT v FROM kv WHERE k=?").bind(key).first<{ v: string }>();
+      committed = (nowG?.pack ?? 0) > 0 && mineNow?.v === mine;
+      if (!committed) await db.prepare("DELETE FROM kv WHERE k=? AND v=?").bind(key, mine).run();
+    } catch { /* the claim is only ever honoured for an unpaid game (above), so a leftover cannot hide it */ }
+    if (!committed) return json({ error: "The database could not finish this just now. Send the same notice again.", code: "try-again" }, 503);
+    done = [null, { meta: { changes: 1 } }]; // it did commit: carry on as for any marked game
   }
   const changed = (done[1] as any)?.meta?.changes ?? 0;
   if (changed === 0) { // nothing was marked: the order id belongs to another game, or the game was paid or cancelled between the check and the write
@@ -480,8 +494,7 @@ async function consolePaid(req: Request, env: PayEnv, now: number): Promise<Resp
     if (!now0 || (now0.pack ?? 0) === 0) { await db.prepare("DELETE FROM kv WHERE k=? AND v=?").bind(key, mine).run(); return json({ error: "This game was cancelled or closed, so it cannot be marked paid.", code: "game-closed" }, 409); } // the order id is released: the console can send it again
   }
   if (changed > 0) {
-    await db.prepare("INSERT OR IGNORE INTO kv(k,v) VALUES(?,?)").bind(`pub/${gameId}`, String(now)).run();
-    await db.prepare("INSERT OR IGNORE INTO kv(k,v) VALUES(?,?)").bind(`paidby/${gameId}`, JSON.stringify({ by: "console", ms: now })).run();
+    await markers();
     if ((1692803367 + (g.start_round - 1) * 3) * 1000 <= now) { // held because it was not paid at its start time: the first number comes 2 minutes after the payment, as for any late payment
       const restart = Math.floor((now / 1000 - 1692803367) / 3) + 2 + LATE_PAY_LEAD_ROUNDS - GRACE_ROUNDS;
       await db.prepare("UPDATE engagement SET start_round=? WHERE id=?").bind(restart, gameId).run();
