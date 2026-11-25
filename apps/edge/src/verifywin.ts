@@ -6,20 +6,27 @@
 //      A report for a turn that has not happened yet is answered "not yet" (409) and the phone sends it again a little later.
 //   2. THE SEATS EXIST. Every winner named must be a seat of this game.
 //   3. THE GAME IS OVER for the prizes that need the whole game (climb, comeback, never missed, team, and every prize when one-prize-per-person is on).
-//   4. THE WIN IS REAL. The server fetches the public beacon numbers (the same ones every phone uses), plays the named seat's own board forward and checks that this seat
-//      really reached the milestone, or really got home, on the turn the report says; a biggest-climb or biggest-comeback prize needs a real ladder or a real snake escape;
-//      a team prize names a whole team as dealt by the game's own fate; a lucky draw is worked out again from the round that decides it.
-// What it cannot do on a free Worker (about 10 ms of work per call): replay every seat of a big game to prove that nobody else got there first. Playing one seat is a few
-// hundred hashes; playing 2,000 seats for 150 turns is seconds. So a group of seats can still choose WHICH real winner of a prize is reported, but they cannot invent a win,
-// name a seat that does not exist, or settle anything before the game has begun. The organizer's console replays the whole game and can correct the rest (override).
+//   4. THE WIN IS REAL. The server fetches the public beacon numbers (the same ones every phone uses) and checks the report against them:
+//      - a milestone or a home place: the named seat's own board is played forward and must really reach that square, or get home, on the turn the report says;
+//      - a lucky draw is worked out again from the round that decides it;
+//      - THE PRIZES THAT NEED EVERY SEAT (biggest climb, biggest comeback, the winning team) and a table game are settled by the server itself, from the whole game, with the same function
+//        the phones use (replay.ts, 25 Nov 2026, audit M1 of 1.5.4): a report counts only when it is exactly that answer. Before, any seat that had climbed at all, or any whole team, was accepted.
+// What it still cannot prove: for a milestone or a home place it proves the named seat really got there on that turn, not that nobody got there first (the whole game is played only for the
+// prizes above). So a group of seats can still choose WHICH real winner of a milestone or a home place is reported; they cannot invent a win, name a seat that does not exist, or settle
+// anything before the game has begun. In an older game where players threw by tapping (presence play) the throws are not replayed here: the prizes that need every seat are NOT settled by
+// phones there at all (the organizer's console works them out), and the rest get the timing, seat and one-winner checks only.
+// About the Workers plan: this file used to say a Worker has about 10 ms of work per call (the free plan). The live account is on the PAID plan (owner, 2026-10-27, `pages/wrangler.toml`), whose
+// call may use far more; the whole game is still played in parts of `seatsPerCall` seats because one board costs about 10 ms (see replay.ts).
 import { QUICKNET, roundAt } from "../../../packages/beacon/src/index";
 import { betaRoundOf } from "../../../packages/beacon/src/schedule";
-import { boardOf, teamsOf, DEFAULT_MILESTONE, DEFAULT_TURN_CAP } from "../../../packages/beacon/src/race";
-import { raceCfgOf, luckyEligible, luckyRound, luckyWinners } from "../../../packages/beacon/src/game";
+import { boardOf, DEFAULT_MILESTONE, DEFAULT_TURN_CAP } from "../../../packages/beacon/src/race";
+import { raceCfgOf, luckyEligible, luckyRound, luckyWinners, tableCfgOf } from "../../../packages/beacon/src/game";
+import { playTable, settleTable } from "../../../packages/beacon/src/table";
 import { rollFor, runFrom } from "../../../packages/beacon/src/play";
 import { seatOfPid } from "../../../packages/beacon/src/seat";
 import { endBoundMs, roundMs, scheduleOf } from "./lifecycle";
 import { prefixEnd } from "./checkin";
+import { endTruth, sameAsTruth } from "./replay";
 import type { Env } from "./worker";
 
 export interface Claim { pattern: string; ordinal: number; round: number; idx: number; pids: string[] }
@@ -127,45 +134,60 @@ export async function checkClaim(env: Env, e: any, eid: string, x: Claim, now: n
   // ---- how many winners a line has
   if (x.pattern !== "team" && x.pids.length !== 1) return no("This prize has one winner.");
   if (x.pattern === "nevermissed" && cfg.play !== "presence") return no("Nobody can miss a turn in this game.");
-  if (table || cfg.play === "presence") return { ok: true }; // a shared board, or a game where a missed throw counts: the throws are not worked out here (older games; new games always throw by themselves)
+  // an older game where a missed throw counts (new games always throw by themselves): the throws are not replayed here. The prizes that need every seat are NOT settled by phones in such a game
+  // (nobody could check them), the rest keep the timing, seat and one-winner checks.
+  if (cfg.play === "presence") return END_PATTERNS.has(x.pattern) ? no("This older game cannot check that prize on the server: the organizer works it out in the console.") : { ok: true };
 
-  // ---- the lines of one prize agree with each other: nobody takes two home places, and a better place never comes after a worse one (against the lines already settled)
-  if (x.pattern === "finish" || x.pattern === "milestone") {
-    const lines = (await env.DB.prepare("SELECT ordinal, idx, pids FROM settled WHERE eid=? AND round=? AND pattern=?").bind(eid, x.round, x.pattern).all<{ ordinal: number; idx: number; pids: string }>()).results ?? [];
-    for (const l of lines) {
-      if (l.ordinal === x.ordinal) continue;
-      if (x.pattern === "finish" && (JSON.parse(l.pids) as string[]).includes(x.pids[0]!)) return no("That seat already has another place.");
-      if ((l.ordinal < x.ordinal && l.idx > x.idx) || (l.ordinal > x.ordinal && l.idx < x.idx)) return no("That place does not fit the places already settled.");
-    }
-  }
+  // ---- the lines of one prize agree with each other (against the lines already settled)
+  if (!table) { const bad = await orderProblem(env, eid, x); if (bad) return no(bad); }
 
   // ---- 4. the win is real
   const betas: number[] = [];
   for (let t = 0; t <= x.idx; t++) { const r = betaRound(t); if (r === null) return no("That turn never happens: the game was stopped before it."); betas.push(r); }
   const beacon = await beaconFor(env, eid, [first, ...betas], now, spend);
   if (!beacon) return later("The public numbers are being fetched.");
-  const b0 = beacon.get(first)!;
+  const b0 = beacon.get(first)!, betaHex = betas.map((r) => beacon.get(r)!);
+  const settleWith = async (): Promise<Verdict> => { const t = await endTruth(env, eid, cfg, x.idx, b0, betaHex, (n) => spend(n)); return !t.ok ? t : sameAsTruth(t.lines, x) ? { ok: true } : no("That is not what the whole game gave for this prize."); };
 
-  if (x.pattern === "team") {
-    if (!cfg.teams || cfg.mode !== "team") return no("This game has no teams.");
-    const players = (await env.DB.prepare("SELECT COUNT(*) AS c FROM seat WHERE eid=?").bind(eid).first<{ c: number }>())?.c ?? 0;
-    const deal = teamsOf({ gameId: eid, players, teams: cfg.teams }, b0);
-    const seats = x.pids.map((p) => seatOfPid(p)!), team = deal[seats[0]! - 1];
-    if (team === undefined || seats.some((s) => deal[s - 1] !== team)) return no("Those seats are not one team.");
-    return deal.filter((t) => t === team).length === new Set(seats).size ? { ok: true } : no("That is not the whole team.");
+  // a table game (one shared board): played again here, a single board, and the prize must be exactly what the table gave
+  if (table) {
+    if (x.pattern !== "finish" && x.pattern !== "milestone") return no("This prize does not exist at a table.");
+    try {
+      const pids = ((await env.DB.prepare("SELECT pid FROM seat WHERE eid=? ORDER BY seq").bind(eid).all<{ pid: string }>()).results ?? []).map((r) => r.pid);
+      const lines = settleTable(playTable(tableCfgOf(eid, cfg, pids.length), { b0, betas: betaHex }), cfg.rewards, (s) => pids[s - 1] ?? String(s), 1);
+      return sameAsTruth(lines, x) ? { ok: true } : no("That is not what the table game gave.");
+    } catch { return no("The table game cannot be worked out."); }
   }
+
+  // the winning team, the biggest climb and the biggest comeback need every seat: the server plays the whole game and settles it as the phones do
+  if (x.pattern === "team") { if (!cfg.teams || cfg.mode !== "team") return no("This game has no teams."); return settleWith(); }
   if (cfg.mode === "team") return no("A team game has team prizes only.");
+  if (x.pattern === "climb" || x.pattern === "comeback") return settleWith();
 
   const seat = seatOfPid(x.pids[0]!)!;
   const rc = raceCfgOf(eid, cfg, Math.max(seat, 2)), board = boardOf(rc, seat, b0);
-  const run = runFrom(board, seat, betas.map((r, t) => rollFor(eid, seat, t, beacon.get(r)!)), cfg.board?.finish ?? "exact");
+  const run = runFrom(board, seat, betaHex.map((b, t) => rollFor(eid, seat, t, b)), cfg.board?.finish ?? "exact");
   if (x.pattern === "finish") return x.ordinal <= (cfg.endPrizes ?? 5) && run.finishedTurn === x.idx ? { ok: true } : no("That seat did not get home on that turn.");
   if (x.pattern === "milestone") {
     const m = [...(cfg.milestones ?? [DEFAULT_MILESTONE])].sort((a, b) => a - b)[x.ordinal - 1];
     const reached = m === undefined ? -1 : run.pos.findIndex((p) => p >= m);
     return reached === x.idx ? { ok: true } : no("That seat did not reach that square on that turn.");
   }
-  if (x.pattern === "climb") return run.bestClimb > 0 ? { ok: true } : no("That seat climbed no ladder.");
-  if (x.pattern === "comeback") return run.bestComeback > 0 ? { ok: true } : no("That seat made no comeback.");
   return no("This prize cannot be reported.");
+}
+
+/**
+ * The lines of one prize agree with each other: nobody takes two home places, and a better place never comes after a worse one, against the lines ALREADY SETTLED. Cheap (one read, no public numbers).
+ * It is asked again every time a result is about to be settled (winners.ts), not only the first time a report is checked: a report that passed once is remembered, so two reports that both
+ * passed before either settled could otherwise both settle (audit L2 of 1.5.4: one seat could hold two home places). Null = fine.
+ */
+export async function orderProblem(env: Env, eid: string, x: { pattern: string; ordinal: number; round: number; idx: number; pids: string[] }): Promise<string | null> {
+  if (x.pattern !== "finish" && x.pattern !== "milestone") return null;
+  const lines = (await env.DB.prepare("SELECT ordinal, idx, pids FROM settled WHERE eid=? AND round=? AND pattern=?").bind(eid, x.round, x.pattern).all<{ ordinal: number; idx: number; pids: string }>()).results ?? [];
+  for (const l of lines) {
+    if (l.ordinal === x.ordinal) continue;
+    if (x.pattern === "finish" && (JSON.parse(l.pids) as string[]).includes(x.pids[0]!)) return "That seat already has another place.";
+    if ((l.ordinal < x.ordinal && l.idx > x.idx) || (l.ordinal > x.ordinal && l.idx < x.idx)) return "That place does not fit the places already settled.";
+  }
+  return null;
 }

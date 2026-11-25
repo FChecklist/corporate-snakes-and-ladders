@@ -2,7 +2,7 @@
 // Pages are plain files and cannot import this one, so a test (apps/web/test/owner-rules-lines.test.ts) checks that each page holds these exact words.
 
 /** The one privacy line. It is true because every ID is sealed with the game and deleted by the purge (apps/edge/src/lifecycle.ts, PURGE_AFTER_MS is 20 hours, the promise 24). */
-export const PRIVACY_LINE = "Designed to follow US privacy laws, EU GDPR and India's DPDP. All participant information, including IDs, is deleted within 24 hours after the game ends.";
+export const PRIVACY_LINE = "Designed to follow US privacy laws, EU GDPR and India's DPDP. All participant information, including IDs, is deleted within 24 hours after the game ends. Only a winner's name, mobile number and employee ID, which the winner confirms so the prize can be handed over, are kept for 365 days.";
 
 /**
  * The fairness sentence. It is true because a throw is a fixed function of (game id, seat, turn, b_t) where b_t is the public beacon value published only AFTER that turn's

@@ -1068,7 +1068,7 @@
   }
   /** The two fixed sentences (owner rules 1.1): fairness and privacy. The words are the same on every page; apps/web/test/owner-rules-lines.test.ts checks them against packages/shared/src/lines.ts. */
   const FAIRNESS_LINE = "No one knows the next roll: not the organizer, not the host, not even the software.";
-  const PRIVACY_LINE = "Designed to follow US privacy laws, EU GDPR and India's DPDP. All participant information, including IDs, is deleted within 24 hours after the game ends.";
+  const PRIVACY_LINE = "Designed to follow US privacy laws, EU GDPR and India's DPDP. All participant information, including IDs, is deleted within 24 hours after the game ends. Only a winner's name, mobile number and employee ID, which the winner confirms so the prize can be handed over, are kept for 365 days.";
   const LINES_HTML = `<p class="zc-small" id="fairline">${esc(FAIRNESS_LINE)}</p><p class="zc-small" id="privline">${esc(PRIVACY_LINE)}</p>`;
   function frame(inner, withNav) {
     return `<div class="zc-frame">${barHtml()}${withNav ? payNote() : ""}${aiStrip()}${withNav ? progHtml() : ""}${withNav && S.sheet ? `<div class="zc-sheet"><div class="zc-small zc-nomargin">Your game at a glance</div>${synHtml()}</div>` : ""}${inner}${withNav ? tabsHtml() : ""}${LINES_HTML}</div>`;
