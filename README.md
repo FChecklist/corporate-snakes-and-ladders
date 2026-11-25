@@ -31,6 +31,6 @@ The owner's decisions for every Corporate Games product. Full text: `plans/ID-IN
 
 suiteRulesVersion: 1.1 (20 Nov 2026). Owner rules copy: docs/SUITE_RULES.md. Source: marketing-ledger plans/SUITE-RULES-VERSION-2026-11-20.md.
 
-## Version 1.5.4 (23 Nov 2026): owner rules 1.1 built, with the audit fixes
+## Version 1.6.0 (25 Nov 2026): the gaps of the owner's evaluation of 24 Nov
 
-Invite by employee ID only, the game and every throw by themselves, a game paid only by the console's signed notice (`POST /api/console/paid`), organizer and host screens that say "you", the rupee sign, one privacy line and one fairness sentence. Switch: `OWNER_RULES = "1.1"` in `pages/wrangler.toml`. What it does and what is left for the owner: [CHANGELOG.md](CHANGELOG.md) and [docs/KNOWLEDGE.md](docs/KNOWLEDGE.md) section 4a.
+A player gives a name (the word nickname is gone); each player can choose a Retro or Modern board look; Snakes and Ladders has its own colour scheme; a full AI manual page (`/ai-manual`) and `llms.txt`, where an AI can prepare the pre-game, winner and closing messages but cannot pay; a winner is told what they won and the organizer can set a closing message; one wording set (game and player, co-organizer, boards, Pay now and credits); the rules in one short line each. Built on version 1.5.4 (owner rules 1.1, `OWNER_RULES = "1.1"` in `pages/wrangler.toml`: invite by employee ID only, the game and every throw by themselves, a game paid only by the console's signed notice). What it does and what is left for the owner: [CHANGELOG.md](CHANGELOG.md), [docs/KNOWLEDGE.md](docs/KNOWLEDGE.md) sections 4a and 4b, and [docs/WORDING_2026-11-25.md](docs/WORDING_2026-11-25.md).

@@ -116,7 +116,7 @@ ${consoleUrl ? `<tr><td align="center" style="padding:16px 22px 4px;"><a href="$
 }
 
 /** A plain alert, no link and no key in it: an AI link was used from somewhere new. */
-export function newUseAlertMail(info: { when: string; country: string; program: string; kind: "AI" | "Host"; origin?: string }): BuiltMail {
+export function newUseAlertMail(info: { when: string; country: string; program: string; kind: "AI" | "Co-organizer"; origin?: string }): BuiltMail {
   const text = [
     `Someone new used the ${info.kind} work link`, "",
     `When: ${info.when}`, `Country: ${info.country || "unknown"}`, `Program: ${info.program || "unknown"}`, "",

@@ -287,7 +287,7 @@
       const k = (await r.json()).kind, who = k === "host" ? "Co-organizer" : k === "master" ? "Organizer" : "";
       if (!who) return;
       let both = false; try { both = !!CTK.get("cbz-alt"); } catch {}
-      a.textContent = `Signed in as ${who}${both ? " (also " + (who === "Host" ? "Organizer" : "Co-organizer") + ")" : ""} · Open the console`;
+      a.textContent = `Signed in as ${who}${both ? " (also " + (who === "Co-organizer" ? "Organizer" : "Co-organizer") + ")" : ""} · Open the console`;
       a.href = "/zc.html"; a.classList.add("signedin");
       a.addEventListener("click", (e) => e.stopImmediatePropagation(), true);
     } catch { /* offline: the normal link stays */ }
