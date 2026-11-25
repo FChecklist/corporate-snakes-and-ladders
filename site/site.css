@@ -79,3 +79,5 @@ footer.site ul{list-style:none;padding:0;margin:0}footer.site li{margin:4px 0}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
 
 .tw{overflow-x:auto;margin:14px 0}.tw table{border-collapse:collapse;width:100%;font-size:.92rem}.tw th,.tw td{border:1px solid var(--line,#d9d4c6);padding:8px 10px;text-align:left;vertical-align:top}.tw th{background:var(--alt,#f3efe4)}.legalpage h2{margin-top:1.6em}.legalpage p{line-height:1.55}
+.mark139{position:absolute;top:0;left:0;right:0;margin:0;padding:1px 0 0;text-align:center;line-height:1;pointer-events:none;user-select:none;z-index:2147483647;font-family:"Noto Sans Devanagari","Mukta","Nirmala UI","Mangal","Kohinoor Devanagari","Devanagari Sangam MN",sans-serif;font-size:6px;font-weight:700;color:#0B2A6B}
+.mark139 span{display:inline-block;border-bottom:.5px solid #7A1010;padding-bottom:.5px}

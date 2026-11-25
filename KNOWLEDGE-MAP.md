@@ -10,6 +10,8 @@ Written by BOSS for every repository, so any session knows what is done and what
 
 - Status: Live. See /version.json.
 
+- Page mark (1.3.1, 25 Nov 2026): every page carries the small mark १३९ at the top centre (`class="mark139"`); `apps/web/test/mark139.test.ts` guards it.
+
 ## All products and repositories
 
 | Repository | Product | What it is for | Status 14 Nov 2026 |
