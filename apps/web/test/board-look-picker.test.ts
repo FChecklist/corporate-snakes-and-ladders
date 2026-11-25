@@ -255,6 +255,7 @@ describe("the picker is in the page's own code, and in the storage notice", () =
     const item = reg.items.find((i) => i.keys.includes(KEY))!; expect(item).toBeDefined(); expect(item.store).toBe("localStorage"); expect(item.say).not.toMatch(/\b(my|mine|your|yours)\b/i);
     expect(reg.items.flatMap((i) => i.keys)).not.toContain("ctz-look");
     const { uses } = scan(); expect(uses.filter((u) => u.key === KEY).map((u) => u.file).sort()).toEqual(["looks.js", "z.js"]);
+    const terms = pub("terms.html").replace(/<[^>]+>/g, " ").replace(/\s+/g, " "); expect(terms).toContain("only first-party storage on the device, for settings such as the look"); // the one legal document already tells people that the look is kept on the device
     const build = readFileSync(join(ROOT, "pages/build.mjs"), "utf8"), sw = pub("zsw.js");
     for (const f of ["looks.css", "looks.js"]) { expect(build).toContain(`"${f}"`); expect(sw).toContain(`"/${f}"`); }
   });
