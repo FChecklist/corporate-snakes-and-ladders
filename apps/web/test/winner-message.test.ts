@@ -170,8 +170,9 @@ describe("when the game is over", () => {
     expect(x.$(".zprizes")).toBeNull(); expect(x.$("#winmsg")).toBeNull(); expect(x.$(".zwon")).toBeNull();
     expect(x.text()).not.toContain(MSG.winnerMessage); expect(x.text()).not.toContain("You came"); expect(x.text()).not.toContain("won the milestone gift");
     // the words the product itself added are plain: no my / your / mine / yours, nickname, ticket, host, guest, participant
-    for (const p of [m, s2, x]) for (const el of [p.$("#closemsg h2"), p.$(".zprizes .zwonsub"), p.$(".zprizes h2") && null]) if (el) expect(text(el)).not.toMatch(/\b(my|mine|yours?)\b/i);
-    for (const t2 of [text(m.$(".zprizes .zwonsub")), text(s2.$(".zprizes .zwonwhat")), text(m.$("#closemsg h2"))]) expect(t2).not.toMatch(WORDS);
+    for (const p of [m, s2, x]) for (const el of [p.$("#closemsg h2"), p.$(".zprizes .zwonsub")]) if (el) expect(text(el)).not.toMatch(WORDS);
+    expect(text(s2.$(".zprizes .zwonwhat"))).not.toMatch(WORDS); // 2nd place has no words from the organizer, so this line is the product's own sentence
+    expect(m.$(".zwon")).toBeNull(); expect(s2.$(".zwon")).toBeNull(); // once the game is over the prizes card tells it, not the card at the top (so nothing is said twice)
     for (const p of [m, s2, x]) expect(p.errors).toEqual([]);
   });
   test("the big screen says Game over and shows the closing message; the pre-game message is gone", async () => {
