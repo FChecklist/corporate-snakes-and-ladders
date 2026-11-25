@@ -188,6 +188,14 @@ describe("who may set them, and when (the same rules as every other setting)", (
     expect((await call("GET", `/ai/${team.ai}/z/MSG-14/summary`)).status).toBe(200);
     expect(await j(await call("GET", `/ai/${team.ai}/z/MSG-14/summary`))).toMatchObject({ closingMessage: ALL.closingMessage }); // and through its own link
   });
+  test("an AI that can only browse (a GET with _method=PATCH and the JSON in _body) sets them too, and a too long one is refused in plain words", async () => {
+    await make("MSG-15b"); await publish("MSG-15b");
+    const ok = await call("GET", `/ai/${team.ai}/z/MSG-15b/settings?_method=PATCH&_body=${encodeURIComponent(JSON.stringify(ALL))}`);
+    expect(ok.status).toBe(200); expect(await info("MSG-15b")).toMatchObject(ALL);
+    const bad = await call("GET", `/ai/${team.ai}/z/MSG-15b/settings?_method=PATCH&_body=${encodeURIComponent(JSON.stringify({ closingMessage: "q".repeat(301) }))}`);
+    expect(bad.status).toBe(400); expect((await j(bad)).error).toContain("300 characters");
+    expect((await info("MSG-15b")).closingMessage).toBe(ALL.closingMessage);
+  });
   test("the co-organizer's AI work link keeps its narrow rights: it may read but not change settings, so it cannot set a message", async () => {
     await make("MSG-15", { winnerMessage: "Kept" }); await publish("MSG-15");
     const r = await patch("MSG-15", { winnerMessage: "Changed through a link" }, team.host, T, { "x-cb-link": "1" });
