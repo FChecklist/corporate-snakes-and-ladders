@@ -104,4 +104,19 @@ describe("served at /ai/<key>", () => {
     const s = (await (await call("GET", `/ai/${o.key}/z/KEY-1/summary`)).json()) as any; expect(s.callSeconds).toBe(10); expect(s.rewards.length).toBe(5); expect(s.breaks.length).toBe(1);
     const wrong = await call("POST", `/ai/${o.key}/z`, { id: "KEY-2", startRound: start, callSeconds: 9, cap: 100 }); expect(wrong.status).toBe(400); expect(((await wrong.json()) as any).error).toBe("Every turn has a 10 second window."); // the manual says 10, and the code agrees
   });
+  test("the three messages work as the manual says (checked as soon as the settings code knows them): set in the create call and the settings call by an AI key, read back, cleared with an empty text, refused over 300 characters, never cut", async () => {
+    const cfg: any = await import("../../../packages/beacon/src/config"); if (!Array.isArray(cfg.MESSAGE_FIELDS)) return; // the messages arrive with the messages work; until then the manual documents them and this check waits
+    expect(cfg.MESSAGE_MAX).toBe(300);
+    const o = await organizer(); const start = Math.floor(((T + 86_400_000) / 1000 - 1692803367) / 3) + 1;
+    const made = await call("POST", `/ai/${o.key}/z`, { id: "MSG-AI1", startRound: start, callSeconds: 10, cap: 100, preGameMessage: "Welcome! The game starts soon. Please keep this page open." });
+    expect(made.status).toBe(200);
+    const set = await call("PATCH", `/ai/${o.key}/z/MSG-AI1/settings`, { winnerMessage: "Congratulations! Please collect the gift from the organizer.", closingMessage: "Thank you for playing. See you next time!" });
+    expect(set.status).toBe(200);
+    let s = (await (await call("GET", `/ai/${o.key}/z/MSG-AI1/summary`)).json()) as any;
+    expect([s.preGameMessage, s.winnerMessage, s.closingMessage]).toEqual(["Welcome! The game starts soon. Please keep this page open.", "Congratulations! Please collect the gift from the organizer.", "Thank you for playing. See you next time!"]);
+    const clear = await call("PATCH", `/ai/${o.key}/z/MSG-AI1/settings`, { preGameMessage: "", winnerMessage: null }); expect(clear.status).toBe(200);
+    s = (await (await call("GET", `/ai/${o.key}/z/MSG-AI1/summary`)).json()) as any; expect([s.preGameMessage, s.winnerMessage, s.closingMessage]).toEqual([undefined, undefined, "Thank you for playing. See you next time!"]);
+    const long = await call("PATCH", `/ai/${o.key}/z/MSG-AI1/settings`, { closingMessage: "x".repeat(301) }); expect(long.status).toBe(400);
+    s = (await (await call("GET", `/ai/${o.key}/z/MSG-AI1/summary`)).json()) as any; expect(s.closingMessage).toBe("Thank you for playing. See you next time!"); // refused, not cut and not changed
+  });
 });
