@@ -53,6 +53,17 @@ describe("GET /ai-manual is a public page", () => {
   });
 });
 
+describe("the page is well formed", () => {
+  test("every tag is closed in order, every id is used once, and every link inside the page goes to a section that exists", async () => {
+    const html = (await (await get("/ai-manual")).text()).replace(/<style[\s\S]*?<\/style>/g, ""); const VOID = new Set(["meta", "link", "br", "img", "input", "hr"]); const stack: string[] = [];
+    for (const m of html.matchAll(/<(\/?)([a-zA-Z][a-zA-Z0-9]*)\b[^>]*>/g)) { const n = m[2]!.toLowerCase(); if (VOID.has(n)) continue; if (!m[1]) stack.push(n); else expect([m.index, stack.pop()]).toEqual([m.index, n]); }
+    expect(stack).toEqual([]);
+    const ids = [...html.matchAll(/ id="([^"]+)"/g)].map((m) => m[1]!); expect(new Set(ids).size).toBe(ids.length);
+    for (const h of [...html.matchAll(/href="#([^"]+)"/g)].map((m) => m[1]!)) expect([h, ids.includes(h)]).toEqual([h, true]);
+    expect(html.match(/<h1>/g)!.length).toBe(1); expect(html.length).toBeLessThan(60_000); // one title, and a page a chat AI can read whole
+  });
+});
+
 describe("what the page says", () => {
   test("it names each kind of key by its prefix, and says the AI key starts with cba_ and the AI link is <site>/ai/<key>", async () => {
     const t = text(await (await get("/ai-manual")).text());
