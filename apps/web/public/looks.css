@@ -7,6 +7,7 @@
 /* ---- the picker: Board look, Retro or Modern (z.js draws it above the board) ---- */
 .zlook{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin:0 0 10px}
 .zlooklbl{font:700 13px/1.3 var(--sans,inherit);color:var(--snk-ink,#2B2521);margin-right:2px}
+.zlookopts{display:flex;flex-wrap:wrap;gap:6px 10px} /* the two options wrap together: on a narrow phone they drop under the label side by side */
 .zlookopt{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 14px 0 10px;border:2px solid var(--snk-line,#DCD3C6);border-radius:999px;background:var(--snk-surface,#fff);color:var(--snk-ink,#2B2521);font:600 14px/1.2 var(--sans,inherit);cursor:pointer}
 .zlookopt input{width:20px;height:20px;margin:0;accent-color:var(--snk-primary,#6E5A4A)}
 .zlookopt:has(input:checked){border-color:var(--snk-primary,#6E5A4A);background:var(--snk-sunk,#EBE5DB)}
@@ -33,7 +34,6 @@ html[data-look="retro"] .sq.ms{box-shadow:inset 0 0 0 3px var(--snk-primary,#6E5
 html[data-look="retro"] .sq.me{box-shadow:inset 0 0 0 3px var(--snk-ink,#2B2521)}
 html[data-look="retro"] .sq.ms.me{box-shadow:inset 0 0 0 3px var(--snk-ink,#2B2521),inset 0 0 0 5px var(--snk-primary,#6E5A4A)}
 html[data-look="retro"] .so b{font-family:var(--serif,Georgia,serif);font-weight:700;color:var(--snk-deep,#3B2F27);text-shadow:0 0 2px #fff,0 0 2px #fff,0 0 3px #fff}
-html[data-look="retro"] .g10 .so b{font-size:13px}
 html[data-look="retro"] .g15 .so b{font-family:var(--sans,inherit);font-weight:800} /* the smallest squares: a sturdy sans stays sharp at 8px */
 
 /* ======================= MODERN: flat and clean. Thin lines, calm tints, a light frame, a small shadow, sans numerals. ======================= */

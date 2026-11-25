@@ -308,7 +308,7 @@
   const lookPicker = () => {
     const af = document.activeElement, keep = af && af.name === "zlook" ? (af.value === "modern" ? "modern" : "retro") : ""; // the page redraws itself every second: the keyboard focus goes back to the same button
     if (keep) Promise.resolve().then(() => { const r = document.querySelector("input[name=zlook][value=" + keep + "]"); if (r && document.activeElement !== r) { try { r.focus({ preventScroll: true }); } catch { /* focus stays where it is */ } } });
-    return `<div class="zlook" role="radiogroup" aria-label="Board look"><span class="zlooklbl" aria-hidden="true">Board look</span><label class="zlookopt"><input type="radio" name="zlook" value="retro"${LOOK === "retro" ? " checked" : ""}> Retro</label><label class="zlookopt"><input type="radio" name="zlook" value="modern"${LOOK === "modern" ? " checked" : ""}> Modern</label></div>`;
+    return `<div class="zlook" role="radiogroup" aria-label="Board look"><span class="zlooklbl" aria-hidden="true">Board look</span><span class="zlookopts"><label class="zlookopt"><input type="radio" name="zlook" value="retro"${LOOK === "retro" ? " checked" : ""}> Retro</label><label class="zlookopt"><input type="radio" name="zlook" value="modern"${LOOK === "modern" ? " checked" : ""}> Modern</label></span></div>`;
   };
   const setLook = (to) => {
     LOOK = to === "modern" ? "modern" : "retro"; store.set("snk-look", LOOK);
