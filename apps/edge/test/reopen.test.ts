@@ -35,7 +35,7 @@ beforeEach(() => {
     if (pm) { const p = payments[pm[1]!]; if (pm[2]) p.status = "captured"; return new Response(JSON.stringify(p)); }
     return new Response("{}", { status: 404 });
   };
-  env = { DB: d.db, ORGANIZER_SECRET: "plat", DAILY_WRITE_BUDGET: "1000000", RAZORPAY_KEY_ID: "rzp_test_x", RAZORPAY_KEY_SECRET: "sek", RAZORPAY_WEBHOOK_SECRET: "whsec", RAZORPAY_BASE_URL: "https://rzp.test/v1", PUBLIC_ORIGIN: "https://bingo.test", OWNER_EMAIL: "owner@platform.test" };
+  env = { DB: d.db, ORGANIZER_SECRET: "plat", RUNNER_KEY: "test-runner-key-test-runner-key-test0000", DAILY_WRITE_BUDGET: "1000000", RAZORPAY_KEY_ID: "rzp_test_x", RAZORPAY_KEY_SECRET: "sek", RAZORPAY_WEBHOOK_SECRET: "whsec", RAZORPAY_BASE_URL: "https://rzp.test/v1", PUBLIC_ORIGIN: "https://bingo.test", OWNER_EMAIL: "owner@platform.test" };
 });
 afterEach(() => { globalThis.fetch = realFetch; });
 
@@ -45,7 +45,7 @@ const start = async (email: string) => { const r = await j(await handle(new Requ
 /** Organizer + a Host (own e-mail) + a Co-host for game CAN-1, 300 places, starting 3 hours after T. */
 const team = async () => {
   const master = await start("boss@acme.com"); const ai = lastAi;
-  await call("POST", "/api/z", { id: "CAN-1", startRound: START, callSeconds: 20, cap: 300 }, master);
+  await call("POST", "/api/z", { id: "CAN-1", startRound: START, callSeconds: 10, cap: 300 }, master);
   const hostR = await j(await call("POST", "/api/org/host", { mobile: "9876500009", label: "Priya", email: "priya@acme.com" }, master));
   const cohostR = await j(await call("POST", "/api/org/cohost", { label: "Ravi", phone: "98765 00001", e: "CAN-1" }, master));
   return { master, ai, host: hostR.hostKey as string, cohost: cohostR.cohostKey as string, hostId: hostR.id as string, cohostId: cohostR.id as string };
@@ -57,7 +57,7 @@ const complete = async (c: any, id = "pay_1", now = T, status = "captured") => {
   return call("POST", "/api/payments/verify", { paymentId: c.paymentId, razorpay_order_id: c.razorpay.orderId, razorpay_payment_id: id, razorpay_signature: sign(c, id) }, undefined, now);
 };
 const paidGame = async (t: { master: string }) => { const c = await j(await pay(t.master)); expect((await j(await complete(c))).published).toBe(true); return c; };
-const join = (phone: string, name = "Guest") => call("POST", "/api/z/CAN-1/join", { phone, name });
+const join = (phone: string, name = "Player") => call("POST", "/api/z/CAN-1/join", { phone, name });
 const cancelIt = (key: string, now = T, confirmations = 3) => call("POST", "/api/z/CAN-1/cancel", { confirmations }, key, now);
 const paymentRow = () => raw.prepare("SELECT * FROM payment WHERE status='paid'").get() as any;
 const DAY = 86_400_000;
@@ -85,7 +85,7 @@ describe("reopen: a cancelled paid game moved to a new date within 365 days", ()
     expect(refundCalls.length).toBe(0);
     expect(eng().cancelled_by).toBeNull();
     const jn = await join("9811100001"); expect(jn.status).toBe(200); // guests can join the moved game again
-    expect(outbox().some((m) => m.subject.startsWith("[Snakes & Ladders] Your game is back on"))).toBe(true);
+    expect(outbox().some((m) => m.subject.startsWith("[Snakes & Ladders] The game is back on"))).toBe(true);
   });
   test("the cancel mail tells the owner until when the game can be moved", async () => {
     const t = await team(); await paidGame(t); await cancelIt(t.master);
@@ -107,7 +107,7 @@ describe("reopen: a cancelled paid game moved to a new date within 365 days", ()
     await cancelIt(t.master);
     const r = await reopen(t.master, T + 5 * DAY); expect(r.status).toBe(409); expect((await j(r)).code).toBe("unpaid"); expect(eng().cancelled_ms).not.toBeNull();
   });
-  test("only the Organizer and a Host may move it: a Co-host, an AI key, a stranger and no key may not", async () => {
+  test("only the Organizer and a Co-organizer may move it: an invite-only co-organizer, an AI key, a stranger and no key may not", async () => {
     const t = await team(); await paidGame(t); await cancelIt(t.master);
     for (const key of [t.cohost, t.ai, "cbk_" + "0".repeat(48), undefined]) { const r = await reopen(key, T + 5 * DAY); expect([401, 403]).toContain(r.status); }
     expect(eng().cancelled_ms).not.toBeNull();
@@ -127,7 +127,7 @@ describe("reopen: a cancelled paid game moved to a new date within 365 days", ()
   });
   test("credit already spent on another game: this game can no longer be moved, and nothing is returned", async () => {
     const t = await team(); await paidGame(t); await cancelIt(t.master);
-    await call("POST", "/api/z", { id: "CAN-2", startRound: START, callSeconds: 20, cap: 300 }, t.master);
+    await call("POST", "/api/z", { id: "CAN-2", startRound: START, callSeconds: 10, cap: 300 }, t.master);
     const w = await j(await withCredit(t.master, "CAN-2")); expect(w.paid).toBe(true);
     const pv = await j(await call("GET", "/api/z/CAN-1/cancel-preview", undefined, t.master));
     expect(pv.canReschedule).toBe(false); expect(pv.rescheduleReason).toContain("already been used");
@@ -141,7 +141,7 @@ describe("reopen: a cancelled paid game moved to a new date within 365 days", ()
   });
   test("a game that credit paid for: moving it puts the credit back on the game, and the older game's money stays spent", async () => {
     const t = await team(); await paidGame(t); await cancelIt(t.master); // CAN-1 paid in cash, cancelled -> credit C1
-    await call("POST", "/api/z", { id: "CAN-2", startRound: START, callSeconds: 20, cap: 300 }, t.master);
+    await call("POST", "/api/z", { id: "CAN-2", startRound: START, callSeconds: 10, cap: 300 }, t.master);
     expect((await j(await withCredit(t.master, "CAN-2"))).paid).toBe(true); // C1 pays CAN-2
     await call("POST", "/api/z/CAN-2/cancel", { confirmations: 3 }, t.master, T + 1000); // C1 comes back
     const c1 = () => raw.prepare("SELECT * FROM credit WHERE eid='CAN-1'").get() as any;
@@ -167,7 +167,7 @@ describe("reopen: a cancelled paid game moved to a new date within 365 days", ()
     expect((await reopen(t.master, T + 6 * DAY)).status).toBe(409);
     expect(eng().start_round).toBe(roundAt(T + 5 * DAY));
   });
-  test("after the 23-hour guest erasure ran, a moved game gets a fresh lifecycle (no stale purged mark) and guests can join again", async () => {
+  test("after the 23-hour player erasure ran, a moved game gets a fresh lifecycle (no stale purged mark) and players can join again", async () => {
     const t = await team(); await paidGame(t); await join("9811100002"); await cancelIt(t.master);
     const later = T + 2 * DAY; await lifecycleTick(env as any, later); // the erasure ran
     expect((raw.prepare("SELECT COUNT(*) AS c FROM participant WHERE eid='CAN-1'").get() as any).c).toBe(0);

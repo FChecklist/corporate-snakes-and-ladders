@@ -18,11 +18,11 @@ const dev = (i: number) => String(i).padStart(2, "0").repeat(16); // 32 hex char
 async function game(id: string, over: Record<string, unknown> = {}) {
   const r = await j(await call("POST", "/api/start", { email: `o${++n}@acme.com` }, { "cf-connecting-ip": `10.0.0.${n}` }));
   const h = { "x-organizer": r.token as string };
-  expect((await call("POST", "/api/z", { id, startRound: START, callSeconds: 20, cap: 100, ...over }, h)).status).toBe(200);
+  expect((await call("POST", "/api/z", { id, startRound: START, callSeconds: 10, cap: 100, ...over }, h)).status).toBe(200);
   expect((await call("POST", `/api/z/${id}/publish`, { email: "boss@acme.com", phone: "98765 43210" }, h)).status).toBe(200);
   return h;
 }
-beforeEach(() => { const d = makeD1(); raw = d.raw; env = { DB: d.db, ORGANIZER_SECRET: "plat", DAILY_WRITE_BUDGET: "1000000", PUBLIC_ORIGIN: "https://bingo.test", PHONE_SALT: "salt", DATA_KEY: "k" } as Env; n = 0; });
+beforeEach(() => { const d = makeD1(); raw = d.raw; env = { DB: d.db, ORGANIZER_SECRET: "plat", RUNNER_KEY: "test-runner-key-test-runner-key-test0000", DAILY_WRITE_BUDGET: "1000000", PUBLIC_ORIGIN: "https://bingo.test", PHONE_SALT: "salt", DATA_KEY: "k" } as Env; n = 0; });
 
 describe("joining with a name only", () => {
   test("a name and the phone's own id are enough: a seat, a card id, no number stored", async () => {
@@ -35,7 +35,7 @@ describe("joining with a name only", () => {
     const who = await openPii(env as any, row.pii); expect(who).toEqual({ phone: "", name: "Maya Lopez" });
     expect((raw.query("SELECT COUNT(*) c FROM seat").get() as any).c).toBe(1);
   });
-  test("the same phone again is the same guest; another phone is another seat with another card", async () => {
+  test("the same phone again is the same player; another phone is another seat with another card", async () => {
     await game("NAME-2");
     const a = await j(await call("POST", "/api/z/NAME-2/join", { name: "Maya", device: dev(1) }));
     const again = await j(await call("POST", "/api/z/NAME-2/join", { name: "Maya", device: dev(1) })); expect(again.pid).toBe(a.pid); expect(again.again).toBe(true);
@@ -44,7 +44,7 @@ describe("joining with a name only", () => {
   });
   test("a name is needed, and a phone id; both are refused kindly", async () => {
     await game("NAME-3");
-    for (const body of [{ device: dev(1) }, { name: "", device: dev(1) }, { name: "A", device: dev(1) }]) { const r = await call("POST", "/api/z/NAME-3/join", body); expect(r.status).toBe(400); expect((await j(r)).error).toMatch(/your name/i); }
+    for (const body of [{ device: dev(1) }, { name: "", device: dev(1) }, { name: "A", device: dev(1) }]) { const r = await call("POST", "/api/z/NAME-3/join", body); expect(r.status).toBe(400); expect((await j(r)).error).toMatch(/type a name/i); }
     const r = await call("POST", "/api/z/NAME-3/join", { name: "Maya", device: undefined }); expect(r.status).toBe(400); expect((await j(r)).error).toMatch(/refresh/i);
     expect((raw.query("SELECT COUNT(*) c FROM seat").get() as any).c).toBe(0);
   });
@@ -62,7 +62,7 @@ describe("joining with a name only", () => {
     const ok = await call("POST", "/api/z/NAME-5/join", { name: "Maya", phone: "+1 415 555 0132", device: dev(1) }); expect(ok.status).toBe(200);
     expect((await call("PATCH", "/api/z/NAME-5/settings", { join: "everyone" }, h)).status).toBe(400);
   });
-  test("an invite-only game puts a name-only guest in the waiting room; the organizer sees only the name", async () => {
+  test("an invite-only game puts a name-only player in the waiting room; the organizer sees only the name", async () => {
     const h = await game("NAME-6", { whoCanJoin: "list" });
     const w = await call("POST", "/api/z/NAME-6/join", { name: "Maya", device: dev(1) }); expect(w.status).toBe(403);
     const b = await j(w); expect(b.waiting).toBe(true);

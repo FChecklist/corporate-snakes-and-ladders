@@ -87,7 +87,7 @@ describe("Help Desk pages", () => {
     expect((await fetchWith(s, "POST", "/api/helpdesk/accept", { t: t0, consent: true }, { "x-organizer": s.master })).status).toBe(200);
     const me = await (await fetchWith(s, "GET", "/api/helpdesk/me", undefined, hp)).json() as any;
     const aiKey = me.clients[0].consoleUrl.match(/k=(cba_[0-9a-f]{48})/)[1] as string, linkId = me.clients[0].id as string;
-    expect((await fetchWith(s, "POST", "/api/z", { id: "PG-1", startRound: FAR, callSeconds: 20, cap: 300, name: "Annual Day" }, { "x-organizer": aiKey })).status).toBe(200);
+    expect((await fetchWith(s, "POST", "/api/z", { id: "PG-1", startRound: FAR, callSeconds: 10, cap: 300, name: "Annual Day" }, { "x-organizer": aiKey })).status).toBe(200);
     expect((await fetchWith(s, "POST", "/api/helpdesk/request-publish", { linkId, eid: "PG-1" }, hp)).status).toBe(200);
     const t = s.tokenFrom(/asks you to publish/, "helpdesk-approve");
     const p = await page(s, `/helpdesk-approve.html?t=${t}`, "helpdesk-approve.html", ["helpdesk-approve.js"]);
@@ -95,7 +95,7 @@ describe("Help Desk pages", () => {
     expect(p.text()).toMatch(/Annual Day/); expect(p.text()).toMatch(/Up to 300 people/); expect(p.text()).toMatch(/Only you publish and pay/);
     expect(p.win.location.search).toBe("");
     (p.$("#em") as any).value = "boss@acme.com"; (p.$("#ph") as any).value = "98765 00009"; p.click("#pub");
-    await p.waitFor((x) => /Your game is live/.test(x));
+    await p.waitFor((x) => /The game is live/.test(x));
     expect(s.world.raw.prepare("SELECT COUNT(*) c FROM kv WHERE k='pub/PG-1'").get()).toEqual({ c: 1 });
     expect((s.world.raw.prepare("SELECT used_ms FROM helpdesk_pub").get() as any).used_ms).not.toBeNull();
     expect(s.world.raw.prepare("SELECT COUNT(*) c FROM organizer_key WHERE created_by='d' AND kind='host' AND host_id=hash").get()).toEqual({ c: 1 });

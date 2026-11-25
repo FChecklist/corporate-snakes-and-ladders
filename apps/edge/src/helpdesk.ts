@@ -6,6 +6,7 @@
 //     The one-tap publish approval is a link in an e-mail (7 days, single use). Opening it gives the page a master key for 30 minutes (kind 'master', created_by 'dp') which is revoked when the game is published or the link is stopped.
 //   - Every e-mail address is kept sealed. The Organizer's address is also kept as the same one-way hash the sign-in uses, so an invitation can be accepted only by the account of that address.
 //   - Every paid game the helper prepared earns the helper Refer-and-earn commission: the payment's `ref` is the helper's partner code (pay.ts), and recordCommission does the rest (same rate, same repeat rule, same self-referral block).
+import { cleanAccountEmail as cleanEmail } from "./emailclean";
 import { ensurePartnerKey } from "./partners";
 import type { D1, Env } from "./worker";
 import { sendMail, type PayEnv } from "./pay";
@@ -36,10 +37,10 @@ export const RESEND_MS = 10 * 60_000;
 /** The words the Organizer sees before tapping Allow (version HD1). The hash of this template is stored with the Organizer's tick. */
 export const HD1_VERSION = "HD1";
 export const HD1_TEMPLATE = [
-  "{helper} may prepare games in your account: create a game and change its settings and prizes. This is what your own AI link can do.",
-  "They cannot publish a game, pay, see your sign-in keys, change your e-mail or close your account. Only you publish, with one tap.",
-  "After you publish a game they prepared, they become a Host of that game and can change it like any Host. They see what a Host sees, such as the guest list. They do not use one of your 5 Host places.",
-  "When a game they prepared is paid, they earn Refer & earn commission from us. You pay nothing extra.",
+  "{helper} may prepare games in the account: create a game and change its settings and prizes. This is what the AI link can do.",
+  "They cannot publish a game, pay, see the sign-in keys, change the e-mail or close the account. Only you publish, with one tap.",
+  "After you publish a game they prepared, they become a Co-organizer of that game and can change it like any Co-organizer. They see what a Co-organizer sees, such as the player list. They do not use one of the 5 Co-organizer places.",
+  "When a game they prepared is paid, they earn Refer & earn commission from IT Services by Rajat Agarwal. You pay nothing extra.",
   "You can stop this at any time. It ends all their access at once. Games already published stay as they are.",
 ];
 export const hd1Lines = (helper: string): string[] => HD1_TEMPLATE.map((l) => l.replace("{helper}", helper));
@@ -47,9 +48,9 @@ export const hd1Lines = (helper: string): string[] => HD1_TEMPLATE.map((l) => l.
 /** The paragraph added to the AI manual of a helper's key (and nowhere else). */
 export const HELPER_MANUAL_NOTE = [
   "YOU ARE A HELP DESK HELPER.",
-  "You prepare games for the Organizer who allowed you. You create the game and set it up with your normal functions. You never publish and never pay: only the Organizer publishes, with one tap, and pays.",
+  "You prepare games for the Organizer who allowed you. You create the game and set it up with the normal functions. You never publish and never pay: only the Organizer publishes, with one tap, and pays.",
   "When the game is ready, ask the Organizer to publish: call POST /api/helpdesk/request-publish with {\"eid\": \"<the game id>\"} (or tell the helper to tap Ask the Organizer to publish). The Organizer gets an e-mail with a short summary and a button. Do not give out any link yourself.",
-  "After the Organizer publishes, the helper becomes a Host of that game and gets a Host link by e-mail.",
+  "After the Organizer publishes, the helper becomes a Co-organizer of that game and gets a Co-organizer link by e-mail.",
 ].join("\n");
 
 const json = (o: unknown, status = 200) => new Response(JSON.stringify(o), { status, headers: { "content-type": "application/json", "cache-control": "no-store" } });
@@ -57,7 +58,7 @@ const sha = async (s: string) => Array.from(new Uint8Array(await crypto.subtle.d
 const randHex = (n: number) => Array.from(crypto.getRandomValues(new Uint8Array(n)), (b) => b.toString(16).padStart(2, "0")).join("");
 async function body(req: Request, max = 2048): Promise<any | null> { const t = await req.text(); if (t.length > max) return null; try { const v = JSON.parse(t); return v && typeof v === "object" ? v : null; } catch { return null; } }
 const EMAIL_RE = /^[^\s@]{1,64}@[^\s@]{1,255}\.[^\s@]{2,}$/;
-const validEmail = (v: unknown): string => { const e = typeof v === "string" ? v.trim().toLowerCase() : ""; return EMAIL_RE.test(e) ? e : ""; };
+const validEmail = (v: unknown): string => { const e = typeof v === "string" ? cleanEmail(v) : ""; return EMAIL_RE.test(e) ? e : ""; };
 const clean = (v: unknown, n: number): string => (typeof v === "string" ? v.replace(/[<>`]/g, "").trim().slice(0, n) : "");
 const TOKEN = /^[0-9a-f]{48}$/;
 const ID16 = /^[0-9a-f]{16}$/;
@@ -91,7 +92,7 @@ export async function helperRefFor(db: D1, eid: string | null | undefined): Prom
   if (!eid) return null;
   try { return (await db.prepare("SELECT partner_code FROM helpdesk_game WHERE eid=?").bind(eid).first<{ partner_code: string }>())?.partner_code ?? null; } catch { return null; }
 }
-/** Hook for "Close my organizer account": the statements that remove every Help Desk row of that account (before the key rows go). */
+/** Hook for "Close your organizer account": the statements that remove every Help Desk row of that account (before the key rows go). */
 export function helpdeskCloseStatements(db: D1, org: string) {
   return [
     db.prepare("DELETE FROM helpdesk_game WHERE link_id IN (SELECT id FROM helpdesk_link WHERE org=?)").bind(org),
@@ -130,7 +131,7 @@ export async function stopLink(env: PayEnv, l: Link, now: number, notify = true)
   await db.prepare("UPDATE helpdesk_link SET state='stopped', stopped_ms=?, ai_key_sealed=NULL WHERE id=?").bind(now, l.id).run();
   if (notify && was !== "stopped") {
     const to = maskEmail((await openText(env as any, l.org_email_sealed)) ?? "x@x");
-    await helperMail(env, l.partner_code, was === "invited" ? "The Organizer did not allow Help Desk" : "Help Desk stopped", `The Organizer (${to}) ${was === "invited" ? "did not allow" : "stopped"} Help Desk. ${was === "invited" ? "Nothing was set up." : "Your access to their account has ended. Games already published stay as they are."}`, now);
+    await helperMail(env, l.partner_code, was === "invited" ? "The Organizer did not allow Help Desk" : "Help Desk stopped", `The Organizer (${to}) ${was === "invited" ? "did not allow" : "stopped"} Help Desk. ${was === "invited" ? "Nothing was set up." : "The access to their account has ended. Games already published stay as they are."}`, now);
   }
 }
 
@@ -228,7 +229,7 @@ export async function helpdeskRoute(req: Request, env: PayEnv, now: number, spen
     const b = await body(req); const email = validEmail(b?.email);
     if (!email) return json({ error: "Enter the Organizer's e-mail address." }, 400);
     const mine = await openText(env as any, h.email_sealed);
-    if (email === mine) return json({ error: "Enter the Organizer's e-mail address, not your own." }, 400);
+    if (email === mine) return json({ error: "Enter the Organizer's e-mail address, not the helper's own." }, 400);
     const eh = await sha("email|" + email);
     const counts = (await db.prepare("SELECT COUNT(*) AS c FROM helpdesk_link WHERE partner_code=? AND state IN ('invited','active')").bind(h.code).first<{ c: number }>())?.c ?? 0;
     if (counts >= MAX_CLIENTS) return json({ error: `You can have up to ${MAX_CLIENTS} clients at a time.` }, 409);
@@ -243,7 +244,7 @@ export async function helpdeskRoute(req: Request, env: PayEnv, now: number, spen
     await db.prepare("INSERT INTO helpdesk_link(id,partner_code,org_email_sealed,org_email_hash,org,state,token_hash,created_ms) VALUES(?,?,?,?,NULL,'invited',?,?)").bind(id, h.code, await sealText(env as any, email), eh, await sha("hdlink|" + token), now).run();
     const hn = h.name || "A Help Desk person", greet = clean(b?.name, 60);
     await sendMail(env, db, email, `${hn} asks to prepare Corporate Snakes and Ladders games for you`,
-      `${greet ? `Hello ${greet},\n\n` : ""}${hn} asks to prepare games for you in Corporate Snakes and Ladders.\n\nNothing is published or paid without your OK.\n\nRead the short promise and choose here: ${origin}/helpdesk-accept.html?t=${token}\n\nThe link works for ${INVITE_DAYS} days. If you do not know this person, ignore this e-mail and nothing happens.`, now, { secret: true });
+      `${greet ? `Hello ${greet},\n\n` : ""}${hn} asks to prepare games for you in Corporate Snakes and Ladders.\n\nNothing is published or paid without the OK.\n\nRead the short promise and choose here: ${origin}/helpdesk-accept.html?t=${token}\n\nThe link works for ${INVITE_DAYS} days. If you do not know this person, ignore this e-mail and nothing happens.`, now, { secret: true });
     return json({ ok: true, id }); // the same answer whether or not the address already has an account
   }
 

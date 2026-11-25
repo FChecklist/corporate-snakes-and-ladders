@@ -53,7 +53,7 @@ describe("validateCfg", () => {
   test("turn limit 10 to 150, end prizes 1 to 5, one prize per person, theme", () => {
     expect(ok({ turnCap: 90, endPrizes: 3, exclusive: true, theme: "career" })).toMatchObject({ turnCap: 90, endPrizes: 3, exclusive: true, theme: "career" });
     for (const o of [{ turnCap: 9 }, { turnCap: 151 }, { turnCap: 12.5 }, { endPrizes: 0 }, { endPrizes: 6 }, { exclusive: "yes" }, { theme: "space" }]) bad(o);
-    expect(ok({ turnCap: 60, endPrizes: 5, exclusive: false, theme: "jungle" }).turnCap).toBeUndefined();
+    expect(ok({ turnCap: 26, endPrizes: 5, exclusive: false, theme: "jungle" }).turnCap).toBeUndefined();
   });
   test("a change keeps what it does not mention", () => {
     const base = ok({ mode: "team", teams: 4, turnCap: 80 });
@@ -63,12 +63,12 @@ describe("validateCfg", () => {
 });
 
 describe("brand breaks and moments", () => {
-  test("up to 3 breaks during the game, spread evenly over a typical 60-turn game", () => {
-    const table: Record<number, number[]> = { 1: [30], 2: [20, 40], 3: [15, 30, 45] };
+  test("up to 3 breaks during the game, spread evenly over a typical 26-turn game", () => {
+    const table: Record<number, number[]> = { 1: [13], 2: [9, 17], 3: [7, 13, 20] };
     for (const n of [1, 2, 3]) expect(Array.from({ length: n }, (_, i) => autoAfter(n, i + 1))).toEqual(table[n]!);
     expect(brandMomentsFor(1)).toBe(5);
     const c = ok({ breaks: [{ kind: "speech", title: "Welcome", seconds: 60 }, { kind: "speech", title: "Thanks", seconds: 60 }] });
-    expect(c.breaks.map((b) => b.after)).toEqual([20, 40]);
+    expect(c.breaks.map((b) => b.after)).toEqual([9, 17]);
     bad({ breaks: [1, 2, 3, 4].map((i) => ({ kind: "speech", title: "T" + i, seconds: 60 })) });
   });
   test("a break lasts 15 to 600 seconds in steps of 3; a lucky draw picks 1, 3, 5 or 10; breaks shift later turns", () => {
@@ -105,7 +105,7 @@ describe("what a person must give to get in (verify) and employees only", () => 
     expect((validateCfg({ verify: "mobile" }, (validateCfg({ verify: "id" }) as any).cfg) as any).cfg.verify).toBeUndefined();
     expect((validateCfg({ verify: "passport" }) as any).ok).toBe(false);
   });
-  test("employees only is a yes/no, switches guest invitations off and asks for a mobile number or ID (never a nickname); it is kept when other settings change", () => {
+  test("employees only is a yes/no, switches player invitations off and asks for a mobile number or ID (never a typed name); it is kept when other settings change", () => {
     const on = (validateCfg({ employeesOnly: true, invites: { on: true, per: 3, cats: ["family"] } }) as any).cfg;
     expect(on.employeesOnly).toBe(true); expect(on.invites.on).toBe(false); expect(on.join).toBe("phone");
     expect((validateCfg({ name: "Diwali" }, on) as any).cfg.employeesOnly).toBe(true);

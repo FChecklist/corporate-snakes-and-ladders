@@ -15,10 +15,10 @@ async function page(html = "pricing.html", url = "/pricing.html") {
   const p = await openPage(w.world, { url: "http://localhost" + url, html, scripts: ["guide.js"] });
   open.push(p); return p;
 }
-/** every `error: "..."` the server can send, with the status written next to it */
+/** every `error: "..."` the server can send, with the status written next to it. price-adjust.ts is left out on purpose: its messages are owner-only and a guide entry would put them in a public script (see price-adjust-secret.test.ts) */
 function serverMessages() {
   const out: { file: string; line: number; status: number; msg: string }[] = [];
-  for (const f of readdirSync(EDGE).filter((x) => x.endsWith(".ts"))) {
+  for (const f of readdirSync(EDGE).filter((x) => x.endsWith(".ts") && x !== "price-adjust.ts")) {
     readFileSync(join(EDGE, f), "utf8").split("\n").forEach((l, i) => {
       for (const m of l.matchAll(/error:\s*("(?:[^"\\]|\\.)*"|`[^`]*`)/g)) {
         const st = /\}\s*,\s*(\d{3})\s*\)/.exec(l.slice(m.index! + m[0].length)) ?? /status:\s*(\d{3})/.exec(l);
@@ -43,7 +43,7 @@ describe("every message the server can send has a guide", () => {
     const p = await page(); const CTG = p.win.CTG;
     const hidden = serverMessages().filter((m) => CTG.apiOnly(m.msg));
     expect(hidden.length).toBeGreaterThan(20);
-    for (const m of hidden) expect(["admin.ts", "partners.ts", "mode.ts", "ledgerc.ts", "pay.ts", "worker.ts", "lifecycle.ts", "people.ts", "credit.ts", "helpdesk.ts", "winners.ts", "throws.ts", "hostsetup.ts", "rights.ts", "clone.ts", "consent.ts"]).toContain(m.file);
+    for (const m of hidden) expect(["admin.ts", "partners.ts", "mode.ts", "ledgerc.ts", "pay.ts", "worker.ts", "lifecycle.ts", "people.ts", "credit.ts", "helpdesk.ts", "winners.ts", "throws.ts", "hostsetup.ts", "rights.ts", "clone.ts", "consent.ts", "demo.ts"]).toContain(m.file);
   });
 });
 
@@ -88,7 +88,7 @@ describe("showing it: pop-up, in place, take me there, back to where you were", 
     const p = await page(); const d = p.win.document; let again = 0;
     p.win.CTG.dialog({ status: 500, message: "boom for asha@example.com" }, { retry: () => again++ });
     const t = d.getElementById("ctg-dialog").textContent;
-    expect(t).toContain("not your doing"); expect(t).toContain("Reference:"); expect(t).not.toContain("asha@example.com");
+    expect(t).toContain("did nothing wrong"); expect(t).toContain("Reference:"); expect(t).not.toContain("asha@example.com");
     expect(d.querySelector('#ctg-dialog a[href^="https://wa.me/919650397480?text="]')).toBeTruthy();
     d.querySelector('#ctg-dialog [data-ctg="retry"]').click(); expect(again).toBe(1); expect(d.getElementById("ctg-dialog")).toBeNull();
   });
@@ -105,7 +105,7 @@ describe("showing it: pop-up, in place, take me there, back to where you were", 
   test("when the fix is on another step, a Done? button remembers where the person was and takes them back", async () => {
     const p = await page(); const d = p.win.document; const seen: number[] = [];
     p.win.ctzFocus = (n: number) => seen.push(n);
-    p.win.CTG.go({ step: 2, field: "#f-cap", label: "Number of participants" }, { back: { step: 7, label: "Check and publish" } });
+    p.win.CTG.go({ step: 2, field: "#f-cap", label: "Number of players" }, { back: { step: 7, label: "Check and publish" } });
     expect(seen).toEqual([2]);
     const b = d.getElementById("ctg-back"); expect(b.textContent).toContain("Check and publish");
     b.click(); expect(seen).toEqual([2, 7]); expect(d.getElementById("ctg-back")).toBeNull();
@@ -134,14 +134,14 @@ describe("the right guide for the right message and the right person", () => {
     const p = await page(); const C = p.win.CTG.catalog as any[];
     // three short ones are whole, specific messages: "busy", "busy day", "choose a pack"
     for (const e of C) for (const m of e.m) { const n = String(m).toLowerCase().replace(/\d+/g, "").replace(/\s+/g, " ").trim(); expect(n.length >= 14 || ["busy", "busy day", "choose a pack"].includes(n)).toBe(true); }
-    for (const msg of ["You have been removed from this game by someone.", "You can have a look at the report later.", "Send a postcard to your friend.", "Check the weather before you travel.", "Your ticket is lovely."]) {
+    for (const msg of ["You have been removed from this game by someone.", "You can have a look at the report later.", "Send a postcard to the friend.", "Check the weather before you travel.", "The board is lovely."]) {
       const f = p.win.CTG.find({ status: -1, message: msg }); expect(f.matched).toBe(false);
     }
     // and the real, similar messages still reach their own guide
     expect(p.win.CTG.find({ status: 403, message: "You were removed from this game." }).entry.t).toContain("not part of this game");
     expect(p.win.CTG.find({ status: 409, message: "You have 3 unpublished drafts. Publish one, or let one lapse: an unpublished draft is forgotten after 30 days" }).entry.t).toContain("drafts");
   });
-  test("a guest on the game page never gets a button into the Organizer's console, and 'game full' is worded for a guest", async () => {
+  test("a player on the game page never gets a button into the Organizer's console, and 'game full' is worded for a player", async () => {
     const p = await page("z.html", "/z.html?e=ABCD1234");
     expect(p.win.CTG.role()).toBe("player");
     const full = p.win.CTG.explain({ status: 409, message: "This engagement is full." });

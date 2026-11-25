@@ -126,7 +126,7 @@ export async function passK5Gate(page, { timeout = 15000, optional = false } = {
 export async function cohostAccepted(eid, c) { const r = await H.call("GET", `/api/z/${eid}/cohost`, undefined, { "x-organizer": c.cohostKey }); return r.body?.roleAccepted === true; }
 /** The API way of the same K5 acceptance for a Co-host key (what the one-time box does when ticked). */
 export const acceptRole = (key) => H.call("POST", "/api/org/role/accept", {}, { "x-organizer": key });
-/** Host first-open, e-mail step: the box (K5) first, then "Send me a code". */
+/** Host first-open, e-mail step: the box (K5) first, then "Send a code". */
 export async function setupSendUi(page, email) {
   await acceptHostRole(page, 4000); // the server wants the role box (K5) ticked before it checks a code or saves a number
   await page.fill("#setupemail", email); await page.click("#setupsend"); await page.waitForSelector("#setupcode");
@@ -150,12 +150,12 @@ export async function openConsole(t, org, eid, { device = "laptop", token, w, h,
   await x.page.waitForSelector(eid ? ".zc-sech" : "#mk", { timeout: 15000 });
   return x;
 }
-/** the people block of step 6 (My people): opens the step and waits until the list has loaded */
+/** the people block of step 6 (Your people): opens the step and waits until the list has loaded */
 export async function openPeople(page) {
   await openStep(page, 6); await page.waitForSelector("#sec6 #gcount", { timeout: 10000 }); await page.waitForTimeout(300);
   await tickGuestList(page);
 }
-/** Step 6, "My people": ticks the guest-list box (K6: "I am allowed to use these names and numbers ... The people have been told"); until it is ticked the Add / Paste / Upload buttons stay disabled. */
+/** Step 6, "Your people": ticks the guest-list box (K6: "I am allowed to use these names and numbers ... The people have been told"); until it is ticked the Add / Paste / Upload buttons stay disabled. */
 export async function tickGuestList(page) {
   await tickTerms(CUR, page, { scope: ".cbc", btn: "#gadd, #rosterGo, #gcontacts, #gfile", what: "Guest list" });
 }
@@ -208,7 +208,7 @@ export async function joinForm(page, phone, name) {
   if (await page.$("#nm")) await page.fill("#nm", name);
   await page.click("#go");
 }
-/** The page a guest meets from a personal link: the boxes (K4), a nickname (taken from the list if the page offers one, else `name`), then Join. */
+/** The page a guest meets from a personal link: the boxes (K4), a name (taken from the list if the page offers one, else `name`), then Join. */
 export async function joinFromLink(page, name = "Link Guest") {
   await page.waitForSelector("#go", { timeout: 12000 }).catch(() => {});
   if (await page.$(".cbc input[data-box]")) await tickTerms(CUR, page, { scope: ".cbc", btn: "#go", what: "Join (personal link)" });

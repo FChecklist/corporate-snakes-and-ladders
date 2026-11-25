@@ -18,7 +18,7 @@ const ORIGIN = "https://bingo.test";
 
 beforeEach(() => {
   const d = makeD1(); raw = d.raw;
-  env = { DB: d.db, ORGANIZER_SECRET: "plat", DAILY_WRITE_BUDGET: "100000", PUBLIC_ORIGIN: ORIGIN, DATA_KEY: "test-data-key", TEST_MODE: "1" };
+  env = { DB: d.db, ORGANIZER_SECRET: "plat", RUNNER_KEY: "test-runner-key-test-runner-key-test0000", DAILY_WRITE_BUDGET: "100000", PUBLIC_ORIGIN: ORIGIN, DATA_KEY: "test-data-key", TEST_MODE: "1" };
 });
 async function account() { const x = await j(await call("POST", "/api/start", { email: "boss@acme.com" }, { "cf-connecting-ip": "1.1.1.1" })); return { ai: x.aiKey as string, token: x.token as string }; }
 async function ask(now = T, ip = "5.5.5.5") { const r = await j(await call("POST", "/api/auth/email", { email: "boss@acme.com" }, { "cf-connecting-ip": ip }, now)); return r as { devCode: string; devToken: string }; }
@@ -28,8 +28,8 @@ describe("the sign-in e-mail", () => {
   test("subject, heading, intro, exactly two options (code, button), the footer, an HTML and a plain-text part; no AI key or paste text anywhere", async () => {
     await account(); const r = await ask();
     const m = outbox().find((x) => x.subject === "[Snakes & Ladders] " + SIGNIN_SUBJECT)!;
-    expect(m.to_addr).toBe("boss@acme.com"); expect(SIGNIN_SUBJECT).toBe("Your Corporate Snakes and Ladders sign-in: a 6-digit code, or one tap");
-    for (const t of ["SIGN IN TO YOUR ACCOUNT", "Do ONE of these two things. You do not need both.", "OPTION 1 - TYPE THE 6-DIGIT CODE", "type these 6 numbers in the six boxes and press Submit", r.devCode, "OPTION 2 - TAP THE BUTTON", "You are signed in at once", "It works once, for 10 minutes.", "Do not forward it"]) expect(m.body).toContain(t);
+    expect(m.to_addr).toBe("boss@acme.com"); expect(SIGNIN_SUBJECT).toBe("The Corporate Snakes and Ladders sign-in: a 6-digit code, or one tap");
+    for (const t of ["SIGN IN TO THE ACCOUNT", "Do ONE of these two things. You do not need both.", "OPTION 1 - TYPE THE 6-DIGIT CODE", "type these 6 numbers in the six boxes and press Submit", r.devCode, "OPTION 2 - TAP THE BUTTON", "You are signed in at once", "It works once, for 10 minutes.", "Do not forward it"]) expect(m.body).toContain(t);
     expect(m.body).not.toContain("OPTION 3"); expect(m.body).not.toMatch(/AI work link|go=ai/);
     expect(m.body + m.subject).not.toMatch(LEAK); expect(m.body).not.toMatch(/Corporate Snakes and Ladders account\. I am the owner/);
     expect(m.body).toContain(`${ORIGIN}/signin.html?t=${r.devToken}&go=console`);

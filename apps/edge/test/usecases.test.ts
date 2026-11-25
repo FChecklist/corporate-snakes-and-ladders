@@ -23,7 +23,7 @@ let rz: { orders: any[]; payments: Record<string, any>; mail: any[]; mailDown: b
 const call = (method: string, path: string, body?: unknown, headers: Record<string, string> = {}, now = T) =>
   handle(new Request("http://x" + path, { method, headers: { "content-type": "application/json", ...headers }, body: withDevice(method, path, body) }), env as Env, now);
 const j = async (r: Response) => (await r.json()) as any;
-const eng = (id: string, over: Record<string, unknown> = {}) => ({ id, startRound: START, callSeconds: 20, cap: 100, ...over });
+const eng = (id: string, over: Record<string, unknown> = {}) => ({ id, startRound: START, callSeconds: 10, cap: 100, ...over });
 const contact = { email: "boss@acme.com", phone: "98765 43210" };
 
 async function organizer(email = `o${++ipN}@acme.com`) {
@@ -59,7 +59,7 @@ const settle = (paymentId: string, orderId: string, payId: string, now = T, stat
 beforeEach(() => {
   const d = makeD1(); raw = d.raw; ipN = 0;
   rz = { orders: [], payments: {}, mail: [], mailDown: false };
-  env = { DB: d.db, ORGANIZER_SECRET: "plat", DAILY_WRITE_BUDGET: "1000000", PUBLIC_ORIGIN: "https://bingo.test", PHONE_SALT: "salt" };
+  env = { DB: d.db, ORGANIZER_SECRET: "plat", RUNNER_KEY: "test-runner-key-test-runner-key-test0000", DAILY_WRITE_BUDGET: "1000000", PUBLIC_ORIGIN: "https://bingo.test", PHONE_SALT: "salt" };
   installGateway();
 });
 afterEach(() => { globalThis.fetch = realFetch; });
@@ -262,8 +262,8 @@ describe("C. publish and pay", () => {
   test("UC-20 an engagement bigger than every pack needs a custom arrangement", async () => {
     withGateway();
     const o = await organizer();
-    await call("POST", "/api/z", eng("HUGE-1", { cap: 100000 }), o.h);
-    const r = await checkout(o, "HUGE-1"); expect(r.status).toBe(400); expect((await j(r)).error).toMatch(/custom|write to us/i);
+    const r = await call("POST", "/api/z", eng("HUGE-1", { cap: 2001 }), o.h); expect(r.status).toBe(400); expect((await j(r)).error).toMatch(/2,000/);
+    expect((await call("POST", "/api/z", eng("HUGE-2", { cap: 2000 }), o.h)).status).toBe(200);
   });
   test("UC-21 after payment the limit can rise only up to the pack and never below the people already in", async () => {
     withGateway();
@@ -317,7 +317,7 @@ describe("C. publish and pay", () => {
     await mk("REM-NEAR", T + 30 * HOUR); await mk("REM-FAR", T + 200 * HOUR); await mk("REM-DRAFT", T + 30 * HOUR, false); await mk("REM-PAID", T + 30 * HOUR);
     raw.prepare("UPDATE engagement SET pack=100 WHERE id='REM-PAID'").run();
     await housekeeping(env as Env, T + DAY); await housekeeping(env as Env, T + 2 * DAY); await housekeeping(env as Env, T + 3 * DAY); // only REM-NEAR is ever inside the 36 hours
-    const reminders = outbox("Payment pending for your game%");
+    const reminders = outbox("Payment pending for the game%");
     expect(reminders.length).toBe(1); expect(reminders[0]!.body).toContain("REM-NEAR");
   });
   test("UC-27 with a credit in hand, publishing is paid at once", async () => {
@@ -330,7 +330,7 @@ describe("C. publish and pay", () => {
 });
 
 /* ============================== D. participants ============================== */
-describe("D. participants", () => {
+describe("D. players", () => {
   async function published(id: string, over: Record<string, unknown> = {}) {
     const o = await organizer(); await call("POST", "/api/z", eng(id, over), o.h); await call("POST", `/api/z/${id}/publish`, contact, o.h); return o;
   }
@@ -340,7 +340,7 @@ describe("D. participants", () => {
     expect((await call("GET", "/api/z/DRAFT-X/info")).status).toBe(403);
     expect((await call("GET", "/api/z/DRAFT-X/control")).status).toBe(404);
   });
-  test("UC-30 the same number written four ways is one participant with one ticket", async () => {
+  test("UC-30 the same number written four ways is one player with one board", async () => {
     await published("SAME-N");
     const ids = new Set<string>();
     for (const p of ["9876543210", "+91 98765 43210", "098765 43210", "91-98765-43210"]) ids.add((await j(await call("POST", "/api/z/SAME-N/join", { phone: p }))).pid);
@@ -349,7 +349,7 @@ describe("D. participants", () => {
   test("UC-31 numbers that are not numbers are refused with a human message", async () => {
     await published("BADNUM-1");
     for (const p of ["123", "abcdefghij", "1".repeat(40), 12345678901234567890 as any]) { const r = await call("POST", "/api/z/BADNUM-1/join", { phone: p }); expect(r.status).toBe(400); expect((await j(r)).error).toMatch(/mobile number/i); }
-    for (const p of ["", null]) { const r = await call("POST", "/api/z/BADNUM-1/join", { phone: p }); expect(r.status).toBe(400); expect((await j(r)).error).toMatch(/your name/i); } // no number and no name: the name-only door asks for a name
+    for (const p of ["", null]) { const r = await call("POST", "/api/z/BADNUM-1/join", { phone: p }); expect(r.status).toBe(400); expect((await j(r)).error).toMatch(/type a name/i); } // no number and no name: the name-only door asks for a name
   });
   test("UC-32 a crowd arriving at the same instant never passes the limit, and the last places are fair", async () => {
     await published("CROWD-1", { cap: 5 });
@@ -357,7 +357,8 @@ describe("D. participants", () => {
     const ok = rs.filter((r) => r.status === 200).length, full = rs.filter((r) => r.status === 409).length;
     expect((raw.prepare("SELECT COUNT(*) AS c FROM participant WHERE eid='CROWD-1'").get() as any).c).toBeLessThanOrEqual(5);
     expect(ok).toBe(5); expect(full).toBe(35);
-    expect((await call("POST", "/api/z/CROWD-1/join", { phone: phone(1) })).status).toBe(200); // someone who already has a place can always come back
+    const seated = rs.findIndex((r) => r.status === 200); // which of the 40 got a place depends on the arrival order, so take one who really has one
+    expect((await call("POST", "/api/z/CROWD-1/join", { phone: phone(seated + 1) })).status).toBe(200); // someone who already has a place can always come back
   });
   test("UC-33 invite-only: an unlisted number is refused, a listed one gets in", async () => {
     const o = await published("INVITE-1", { closed: true });
@@ -483,7 +484,7 @@ describe("F. exceptions: what can go wrong", () => {
     await purgeOld(env as Env, T + 366 * DAY);
     expect((raw.prepare("SELECT COUNT(*) AS c FROM kv WHERE k LIKE '%/ERASE-1'").get() as any).c).toBe(0);
   });
-  test("UC-52 claims for patterns, positions or rounds that do not exist, or from non-participants, are not stored", async () => {
+  test("UC-52 claims for patterns, positions or rounds that do not exist, or from non-players, are not stored", async () => {
     const o = await organizer(); await call("POST", "/api/z", eng("CLAIM-1"), o.h); await call("POST", "/api/z/CLAIM-1/publish", contact, o.h);
     const pid = (await j(await call("POST", "/api/z/CLAIM-1/join", { phone: phone(1) }))).pid;
     const send = (claims: unknown[], p = pid) => call("POST", "/api/z/CLAIM-1/claims", { pid: p, claims });
@@ -499,7 +500,7 @@ describe("G. the organizer's AI", () => {
     const m = await j(await call("GET", "/api/z/ai-manifest"));
     expect(m.conversation.length).toBe(12); expect(m.packs.length).toBeGreaterThan(5);
     const text = JSON.stringify(m);
-    expect(text).toMatch(/lucky/); expect(text).toMatch(/winners\?: 1\|3\|5\|10/); expect(text).toMatch(/ONE winner of ONE house/); expect(text).toMatch(/GET \/api\/z\/\{id\}\/summary/);
+    expect(text).toMatch(/lucky/); expect(text).toMatch(/winners\?: 1\|3\|5\|10/); expect(text).toMatch(/ONE winner of ONE gift/); expect(text).toMatch(/GET \/api\/z\/\{id\}\/summary/);
     expect(m.payment_faq.join(" ")).toMatch(/late/i); expect(m.payment_faq.join(" ")).toMatch(/nothing is owed|no penalty/i); expect(m.payment_faq.join(" ")).toMatch(/limit does not have to match/i);
   });
   test("UC-63 an unknown route tells the AI where the list of routes is", async () => {
@@ -527,7 +528,7 @@ describe("G2. the organizer's AI: round 2 findings", () => {
   });
   test("UC-67 the manifest says: no writes before the yes, rewards replace the list, what skipped/invalid mean, and does not ask for the speed in the schedule call", async () => {
     const t = JSON.stringify(await j(await call("GET", "/api/z/ai-manifest")));
-    expect(t).toMatch(/DO NOT call POST \/api\/z or any other write/); expect(t).toMatch(/REPLACE what was saved/); expect(t).toMatch(/OWNER loads the invite list/); expect(t).not.toMatch(/schedule\?at=[^"]*callSeconds/);
+    expect(t).toMatch(/DO NOT call POST \/api\/z or any other write/); expect(t).toMatch(/REPLACE what was saved/); expect(t).toMatch(/OWNER loads the list of employee IDs/); expect(t).not.toMatch(/schedule\?at=[^"]*callSeconds/);
   });
 });
 
@@ -542,10 +543,6 @@ describe("H. the free plan: pause profiles by size", () => {
       expect((await call("PUT", `/api/z/${id}/control/key`, { publicKey: pk }, o.h)).status).toBe(200);
       expect((await ctl(id)).leadRounds).toBe(want);
     }
-    await call("POST", "/api/z", eng("PF-HUGE", { cap: 5000 }), o.h);
-    const r = await call("PUT", "/api/z/PF-HUGE/control/key", { publicKey: pk }, o.h);
-    expect(r.status).toBe(409); expect((await j(r)).error).toMatch(/up to 2,000 participants/);
-    expect((await call("GET", "/api/z/PF-HUGE/control", undefined, {}, T)).status).toBe(404); // no file: phones will not keep asking
   });
   test("UC-71 a bigger pause profile means a longer lead, so nobody can see a number a pause should have prevented", async () => {
     const { SAFETY_STANDARD, SAFETY_LEAN30, SAFETY_LEAN60 } = await import("../../../packages/beacon/src/control");
@@ -564,7 +561,7 @@ describe("H. the free plan: pause profiles by size", () => {
   });
 });
 
-describe("I. announcements, co-hosts and scratch cards", () => {
+describe("I. announcements, invite-only co-organizers and scratch cards", () => {
   const pk = async () => (await import("../../../packages/beacon/src/control")).publicKeyFromSecret("11".repeat(32));
   async function live(id: string, o: Org, cap = 100) { await call("POST", "/api/z", eng(id, { cap }), o.h); await call("PUT", `/api/z/${id}/control/key`, { publicKey: await pk() }, o.h); await call("POST", `/api/z/${id}/publish`, contact, o.h); }
   const ann = async (id: string, who: Record<string, string>, text: string, now = T) => call("POST", `/api/z/${id}/announce`, { text }, who, now);
@@ -595,7 +592,7 @@ describe("I. announcements, co-hosts and scratch cards", () => {
     expect((await ann("ANN-DRAFT", o.h, "hi", T + 60_000)).status).toBe(400);
     const other = await organizer(); expect((await ann("ANN-2", other.h, "hijack", T + 60_000)).status).toBe(403);
   });
-  test("UC-81 a Host through an AI work link can watch and send messages, and nothing else; at most five Hosts; retiring stops it at once", async () => {
+  test("UC-81 a Co-organizer through an AI work link can watch and send messages, and nothing else; at most five Co-organizers; retiring stops it at once", async () => {
     const o = await organizer(); await live("HOST-1", o);
     const hk = (await j(await call("POST", "/api/org/host", { mobile: "9876500009", email: "host@acme.com" }, o.h))).hostKey as string; expect(hk).toMatch(/^cbh_/);
     const h = { "x-organizer": hk, "x-cb-link": "1" }; // an AI work link keeps the narrow rights (in the console a Host may do much more: see roles.test.ts)

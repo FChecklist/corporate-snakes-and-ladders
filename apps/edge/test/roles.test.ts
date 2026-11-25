@@ -24,7 +24,7 @@ beforeEach(() => {
     if (pm) { const p = payments[pm[1]!]; if (pm[2]) p.status = "captured"; return new Response(JSON.stringify(p)); }
     return new Response("{}", { status: 404 });
   };
-  env = { DB: d.db, ORGANIZER_SECRET: "plat", DAILY_WRITE_BUDGET: "100000", RAZORPAY_KEY_ID: "rzp_test_x", RAZORPAY_KEY_SECRET: "sek", RAZORPAY_WEBHOOK_SECRET: "whsec", RAZORPAY_BASE_URL: "https://rzp.test/v1", PUBLIC_ORIGIN: "https://bingo.test" };
+  env = { DB: d.db, ORGANIZER_SECRET: "plat", RUNNER_KEY: "test-runner-key-test-runner-key-test0000", DAILY_WRITE_BUDGET: "100000", RAZORPAY_KEY_ID: "rzp_test_x", RAZORPAY_KEY_SECRET: "sek", RAZORPAY_WEBHOOK_SECRET: "whsec", RAZORPAY_BASE_URL: "https://rzp.test/v1", PUBLIC_ORIGIN: "https://bingo.test" };
 });
 afterEach(() => { globalThis.fetch = realFetch; });
 
@@ -32,7 +32,7 @@ let ip = 0;
 const start = async (email: string) => (await j(await handle(new Request("http://x/api/start", { method: "POST", headers: { "content-type": "application/json", "cf-connecting-ip": `9.9.9.${++ip}` }, body: JSON.stringify({ consent: TICKS, email }) }), env as Env, T))).token as string;
 const team = async (org = "boss@acme.com", gid = "ROLE-1") => {
   const master = await start(org);
-  await call("POST", "/api/z", { id: gid, startRound: FAR_START, callSeconds: 20, cap: 300 }, master);
+  await call("POST", "/api/z", { id: gid, startRound: FAR_START, callSeconds: 10, cap: 300 }, master);
   const host = (await j(await call("POST", "/api/org/host", { mobile: "9876500009", label: "Priya", email: "priya@acme.com" }, master))).hostKey as string;
   const cohost = (await j(await call("POST", "/api/org/cohost", { label: "Ravi", phone: "9876500001", e: gid }, master))).cohostKey as string;
   return { master, host, cohost };
@@ -44,14 +44,14 @@ const complete = async (c: any, id = "pay_1") => {
 };
 
 describe("who is who", () => {
-  test("whoami tells the three roles apart, and a Co-host key has the cbc_ prefix", async () => {
+  test("whoami tells the three roles apart, and an invite-only co-organizer key has the cbc_ prefix", async () => {
     const t = await team();
     expect(t.cohost.startsWith("cbc_")).toBe(true);
     expect((await j(await call("GET", "/api/whoami", undefined, t.master))).kind).toBe("master");
     expect((await j(await call("GET", "/api/whoami", undefined, t.host))).kind).toBe("host");
     expect((await j(await call("GET", "/api/whoami", undefined, t.cohost))).kind).toBe("cohost");
   });
-  test("the team list shows ids and labels, never keys; a Co-host may not read it", async () => {
+  test("the team list shows ids and labels, never keys; an invite-only co-organizer may not read it", async () => {
     const t = await team();
     const r = await j(await call("GET", "/api/org/team", undefined, t.master));
     expect(r.maxHosts).toBe(5);
@@ -64,20 +64,20 @@ describe("who is who", () => {
 });
 
 describe("adding and retiring people", () => {
-  test("a Host may add a Co-host but not a Host; the sixth Host is refused", async () => {
+  test("a Co-organizer may add an invite-only co-organizer but not a Co-organizer; the sixth Co-organizer is refused", async () => {
     const t = await team();
     expect((await call("POST", "/api/org/cohost", { label: "Meera", phone: "9876500002", e: "ROLE-1" }, t.host)).status).toBe(200);
     expect((await call("POST", "/api/org/host", { mobile: "9876500009", email: "host@acme.com" }, t.host)).status).toBe(403);
     for (let i = 0; i < 4; i++) expect((await call("POST", "/api/org/host", { mobile: "9876500009", email: "host@acme.com" }, t.master)).status).toBe(200);
     expect((await call("POST", "/api/org/host", { mobile: "9876500009", email: "host@acme.com" }, t.master)).status).toBe(409); // 5 active already
   });
-  test("a Co-host cannot add anyone; Co-hosts have no limit", async () => {
+  test("an invite-only co-organizer cannot add anyone; Invite-only co-organizers have no limit", async () => {
     const t = await team();
     expect((await call("POST", "/api/org/cohost", {}, t.cohost)).status).toBe(403);
     expect((await call("POST", "/api/org/host", { mobile: "9876500009", email: "host@acme.com" }, t.cohost)).status).toBe(403);
-    for (let i = 0; i < 8; i++) expect((await call("POST", "/api/org/cohost", { label: "Guest " + i, phone: "98765001" + String(i).padStart(2, "0"), e: "ROLE-1" }, t.master)).status).toBe(200);
+    for (let i = 0; i < 8; i++) expect((await call("POST", "/api/org/cohost", { label: "Player " + i, phone: "98765001" + String(i).padStart(2, "0"), e: "ROLE-1" }, t.master)).status).toBe(200);
   });
-  test("the Organizer retires a Host or Co-host; a Host retires a Co-host only", async () => {
+  test("the Organizer retires a Co-organizer or Invite-only co-organizer; a Co-organizer retires an invite-only co-organizer only", async () => {
     const t = await team();
     const r = await j(await call("GET", "/api/org/team", undefined, t.master));
     expect((await call("POST", "/api/org/team/retire", { id: r.hosts[0].id }, t.host)).status).toBe(403);
@@ -90,33 +90,33 @@ describe("adding and retiring people", () => {
 });
 
 describe("what each role may do", () => {
-  test("a Host may change the game, set guest invites and publish; a Co-host may not", async () => {
+  test("a Co-organizer may change the game, set player invites and publish; an invite-only co-organizer may not", async () => {
     const t = await team();
-    expect((await call("PATCH", "/api/z/ROLE-1/settings", { name: "Host game" }, t.host)).status).toBe(200);
+    expect((await call("PATCH", "/api/z/ROLE-1/settings", { name: "Co-organizer game" }, t.host)).status).toBe(200);
     expect((await call("PATCH", "/api/z/ROLE-1/settings", { invites: { on: true, per: 3, cats: ["family"] } }, t.host)).status).toBe(200);
     expect((await j(await call("GET", "/api/z/ROLE-1/summary", undefined, t.host))).invites.on).toBe(true);
     expect((await call("PATCH", "/api/z/ROLE-1/settings", { invites: { on: false, per: 3, cats: ["family"] } }, t.cohost)).status).toBe(403);
     expect((await j(await call("GET", "/api/z/ROLE-1/summary", undefined, t.master))).invites.on).toBe(true); // the Co-host did not change it
   });
-  test("a Co-host is refused the guest list, the summary, participants and keys", async () => {
+  test("an invite-only co-organizer is refused the player list, the summary, players and keys", async () => {
     const t = await team();
     for (const [m, p] of [["GET", "/api/z/ROLE-1/summary"], ["GET", "/api/z/ROLE-1/participants"], ["POST", "/api/z/ROLE-1/roster"], ["POST", "/api/z/ROLE-1/publish"], ["GET", "/api/org/keys"], ["POST", "/api/org/ai"], ["GET", "/api/history"], ["POST", "/api/z"]] as const)
       expect((await call(m, p, {}, t.cohost)).status).toBe(403);
   });
-  test("account-level routes deny a Host", async () => {
+  test("account-level routes deny a Co-organizer", async () => {
     const t = await team();
     for (const [m, p] of [["GET", "/api/org/keys"], ["POST", "/api/org/keys/revoke"], ["POST", "/api/org/ai"], ["POST", "/api/org/ai/replace"], ["GET", "/api/org/ai/link"], ["POST", "/api/org/close"], ["POST", "/api/org/host"]] as const)
       expect((await call(m, p, {}, t.host)).status).toBe(403);
   });
-  test("a Host still has the narrow rights through an AI work link", async () => {
+  test("a Co-organizer still has the narrow rights through an AI work link", async () => {
     const t = await team();
     const r = await handle(new Request("http://x/api/z/ROLE-1/settings", { method: "PATCH", headers: { "content-type": "application/json", "x-organizer": t.host, "x-cb-link": "1" }, body: JSON.stringify({ name: "x" }) }), env as Env, T);
     expect(r.status).toBe(403);
   });
-  test("a Co-host reads only the small game header, with an own invite link", async () => {
+  test("an invite-only co-organizer reads only the small game header, with an own invite link", async () => {
     const t = await team();
     const h = await j(await call("GET", "/api/z/ROLE-1/cohost", undefined, t.cohost));
-    expect(Object.keys(h).sort()).toEqual(["brought", "cap", "credit", "creditApplied", "creditExpiresMs", "didNotStart", "erasureMs", "inviteLink", "joined", "name", "payment", "price", "roleAccepted", "startMs", "waitingFor"]);
+    expect(Object.keys(h).sort()).toEqual(["brought", "cap", "credit", "creditApplied", "creditExpiresMs", "didNotStart", "erasureMs", "inviteLink", "joined", "name", "payable", "payment", "price", "roleAccepted", "startMs", "waitingFor"]);
     expect(h).toMatchObject({ cap: 300, joined: 0, brought: 0, payment: { status: "pending" } });
     expect(h.inviteLink).toBeNull(); // a draft cannot take guests yet
     const other = await team("other@rival.com", "ROLE-2");
@@ -151,8 +151,8 @@ describe("paying", () => {
   });
 });
 
-describe("a Co-host's own invite link", () => {
-  test("people who join through it are counted as brought by that Co-host, even with guest invites off", async () => {
+describe("an invite-only co-organizer's own invite link", () => {
+  test("people who join through it are counted as brought by that Invite-only co-organizer, even with player invites off", async () => {
     const t = await team();
     await complete(await j(await pay(t.master)));
     const link = (await j(await call("GET", "/api/z/ROLE-1/cohost", undefined, t.cohost))).inviteLink as string;

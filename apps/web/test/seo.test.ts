@@ -5,17 +5,26 @@ import { PACKS } from "../../../packages/shared/src/pricing";
 
 const PUB = new URL("../public/", import.meta.url), ORIGIN = "https://snakes.corporatetambola.com";
 const rd = (f: string) => readFileSync(new URL(f, PUB), "utf8");
-const INDEXABLE = ["index.html", "partner.html", "helpdesk.html", "legal.html", "terms.html", "privacy.html", "legal-position.html", "dpa.html", "subprocessors.html", "partner-terms.html", "organizer-guide.html", "trust.html", "brochure.html", "about.html", "contact.html", "pricing.html", "refund-policy.html"];
-const NOINDEX = ["signin.html", "pay.html", "paytest.html", "ai-link.html", "helpdesk-accept.html", "helpdesk-approve.html", "report.html", "z.html", "zc.html", "big.html", "404.html", "owner-visits.html"];
+const INDEXABLE = ["index.html", "partner.html", "helpdesk.html", "terms.html", "partner-terms.html", "organizer-guide.html", "trust.html", "brochure.html", "about.html", "contact.html", "pricing.html"];
+const NOINDEX = ["signin.html", "pay.html", "paytest.html", "ai-link.html", "helpdesk-accept.html", "helpdesk-approve.html", "report.html", "z.html", "zc.html", "big.html", "404.html", "owner-funnel.html", "owner-visits.html"];
 const urlOf = (f: string) => ORIGIN + (f === "index.html" ? "/" : "/" + f);
+const SERVED = ["/ai-manual"]; // pages the Worker builds (there is no file): listed in the sitemap like any indexable page
 const meta = (h: string, re: RegExp) => (h.match(re) ?? [])[1] ?? "";
+
+const POINTERS = ["legal.html", "privacy.html", "legal-position.html", "dpa.html", "subprocessors.html", "refund-policy.html"]; // they only point to the one legal document (terms): not indexed, not in the sitemap
+
+describe("the older legal pages only point to the one document", () => {
+  for (const f of POINTERS) test(`${f}: noindex, follow, canonical to the terms page, a link into the document, and not in the sitemap`, () => {
+    const h = rd(f); expect(h).toMatch(/name="robots" content="noindex, follow"/); expect(h).toMatch(new RegExp(`<link rel="canonical" href="${ORIGIN}/terms(\\.html)?">`)); expect(h).toMatch(/href="\/terms(\.html)?#[a-z-]+"/); expect(rd("sitemap.xml")).not.toContain("/" + f.replace(/\.html$/, ""));
+  });
+});
 
 describe("sitemap and robots", () => {
   const sm = rd("sitemap.xml"), locs = [...sm.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]!);
   test("every indexable page is listed once, with a real last-modified date, and nothing else is", () => {
-    expect(locs.sort()).toEqual(INDEXABLE.map(urlOf).sort());
+    expect(locs.sort()).toEqual([...INDEXABLE.map(urlOf), ...SERVED.map((x) => ORIGIN + x)].sort());
     const entries = [...sm.matchAll(/<url>[\s\S]*?<\/url>/g)].map((m) => m[0]);
-    expect(entries.length).toBe(INDEXABLE.length);
+    expect(entries.length).toBe(INDEXABLE.length + SERVED.length);
     for (const e of entries) { expect(e).toMatch(/<lastmod>\d{4}-\d{2}-\d{2}<\/lastmod>/); const d = meta(e, /<lastmod>([^<]+)</); expect(Date.parse(d)).toBeGreaterThan(Date.parse("2026-09-01")); expect(Date.parse(d)).toBeLessThanOrEqual(Date.now() + 86_400_000); }
     expect(sm).toContain('xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"');
   });
@@ -29,7 +38,7 @@ describe("sitemap and robots", () => {
   });
   test("a page that says noindex is never in the sitemap, and the owner page is not linked from any public page", () => {
     for (const f of NOINDEX) { let h = ""; try { h = rd(f); } catch { continue; } if (/name="robots" content="[^"]*noindex/.test(h)) expect(sm).not.toContain("/" + f); }
-    expect(rd("owner-visits.html")).toMatch(/name="robots" content="noindex, nofollow"/);
+    expect(rd("owner-funnel.html", "owner-visits.html")).toMatch(/name="robots" content="noindex, nofollow"/);
     for (const f of [...INDEXABLE, "signin.html", "pay.html"]) expect(rd(f)).not.toContain("owner-visits");
     expect(readFileSync(new URL("../../../pages/build.mjs", import.meta.url), "utf8")).toContain('["/owner-visits", PLAINCSP, true]'); // served with X-Robots-Tag: noindex too
   });
@@ -75,7 +84,7 @@ describe("each indexable page", () => {
     for (const w of ["Inter-normal-400.woff2", "Fraunces-normal-500-700.woff2"]) expect(h).toContain(`<link rel="preload" href="/fonts/${w}" as="font" type="font/woff2" crossorigin>`);
     for (const s of h.match(/<script\b[^>]*\bsrc="[^"]+"[^>]*>/g) ?? []) if (!/theme\.js|keep\.js|common\.js|google\.js|consent\.js|site\.js/.test(s)) expect(s).toMatch(/\bdefer\b/); // consent.js must be loaded before site.js runs (a "#login" address opens the sign-in sheet at once); theme.js must run first (no flash of the wrong colours); common.js and site.js are the last thing in the body
     expect(h).toMatch(/<script src="\/common\.js"><\/script><script src="\/consent\.js"><\/script><script src="\/google\.js"><\/script><script src="\/site\.js"><\/script>\s*<\/body>/); // the page scripts sit at the very end
-    expect(h).not.toMatch(/<(script|link|img|iframe|source|video|audio)\b[^>]*\b(src|href)="https?:\/\/(?!snakes\.corporatetambola\.com|shobhakamalsolutions\.pages\.dev)/); // nothing is LOADED from elsewhere; the uniform footer only links to the sister sites
+    expect(h).not.toMatch(/<(script|link|img|iframe|source|video|audio)\b[^>]*\b(src|href)="https?:\/\/(?!console\.corporatetambola\.com|snakes\.corporatetambola\.com|shobhakamalsolutions\.pages\.dev)/); // nothing is LOADED from elsewhere; the uniform footer only links to the sister sites
     expect(rd("../../../pages/build.mjs" as any).includes("max-age=31536000, immutable")).toBe(true);
   });
 });

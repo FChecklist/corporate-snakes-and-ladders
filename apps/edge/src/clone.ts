@@ -5,9 +5,10 @@
 // The date and time are NEVER copied. Without `startRound` the draft is parked 30 days ahead and marked "start pending" (kv startpending/<id>): it cannot be published or paid
 // until the Organizer picks a time (the console opens on step 1 with the date empty). With `startRound` it is validated like any other time (future, at most 30 days ahead).
 // `withPeople: true` brings the old game's people list (names and numbers stay sealed; each person gets a NEW personal link, the old links stay with the old game). It works only while the
-// old list still exists (before its erasure); otherwise `peopleCopied` is 0 and `peopleNote` says so calmly. The old game's own copy is erased on its own clock as always.
+// old list still exists (before its auto-deletion); otherwise `peopleCopied` is 0 and `peopleNote` says so calmly. The old game's own copy is auto-deleted on its own clock as always.
 import { sealText } from "./pii";
-import { newToken, tokenHash, randHex } from "./people";
+import { newToken, tokenHash, randHex, normId, empHashOf, verifyOf, empCleanFor, rulesOf } from "./people";
+import { openPii } from "./pii";
 import { MAX_AHEAD_MS } from "./lifecycle";
 import { MAX_DRAFTS } from "./pay";
 import { orgIsTest, testFlag } from "./mode";
@@ -20,11 +21,20 @@ const ALPHA = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const suffix = () => Array.from(crypto.getRandomValues(new Uint8Array(4)), (b) => ALPHA[b % ALPHA.length]).join("");
 
 /** Copies the people list of `fromEid` into `toEid` as fresh, un-joined invitations with new personal links. Returns how many people were copied. */
-export async function copyPeople(env: Env, fromEid: string, toEid: string, cap: number, now: number, spend: (n: number) => Promise<boolean>): Promise<{ copied: number; busy?: boolean }> {
+export async function copyPeople(env: Env, fromEid: string, toEid: string, cap: number, now: number, spend: (n: number) => Promise<boolean>, target?: { config: string | null; created_ms: number }): Promise<{ copied: number; busy?: boolean }> {
   const db = env.DB;
   const listed = (await db.prepare("SELECT ph, pii, inviter FROM person WHERE eid=? AND status<>'removed' AND role IS NULL ORDER BY added_ms, id").bind(fromEid).all<{ ph: string; pii: string; inviter: string }>()).results ?? [];
   const joined = (await db.prepare("SELECT p.phone_hash AS ph, p.pii AS pii FROM participant p WHERE p.eid=? AND p.pii IS NOT NULL AND p.phone_hash NOT IN (SELECT ph FROM person WHERE eid=? AND status<>'removed') AND NOT EXISTS (SELECT 1 FROM seat s WHERE s.eid=p.eid AND s.pid=p.pid AND (s.role IS NOT NULL OR s.blocked IS NOT NULL)) ORDER BY p.joined_ms, p.pid").bind(fromEid, fromEid).all<{ ph: string; pii: string }>()).results ?? [];
-  const all = [...listed.map((x) => ({ ph: x.ph, pii: x.pii, inviter: /^(o|h:[0-9a-f]+)$/.test(x.inviter) ? x.inviter : "o" })), ...joined.map((x) => ({ ph: x.ph, pii: x.pii, inviter: "o" }))].slice(0, cap);
+  const all0 = [...listed.map((x) => ({ ph: x.ph, pii: x.pii, inviter: /^(o|h:[0-9a-f]+)$/.test(x.inviter) ? x.inviter : "o" })), ...joined.map((x) => ({ ph: x.ph, pii: x.pii, inviter: "o" }))].slice(0, cap);
+  // an ID-known person is re-hashed with the NEW game's rule (a game made after the cleaning date reads IDs the new way); a person whose ID the new rule refuses is left out
+  const all: typeof all0 = [], vf = target ? verifyOf(target) : null, clean = target ? empCleanFor(target) : false;
+  for (const x of all0) {
+    if (!vf || vf.mode === "mobile") { all.push(x); continue; }
+    const pii = await openPii(env as any, x.pii).catch(() => null);
+    const emp = pii?.empId ? normId(pii.empId, vf.idKind, clean) : "";
+    if (pii?.empId && emp === null) continue;
+    if (emp && (vf.mode === "id" || (vf.mode === "either" && !String(pii?.phone ?? "")))) all.push({ ...x, ph: await empHashOf(env as any, emp) }); else all.push(x);
+  }
   if (!all.length) return { copied: 0 };
   if (!(await spend(all.length * 2))) return { copied: 0, busy: true };
   let copied = 0;
@@ -52,9 +62,13 @@ export async function cloneGame(env: Env, e: any, b: any, now: number, origin: s
   }
   if (org) {
     const n = (await db.prepare("SELECT COUNT(*) AS c FROM engagement e WHERE e.org=? AND e.pack=0 AND NOT EXISTS (SELECT 1 FROM kv WHERE k='pub/' || e.id)").bind(org).first<{ c: number }>())?.c ?? 0;
-    if (n >= MAX_DRAFTS) return json({ error: `You have ${MAX_DRAFTS} unpublished drafts. Publish one, or delete one you do not need (open Your games, then press Delete next to it). An unpublished draft is also forgotten after 30 days.`, code: "draft-limit" }, 409);
+    if (n >= MAX_DRAFTS) return json({ error: `You have ${MAX_DRAFTS} unpublished drafts. Publish one, or delete one you do not need (open The games, then press Delete next to it). An unpublished draft is also forgotten after 30 days.`, code: "draft-limit" }, 409);
   }
   if (!(await spend(6))) return json({ error: "It is very busy right now. Please try again in a few minutes." }, 503);
+  // OWNER RULES 1.1: a new game is always made under them. A copy of an older game keeps its prizes, brand and turn length but is by employee ID only, throws by itself, and takes no mobile-number list along.
+  const toRules = env.OWNER_RULES === "1.1" && !rulesOf(e);
+  let newConfig: string | null = e.config ?? null;
+  if (toRules) { try { const j = e.config ? JSON.parse(e.config) : {}; delete j.idKind; delete j.play; j.rules = "1.1"; j.verify = "id"; j.employeesOnly = true; j.join = "phone"; j.invites = { on: false, per: j.invites?.per ?? 4, cats: j.invites?.cats ?? ["family", "colleagues"] }; if (Array.isArray(j.rewards)) j.rewards = j.rewards.filter((l: any) => l?.pattern !== "nevermissed"); newConfig = JSON.stringify(j); } catch { newConfig = e.config ?? null; } }
   const base = String(e.id).replace(/-[A-Z2-9]{4}$/, "").slice(0, 34);
   let id = "", made = false;
   const pending = startRound === null;
@@ -63,23 +77,23 @@ export async function cloneGame(env: Env, e: any, b: any, now: number, origin: s
   for (let i = 0; i < 6 && !made; i++) {
     id = `${base}-${suffix()}`;
     const r = await db.prepare("INSERT OR IGNORE INTO engagement(id,start_round,call_seconds,cap,created_ms,org,closed,pack,tickets,config,is_test,cohost_limit) VALUES(?,?,?,?,?,?,?,0,?,?,?,?)")
-      .bind(id, sr, e.call_seconds, e.cap, now, org, e.closed ? 1 : 0, e.tickets, e.config, test, e.cohost_limit ?? null).run();
+      .bind(id, sr, e.call_seconds, e.cap, now, org, e.closed || toRules ? 1 : 0, e.tickets, newConfig, test, e.cohost_limit ?? null).run();
     made = (r.meta?.changes ?? 0) > 0;
   }
   if (!made) return json({ error: "Could not make a new game code. Please try again." }, 503);
   if (pending) await db.prepare("INSERT OR REPLACE INTO kv(k,v) VALUES(?,?)").bind(`startpending/${id}`, String(now)).run();
   let peopleCopied = 0, peopleNote: string | undefined;
-  if (b?.withPeople === true) {
-    const r = await copyPeople(env, e.id, id, e.cap, now, spend);
+  if (b?.withPeople === true && !toRules) { // (an older game's list holds mobile numbers and names: a game under the owner rules starts with an empty list of IDs)
+    const r = await copyPeople(env, e.id, id, e.cap, now, spend, { config: newConfig, created_ms: now });
     peopleCopied = r.copied;
-    if (!r.copied) peopleNote = r.busy ? "It is very busy right now. Add your people again in a few minutes." : "The old guest list has been erased, so add your people again.";
+    if (!r.copied) peopleNote = r.busy ? "It is very busy right now. Add the people again in a few minutes." : "The old player list has been auto-deleted, so add the people again.";
   }
   let cfg: any = {}; try { cfg = e.config ? JSON.parse(e.config) : {}; } catch { cfg = {}; }
   const copied = [
-    "Occasion and name", "Number of players", "Boards for each person", "Turn window", "Who can join", "Co-host limit",
-    ...(cfg.rounds ? ["Rounds"] : []), ...(cfg.invites ? ["Guest invites"] : []), ...(Array.isArray(cfg.rewards) && cfg.rewards.length ? ["Prizes (all of them, with their texts)"] : []),
+    "Occasion and name", "Number of players", "Boards for each person", "Turn window", "Who can join", "Invite-only co-organizer limit",
+    ...(cfg.rounds ? ["Rounds"] : []), ...(cfg.invites ? ["Player invites"] : []), ...(Array.isArray(cfg.rewards) && cfg.rewards.length ? ["Prizes (all of them, with their texts)"] : []),
     ...(cfg.brand ? ["Brand strip"] : []), ...((cfg.breaks?.length || cfg.opening || cfg.closing) ? ["Brand moments and lucky draw"] : []),
   ];
-  return json({ ok: true, id, openUrl: `${origin}/zc.html?e=${id}`, copied, peopleCopied, ...(peopleNote ? { peopleNote } : {}), needsStart: pending, startRound: sr, from: e.id, message: "Your new game is ready to check. Pick the date and time, then publish. This is a new game. Nothing is paid or published yet." });
+  return json({ ok: true, id, openUrl: `${origin}/zc.html?e=${id}`, copied, peopleCopied, ...(peopleNote ? { peopleNote } : {}), needsStart: pending, startRound: sr, from: e.id, message: "The new game is ready to check. Pick the date and time, then publish. This is a new game. Nothing is paid or published yet." });
 }
 

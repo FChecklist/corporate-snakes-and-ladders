@@ -49,17 +49,41 @@ export const tokenHash = async (token: string) => (await sha("pj|" + token.toLow
 export const phoneHashOf = (env: { PHONE_SALT?: string; ORGANIZER_SECRET?: string }, digits: string) => sha(`${env.PHONE_SALT ?? env.ORGANIZER_SECRET ?? "unset"}|${digits.slice(-10)}`);
 
 /** An employee ID as typed: spaces dropped, upper case. "" = nothing typed, null = not a usable ID. */
-export const normEmp = (raw: unknown): string | null => { const s = String(raw ?? "").replace(/\s+/g, "").toUpperCase(); if (!s) return ""; return /^[A-Z0-9][A-Z0-9._\-/]{0,29}$/.test(s) ? s : null; };
+/** UNIFORM EMPLOYEE ID (owner rule, 30 Oct 2026): NFKC, upper case, then everything that is not A-Z or 0-9 is dropped, so 1B-678, 1b-678, 1B/678 and 1B 678 are all 1B678. One function for every path. */
+export const cleanEmpId = (raw: unknown): string => String(raw ?? "").normalize("NFKC").replace(/[^A-Za-z0-9]/g, "").toUpperCase(); // strip first, then upper-case: the same order as the common engine (vendor core ids.ts) and Tambola empid.ts, so ß, ı, ǰ never turn into SS, I, J (smoke rule T-72)
+import { cleanEmail } from "./emailclean";
+export { cleanEmail };
+/** Games created before this instant keep the old reading of an ID. SET AT DEPLOY (placeholder: year 2100 = nobody gets the new rule until the boss sets it). */
+export const EMP_CLEAN_FROM_MS = 4102444800000;
+/** Does this game (its row has created_ms) use the uniform reading? */
+export const empCleanFor = (e: { created_ms?: number | null; config?: string | null } | null | undefined, from: number = EMP_CLEAN_FROM_MS): boolean => rulesOf(e) || (typeof e?.created_ms === "number" && e.created_ms >= from);
+/** Owner rules 1.1 (20 Nov 2026): was this game made under them? The mark is stored with the game's settings, so a game keeps the rules it was made with. Under them people come in by employee ID only, with no name and no mobile number kept, and the ID is read the one uniform way (A-1101, A 1101 and A/1101 are all A1101). */
+export const rulesOf = (e: { config?: string | null } | null | undefined): boolean => { try { return !!e?.config && JSON.parse(e.config).rules === "1.1"; } catch { return false; } };
+/** An employee ID as typed. "" = nothing typed, null = not a usable ID. New games: cleanEmpId, at most 30 characters, empty after cleaning = refused. Old games: the old reading. */
+export const normEmp = (raw: unknown, clean = false): string | null => {
+  if (clean) { const typed = String(raw ?? "").trim(); if (!typed) return ""; const s = cleanEmpId(typed); return s && s.length <= 30 ? s : null; }
+  const s = String(raw ?? "").replace(/\s+/g, "").toUpperCase(); if (!s) return ""; return /^[A-Z0-9][A-Z0-9._\-/]{0,29}$/.test(s) ? s : null;
+};
+/** Does the text look like an e-mail address (an "@" after NFKC)? An employee-ID box never turns one into letters and digits. */
+export const looksLikeEmail = (raw: unknown): boolean => String(raw ?? "").normalize("NFKC").includes("@");
+const EMAIL_ID_RE = /^[^\s@]{1,64}@[^\s@]{1,255}\.[^\s@]{2,}$/;
+/** The ID a person gives, by what this game asks for: an employee ID (cleaned to A-Z 0-9; an email typed there is refused) or an Email ID (cleanEmail). "" = nothing typed, null = not usable. */
+export const normId = (raw: unknown, kind: "emp" | "email", clean = false): string | null => {
+  if (kind === "email") { const k = cleanEmail(raw); if (!k) return ""; return EMAIL_ID_RE.test(k) && k.length <= 254 ? k : null; }
+  if (looksLikeEmail(raw)) return null; // one plain refusal for an email in an employee-ID box, in every game
+  return normEmp(raw, clean);
+};
+export const badIdMessage = (raw: unknown, kind: "emp" | "email", clean = false): string => kind === "email" ? "Please check the Email ID. It looks incomplete." : looksLikeEmail(raw) ? "This looks like an Email ID. This game asks for an employee ID: letters and numbers only." : clean && cleanEmpId(raw).length > 30 ? "This Employee ID is too long. An employee ID may be up to 30 characters once cleaned." : "An employee ID has letters and numbers only (up to 30).";
 /** The identity of a person who is known by employee ID alone (no mobile number needed). One hash for the same ID in every game, like the phone hash. */
 export const empHashOf = (env: { PHONE_SALT?: string; ORGANIZER_SECRET?: string }, id: string) => sha(`${env.PHONE_SALT ?? env.ORGANIZER_SECRET ?? "unset"}|emp|${id}`);
 /** What the organizer asked people to give to get in, read from the game's stored settings. */
-export const verifyOf = (e: { config?: string | null }): { mode: "mobile" | "id" | "either" | "both"; employeesOnly: boolean } => { try { const j = e.config ? JSON.parse(e.config) : {}; return { mode: j.verify === "id" || j.verify === "either" || j.verify === "both" ? j.verify : "mobile", employeesOnly: j.employeesOnly === true }; } catch { return { mode: "mobile", employeesOnly: false }; } };
+export const verifyOf = (e: { config?: string | null }): { mode: "mobile" | "id" | "either" | "both"; employeesOnly: boolean; idKind: "emp" | "email" } => { if (rulesOf(e)) return { mode: "id", employeesOnly: true, idKind: "emp" }; try { const j = e.config ? JSON.parse(e.config) : {}; return { mode: j.verify === "id" || j.verify === "either" || j.verify === "both" ? j.verify : "mobile", employeesOnly: j.employeesOnly === true, idKind: j.idKind === "email" ? "email" : "emp" }; } catch { return { mode: "mobile", employeesOnly: false, idKind: "emp" }; } };
 
 export { cleanPhone, maskedPhone, keptPhone, phoneDigits, keptFromClean } from "./phonekit";
 export type { Cleaned } from "./phonekit";
 import { cleanPhone, maskedPhone, keptFromClean, phoneDigits } from "./phonekit";
 /** A name as kept: no control or invisible characters, no markup characters, and nothing at the front that a spreadsheet would run as a formula (= + - @). Also the server's answer to a hand-made request: the page already sends only tidy names. */
-export const cleanName = (n: unknown) => (typeof n === "string" ? Array.from(n).filter((ch) => { const c = ch.charCodeAt(0); return !(c < 32 || c === 127 || (c >= 0x200b && c <= 0x200f) || c === 0x2028 || c === 0x2029 || c === 0xfeff); }).join("").replace(/[<>`]/g, "").replace(/\s+/g, " ").replace(/^[=+\-@\s]+/, "").trim().slice(0, 60) : "");
+export const cleanName = (n: unknown) => (typeof n === "string" ? Array.from(n).filter((ch) => { const c = ch.charCodeAt(0); return !(c < 32 || c === 127 || (c >= 0x200b && c <= 0x200f) || c === 0x2028 || c === 0x2029 || c === 0xfeff); }).join("").replace(/[<>`]/g, "").replace(/\s+/g, " ").replace(/^[=+\-@\s]+/, "").trim().slice(0, 60).replace(/[\uD800-\uDBFF]$/, "").trim() : ""); // cut to 60, then drop half an emoji and any blank the cut left at the end (smoke rules P-10, P-11, T-73)
 
 /** What a `from=` code on a common link means. */
 export type FromOwner = { kind: "org" } | { kind: "host"; hex: string } | { kind: "cohost"; hex: string } | { kind: "guest"; seq: number };
@@ -86,7 +110,7 @@ export const inviterOf = (o: FromOwner): string => (o.kind === "org" ? "o" : o.k
 /** What `seat.src` says for a person who came in under this inviter (a Co-host's count of people brought reads it). */
 export const srcOf = (inviter: string): string => (inviter.startsWith("c:") ? "co:" + inviter.slice(2) : inviter.startsWith("h:") ? "ho:" + inviter.slice(2) : "link");
 
-export const waMessage = (name: string | null, game: string, link: string) => `${name ? name + ", you" : "You"} are invited to ${game}. Open your board here: ${link}`;
+export const waMessage = (name: string | null, game: string, link: string) => `${name ? name + ", you" : "You"} are invited to ${game}. Open the board here: ${link}`;
 export const waLinkOf = (digits: string, text: string) => `https://wa.me/${phoneDigits(digits)}?text=${encodeURIComponent(text)}`; // a kept number may start with +: wa.me wants the digits only
 
 /** Callers of the people routes. `all` = sees every list of the game (Organizer, Host). */
@@ -118,32 +142,32 @@ async function callerOf(c: Ctx, bodyMe?: unknown, bodyDevice?: unknown): Promise
   if (a.kind) {
     if (!a.plat && (!a.org || a.org !== e.org)) return { res: c.json({ error: "Not allowed." }, 403) };
     if (a.plat || a.kind === "master") return { who: { id: "o", kind: "organizer", all: true, limit: null, label: "Organizer", platform: a.plat } };
-    if (a.kind === "host") return { who: { id: "h:" + c.keyId7, kind: "host", all: true, limit: null, label: "Host" } };
+    if (a.kind === "host") return { who: { id: "h:" + c.keyId7, kind: "host", all: true, limit: null, label: "Co-organizer" } };
     if (a.kind === "cohost") {
-      if (a.eid && a.eid !== e.id) return { res: c.json({ error: "Your Co-host link is for a different game." }, 403) };
-      return { who: { id: "c:" + c.keyId7, kind: "cohost", all: false, limit: e.cohost_limit ?? COHOST_LIMIT_DEFAULT, label: "Co-host" } };
+      if (a.eid && a.eid !== e.id) return { res: c.json({ error: "The Invite-only co-organizer link is for a different game." }, 403) };
+      return { who: { id: "c:" + c.keyId7, kind: "cohost", all: false, limit: e.cohost_limit ?? COHOST_LIMIT_DEFAULT, label: "Invite-only co-organizer" } };
     }
     return { res: c.json({ error: "Not allowed." }, 403) };
   }
   const pid = c.req.headers.get("x-cb-pid") || c.url.searchParams.get("me") || (typeof bodyMe === "string" ? bodyMe : "");
-  if (!pid) return { res: c.json({ error: "Please sign in, or open your game link first." }, 403) };
+  if (!pid) return { res: c.json({ error: "Please sign in, or open the game link first." }, 403) };
   const seat = await c.env.DB.prepare("SELECT seq, role, inv, blocked FROM seat WHERE eid=? AND pid=?").bind(c.eid, pid).first<{ seq: number; role: string | null; inv: number | null; blocked: number | null }>();
-  if (!seat) return { res: c.json({ error: "Not a participant of this game." }, 403) };
+  if (!seat) return { res: c.json({ error: "Not a player of this game." }, 403) };
   // the card id is public (the seat list shows it): acting for a card also needs the phone's own device id, like check-in, prizes and leaving do
   if (!(await deviceMatches(c.env, c.eid, pid, c.req.headers.get("x-cb-dev") || c.url.searchParams.get("device") || (typeof bodyDevice === "string" ? bodyDevice : "")))) return { res: c.json({ error: "Open this board on the phone you joined with to invite people.", code: "device" }, 403) };
   if (seat.blocked) return { res: c.json({ error: "You were removed from this game.", code: "removed" }, 403) };
-  if (seat.role) return { res: c.json({ error: "Your team seat invites through the console, not through the game page." }, 403) };
-  if (seat.inv !== null) return { res: c.json({ error: "Guests invited by a guest can play but cannot invite more people." }, 403) };
-  if (!c.invites.on) return { res: c.json({ error: "The organizer has not switched on guest invitations for this game." }, 403) };
-  return { who: { id: "s:" + seat.seq, kind: "guest", all: false, limit: c.invites.per, label: "Guest", seat: seat.seq } };
+  if (seat.role) return { res: c.json({ error: "The team seat invites through the console, not through the game page." }, 403) };
+  if (seat.inv !== null) return { res: c.json({ error: "Players invited by a player can play but cannot invite more people." }, 403) };
+  if (!c.invites.on) return { res: c.json({ error: "The organizer has not switched on player invitations for this game." }, 403) };
+  return { who: { id: "s:" + seat.seq, kind: "guest", all: false, limit: c.invites.per, label: "Player", seat: seat.seq } };
 }
 
 /** The labels the console shows for inviter ids: Organizer, Host <label>, Co-host <label>, Guest (card n). */
 async function labelsOf(c: Ctx): Promise<(id: string | null) => string> {
   const rows = (await c.env.DB.prepare("SELECT substr(hash,1,7) AS h, kind, label FROM organizer_key WHERE org=? AND kind IN ('host','cohost') AND (eid IS NULL OR eid=?)").bind(c.e.org, c.eid).all<{ h: string; kind: string; label: string | null }>()).results ?? [];
   const m = new Map<string, string>();
-  for (const r of rows) m.set((r.kind === "host" ? "h:" : "c:") + r.h, `${r.kind === "host" ? "Host" : "Co-host"}${r.label ? " " + r.label : ""}`);
-  return (id) => (!id ? "" : id === "o" ? "Organizer" : id.startsWith("s:") ? `Guest (player ${id.slice(2)})` : m.get(id) ?? (id.startsWith("h:") ? "Host" : "Co-host"));
+  for (const r of rows) m.set((r.kind === "host" ? "h:" : "c:") + r.h, `${r.kind === "host" ? "Co-organizer" : "Invite-only co-organizer"}${r.label ? " " + r.label : ""}`);
+  return (id) => (!id ? "" : id === "o" ? "Organizer" : id.startsWith("s:") ? `Player (player ${id.slice(2)})` : m.get(id) ?? (id.startsWith("h:") ? "Co-organizer" : "Invite-only co-organizer"));
 }
 
 export interface PersonView { id: string; name: string; maskedPhone: string; status: "invited" | "joined" | "waiting" | "removed"; empId?: string; link: string | null; waLink: string | null; role?: string; inviter?: string; approvedBy?: string }
@@ -220,7 +244,7 @@ export async function peopleRoute(c: Ctx): Promise<Response> {
   const got = await callerOf(c, bodyObj?.me, bodyObj?.device);
   if ("res" in got) return got.res;
   const who = got.who;
-  if (c.e.unplayed_ms && method !== "GET") return c.json({ error: "This game did not start. Your details have been erased.", code: "did-not-start", didNotStart: true }, 409);
+  if (c.e.unplayed_ms && method !== "GET") return c.json({ error: "This game did not start. The details have been auto-deleted.", code: "did-not-start", didNotStart: true }, 409);
   if (c.cancelled && method !== "GET") return c.json({ error: "This game was cancelled by the organizer.", code: "cancelled", cancelled: true }, 409);
 
   if (parts[0] === "waiting") {
@@ -263,13 +287,15 @@ async function addPeople(c: Ctx, who: Caller, b: any): Promise<Response> {
   { const k = checkConsent("K6", b.consent); if (!k.ok) return c.json(refusalBody("K6", k), k.status); } // K6: "I am allowed to use these names and numbers" must be ticked before any list is stored
   await recordConsent(c.env.DB, "K6", who.id, c.eid, c.now);
   if (c.now >= await c.endBound()) return c.json({ error: "The game has ended, so no one can be added." }, 409);
-  const invalid: { raw: string; why: string }[] = []; let duplicates = 0;
-  const seen = new Set<string>(); const todo: { name: string; digits: string; ph: string; empId?: string; idHash?: string }[] = [];
-  const vf = verifyOf(c.e);
-  for (const x of b.people) {
+  const invalid: { raw: string; why: string }[] = []; let duplicates = 0; const duplicateRows: { raw: string; why: string }[] = [];
+  const seen = new Set<string>(); const todo: { name: string; digits: string; ph: string; empId?: string; idHash?: string; typed: string }[] = [];
+  const vf = verifyOf(c.e), idOnly = rulesOf(c.e); // idOnly (owner rules 1.1): only the ID is read from each row; a name or a mobile number sent along is dropped, never kept
+  for (let x of b.people) {
+    if (idOnly) x = { empId: x?.empId ?? x?.employeeId };
     const raw = `${cleanName(x?.name)} ${String(x?.phone ?? "")}`.trim().slice(0, 100);
-    const emp = normEmp(x?.empId ?? x?.employeeId);
-    if (emp === null) { invalid.push({ raw, why: "An employee ID has letters and numbers only (up to 30)." }); continue; }
+    const empRaw = x?.empId ?? x?.employeeId, emp = normId(empRaw, vf.idKind, empCleanFor(c.e));
+    const typed = (String(empRaw ?? "").trim() || String(x?.phone ?? "").trim() || raw).slice(0, 100); // what the person typed in the ID (or number) cell
+    if (emp === null) { invalid.push({ raw, why: badIdMessage(empRaw, vf.idKind, empCleanFor(c.e)) }); continue; }
     const phoneTyped = String(x?.phone ?? "").trim() !== "";
     if (vf.mode === "either" && !emp && !phoneTyped) { invalid.push({ raw, why: "Give a mobile number or an employee ID." }); continue; }
     if (vf.employeesOnly && vf.mode !== "mobile" && vf.mode !== "either" && !emp) { invalid.push({ raw, why: "This game is for employees: the employee ID is missing." }); continue; }
@@ -277,20 +303,20 @@ async function addPeople(c: Ctx, who: Caller, b: any): Promise<Response> {
       let digits = "";
       if (phoneTyped) { const cl = cleanPhone(x?.phone); if (!cl.ok) { invalid.push({ raw, why: cl.why }); continue; } digits = keptFromClean(cl.digits); }
       const ph = await empHashOf(c.env, emp);
-      if (seen.has(ph)) { duplicates++; continue; }
-      seen.add(ph); todo.push({ name: cleanName(x?.name), digits, ph, empId: emp }); continue;
+      if (seen.has(ph)) { duplicates++; duplicateRows.push({ raw: typed, why: "Same person as an earlier row (the Employee ID reads the same after cleaning)." }); continue; }
+      seen.add(ph); todo.push({ name: cleanName(x?.name), digits, ph, empId: emp, typed }); continue;
     }
     const cl = cleanPhone(x?.phone);
     if (!cl.ok) { invalid.push({ raw, why: cl.why }); continue; }
     const ph = await phoneHashOf(c.env, cl.digits);
-    if (seen.has(ph)) { duplicates++; continue; }
+    if (seen.has(ph)) { duplicates++; duplicateRows.push({ raw: typed, why: "Same person as an earlier row (the Employee ID reads the same after cleaning)." }); continue; }
     const idHash = vf.mode === "either" && emp ? await empHashOf(c.env, emp) : undefined; // "mobile number or employee ID": a listed person with both can come in with either, so the ID points to the mobile-number identity
     if (idHash) { // the same employee ID on two people of one list would let the second take over the first's ID: the second is a duplicate
       const al = await c.env.DB.prepare("SELECT v FROM kv WHERE k=?").bind(`idx/${c.eid}/${idHash}`).first<{ v: string }>();
-      if ((al && al.v !== ph && (await c.env.DB.prepare("SELECT 1 AS x FROM person WHERE eid=? AND ph=? AND status<>'removed'").bind(c.eid, al.v).first())) || seen.has("I" + idHash)) { duplicates++; continue; }
+      if ((al && al.v !== ph && (await c.env.DB.prepare("SELECT 1 AS x FROM person WHERE eid=? AND ph=? AND status<>'removed'").bind(c.eid, al.v).first())) || seen.has("I" + idHash)) { duplicates++; duplicateRows.push({ raw: typed, why: "Same person as an earlier row (the Employee ID reads the same after cleaning)." }); continue; }
       seen.add("I" + idHash);
     }
-    seen.add(ph); todo.push({ name: cleanName(x?.name), digits: keptFromClean(cl.digits), ph, ...(emp && vf.mode !== "mobile" ? { empId: emp } : {}), ...(idHash ? { idHash } : {}) });
+    seen.add(ph); todo.push({ name: cleanName(x?.name), digits: keptFromClean(cl.digits), ph, typed, ...(emp && vf.mode !== "mobile" ? { empId: emp } : {}), ...(idHash ? { idHash } : {}) });
   }
   const db = c.env.DB, hashes = todo.map((t) => t.ph);
   const persons = await existingBy(db, "person", c.eid, hashes, "ph, status, id, inviter, removed_by");
@@ -299,15 +325,15 @@ async function addPeople(c: Ctx, who: Caller, b: any): Promise<Response> {
   const fresh: typeof todo = [], revive: typeof todo = [];
   for (const t of todo) {
     const p = persons.get(t.ph);
-    if (p) { if (p.status === "removed" && (who.all || (p.inviter === who.id && p.removed_by === who.id))) revive.push(t); /* an Organizer or Host puts anyone back; a Co-host or guest only takes back a person they removed themselves */ else if (p.status === "removed") invalid.push({ raw: `${t.name} ${t.digits ? "+" + phoneDigits(t.digits) : ""}`.trim(), why: "This person was removed. Ask the Organizer or a Host to put them back." }); else duplicates++; continue; }
-    if (seats.has(t.ph)) { duplicates++; continue; } // a seat from an older flow (a loaded list): already in the game
+    if (p) { if (p.status === "removed" && (who.all || (p.inviter === who.id && p.removed_by === who.id))) revive.push(t); /* an Organizer or Host puts anyone back; a Co-host or guest only takes back a person they removed themselves */ else if (p.status === "removed") invalid.push({ raw: `${t.name} ${t.digits ? "+" + phoneDigits(t.digits) : ""}`.trim(), why: "This person was removed. Ask the Organizer or a Co-organizer to put them back." }); else { duplicates++; duplicateRows.push({ raw: t.typed, why: "Already on the list." }); } continue; }
+    if (seats.has(t.ph)) { duplicates++; duplicateRows.push({ raw: t.typed, why: "Already in the game." }); continue; } // a seat from an older flow (a loaded list): already in the game
     fresh.push(t);
   }
   const adds = fresh.length + revive.length;
-  if (adds === 0) return c.json({ added: 0, duplicates, invalid, people: [] });
+  if (adds === 0) return c.json({ added: 0, duplicates, duplicateRows, invalid, people: [] });
   if (who.limit !== null) {
     const used = await listCount(db, c.eid, who.id), room = Math.max(0, who.limit - used);
-    if (adds > room) return c.json({ error: room === 0 ? `Your list is full: ${who.limit} people. Remove someone first, or ask the Organizer.` : `You can add ${room} more ${room === 1 ? "person" : "people"} (your limit is ${who.limit}). Nothing was added; please send fewer.`, code: "over-limit", limit: who.limit, used, room }, 409);
+    if (adds > room) return c.json({ error: room === 0 ? `The list is full: ${who.limit} people. Remove someone first, or ask the Organizer.` : `You can add ${room} more ${room === 1 ? "person" : "people"} (the limit is ${who.limit}). Nothing was added; please send fewer.`, code: "over-limit", limit: who.limit, used, room }, 409);
   }
   const total = await totalCount(db, c.eid);
   if (total + adds > c.e.cap) return c.json({ error: `This game is for ${c.e.cap} people and ${total} are already on the lists. Nothing was added.`, code: "over-cap", cap: c.e.cap, total }, 409);
@@ -334,19 +360,19 @@ async function addPeople(c: Ctx, who: Caller, b: any): Promise<Response> {
   if (c.started && revive.length) await refreshBlocked(db, c.eid);
   // stmts are in the order fresh..., revive (+seat update)..., waiting...: map the person inserts back by position
   let i = 0; const done: typeof todo = [];
-  for (const t of fresh) { if ((res[i++]?.meta?.changes ?? 0) > 0) done.push(t); else duplicates++; }
-  for (const t of revive) { if ((res[i++]?.meta?.changes ?? 0) > 0) done.push(t); else duplicates++; if (seats.has(t.ph)) i++; }
+  for (const t of fresh) { if ((res[i++]?.meta?.changes ?? 0) > 0) done.push(t); else { duplicates++; duplicateRows.push({ raw: t.typed, why: "Already on the list." }); } }
+  for (const t of revive) { if ((res[i++]?.meta?.changes ?? 0) > 0) done.push(t); else { duplicates++; duplicateRows.push({ raw: t.typed, why: "Already on the list." }); } if (seats.has(t.ph)) i++; }
   const label = await labelsOf(c);
   const out: PersonView[] = [];
   for (const t of done) {
     const token = toks.get(t.ph)!, link = `${c.origin}/j/${token}`;
     out.push({ id: ids.get(t.ph)!, name: t.name, maskedPhone: t.digits ? maskedPhone(t.digits) : "", status: "invited", ...(t.empId ? { empId: t.empId } : {}), link, waLink: t.digits ? waLinkOf(t.digits, waMessage(t.name || null, c.gameName, link)) : null, ...(who.all ? { inviter: label(who.id) } : {}) });
   }
-  return c.json({ added: done.length, duplicates, invalid, people: out });
+  return c.json({ added: done.length, duplicates, duplicateRows, invalid, people: out });
 }
 
 async function exportPeople(c: Ctx, who: Caller): Promise<Response> {
-  if (!who.all) return c.json({ error: "Only the Organizer and Hosts can download a list." }, 403);
+  if (!who.all) return c.json({ error: "Only the Organizer and co-organizers can download a list." }, 403);
   const whole = c.url.searchParams.get("all") === "1";
   const rows = await (whole
     ? c.env.DB.prepare(`SELECT ${PERSON_COLS} FROM person WHERE eid=? ORDER BY added_ms, id`).bind(c.eid)
@@ -364,7 +390,7 @@ async function exportPeople(c: Ctx, who: Caller): Promise<Response> {
 async function personFor(c: Ctx, who: Caller, id: string): Promise<{ row: PersonRow } | { res: Response }> {
   if (!/^[0-9a-f]{12}$/.test(id)) return { res: c.json({ error: "No such person." }, 404) };
   const row = await c.env.DB.prepare(`SELECT ${PERSON_COLS} FROM person WHERE eid=? AND id=?`).bind(c.eid, id).first<PersonRow>();
-  if (!row || (!who.all && row.inviter !== who.id)) return { res: c.json({ error: "No such person on your list." }, 404) };
+  if (!row || (!who.all && row.inviter !== who.id)) return { res: c.json({ error: "No such person on the list." }, 404) };
   return { row };
 }
 
@@ -372,7 +398,7 @@ async function removePerson(c: Ctx, who: Caller, id: string, b: any): Promise<Re
   const got = await personFor(c, who, id);
   if ("res" in got) return got.res;
   const row = got.row, db = c.env.DB;
-  if (c.started && !who.all) return c.json({ error: "Once the game has started only the Organizer or a Host can remove people." }, 403);
+  if (c.started && !who.all) return c.json({ error: "Once the game has started only the Organizer or a Co-organizer can remove people." }, 403);
   if (row.role) return c.json({ error: "That is a team member's own seat. Retire the team member instead." }, 409);
   if (row.status === "removed") return c.json({ ok: true, removed: 0 });
   // this person, and (when asked) everyone they invited, and everyone those people invited
@@ -400,7 +426,7 @@ async function removePerson(c: Ctx, who: Caller, id: string, b: any): Promise<Re
   await batched(db, stmts);
   if (c.started) await refreshBlocked(db, c.eid);
   if (who.kind === "host") { // a Host's removal tells the Organizer (the people are not named: the Organizer sees them in the console)
-    try { const to = await c.orgEmail(); if (to) await c.sendMail(to, `A Host removed ${targets.length === 1 ? "someone" : targets.length + " people"} from ${c.gameName}`, `${(await labelsOf(c))(who.id)} removed ${targets.length === 1 ? "one person" : targets.length + " people"} from ${c.gameName} at ${c.istTime(c.now)}.\n\nYou can see who in your console, under My people.`); } catch { /* a mail is a nudge, never a requirement */ }
+    try { const to = await c.orgEmail(); if (to) await c.sendMail(to, `A Co-organizer removed ${targets.length === 1 ? "someone" : targets.length + " people"} from ${c.gameName}`, `${(await labelsOf(c))(who.id)} removed ${targets.length === 1 ? "one person" : targets.length + " people"} from ${c.gameName} at ${c.istTime(c.now)}.\n\nYou can see who in the console, under The people.`); } catch { /* a mail is a nudge, never a requirement */ }
   }
   return c.json({ ok: true, removed: targets.length, during: c.started });
 }
@@ -410,7 +436,7 @@ async function resendPerson(c: Ctx, who: Caller, id: string, b: any): Promise<Re
   if ("res" in got) return got.res;
   const row = got.row, db = c.env.DB;
   if (row.status === "removed") return c.json({ error: "That person was removed. Add them again first." }, 409);
-  if (c.started && !who.all) return c.json({ error: "Once the game has started only the Organizer or a Host can send a link again." }, 403);
+  if (c.started && !who.all) return c.json({ error: "Once the game has started only the Organizer or a Co-organizer can send a link again." }, 403);
   let pii = await openPii(c.env, row.pii), ph = row.ph, newPii: string | null = null;
   const hasSeat = !!(await db.prepare("SELECT 1 AS x FROM seat WHERE eid=? AND ph=?").bind(c.eid, row.ph).first());
   if (b?.phone !== undefined && b.phone !== null && String(b.phone).trim() !== "") { // a new number: only for someone who has not joined yet
@@ -439,7 +465,7 @@ async function resendPerson(c: Ctx, who: Caller, id: string, b: any): Promise<Re
 
 /** The caller's OWN play seat: Organizer, Host and Co-host also play, through a personal link, and their seat is flagged so they stay out of the lucky draws. */
 async function myOwnSeat(c: Ctx, who: Caller, b: any): Promise<Response> {
-  if (who.kind === "guest") return c.json({ error: "Your game link is the one you were sent." }, 403);
+  if (who.kind === "guest") return c.json({ error: "The game link is the one you were sent." }, 403);
   const db = c.env.DB;
   const role = who.kind === "organizer" ? "organizer" : who.kind === "host" ? "host" : "co-host";
   let name: string | null = null, digits: string | null = null;
@@ -452,11 +478,11 @@ async function myOwnSeat(c: Ctx, who: Caller, b: any): Promise<Response> {
   }
   if (b?.phone !== undefined && b.phone !== null && String(b.phone).trim() !== "") { const cl = cleanPhone(b.phone); if (!cl.ok) return c.json({ error: cl.why }, 400); digits = cl.digits; }
   if (b?.name !== undefined) name = cleanName(b.name) || name;
-  if (!digits) return c.json({ error: "We need your mobile number to make your play link.", code: "need-phone" }, 400);
+  if (!digits) return c.json({ error: "The mobile number is needed to make the play link.", code: "need-phone" }, 400);
   const ph = await phoneHashOf(c.env, digits);
   const label = await labelsOf(c);
   let row = await db.prepare(`SELECT ${PERSON_COLS} FROM person WHERE eid=? AND ph=?`).bind(c.eid, ph).first<PersonRow>();
-  if (row && row.status === "removed") return c.json({ error: "That number was removed from this game. Add it back from My people first." }, 409);
+  if (row && row.status === "removed") return c.json({ error: "That number was removed from this game. Add it back from The people first." }, 409);
   if (!row) {
     if (!(await c.spend(2))) return c.busy();
     const token = newToken(), up = who.kind === "organizer" ? "o" : (await db.prepare("SELECT created_by FROM organizer_key WHERE org=? AND substr(hash,1,7)=? AND revoked=0").bind(c.e.org, c.keyId7).first<{ created_by: string | null }>())?.created_by ?? "o";
@@ -510,7 +536,7 @@ async function decideWaiting(c: Ctx, who: Caller, wid: string, b: any): Promise<
   // admit: the person goes on the list of whoever's link they used; when that list is full (or they came over the limit) they go on the approver's own list, which has no limit
   let inviter: string = w.overlimit ? who.id : w.inviter;
   const lim = await limitOfInviter({ env: c.env, eid: c.eid, e: c.e, invites: c.invites }, inviter);
-  if (lim !== null && (await listCount(db, c.eid, inviter)) >= lim) { if (!who.all) return c.json({ error: `Your list is full (${lim} people). Remove someone first.`, code: "over-limit" }, 409); inviter = who.id; }
+  if (lim !== null && (await listCount(db, c.eid, inviter)) >= lim) { if (!who.all) return c.json({ error: `The list is full (${lim} people). Remove someone first.`, code: "over-limit" }, 409); inviter = who.id; }
   if ((await totalCount(db, c.eid)) >= c.e.cap && !(await db.prepare("SELECT 1 AS x FROM person WHERE eid=? AND ph=? AND status<>'removed'").bind(c.eid, w.ph).first())) return c.json({ error: `This game is for ${c.e.cap} people and all places are taken.`, code: "over-cap" }, 409);
   const token = newToken();
   const existing = await db.prepare("SELECT id, status FROM person WHERE eid=? AND ph=?").bind(c.eid, w.ph).first<{ id: string; status: string }>();
@@ -572,7 +598,7 @@ async function meRoute(c: Ctx): Promise<Response> {
   const db = c.env.DB, pid = c.url.searchParams.get("pid"), wid = c.url.searchParams.get("wid");
   if (pid) {
     const s = await db.prepare("SELECT seq, role, inv, blocked FROM seat WHERE eid=? AND pid=?").bind(c.eid, pid).first<{ seq: number; role: string | null; inv: number | null; blocked: number | null }>();
-    if (!s) return c.json({ error: "Not a participant of this game." }, 404);
+    if (!s) return c.json({ error: "Not a player of this game." }, 404);
     const p = await db.prepare("SELECT inviter, approved_by FROM person pe JOIN seat se ON se.eid=pe.eid AND se.ph=pe.ph WHERE se.eid=? AND se.pid=?").bind(c.eid, pid).first<{ inviter: string; approved_by: string | null }>().catch(() => null);
     const ownList = s.inv === null && !s.role;
     return c.json({ state: s.blocked ? "removed" : "playing", removed: !!s.blocked, role: s.role ?? null, seat: s.seq, canInvite: !s.blocked && ownList && c.invites.on, per: c.invites.per, used: ownList ? await listCount(db, c.eid, "s:" + s.seq) : 0, whoCanJoin: c.e.closed ? "list" : "anyone", ...(p ? { listed: true } : {}) });
@@ -583,7 +609,7 @@ async function meRoute(c: Ctx): Promise<Response> {
     const ended = c.now >= await c.endBound();
     const state = w.status === "waiting" && ended ? "lapsed" : w.status;
     const who = await waitingWho(c, w.overlimit ? "o" : w.inviter);
-    return c.json({ state, with: who, message: state === "waiting" ? `Your request is with ${who}. You can come in as soon as they say yes.` : state === "admitted" ? "You are in. Open your link again to join." : state === "declined" ? "This game could not add you. Please talk to whoever invited you." : "This game has ended." });
+    return c.json({ state, with: who, message: state === "waiting" ? `The request is with ${who}. You can come in as soon as they say yes.` : state === "admitted" ? "You are in. Open the link again to join." : state === "declined" ? "This game could not add you. Please talk to whoever invited you." : "This game has ended." });
   }
   return c.json({ error: "Say which: ?pid=<your board id> or ?wid=<your request id>." }, 400);
 }
@@ -592,7 +618,7 @@ export async function waitingWho(c: { env: Env; e: any; eid: string }, inviter: 
   if (inviter === "o") return "the organizer";
   if (inviter.startsWith("s:")) return "the person who invited you";
   const r = await c.env.DB.prepare("SELECT label FROM organizer_key WHERE org=? AND substr(hash,1,7)=? AND kind=?").bind(c.e.org, inviter.slice(2), inviter.startsWith("h:") ? "host" : "cohost").first<{ label: string | null }>();
-  return r?.label ? r.label : inviter.startsWith("h:") ? "the host" : "the co-host";
+  return r?.label ? r.label : inviter.startsWith("h:") ? "the co-organizer" : "the invite-only co-organizer";
 }
 
 /** Joins a person's request to wait. Used by the Worker's `join`. Returns the existing request when the number already asked. */
@@ -631,21 +657,28 @@ export async function joinLinkPage(env: Env, token: string, origin: string, game
   if (!e || e.cancelled_ms || e.unplayed_ms) return gone();
   const pii = await openPii(env, row.pii), first = (pii?.name ?? "").trim().split(/\s+/)[0] ?? "", game = gameNameOf(e);
   const target = `${origin}/z.html?e=${encodeURIComponent(row.eid)}&t=${encodeURIComponent(token.toLowerCase())}`;
-  const title = `You are invited to ${game}`, desc = `${first ? first + ", tap" : "Tap"} to open your board. Corporate Snakes and Ladders needs no app and no sign-up.`;
+  const title = `You are invited to ${game}`, desc = `${first ? first + ", tap" : "Tap"} to open the board. Corporate Snakes and Ladders needs no app and no sign-up.`;
   const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><meta http-equiv="refresh" content="0;url=${esc(target)}"><title>${esc(title)}</title>`
     + `<meta property="og:type" content="website"><meta property="og:site_name" content="Corporate Snakes and Ladders"><meta property="og:title" content="${esc(title)}"><meta property="og:description" content="${esc(desc)}"><meta property="og:url" content="${esc(origin + "/j/" + token.toLowerCase())}">`
-    + `<meta name="twitter:card" content="summary"><meta name="twitter:title" content="${esc(title)}"></head><body style="font-family:system-ui;max-width:32rem;margin:3rem auto;padding:0 1rem"><h1>${esc(title)}</h1><p><a href="${esc(target)}">Open your board</a></p></body></html>`;
+    + `<meta name="twitter:card" content="summary"><meta name="twitter:title" content="${esc(title)}"></head><body style="font-family:system-ui;max-width:32rem;margin:3rem auto;padding:0 1rem"><h1>${esc(title)}</h1><p><a href="${esc(target)}">Open the board</a></p></body></html>`;
   return new Response(html, { headers });
 }
 
-/** A nickname a player types when joining: HTML removed first, then 2 to 20 letters, digits or spaces. Blank means "none given" (ok, name ""). */
-export function cleanNickname(n: unknown): { ok: true; name: string } | { ok: false; error: string } {
+/** The plain, kind messages of the name check (no my or your; the word is "name"). The name is kept for the organizer (other players see "Player" and a number). */
+export const NAME_RULE = "Please type a name with 2 to 20 letters, numbers or spaces.";
+export const NAME_TOO_SHORT = "Please type a name with at least 2 letters or numbers.";
+export const NAME_TOO_LONG = "That name is a little long. Please use 20 letters or numbers at most.";
+export const NAME_BAD_CHARS = "Please use only letters, numbers and spaces in the name.";
+export const NAME_NEEDED = "Please type a name to join.";
+
+/** The name a player types when joining by the common link: HTML removed first, then 2 to 20 letters, digits or spaces. Blank means "none given" (ok, name ""). */
+export function cleanPlayerName(n: unknown): { ok: true; name: string } | { ok: false; error: string } {
   if (n == null) return { ok: true, name: "" };
-  if (typeof n !== "string") return { ok: false, error: "Your nickname must be 2 to 20 letters, numbers or spaces." };
+  if (typeof n !== "string") return { ok: false, error: NAME_RULE };
   const plain = n.replace(/<[^>]*>/g, "").replace(/[<>]/g, "").replace(/\s+/g, " ").trim();
   if (n.trim() === "") return { ok: true, name: "" };
-  if (plain.length < 2) return { ok: false, error: "Please type your name. A nickname needs at least 2 letters or numbers." };
-  if (plain.length > 20) return { ok: false, error: "Your nickname is too long. Use 20 letters or numbers at most." };
-  if (!/^[\p{L}\p{N} ]+$/u.test(plain)) return { ok: false, error: "Your nickname can only have letters, numbers and spaces." };
+  if (plain.length < 2) return { ok: false, error: NAME_TOO_SHORT };
+  if (plain.length > 20) return { ok: false, error: NAME_TOO_LONG };
+  if (!/^[\p{L}\p{N} ]+$/u.test(plain)) return { ok: false, error: NAME_BAD_CHARS };
   return { ok: true, name: plain };
 }

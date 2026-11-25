@@ -8,6 +8,7 @@
 //   - until the Host has a confirmed e-mail AND a mobile number (typed, never verified, sealed) every Host route answers 403 {code:'host-setup'} (worker.ts).
 // A Host is identified by `host_id` = the hash of the key row the Organizer created (the "identity row"); device keys are extra organizer_key rows whose host_id points at it.
 // Only the Organizer and Hosts have e-mail addresses; nothing here is available to an AI key (the setup routes need a Host key, the new-link route the Organizer's own key).
+import { cleanAccountEmail as cleanEmail } from "./emailclean";
 import { openPii, openText, sealPii, sealText } from "./pii";
 import { checkConsent, hasConsent, recordConsent, refusalBody } from "./consent";
 import type { D1, Env } from "./worker";
@@ -24,7 +25,7 @@ export const HOST_SCHEMA: string[] = [
 const encoder = new TextEncoder();
 const sha = async (s: string) => Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", encoder.encode(s))), (b) => b.toString(16).padStart(2, "0")).join("");
 export const EMAIL_RE = /^[^\s@]{1,64}@[^\s@]{1,255}\.[^\s@]{2,}$/;
-export const emailHashOf = (email: string) => sha("email|" + email.trim().toLowerCase());
+export const emailHashOf = (email: string) => sha("email|" + cleanEmail(email));
 /** "a***@acme.com": enough for the Host to recognise their own address, not enough to learn it. */
 export const maskEmail = (e: string): string => { const [l = "", d = ""] = e.split("@"); return `${l.slice(0, 1)}***@${d}`; };
 export const maskMobile = (digits: string): string => "******" + digits.slice(-4);
@@ -51,7 +52,7 @@ export async function mintDeviceKey(env: Env, hid: string, key: string, now: num
 
 /** The e-mail is confirmed (by code or by Google): remember it, let this Host sign in by e-mail from now on, end the one-time link, and hand over a key for this device. */
 export async function confirmHostEmail(env: Env, hid: string, org: string, email: string, key: string, now: number): Promise<{ token: string; ready: boolean; needMobile: boolean }> {
-  const eh = await emailHashOf(email), sealed = await sealText(env as any, email.trim().toLowerCase());
+  const eh = await emailHashOf(email), sealed = await sealText(env as any, cleanEmail(email));
   await env.DB.batch([
     env.DB.prepare("UPDATE organizer_key SET email_sealed=? WHERE hash=? OR host_id=?").bind(sealed, hid, hid),
     env.DB.prepare("INSERT INTO host_state(host_id,org,email_hash,verified_ms,pend_hash,link_exp_ms,spent,mobile_ok) VALUES(?,?,?,?,NULL,?,1,COALESCE((SELECT CASE WHEN pii IS NOT NULL THEN 1 ELSE 0 END FROM organizer_key WHERE hash=?),0)) ON CONFLICT(host_id) DO UPDATE SET email_hash=excluded.email_hash, verified_ms=excluded.verified_ms, pend_hash=NULL, pend_sealed=NULL, spent=1").bind(hid, org, eh, now, now, hid),
@@ -116,9 +117,9 @@ export async function hostSetupRoute(c: HostCtx): Promise<Response | null> {
   if (p === "/api/host/setup/mobile") {
     const b = await c.body(req); { const refused = await requireAccept(c, b); if (refused) return refused; }
     const m = c.cleanPhone(b?.mobile ?? b?.phone);
-    if (!m.ok) return c.json({ error: "Please give your mobile number. " + m.why }, 400);
+    if (!m.ok) return c.json({ error: "Please give the mobile number. " + m.why }, 400);
     const st = await hostStateRow(db, c.hid);
-    if (st?.verified_ms && st.mobile_ok) return c.json({ error: "Your mobile number is already saved. Ask the Organizer to change it.", code: "already-set" }, 409);
+    if (st?.verified_ms && st.mobile_ok) return c.json({ error: "The mobile number is already saved. Ask the Organizer to change it.", code: "already-set" }, 409);
     if (!(await c.spend(2))) return c.busy();
     const row = await identityRow(db, c.hid);
     const sealed = await sealPii(env as any, { phone: m.digits, name: row?.label || null });
@@ -131,12 +132,12 @@ export async function hostSetupRoute(c: HostCtx): Promise<Response | null> {
   }
   if (p === "/api/host/setup/email") {
     const b = await c.body(req);
-    const email = typeof b?.email === "string" ? b.email.trim().toLowerCase() : "";
+    const email = typeof b?.email === "string" ? cleanEmail(b.email) : "";
     if (!EMAIL_RE.test(email)) return c.json({ error: "Please enter a valid e-mail address." }, 400);
     const st = await hostStateRow(db, c.hid);
-    if (st?.verified_ms) return c.json({ error: "Your e-mail is already confirmed. Sign in with it on other devices.", code: "already-verified" }, 409);
+    if (st?.verified_ms) return c.json({ error: "The e-mail is already confirmed. Sign in with it on other devices.", code: "already-verified" }, 409);
     const row = await identityRow(db, c.hid), onFile = row?.email_sealed ? await openText(env as any, row.email_sealed) : null;
-    if (onFile && onFile.toLowerCase() !== email) return c.json({ error: `This link is for ${maskEmail(onFile)}`, code: "email-mismatch" }, 409);
+    if (onFile && cleanEmail(onFile) !== email) return c.json({ error: `This link is for ${maskEmail(onFile)}`, code: "email-mismatch" }, 409);
     const eh = await emailHashOf(email);
     const lc = await db.prepare("SELECT win_start, sent FROM login_code WHERE email_hash=?").bind(eh).first<{ win_start: number; sent: number }>();
     const fresh = !lc || now - lc.win_start > 3_600_000;
@@ -147,7 +148,7 @@ export async function hostSetupRoute(c: HostCtx): Promise<Response | null> {
       db.prepare("INSERT INTO login_code(email_hash,code_hash,expires_ms,attempts,win_start,sent,link_hash) VALUES(?,?,?,0,?,1,NULL) ON CONFLICT(email_hash) DO UPDATE SET code_hash=excluded.code_hash, expires_ms=excluded.expires_ms, attempts=0, win_start=?, sent=?, link_hash=NULL").bind(eh, await sha("code|" + eh + "|" + code), now + 600_000, fresh ? now : lc!.win_start, fresh ? now : lc!.win_start, fresh ? 1 : lc!.sent + 1),
       db.prepare("INSERT INTO host_state(host_id,org,pend_hash,pend_sealed,link_exp_ms) VALUES(?,?,?,?,?) ON CONFLICT(host_id) DO UPDATE SET pend_hash=excluded.pend_hash, pend_sealed=excluded.pend_sealed").bind(c.hid, c.org, eh, await sealText(env as any, email), now + HOST_LINK_TTL_MS),
     ]);
-    await c.sendMail(email, "Your Corporate Snakes and Ladders code", `Your 6-digit code is ${code}.\n\nType it on the page where you are finishing your Host setup. It works for 10 minutes.\n\nDid not ask for this? Ignore this e-mail.`);
+    await c.sendMail(email, "The Corporate Snakes and Ladders code", `The 6-digit code is ${code}.\n\nType it on the page where you are finishing the Co-organizer setup. It works for 10 minutes.\n\nDid not ask for this? Ignore this e-mail.`);
     return c.json({ ok: true, ...(c.test ? { devCode: code } : {}) });
   }
   if (p === "/api/host/setup/email/verify") {

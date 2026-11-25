@@ -27,7 +27,7 @@ beforeEach(() => {
     if (pm) { const p = rz.payments[pm[1]!]; if (!p) return new Response("{}", { status: 404 }); if (pm[2]) p.status = "captured"; return new Response(JSON.stringify(p), { status: 200 }); }
     return new Response("{}", { status: 404 });
   };
-  env = { DB: d.db, ORGANIZER_SECRET: "plat", DAILY_WRITE_BUDGET: "100000", RAZORPAY_KEY_ID: "rzp_test_x", RAZORPAY_KEY_SECRET: "sek", RAZORPAY_WEBHOOK_SECRET: "whsec", RAZORPAY_BASE_URL: "https://rzp.test/v1", PUBLIC_ORIGIN: "https://bingo.test" };
+  env = { DB: d.db, ORGANIZER_SECRET: "plat", RUNNER_KEY: "test-runner-key-test-runner-key-test0000", DAILY_WRITE_BUDGET: "100000", RAZORPAY_KEY_ID: "rzp_test_x", RAZORPAY_KEY_SECRET: "sek", RAZORPAY_WEBHOOK_SECRET: "whsec", RAZORPAY_BASE_URL: "https://rzp.test/v1", PUBLIC_ORIGIN: "https://bingo.test" };
 });
 afterEach(() => { globalThis.fetch = realFetch; });
 
@@ -48,7 +48,7 @@ describe("E9: the owner is told of each paid order", () => {
     const m = ownerMails(); expect(m.length).toBe(1);
     const txn = (raw.query("SELECT txn_id FROM payment").get() as any).txn_id as string; expect(txn).toMatch(/^SNL-/);
     expect(m[0]!.subject).toContain("Paid order"); expect(m[0]!.subject).toContain("Corporate Snakes and Ladders");
-    for (const part of ["Game: Corporate Snakes and Ladders", "up to 500", txn, "Asha Rao", "asha@acme.com", "Rs"]) expect(m[0]!.body).toContain(part);
+    for (const part of ["Game: Corporate Snakes and Ladders", "up to 500", txn, "Asha Rao", "asha@acme.com", "₹"]) expect(m[0]!.body).toContain(part);
   });
   test("the webhook and the verify call for the same payment send the note only once, whichever comes first", async () => {
     const o = (await (await buy()).json()) as any;

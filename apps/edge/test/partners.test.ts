@@ -20,7 +20,7 @@ const buy = (o: Record<string, unknown> = {}) => call("POST", "/api/checkout", {
 
 beforeEach(() => {
   const d = makeD1(); raw = d.raw;
-  env = { DB: d.db, ORGANIZER_SECRET: "plat", DAILY_WRITE_BUDGET: "100000", TEST_MODE: "1", PUBLIC_ORIGIN: "https://bingo.test" };
+  env = { DB: d.db, ORGANIZER_SECRET: "plat", RUNNER_KEY: "test-runner-key-test-runner-key-test0000", DAILY_WRITE_BUDGET: "100000", TEST_MODE: "1", PUBLIC_ORIGIN: "https://bingo.test" };
 });
 
 describe("enrolling as a sales partner", () => {
@@ -123,7 +123,7 @@ describe("a referred purchase", () => {
     await buy({ ref: CODE });
     expect(raw.query("SELECT COUNT(*) c FROM commission").get()).toEqual({ c: 0 });
   });
-  test("buying through your own link is blocked with a reason, however the number is typed", async () => {
+  test("buying through the link is blocked with a reason, however the number is typed", async () => {
     await buy({ ref: CODE, phone: "+91 98111 22233" });
     expect(raw.query("SELECT status, reason FROM commission").get()).toEqual({ status: "blocked", reason: "self_referral" });
   });

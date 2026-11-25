@@ -46,7 +46,7 @@ const world = async (orgEmail = "boss@acme.com") => {
   const aiKey = m.clients[0].consoleUrl.match(/k=(cba_[0-9a-f]{48})/)[1] as string;
   return { p, master, t, linkId: inv.id as string, aiKey, org: (raw.query("SELECT org FROM helpdesk_link").get() as any).org as string };
 };
-const makeGame = (key: string, id = "HD-GAME-1") => call("POST", "/api/z", { id, startRound: FAR_START, callSeconds: 20, cap: 300, name: "Annual Day" }, org(key));
+const makeGame = (key: string, id = "HD-GAME-1") => call("POST", "/api/z", { id, startRound: FAR_START, callSeconds: 10, cap: 300, name: "Annual Day" }, org(key));
 /** The helper asks the Organizer to publish. */
 const askAt = (w: Awaited<ReturnType<typeof world>>, eid: string, now = T) => call("POST", "/api/helpdesk/request-publish", { linkId: w.linkId, eid }, part(w.p.partnerKey), now);
 const req = call;
@@ -61,7 +61,7 @@ const approveAndPublish = async (t: string, eid = "HD-GAME-1", now = T) => {
 
 beforeEach(() => {
   const d = makeD1(); raw = d.raw; ip = 0;
-  env = { DB: d.db, ORGANIZER_SECRET: "plat", DAILY_WRITE_BUDGET: "100000", TEST_MODE: "1", PUBLIC_ORIGIN: "https://snakes.test" };
+  env = { DB: d.db, ORGANIZER_SECRET: "plat", RUNNER_KEY: "test-runner-key-test-runner-key-test0000", DAILY_WRITE_BUDGET: "100000", TEST_MODE: "1", PUBLIC_ORIGIN: "https://snakes.test" };
 });
 
 describe("joining Help Desk", () => {
@@ -93,7 +93,7 @@ describe("inviting an Organizer", () => {
     const b = await j(await call("POST", "/api/helpdesk/invite", { email: "stranger@acme.com" }, part(p.partnerKey)));
     expect(Object.keys(a).sort()).toEqual(Object.keys(b).sort()); expect(a.ok).toBe(true); expect(b.ok).toBe(true);
     const m = lastMail("known@acme.com", /asks to prepare/);
-    expect(m.body).toContain("Nothing is published or paid without your OK"); expect(m.body).toContain("Asha");
+    expect(m.body).toContain("Nothing is published or paid without the OK"); expect(m.body).toContain("Asha");
     expect(m.body).toMatch(/https:\/\/snakes\.test\/helpdesk-accept\.html\?t=[0-9a-f]{48}/);
     const mine = await me(p.partnerKey);
     expect(mine.clients.map((c: any) => c.orgEmailMasked).sort()).toEqual(["k***@acme.com", "s***@acme.com"]);
@@ -101,7 +101,7 @@ describe("inviting an Organizer", () => {
     expect(JSON.stringify(raw.query("SELECT * FROM helpdesk_link").all())).not.toContain("known@acme.com"); // sealed
     expect(mine.clients.every((c: any) => c.state === "invited" && !c.consoleUrl && !c.aiLink)).toBe(true); // no key before the Organizer allows
   });
-  test("limits: 5 invitations an hour per helper, 3 a day per Organizer address across helpers, no duplicates, not your own address, 50 clients at most", async () => {
+  test("limits: 5 invitations an hour per helper, 3 a day per Organizer address across helpers, no duplicates, not the address, 50 clients at most", async () => {
     const p = await helperJoined();
     expect((await call("POST", "/api/helpdesk/invite", { email: "asha@partner.example" }, part(p.partnerKey))).status).toBe(400);
     for (let i = 0; i < 5; i++) expect((await call("POST", "/api/helpdesk/invite", { email: `o${i}@acme.com` }, part(p.partnerKey))).status).toBe(200);
@@ -127,7 +127,7 @@ describe("the Organizer says Allow", () => {
     const t = tokenOf(lastMail("boss@acme.com", /asks to prepare/), "helpdesk-accept");
     const info = await j(await call("GET", `/api/helpdesk/accept/info?t=${t}`));
     expect(info).toMatchObject({ helperName: "Asha", state: "invited", forEmailMasked: "b***@acme.com", version: "HD1" });
-    expect(info.promise.join(" ")).toContain("Only you publish"); expect(info.promise.join(" ")).toContain("5 Host places");
+    expect(info.promise.join(" ")).toContain("Only you publish"); expect(info.promise.join(" ")).toContain("5 Co-organizer places");
     expect((await call("GET", `/api/helpdesk/accept/info?t=${"0".repeat(48)}`)).status).toBe(404);
     expect((await call("POST", "/api/helpdesk/accept", { t, consent: true })).status).toBe(403); // not signed in
     expect((await call("POST", "/api/helpdesk/accept", { t, consent: true }, org(other))).status).toBe(403); // an Organizer of another address
@@ -150,7 +150,7 @@ describe("the Organizer says Allow", () => {
     const late = await call("POST", "/api/helpdesk/accept", { t, consent: true }, org(master), T + 15 * 86_400_000);
     expect(late.status).toBe(410);
   });
-  test("the helper's key can create a game, but cannot publish, pay, see keys or add Hosts; the game is recorded as the helper's", async () => {
+  test("the helper's key can create a game, but cannot publish, pay, see keys or add Co-organizers; the game is recorded as the helper's", async () => {
     const w = await world();
     expect((await makeGame(w.aiKey)).status).toBe(200);
     expect(raw.query("SELECT eid, partner_code FROM helpdesk_game").get()).toEqual({ eid: "HD-GAME-1", partner_code: w.p.code });
@@ -185,7 +185,7 @@ describe("asking the Organizer to publish", () => {
     const w = await world(); await makeGame(w.aiKey);
     const ownAi = (await j(await call("GET", "/api/org/ai/link", undefined, org(w.master)))).aiMessage.match(/cba_[0-9a-f]{48}/)[0];
     await makeGame(ownAi, "OWN-GAME-1"); // not made through the helper
-    const other = await startOrg("other@acme.com"); await call("POST", "/api/z", { id: "OTHER-ONE", startRound: FAR_START, callSeconds: 20, cap: 300 }, org(other));
+    const other = await startOrg("other@acme.com"); await call("POST", "/api/z", { id: "OTHER-ONE", startRound: FAR_START, callSeconds: 10, cap: 300 }, org(other));
     const go = (eid: string, headers = part(w.p.partnerKey), linkId: unknown = w.linkId) => call("POST", "/api/helpdesk/request-publish", { linkId, eid }, headers);
     expect((await go("OWN-GAME-1")).status).toBe(404); expect((await go("OTHER-ONE")).status).toBe(404); expect((await go("NO-SUCH")).status).toBe(404);
     expect((await go("HD-GAME-1", {})).status).toBe(403); // no key
@@ -244,7 +244,7 @@ describe("the one-tap publish approval", () => {
     expect(raw.query("SELECT used_ms FROM helpdesk_pub").get()).toEqual({ used_ms: null });
     const a = await approveAndPublish(t); expect(a.pub.status).toBe(200); expect(a.done.status).toBe(200);
   });
-  test("done: the token is single use, the temporary key stops, and the helper gets the Host link", async () => {
+  test("done: the token is single use, the temporary key stops, and the helper gets the Co-organizer link", async () => {
     const w = await world(); await makeGame(w.aiKey); await askAt(w, "HD-GAME-1");
     const t = approvalToken();
     const { s, done } = await approveAndPublish(t); expect(done.status).toBe(200);
@@ -253,7 +253,7 @@ describe("the one-tap publish approval", () => {
     expect((await call("POST", "/api/helpdesk/approve/start", { t })).status).toBe(410);
     expect((await call("POST", "/api/helpdesk/approve/done", { t })).status).toBe(410);
     const m = lastMail("asha@partner.example", /is published/);
-    expect(m.body).toMatch(/OPEN MY HOST CONSOLE: https:\/\/snakes\.test\/zc\.html\?k=cbh_[0-9a-f]{48}&e=HD-GAME-1/); expect(m.body).toMatch(/\/ai\/cbh_[0-9a-f]{48}/);
+    expect(m.body).toMatch(/OPEN THE CO-ORGANIZER CONSOLE: https:\/\/snakes\.test\/zc\.html\?k=cbh_[0-9a-f]{48}&e=HD-GAME-1/); expect(m.body).toMatch(/\/ai\/cbh_[0-9a-f]{48}/);
   });
   test("an approval link expires after 7 days", async () => {
     const w = await world(); await makeGame(w.aiKey); await askAt(w, "HD-GAME-1");
@@ -264,9 +264,9 @@ describe("the one-tap publish approval", () => {
   });
 });
 
-describe("the helper becomes the desk Host", () => {
+describe("the helper becomes the desk Co-organizer", () => {
   const published = async () => { const w = await world(); await makeGame(w.aiKey); await askAt(w, "HD-GAME-1"); const t = approvalToken(); await approveAndPublish(t); return { w, t }; };
-  test("a desk Host exists, is labelled Help desk in the team list, and does not use one of the 5 Host places", async () => {
+  test("a desk Co-organizer exists, is labelled Help desk in the team list, and does not use one of the 5 Co-organizer places", async () => {
     const { w } = await published();
     const row = raw.query("SELECT label, created_by, kind, host_id, hash FROM organizer_key WHERE created_by='d' AND kind='host' AND expires_ms IS NULL").get() as any;
     expect(row).toMatchObject({ label: "Help desk: Asha", created_by: "d", kind: "host" }); expect(row.host_id).toBe(row.hash);
@@ -278,7 +278,7 @@ describe("the helper becomes the desk Host", () => {
     expect((await j(await call("GET", "/api/org/team", undefined, org(w.master)))).hosts.length).toBe(6);
     expect((await call("GET", "/api/helpdesk/me", undefined, part(w.p.partnerKey)).then(j)).clients[0].hostLink).toBeDefined();
   });
-  test("the desk Host key works as a Host, and a second published game does not make a second desk Host", async () => {
+  test("the desk Co-organizer key works as a Co-organizer, and a second published game does not make a second desk Co-organizer", async () => {
     const { w } = await published();
     const hostKey = lastMail("asha@partner.example", /is published/).body.match(/zc\.html\?k=(cbh_[0-9a-f]{48})/)![1]!;
     expect((await j(await call("GET", "/api/whoami", undefined, org(hostKey)))).kind).toBe("host");
@@ -304,7 +304,7 @@ describe("the helper becomes the desk Host", () => {
 
 describe("stopping", () => {
   const withHost = async () => { const w = await world(); await makeGame(w.aiKey); await askAt(w, "HD-GAME-1"); const t = approvalToken(); await approveAndPublish(t); const hostKey = lastMail("asha@partner.example", /is published/).body.match(/zc\.html\?k=(cbh_[0-9a-f]{48})/)![1]!; return { w, hostKey }; };
-  test("the Organizer stops with their key: the helper's AI key and the desk Host end at once, an open approval dies, published games stay", async () => {
+  test("the Organizer stops with their key: the helper's AI key and the desk Co-organizer end at once, an open approval dies, published games stay", async () => {
     const { w, hostKey } = await withHost();
     await makeGame(w.aiKey, "HD-GAME-2"); await req("POST", "/api/helpdesk/request-publish", { linkId: w.linkId, eid: "HD-GAME-2" }, part(w.p.partnerKey), T + 20 * 60_000);
     const t2 = approvalToken(); const s = await j(await req("POST", "/api/helpdesk/approve/start", { t: t2 }, {}, T + 20 * 60_000));
@@ -320,7 +320,7 @@ describe("stopping", () => {
     expect(raw.query("SELECT state, ai_key_sealed FROM helpdesk_link").get()).toEqual({ state: "stopped", ai_key_sealed: null });
     expect(raw.query("SELECT COUNT(*) c FROM kv WHERE k='pub/HD-GAME-1'").get()).toEqual({ c: 1 }); // the published game stays
     expect((await j(await call("GET", "/api/org/team", undefined, org(w.master)))).hosts).toEqual([]);
-    expect(lastMail("asha@partner.example", /Help Desk stopped/).body).toContain("Your access to their account has ended");
+    expect(lastMail("asha@partner.example", /Help Desk stopped/).body).toContain("The access to their account has ended");
     const m = await me(w.p.partnerKey); expect(m.clients[0]).toMatchObject({ state: "stopped", hostLink: "ended" }); expect(m.clients[0].consoleUrl).toBeUndefined();
   });
   test("the Organizer can stop from the e-mailed link without signing in; a helper can end it too; the tokens of other links do nothing", async () => {

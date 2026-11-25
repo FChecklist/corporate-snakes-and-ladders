@@ -1,0 +1,170 @@
+/* ================================================================================================================
+   CORPORATE SNAKES AND LADDERS: COLOUR SCHEME  "EMBER AND RUNG"
+   This is the ONE place where the colours of the game live. Every other style file and page asks this file.
+
+   The idea, in plain words:
+   - EMBER is the glowing rust of a snake's belly and of hot clay. It is the colour of the game (the suite's own
+     Snakes colour, #9C3D1E). Buttons, links, bars and headings use it.
+   - RUNG is the honey-orange of a wooden ladder in the sun. It is the bright accent: a button on a dark bar, a
+     highlight, a prize.
+   - SCALE is the very dark brown of snake scales and old rope. It is the ink for text and the dark of bars and footers.
+   - CLAY is the warm light of paper and sand: page background, cards and lines.
+   - OLIVE (the moss on a garden wall) says "all good". BRICK RED says "stop". Amber-brown says "careful".
+   - The board has five bands, one per row of squares: peach, honey, pistachio, blush and sand. Each has a slightly
+     deeper twin for every second square.
+   Only warm colours are used. There is no teal, aqua, blue, green-blue or purple on the game's own pages.
+
+   How other files use it: write var(--snk-primary), var(--snk-bg) and so on. Never write a colour in another file.
+   The old short names (--pri, --deep, --acc ...) and the suite brand kit names (--action, --bar-a ...) are answered at the
+   top of app.css, where they point here, so older rules keep working. This file holds only the scheme itself.
+
+   Light is the default. Dark follows the device ONLY on a page whose <html> carries data-snk-dark="auto" (theme.js sets it,
+   and only the home page loads theme.js), or when the Dark button sets data-mode="dark". The player page, the console and the
+   other pages stay light.
+   The night values are also ready to use on their own (--snk-night-*) for pages that are always dark.
+
+   The same file is copied to site/snakes-scheme.css (the separate coming-soon site has no build). A test keeps both
+   copies identical. The text and background pairs of this scheme (light and night, the board bands,
+   the signals, the buttons and bars) are checked for WCAG AA contrast in apps/web/test/snakes-colours.test.ts.
+   ================================================================================================================ */
+:root{
+  /* ---- the scheme, light (the default) ---- */
+  /* main colours */
+  --snk-primary:#9C3D1E;
+  --snk-primary-2:#B24A22;
+  --snk-deep:#3B190D;
+  --snk-accent:#FF9650;
+  --snk-accent-2:#FFD8BC;
+  /* page, cards, text, lines */
+  --snk-bg:#FFEEE3;
+  --snk-surface:#FFFFFF;
+  --snk-sunk:#F5DCCD;
+  --snk-ink:#2B1A12;
+  --snk-muted:#6E5A4F;
+  --snk-line:#E6CDBD;
+  /* signals: good, stop, careful */
+  --snk-ok:#4C6B14;
+  --snk-bad:#C81D2B;
+  --snk-warn:#7F4A12;
+  /* more roles */
+  --snk-on-primary:#FFFFFF;
+  --snk-ink-2:#4B382D;
+  --snk-line-2:#F2DFD3;
+  --snk-paper:#FFF4EC;
+  --snk-link:#9C3D1E;
+  --snk-accent-ink:#8A3A10;
+  --snk-focus:#B24A22;
+  --snk-wash:#FBE4D8;
+  --snk-ok-bg:#EDF1D8;
+  --snk-bad-bg:#FBE0E2;
+  --snk-warn-bg:#FDEEC4;
+  --snk-info:#57493F;
+  --snk-info-bg:#F3E6DE;
+  /* text on a surface that is dark in light AND in dark (the hero, the bars): it does not switch */
+  --snk-on-dark:#FFF4EC;
+  /* the five bands of the board (one per row of squares) and the deeper twin for every second square */
+  --snk-band-0:#FFD9C2;--snk-band-0-alt:#FFC4A3;
+  --snk-band-1:#FFD08A;--snk-band-1-alt:#F9C56B;
+  --snk-band-2:#E6EBB8;--snk-band-2-alt:#D5DE95;
+  --snk-band-3:#F3CFC6;--snk-band-3-alt:#EBB8AB;
+  --snk-band-4:#DCC7BC;--snk-band-4-alt:#CDB5A8;
+  /* the five snakes on the board (a snake keeps its colour from head to tail) */
+  --snk-snake-0:#C0391B;--snk-snake-1:#B07408;--snk-snake-2:#587018;--snk-snake-3:#3E2A22;--snk-snake-4:#7A6F66;
+  /* the same colours as red,green,blue numbers, for see-through shades: rgba(var(--snk-shade-rgb),.2) */
+  --snk-shade-rgb:43,26,18;--snk-deep-rgb:59,25,13;--snk-primary-rgb:156,61,30;--snk-accent-rgb:255,150,80;
+  /* ---- the ramps: ten steps of each family, from 50 (lightest) to 900 (darkest). Fixed in light and dark. ---- */
+  --snk-ember-50:#FDF2EC;--snk-ember-100:#FBE4D8;--snk-ember-200:#F7CDB8;--snk-ember-300:#EFAE8C;--snk-ember-400:#E58A5E;--snk-ember-500:#D4683A;--snk-ember-600:#B24A22;--snk-ember-700:#9C3D1E;--snk-ember-800:#7A2F17;--snk-ember-900:#3B190D;
+  --snk-honey-50:#FFF8E6;--snk-honey-100:#FDEEC4;--snk-honey-200:#FBE3A6;--snk-honey-300:#F6D27A;--snk-honey-400:#EBB94A;--snk-honey-500:#D69A1F;--snk-honey-600:#B27A0F;--snk-honey-700:#7F4A12;--snk-honey-800:#5C3510;--snk-honey-900:#3D230B;
+  --snk-olive-50:#F6F8E8;--snk-olive-100:#EDF1D8;--snk-olive-200:#DEE5B5;--snk-olive-300:#C7D38A;--snk-olive-400:#A9BA5E;--snk-olive-500:#8A9E3A;--snk-olive-600:#6C8226;--snk-olive-700:#4C6B14;--snk-olive-800:#385010;--snk-olive-900:#25350B;
+  --snk-clay-50:#FBF6F2;--snk-clay-100:#F4E9E0;--snk-clay-200:#E9D9CC;--snk-clay-300:#D6BFAE;--snk-clay-400:#B89E8D;--snk-clay-500:#8F7767;--snk-clay-600:#6E5A4F;--snk-clay-700:#4B382D;--snk-clay-800:#3A2A21;--snk-clay-900:#2B1A12;
+  --snk-red-50:#FEF1EF;--snk-red-100:#FCE1DD;--snk-red-200:#F8C5BE;--snk-red-300:#F19A90;--snk-red-400:#E4695C;--snk-red-500:#D23F31;--snk-red-600:#C42B22;--snk-red-700:#B91C1C;--snk-red-800:#8F1818;--snk-red-900:#5E1010;
+  /* ---- night: the same roles for dark surfaces. Fixed values, so an always-dark page can use them directly. ---- */
+  --snk-night-primary:#B8461F;
+  --snk-night-primary-2:#BF4A22;
+  --snk-night-deep:#0F0603;
+  --snk-night-accent:#FF9650;
+  --snk-night-accent-2:#FFEADB;
+  --snk-night-bg:#1E100A;
+  --snk-night-surface:#2B1810;
+  --snk-night-sunk:#160A05;
+  --snk-night-ink:#FDEEE3;
+  --snk-night-muted:#D6BCAB;
+  --snk-night-line:#5A3523;
+  --snk-night-ok:#C2DB7A;
+  --snk-night-bad:#FF9A93;
+  --snk-night-warn:#F4BE70;
+  --snk-night-on-primary:#FFFFFF;
+  --snk-night-ink-2:#F0D9C9;
+  --snk-night-line-2:#3E2216;
+  --snk-night-paper:#33190F;
+  --snk-night-link:#FFB98C;
+  --snk-night-accent-ink:#FFB98C;
+  --snk-night-focus:#FF9650;
+  --snk-night-wash:#3E2013;
+  --snk-night-ok-bg:#2A3310;
+  --snk-night-bad-bg:#40161A;
+  --snk-night-warn-bg:#3F2A0B;
+  --snk-night-info:#E6D3C6;
+  --snk-night-info-bg:#3A2A22;
+}
+
+/* ---- dark: the home page follows the device, or the Dark button. Same names, night values. ---- */
+@media (prefers-color-scheme:dark){
+:root[data-snk-dark="auto"]:not([data-mode="light"]):not([data-theme="light"]){
+  --snk-primary:var(--snk-night-primary);
+  --snk-primary-2:var(--snk-night-primary-2);
+  --snk-deep:var(--snk-night-deep);
+  --snk-accent:var(--snk-night-accent);
+  --snk-accent-2:var(--snk-night-accent-2);
+  --snk-bg:var(--snk-night-bg);
+  --snk-surface:var(--snk-night-surface);
+  --snk-sunk:var(--snk-night-sunk);
+  --snk-ink:var(--snk-night-ink);
+  --snk-muted:var(--snk-night-muted);
+  --snk-line:var(--snk-night-line);
+  --snk-ok:var(--snk-night-ok);
+  --snk-bad:var(--snk-night-bad);
+  --snk-warn:var(--snk-night-warn);
+  --snk-on-primary:var(--snk-night-on-primary);
+  --snk-ink-2:var(--snk-night-ink-2);
+  --snk-line-2:var(--snk-night-line-2);
+  --snk-paper:var(--snk-night-paper);
+  --snk-link:var(--snk-night-link);
+  --snk-accent-ink:var(--snk-night-accent-ink);
+  --snk-focus:var(--snk-night-focus);
+  --snk-wash:var(--snk-night-wash);
+  --snk-ok-bg:var(--snk-night-ok-bg);
+  --snk-bad-bg:var(--snk-night-bad-bg);
+  --snk-warn-bg:var(--snk-night-warn-bg);
+  --snk-info:var(--snk-night-info);
+  --snk-info-bg:var(--snk-night-info-bg);
+}}
+:root[data-mode="dark"]{
+  --snk-primary:var(--snk-night-primary);
+  --snk-primary-2:var(--snk-night-primary-2);
+  --snk-deep:var(--snk-night-deep);
+  --snk-accent:var(--snk-night-accent);
+  --snk-accent-2:var(--snk-night-accent-2);
+  --snk-bg:var(--snk-night-bg);
+  --snk-surface:var(--snk-night-surface);
+  --snk-sunk:var(--snk-night-sunk);
+  --snk-ink:var(--snk-night-ink);
+  --snk-muted:var(--snk-night-muted);
+  --snk-line:var(--snk-night-line);
+  --snk-ok:var(--snk-night-ok);
+  --snk-bad:var(--snk-night-bad);
+  --snk-warn:var(--snk-night-warn);
+  --snk-on-primary:var(--snk-night-on-primary);
+  --snk-ink-2:var(--snk-night-ink-2);
+  --snk-line-2:var(--snk-night-line-2);
+  --snk-paper:var(--snk-night-paper);
+  --snk-link:var(--snk-night-link);
+  --snk-accent-ink:var(--snk-night-accent-ink);
+  --snk-focus:var(--snk-night-focus);
+  --snk-wash:var(--snk-night-wash);
+  --snk-ok-bg:var(--snk-night-ok-bg);
+  --snk-bad-bg:var(--snk-night-bad-bg);
+  --snk-warn-bg:var(--snk-night-warn-bg);
+  --snk-info:var(--snk-night-info);
+  --snk-info-bg:var(--snk-night-info-bg);
+}

@@ -5,7 +5,9 @@
 //   fulfil    -> idempotent: organizer (new or existing by e-mail) gets one ENTITLEMENT for the pack, an invoice is issued, mail is sent
 // An entitlement is what lets an organizer create one engagement of up to `pack` participants; without one, creating is refused.
 // Needs the `nodejs_compat` flag (billing uses node:crypto HMAC). Test mode (env.TEST_MODE = "1", never in production) fulfils without Razorpay.
+import { cleanAccountEmail as cleanEmail } from "./emailclean";
 import { recordFunnelForOrg } from "./visits";
+import { recordFunnel } from "./funnel";
 import { BRAND, plainToHtml, taggedSubject, withFooter } from "./brand";
 import {
   BRANDS, DEFAULT_COMPANY, companyGaps, createOrder, fetchPayment, capturePayment, paymentInfo, financialYear, formatInvoiceNumber, renderInvoiceHtml, renderInvoiceText, splitGst, toMinor,
@@ -25,7 +27,11 @@ import { attemptStatusOf, centralOf, derivedEventKey, eventSeen, markEventSeen, 
 import { getMode, mailGate, testFlag, type ModeEnv } from "./mode";
 import { isTestLogin } from "./testlogins";
 import { lookupPayLink, packFor, payLinkPublic } from "./paylink";
+import { payLinkGame } from "./paysummary";
+import { INVOICE_AFTER_MS, chosenCountry, cleanInvoiceDetails, currencyForCountry, isPayFirst, isPendingEmail, orderCurrency, paytestAllowed, pendingEmail, visitorCountry } from "./payfirst";
+import { PRICE_LINE, adjustFor, adjustMeta, adjustNotes } from "./price-adjust";
 import { creditAppliedFor, creditFromPayment, creditUsesFor, mailCreditCreated, restoreCreditUses, rs, teamEmails } from "./credit";
+import { PAY_PATH, aiCannotPay, isAiCaller } from "./ai-pay";
 
 export interface PayEnv extends Env, Pick<ModeEnv, "OWNER_EMAIL" | "TEST_MAIL_ALLOW"> {
   RAZORPAY_KEY_ID?: string; RAZORPAY_KEY_SECRET?: string; RAZORPAY_WEBHOOK_SECRET?: string; RAZORPAY_BASE_URL?: string; RAZORPAY_INTERNATIONAL?: string;
@@ -47,6 +53,9 @@ const brand = BRANDS.corporate_snakes_and_ladders;
 /** Payment attempts one network address may start through pay links in a day. */
 const PAYLINK_PER_IP_DAY = 30;
 const EMAIL = /^[^\s@]{1,64}@[^\s@]{1,255}\.[^\s@]{2,}$/;
+/** The payer's e-mail as the pay pages (v2) use it: cleaned (trimmed, lower case); `refusedMail` is null when it is not an address. */
+const accountEmail = (raw: unknown): string => cleanEmail(raw);
+const refusedMail = (raw: unknown): string | null => { const e = cleanEmail(raw); return EMAIL.test(e) ? e : null; };
 
 export const company = (env: PayEnv): Company => { try { return { ...DEFAULT_COMPANY, ...(env.COMPANY_JSON ? JSON.parse(env.COMPANY_JSON) : {}) }; } catch { return DEFAULT_COMPANY; } };
 /** Indian payers see UPI first (on a phone this opens their UPI app); cards and net banking stay one tap away. USD payers get Razorpay's normal international card screen. */
@@ -59,17 +68,17 @@ const rzpOf = (env: PayEnv): (RazorpayConfig) | null => (env.RAZORPAY_KEY_ID && 
  * razorpay / IT Services / <website> / <stream> / <plan>. This site is the "sales" stream; the plan is the pack (pack_250) or payment_test.
  * Without PAY_SERVICE_KEY, or if the central service cannot be reached, the order is opened directly with Razorpay exactly as before (the webhook still reaches the ledger).
  */
-async function placeOrder(env: PayEnv, rzp: RazorpayConfig, o: { amountMinor: number; currency: "INR" | "USD"; receipt: string; notes: Record<string, string>; plan: string; user?: string | null; email?: string }): Promise<CreatedOrder> {
+async function placeOrder(env: PayEnv, rzp: RazorpayConfig, o: { amountMinor: number; currency: "INR" | "USD"; receipt: string; notes: Record<string, string>; plan: string; user?: string | null; email?: string; gameId?: string | null }): Promise<CreatedOrder> {
   const c = centralOf(env);
   if (c) {
     try {
-      const r = await fetch(`${c.url}/api/pay/order`, { method: "POST", headers: { "content-type": "application/json", "x-site-key": c.key }, body: JSON.stringify({ site: c.site, product: "corporate_snakes_and_ladders", plan: o.plan, amount_minor: o.amountMinor, currency: o.currency, payment_ref: o.receipt, extra_notes: o.notes, ...(o.user ? { user: o.user } : {}), ...(o.email ? { payer_email: o.email } : {}) }), signal: AbortSignal.timeout(6000) });
+      const r = await fetch(`${c.url}/api/pay/order`, { method: "POST", headers: { "content-type": "application/json", "x-site-key": c.key }, body: JSON.stringify({ site: c.site, product: "corporate_snakes_and_ladders", plan: o.plan, amount_minor: o.amountMinor, currency: o.currency, payment_ref: o.receipt, extra_notes: o.notes, ...(o.gameId ? { game_id: o.gameId } : {}), ...(o.user ? { user: o.user } : {}), ...(o.email ? { payer_email: o.email } : {}) }), signal: AbortSignal.timeout(6000) });
       const d: any = await r.json().catch(() => ({}));
       if (r.ok && d.orderId) return { id: d.orderId, amount: o.amountMinor, currency: o.currency, receipt: o.receipt, status: "created" };
       console.warn("central order refused", r.status, d?.error);
     } catch (e) { console.warn("central order unreachable", String(e)); }
   }
-  return createOrder(rzp, { ...o, notes: { ...o.notes, txn_id: txnIdOf(o.receipt) } }); // opened straight with Razorpay (central service down or not set): the txn_id still travels in the order notes (A)
+  return createOrder(rzp, { ...o, notes: { ...o.notes, ...(o.gameId ? { game_id: o.gameId } : {}), txn_id: txnIdOf(o.receipt) } }); // opened straight with Razorpay (central service down or not set): the txn_id still travels in the order notes (A)
 }
 /** After a correctly signed payment: tell the central ledger (best effort, never blocks or fails the buyer; the central webhook records it too). */
 async function reportToCentral(env: PayEnv, b: any): Promise<any | null> {
@@ -93,6 +102,7 @@ const KEYRE = /cb[kah]_[0-9a-f]{48}/g;
  * Without RESEND_API_KEY (local/test) the mail simply stays in the outbox so it can be read.
  */
 export async function sendMail(env: PayEnv, db: D1, to: string, subject: string, text: string, now: number, opts: { html?: string; secret?: boolean; owner?: boolean } = {}): Promise<boolean> {
+  if (isPendingEmail(to)) return false; // a Razorpay-first payment whose e-mail has not come back from Razorpay yet: nobody to write to (payfirst.ts)
   // `secret` = the mail carries a personal AI work link: if it cannot be sent, no body is kept at all (nothing to retry later; the organizer can replace the link and get a fresh mail).
   // TEST mode (mode.ts): only the owner's allow-list is ever e-mailed; everyone else is dropped and logged. Not sent = false, and no body is kept.
   if (isTestLogin(to)) return false; // the owner's three test addresses belong to a real outside domain: nothing is ever sent to them
@@ -157,18 +167,18 @@ async function fulfilPaytest(env: PayEnv, p: any, meta: any, now: number) {
   const seq = -(((await db.prepare("SELECT COUNT(*) AS c FROM invoice WHERE brand=? AND fy=? AND seq<0").bind(brand.id, fy).first<{ c: number }>())?.c ?? 0) + 1);
   const number = `PAYTEST-${fy}-${-seq}`;
   const tax = splitGst(p.amount, p.currency, co.stateCode, undefined);
-  const data: InvoiceData = { number, issuedAt: now, brand, company: co, draft: false, buyer: { name: meta.org || meta.name, gstin: meta.taxId || undefined, email: p.email, phone: meta.phone || undefined, country: meta.country }, currency: p.currency,
+  const data: InvoiceData = { number, issuedAt: now, brand, company: co, draft: false, buyer: { name: meta.org || meta.name || p.email, gstin: meta.taxId || undefined, email: p.email, phone: meta.phone || undefined, country: meta.country }, currency: p.currency,
     lines: [{ description: `${brand.name}: payment test (nothing was bought)`, quantity: 1, amount: tax.taxable }], tax, paymentRef: p.rzp_payment_id ?? undefined, orderRef: p.id, paidAtMs: pinfo?.createdAtMs ?? now,
-    organizer: { name: meta.name, email: p.email, phone: meta.phone || undefined }, ...(pinfo ? { pay: pinfo } : {}), note: "This receipt is for a payment test. No game, pack or credit was bought." };
+    organizer: { name: meta.name, email: p.email, phone: meta.phone || undefined }, ...(meta.testRef ? { game: { id: meta.testRef } } : {}), ...(pinfo ? { pay: pinfo } : {}), note: "This receipt is for a payment test. No game, pack or credit was bought." };
   const token = "inv_" + randHex(16);
   await db.prepare("INSERT OR IGNORE INTO invoice(token,payment_id,brand,fy,seq,number,issued_ms,data) VALUES(?,?,?,?,?,?,?,?)").bind(token, p.id, brand.id, fy, seq, number, now, JSON.stringify(data)).run();
   const origin = env.PUBLIC_ORIGIN ?? meta.origin ?? "";
-  await sendMail(env, db, p.email, `${brand.name}: payment test received, receipt ${number}`, `Thank you. Your payment test worked. Nothing was bought.
+  await sendMail(env, db, p.email, `${brand.name}: payment test received, receipt ${number}`, `Thank you. The payment test worked. Nothing was bought.
 
 INVOICE
 ${renderInvoiceText(data)}
 View or print it: ${origin}/api/invoice/${token}`, now);
-  const result = { ok: true, paytest: true, orderId: p.id, total: p.amount, currency: p.currency, invoiceUrl: `/api/invoice/${token}`, invoiceNumber: number, razorpayPaymentId: p.rzp_payment_id ?? null };
+  const result = { ok: true, paytest: true, orderId: p.id, total: p.amount, currency: p.currency, invoiceUrl: `/api/invoice/${token}`, invoiceNumber: number, razorpayPaymentId: p.rzp_payment_id ?? null, payer: { email: isPendingEmail(p.email) ? null : p.email, phone: meta.phone ?? null, method: pinfo?.methodLabel ?? null, methodDetail: pinfo?.detail ?? null } };
   await db.prepare("UPDATE payment SET status='paid', paid_ms=?, result=? WHERE id=?").bind(now, JSON.stringify(result), p.id).run();
   return { result };
 }
@@ -186,7 +196,7 @@ export async function fulfil(env: PayEnv, paymentId: string, now: number, spend:
       if (q?.status !== "paying") break;
       await new Promise((r) => setTimeout(r, 200));
     }
-    return { error: "Your payment is being finished. Please wait a moment and refresh.", status: 409 };
+    return { error: "The payment is being finished. Please wait a moment and refresh.", status: 409 };
   }
   try {
     const r: any = await fulfilInner(env, paymentId, now, spend);
@@ -196,13 +206,14 @@ export async function fulfil(env: PayEnv, paymentId: string, now: number, spend:
 }
 async function fulfilInner(env: PayEnv, paymentId: string, now: number, spend: (n: number) => Promise<boolean>) {
   const db = env.DB;
-  const p = await db.prepare("SELECT * FROM payment WHERE id=?").bind(paymentId).first<any>();
+  let p = await db.prepare("SELECT * FROM payment WHERE id=?").bind(paymentId).first<any>();
   if (!p) return { error: "Unknown payment.", status: 404 };
   if (p.status === "paid") return { result: JSON.parse(p.result ?? "{}") };
-  if (!(await spend(6))) return { error: "Busy day. Your payment is safe; this will complete shortly.", status: 503 };
-  const meta = JSON.parse(p.meta);
+  if (!(await spend(6))) return { error: "Busy day. The payment is safe; this will complete shortly.", status: 503 };
+  let meta = JSON.parse(p.meta);
+  ({ p, meta } = await adoptRazorpayPayer(env, p, meta)); // Razorpay-first: the payer's e-mail and mobile are the ones Razorpay checked
   if (meta.paytest) return fulfilPaytest(env, p, meta, now);
-  const eh = await sha("email|" + p.email.toLowerCase());
+  const eh = await sha("email|" + cleanEmail(p.email));
   let org: string | null = meta.orgId ?? (await db.prepare("SELECT org FROM organizer_email WHERE email_hash=?").bind(eh).first<{ org: string }>())?.org ?? null;
   let organizerKey: string | null = null;
   const test = p.is_test ? 1 : 0; // a payment made in TEST mode (mode.ts): everything it creates is flagged too
@@ -235,6 +246,7 @@ async function fulfilInner(env: PayEnv, paymentId: string, now: number, spend: (
   if (published && typeof meta.creditInr === "number") await restoreCreditUses(db, published, now, meta.creditInr); // credit applied after this checkout was opened is given back: the game is already covered
   const cuses = published ? await creditUsesFor(db, published) : [];
   const creditTotal = Math.round(cuses.reduce((t, u) => t + u.amount, 0) * 100) / 100;
+  if (meta.deferInvoice) return paidFirst(env, p, meta, { org, organizerKey, published, restart, closed, closedGame, now }); // Razorpay-first: paid now, the tax invoice follows (issueInvoice below)
   // invoice: brand-wise numbering per financial year; the legal entity is always the supplier; missing supplier details => DRAFT, never a fake valid invoice
   const co = company(env);
   const fy = financialYear(new Date(now));
@@ -255,53 +267,267 @@ async function fulfilInner(env: PayEnv, paymentId: string, now: number, spend: (
     try { const r = await db.prepare("SELECT v FROM kv WHERE k=?").bind(`contact/${eidForInvoice}`).first<{ v: string }>(); contact = r ? JSON.parse(r.v) : {}; } catch { contact = {}; }
   }
   const organizer = { name: meta.paidBy && meta.paidBy !== "organizer" ? contact.name : meta.name ?? contact.name, org: meta.org || undefined, email: contact.email ?? p.email, phone: contact.phone ? String(contact.phone) : meta.phone };
+  const cp = meta.priceAdjust && !closed && creditTotal === 0 ? meta.priceAdjust as { listMinor: number; adjustMinor: number; netMinor: number } : null; // the owner set a price for this game: the invoice shows ONE line with the amount actually charged
+  const cpnLines = cp && Math.round(p.amount * 100) === cp.netMinor ? [{ description: `${brand.name}: up to ${p.pack} players (one game), ${PRICE_LINE}`, quantity: 1, amount: tax.taxable }] : null;
   const data: InvoiceData = { number, issuedAt: now, brand, company: co, draft: !!test || companyGaps(co).length > 0, buyer: { name: meta.org || meta.name || "", gstin: meta.taxId || undefined, email: p.email, phone: meta.phone || undefined, country: meta.country }, currency: p.currency,
-    lines: [{ description: closed ? `${brand.name}: payment received after the game closed (kept as credit)` : `${brand.name}: up to ${p.pack} participants (one game)${creditTotal > 0 ? (p.amount > 0 ? ", balance after credit" : ", paid from credit") : ""}`, quantity: 1, amount: tax.taxable }], tax, paymentRef: p.rzp_payment_id ?? undefined, orderRef: p.id, paidAtMs: pinfo?.createdAtMs ?? now, ...(eidForInvoice ? { game: { id: eidForInvoice, ...(gameName ? { name: gameName } : {}), ...(gameStart ? { startMs: gameStart } : {}) } } : {}), organizer, ...(pinfo ? { pay: pinfo } : {}),
+    lines: cpnLines ?? [{ description: closed ? `${brand.name}: payment received after the game closed (kept as credit)` : `${brand.name}: up to ${p.pack} players (one game)${creditTotal > 0 ? (p.amount > 0 ? ", balance after credit" : ", paid from credit") : ""}`, quantity: 1, amount: tax.taxable }], tax, paymentRef: p.rzp_payment_id ?? undefined, orderRef: p.id, paidAtMs: pinfo?.createdAtMs ?? now, ...(eidForInvoice ? { game: { id: eidForInvoice, ...(gameName ? { name: gameName } : {}), ...(gameStart ? { startMs: gameStart } : {}) } } : {}), organizer, ...(pinfo ? { pay: pinfo } : {}),
     ...(creditTotal > 0 ? { note: `${cuses.map((u) => `Paid from credit of invoice ${u.invoice ?? u.credit_id}: ${rs(u.amount, p.currency)}`).join("; ")}.` } : {}) };
   await db.prepare("INSERT OR IGNORE INTO invoice(token,payment_id,brand,fy,seq,number,issued_ms,data) VALUES(?,?,?,?,?,?,?,?)").bind(token, p.id, brand.id, fy, seq, number, now, JSON.stringify(data)).run();
   const origin = env.PUBLIC_ORIGIN ?? meta.origin ?? "";
   const keptCredit = closed ? await creditFromPayment(db, { ...p, paid_ms: now }, org, meta.eid, now, "late") : null; // a payment for a cancelled or closed game: credit, never a refund
   const lines = [
-    closed ? `Thank you. Your payment was received after the game "${meta.eid}" had been cancelled or closed. We do not give refunds: it stays as credit for the organizer's next game${keptCredit ? ` until ${new Date(keptCredit.expires_ms - 1).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata", day: "numeric", month: "short", year: "numeric" })}` : ""}.` : `Thank you. Payment received for up to ${p.pack} participants.`,
-    closed ? "The organizer has been told." : published ? `Your game is live. Share the link from your console: ${origin}/zc.html?e=${published}` : organizerKey ? `Your organizer key (keep it private, it is shown only once): ${organizerKey}\nOpen ${origin}/zc.html and paste it to begin.` : `Use your existing organizer key at ${origin}/zc.html to create this game.`,
+    closed ? `Thank you. The payment was received after the game "${meta.eid}" had been cancelled or closed. It stays as credit for the organizer's next game${keptCredit ? ` until ${new Date(keptCredit.expires_ms - 1).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata", day: "numeric", month: "short", year: "numeric" })}` : ""}.` : `Thank you. Payment received for up to ${p.pack} participants.`,
+    closed ? "The organizer has been told." : published ? `The game is live. Share the link from the console: ${origin}/zc.html?e=${published}` : organizerKey ? `The organizer key (keep it safe, it is shown only once): ${organizerKey}\nOpen ${origin}/zc.html and paste it to begin.` : `Use the existing organizer key at ${origin}/zc.html to create this game.`,
     `\nINVOICE\n${renderInvoiceText(data)}\nView or print it: ${origin}/api/invoice/${token}`,
   ];
   await sendMail(env, db, p.email, `${brand.name}: payment received, invoice ${number}`, lines.join("\n\n"), now);
   // the same invoice goes to the organizer's own e-mail when someone else paid (a Co-host or a pay link) or the organizer's e-mail differs from the payer's
-  const orgMail = typeof organizer.email === "string" ? organizer.email.trim().toLowerCase() : "";
-  const teamTo = await teamEmails(env, org, eidForInvoice || meta.eid || null).catch(() => null), invSeen = new Set<string>([p.email.trim().toLowerCase()]), invTo: string[] = []; // the organizer and every Host get the invoice once; the payer already has the receipt
-  for (const t0 of [orgMail, teamTo?.organizer ?? "", ...(teamTo?.hosts ?? [])]) { const t = (t0 ?? "").trim().toLowerCase(); if (t && EMAIL.test(t) && !invSeen.has(t)) { invSeen.add(t); invTo.push(t); } }
-  const ownerSet = new Set([orgMail, (teamTo?.organizer ?? "").trim().toLowerCase()]); // the organizer gets the whole invoice; a Host only hears that the game is paid (a Host may be outside the paying company, so no buyer details and no invoice link)
-  for (const to of invTo) await sendMail(env, db, to, `${brand.name}: ${ownerSet.has(to) ? `invoice ${number} for your game` : `your game ${eidForInvoice ?? ""} is paid`}`, ownerSet.has(to)
-    ? `An invoice for your game${eidForInvoice ? ` ${eidForInvoice}` : ""} was issued by ${brand.name}.
+  const orgMail = typeof organizer.email === "string" ? cleanEmail(organizer.email) : "";
+  const teamTo = await teamEmails(env, org, eidForInvoice || meta.eid || null).catch(() => null), invSeen = new Set<string>([cleanEmail(p.email)]), invTo: string[] = []; // the organizer and every Host get the invoice once; the payer already has the receipt
+  for (const t0 of [orgMail, teamTo?.organizer ?? "", ...(teamTo?.hosts ?? [])]) { const t = cleanEmail((t0 ?? "")); if (t && EMAIL.test(t) && !invSeen.has(t)) { invSeen.add(t); invTo.push(t); } }
+  const ownerSet = new Set([orgMail, cleanEmail((teamTo?.organizer ?? ""))]); // the organizer gets the whole invoice; a Host only hears that the game is paid (a Host may be outside the paying company, so no buyer details and no invoice link)
+  for (const to of invTo) await sendMail(env, db, to, `${brand.name}: ${ownerSet.has(to) ? `invoice ${number} for the game` : `the game ${eidForInvoice ?? ""} is paid`}`, ownerSet.has(to)
+    ? `An invoice for the game${eidForInvoice ? ` ${eidForInvoice}` : ""} was issued by ${brand.name}.
 
 INVOICE
 ${renderInvoiceText(data)}
 
 View or print it: ${origin}/api/invoice/${token}
 Download the PDF: ${origin}/api/invoice/${token}.pdf`
-    : `Good news: the game${eidForInvoice ? ` ${eidForInvoice}` : ""} you are a Host of is paid for and ready. The organizer has the invoice. Open your Host link to see the game.`, now);
+    : `Good news: the game${eidForInvoice ? ` ${eidForInvoice}` : ""} you are a Co-organizer of is paid for and ready. The organizer has the invoice. Open the Co-organizer link to see the game.`, now);
   await recordCommission(env, p, tax.taxable, now); // refer & earn: a commission row for a referred, PAID purchase only
   const result = { ok: true, orderId: p.id, pack: p.pack, total: p.amount, tax: p.tax, currency: p.currency, invoiceUrl: `/api/invoice/${token}`, invoiceNumber: number, razorpayPaymentId: p.rzp_payment_id ?? null, organizerKey, newOrganizer: !!organizerKey, published: !!published, eid: published, restartedAtMs: restart ? (1692803367 + (restart - 1) * 3) * 1000 : null, ...(keptCredit ? { creditKept: true, creditId: keptCredit.id, creditExpiresMs: keptCredit.expires_ms } : {}) };
   await db.prepare("UPDATE payment SET status='paid', paid_ms=?, org=?, result=? WHERE id=?").bind(now, org, JSON.stringify(result), p.id).run();
   if (meta.eid) { try { await keepLegalParty(db, meta.eid, now); } catch { /* the deletion step copies it again */ } } // permanent record of who paid and the organizer's invoice details
   if (keptCredit && closedGame) await mailCreditCreated(env, keptCredit, closedGame, "late", now); // the Organizer and the Hosts are told once; the payer got the receipt above
-  if (published) await recordFunnelForOrg({ DB: db }, org, "published", now); // marketing funnel (visits.ts): counted once, against the visitor's first visit
-  await recordFunnelForOrg({ DB: db }, org, "paid", now);
+  if (published) await recordFunnelForOrg({ ...env, DB: db }, org, "published", now); // marketing funnel (visits.ts): counted once, against the visitor's first visit
+  await recordFunnelForOrg({ ...env, DB: db }, org, "paid", now);
+  await recordFunnel(env as any, "payment_succeeded", meta.eid ?? p.id, now, { org }); // sales funnel (funnel.ts)
   // E9: the owner is told of every paid order, once (the claim is inside notifyOwnerOfPaidOrder), whichever path - the webhook or the verify call - got here first
-  try { await notifyOwnerOfPaidOrder((subject, text) => sendMail(env, db, ownerAddress(env), subject, text, now, { owner: true }), db, { gameLabel: brand.name, paymentId: p.id, txnId: p.txn_id ?? txnIdOf(p.id), planLabel: closed ? `payment kept as credit (up to ${p.pack} players)` : `up to ${p.pack} players`, amountText: rs(p.amount, p.currency), organizerName: String(organizer.name ?? meta.name ?? ""), organizerEmail: String(organizer.email ?? p.email), eid: eidForInvoice ?? null, test: !!test }, now); } catch { /* a note to the owner never blocks a payment */ }
+  try { await notifyOwnerOfPaidOrder((subject, text) => sendMail(env, db, ownerAddress(env), subject, text, now, { owner: true }), db, { gameLabel: brand.name, paymentId: p.id, txnId: p.txn_id ?? txnIdOf(p.id), planLabel: closed ? `payment kept as credit (up to ${p.pack} players)` : `up to ${p.pack} players${cpnLines ? `, owner set price: list ${rs(cp!.listMinor / 100, p.currency)}, adjustment ${cp!.adjustMinor < 0 ? "minus" : "plus"} ${rs(Math.abs(cp!.adjustMinor) / 100, p.currency)}` : ""}`, amountText: rs(p.amount, p.currency), organizerName: String(organizer.name ?? meta.name ?? ""), organizerEmail: String(organizer.email ?? p.email), eid: eidForInvoice ?? null, test: !!test }, now); } catch { /* a note to the owner never blocks a payment */ }
   return { result };
 }
 
+/** Razorpay-first (payfirst.ts): the e-mail and mobile of the payment are the ones the payer gave Razorpay, read back from Razorpay itself once the payment is captured. Only a payment that still holds the placeholder is touched: an address typed by an older caller stays. */
+async function adoptRazorpayPayer(env: PayEnv, p: any, meta: any): Promise<{ p: any; meta: any }> {
+  if (!isPendingEmail(p.email) || !p.rzp_payment_id) return { p, meta };
+  const rz = rzpOf(env); if (!rz) return { p, meta };
+  let info: ReturnType<typeof paymentInfo>;
+  try { info = paymentInfo(await fetchPayment(rz, p.rzp_payment_id)); } catch { return { p, meta }; } // the invoice mails wait until the next try
+  const mail = typeof info.email === "string" ? refusedMail(info.email) : null;
+  if (!mail) return { p, meta };
+  const contact = info.contact ? String(info.contact).slice(0, 20) : "";
+  const m2 = { ...meta, rzpPayer: { email: accountEmail(mail), ...(contact ? { contact } : {}) }, ...(contact && !meta.phone ? { phone: contact } : {}) };
+  await env.DB.prepare("UPDATE payment SET email=?, meta=? WHERE id=?").bind(accountEmail(mail), JSON.stringify(m2), p.id).run();
+  return { p: { ...p, email: accountEmail(mail) }, meta: m2 };
+}
+const contactOf = async (db: D1, eid: string | undefined): Promise<any> => { if (!eid) return {}; try { const r = await db.prepare("SELECT v FROM kv WHERE k=?").bind(`contact/${eid}`).first<{ v: string }>(); return r ? JSON.parse(r.v) : {}; } catch { return {}; } };
+/** The first half of a Razorpay-first payment, run at capture: the game is paid and the pack is theirs at once (nothing waits for the form); the TAX INVOICE waits for the payer's optional details (issueInvoice) or for `INVOICE_AFTER_MS`. */
+async function paidFirst(env: PayEnv, p: any, meta: any, c: { org: string; organizerKey: string | null; published: string | null; restart: number | null; closed: boolean; closedGame: any; now: number }) {
+  const db = env.DB, { org, organizerKey, published, restart, closed, closedGame, now } = c;
+  const test = p.is_test ? 1 : 0, rz = rzpOf(env); let pinfo: ReturnType<typeof paymentInfo> | undefined = meta.rzp;
+  if (rz && p.rzp_payment_id && !test) { try { pinfo = paymentInfo(await fetchPayment(rz, p.rzp_payment_id)); } catch { /* the method line is simply left out */ } }
+  const m2 = { ...meta, ...(pinfo ? { rzp: pinfo } : {}) };
+  const keptCredit = closed ? await creditFromPayment(db, { ...p, paid_ms: now }, org, meta.eid, now, "late") : null; // a payment for a cancelled or closed game: credit, never a refund
+  await recordCommission(env, p, splitGst(p.amount, p.currency, company(env).stateCode, undefined).taxable, now);
+  const result = { ok: true, orderId: p.id, pack: p.pack, total: p.amount, tax: p.tax, currency: p.currency, razorpayPaymentId: p.rzp_payment_id ?? null, country: meta.country ?? "IN",
+    payer: { email: isPendingEmail(p.email) ? null : p.email, phone: m2.phone ?? null, method: pinfo?.methodLabel ?? null, methodDetail: pinfo?.detail ?? null },
+    invoicePending: true, invoiceDueMs: now + INVOICE_AFTER_MS, invoiceUrl: null as string | null, invoiceNumber: null as string | null,
+    organizerKey, newOrganizer: !!organizerKey, published: !!published, eid: published, restartedAtMs: restart ? (1692803367 + (restart - 1) * 3) * 1000 : null, ...(keptCredit ? { creditKept: true, creditId: keptCredit.id, creditExpiresMs: keptCredit.expires_ms } : {}) };
+  await db.prepare("UPDATE payment SET status='paid', paid_ms=?, org=?, result=?, meta=? WHERE id=?").bind(now, org, JSON.stringify(result), JSON.stringify(m2), p.id).run();
+  if (meta.eid) { try { await keepLegalParty(db, meta.eid, now); } catch { /* the deletion step copies it again */ } }
+  if (keptCredit && closedGame) await mailCreditCreated(env, keptCredit, closedGame, "late", now);
+  if (published) await recordFunnelForOrg({ ...env, DB: db }, org, "published", now);
+  await recordFunnelForOrg({ ...env, DB: db }, org, "paid", now);
+  await recordFunnel(env as any, "payment_succeeded", meta.eid ?? p.id, now, { org }); // sales funnel (funnel.ts), as in fulfilInner
+  const contact = await contactOf(db, meta.eid ?? published ?? undefined);
+  const pa = meta.priceAdjust as { listMinor: number; adjustMinor: number; netMinor: number } | undefined, cp = pa && !closed && Math.round(p.amount * 100) === pa.netMinor ? pa : null; // the owner set a price for this game and it was charged as set (no credit mixed in)
+  try { await notifyOwnerOfPaidOrder((subject, text) => sendMail(env, db, ownerAddress(env), subject, text, now, { owner: true }), db, { gameLabel: brand.name, paymentId: p.id, txnId: p.txn_id ?? txnIdOf(p.id), planLabel: closed ? `payment kept as credit (up to ${p.pack} players)` : `up to ${p.pack} players${cp ? `, owner set price: list ${rs(cp.listMinor / 100, p.currency)}, adjustment ${cp.adjustMinor < 0 ? "minus" : "plus"} ${rs(Math.abs(cp.adjustMinor) / 100, p.currency)}` : ""}`, amountText: rs(p.amount, p.currency), organizerName: String(contact.name ?? meta.name ?? ""), organizerEmail: String(contact.email ?? (isPendingEmail(p.email) ? "" : p.email)), eid: meta.eid ?? published ?? null, test: !!test }, now); } catch { /* a note to the owner never blocks a payment */ }
+  return { result };
+}
+/** The second half of a Razorpay-first payment: the TAX INVOICE and its mails, issued ONCE (the invoice table holds one row per payment, so a repeat only reads it back) with the optional details the payer gave. A tax invoice is never edited after this. Twin of the invoice and mail part of fulfilInner: keep the two in step. */
+export async function issueInvoice(env: PayEnv, paymentId: string, now: number, spend?: (n: number) => Promise<boolean>, details?: { name: string; org: string; taxId: string }) {
+  const db = env.DB;
+  const p = await db.prepare("SELECT * FROM payment WHERE id=?").bind(paymentId).first<any>();
+  if (!p) return { error: "Unknown payment.", status: 404 };
+  const result0 = JSON.parse(p.result ?? "{}");
+  const done = (inv: { token: string; number: string }, fresh: boolean) => ({ result: { ...result0, invoicePending: false, invoiceUrl: `/api/invoice/${inv.token}`, invoiceNumber: inv.number }, fresh });
+  const had = await db.prepare("SELECT token, number FROM invoice WHERE payment_id=?").bind(p.id).first<{ token: string; number: string }>();
+  if (had) return done(had, false);
+  if (p.status !== "paid") return { error: "The payment is still being confirmed. Please wait a moment and try again.", status: 409 };
+  let meta = JSON.parse(p.meta);
+  if (!meta.deferInvoice) return { result: result0, fresh: false }; // an older-style payment: its invoice was issued with the payment
+  if (spend && !(await spend(4))) return { error: "Busy day. The invoice will follow shortly.", status: 503 };
+  if (details) meta = { ...meta, name: details.name, org: details.org, taxId: details.taxId };
+  const test = p.is_test ? 1 : 0, org: string | null = p.org ?? null, published: string | null = result0.published ? (result0.eid ?? null) : null, closed = !!result0.creditKept, organizerKey: string | null = result0.organizerKey ?? null;
+  const co = company(env), fy = financialYear(new Date(now)), tax = splitGst(p.amount, p.currency, co.stateCode, meta.taxId || undefined);
+  const seq = test
+    ? -(((await db.prepare("SELECT COUNT(*) AS c FROM invoice WHERE brand=? AND fy=? AND seq<0").bind(brand.id, fy).first<{ c: number }>())?.c ?? 0) + 1)
+    : ((await db.prepare("SELECT COALESCE(MAX(seq),0) AS m FROM invoice WHERE brand=? AND fy=? AND seq>0").bind(brand.id, fy).first<{ m: number }>())?.m ?? 0) + 1;
+  const number = test ? `TEST-${fy}-${-seq}` : formatInvoiceNumber(brand, fy, seq);
+  const pinfo: ReturnType<typeof paymentInfo> | undefined = meta.rzp;
+  const cuses = published ? await creditUsesFor(db, published) : [];
+  const creditTotal = Math.round(cuses.reduce((t, u) => t + u.amount, 0) * 100) / 100;
+  const eidForInvoice = meta.eid ?? published ?? undefined;
+  let gameName: string | undefined, gameStart: number | undefined;
+  if (eidForInvoice) { try { const g = await db.prepare("SELECT config, start_round FROM engagement WHERE id=?").bind(eidForInvoice).first<{ config: string | null; start_round: number }>(); if (g) { try { const c = g.config ? JSON.parse(g.config) : {}; if (typeof c.name === "string" && c.name) gameName = c.name.slice(0, 120); } catch { /* the id is the name */ } gameStart = (1692803367 + (g.start_round - 1) * 3) * 1000; } } catch { /* optional */ } }
+  const contact = await contactOf(db, eidForInvoice);
+  const buyerMail = isPendingEmail(p.email) ? undefined : p.email;
+  const organizer = { name: meta.paidBy && meta.paidBy !== "organizer" ? contact.name : meta.name || contact.name, org: meta.org || undefined, email: contact.email ?? buyerMail, phone: contact.phone ? String(contact.phone) : meta.phone };
+  const cp = meta.priceAdjust && !closed && creditTotal === 0 ? meta.priceAdjust as { listMinor: number; adjustMinor: number; netMinor: number } : null; // the owner set a price for this game: the invoice shows ONE line with the amount actually charged (twin of fulfilInner)
+  const cpnLines = cp && Math.round(p.amount * 100) === cp.netMinor ? [{ description: `${brand.name}: up to ${p.pack} players (one game), ${PRICE_LINE}`, quantity: 1, amount: tax.taxable }] : null;
+  const data: InvoiceData = { number, issuedAt: now, brand, company: co, draft: !!test || companyGaps(co).length > 0, buyer: { name: meta.org || meta.name || buyerMail || meta.phone || "Customer", gstin: meta.taxId || undefined, email: buyerMail, phone: meta.phone || undefined, country: meta.country }, currency: p.currency,
+    lines: cpnLines ?? [{ description: closed ? `${brand.name}: payment received after the game closed (kept as credit)` : `${brand.name}: up to ${p.pack} players (one game)${creditTotal > 0 ? (p.amount > 0 ? ", balance after credit" : ", paid from credit") : ""}`, quantity: 1, amount: tax.taxable }], tax, paymentRef: p.rzp_payment_id ?? undefined, orderRef: p.id, paidAtMs: pinfo?.createdAtMs ?? p.paid_ms ?? now, ...(eidForInvoice ? { game: { id: eidForInvoice, ...(gameName ? { name: gameName } : {}), ...(gameStart ? { startMs: gameStart } : {}) } } : {}), organizer, ...(pinfo ? { pay: pinfo } : {}),
+    ...(creditTotal > 0 ? { note: `${cuses.map((u) => `Paid from credit of invoice ${u.invoice ?? u.credit_id}: ${rs(u.amount, p.currency)}`).join("; ")}.` } : {}) };
+  const token = "inv_" + randHex(16);
+  const ins = await db.prepare("INSERT OR IGNORE INTO invoice(token,payment_id,brand,fy,seq,number,issued_ms,data) VALUES(?,?,?,?,?,?,?,?)").bind(token, p.id, brand.id, fy, seq, number, now, JSON.stringify(data)).run();
+  if ((ins.meta?.changes ?? 0) < 1) { const x = await db.prepare("SELECT token, number FROM invoice WHERE payment_id=?").bind(p.id).first<{ token: string; number: string }>(); return x ? done(x, false) : { error: "The invoice is being finished. Please try again in a moment.", status: 409 }; } // another call issued it first
+  const origin = env.PUBLIC_ORIGIN ?? meta.origin ?? "";
+  const keptCredit = closed ? { expires_ms: Number(result0.creditExpiresMs) || 0 } : null;
+  const lines = [
+    closed ? `Thank you. The payment was received after the game "${meta.eid}" had been cancelled or closed. It stays as credit for the organizer's next game${keptCredit && keptCredit.expires_ms ? ` until ${new Date(keptCredit.expires_ms - 1).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata", day: "numeric", month: "short", year: "numeric" })}` : ""}.` : `Thank you. Payment received for up to ${p.pack} participants.`,
+    closed ? "The organizer has been told." : published ? `The game is live. Share the link from the console: ${origin}/zc.html?e=${published}` : organizerKey ? `The organizer key (keep it safe, it is shown only once): ${organizerKey}\nOpen ${origin}/zc.html and paste it to begin.` : `Use the existing organizer key at ${origin}/zc.html to create this engagement.`,
+    `\nINVOICE\n${renderInvoiceText(data)}\nView or print it: ${origin}/api/invoice/${token}`,
+  ];
+  await sendMail(env, db, p.email, `${brand.name}: payment received, invoice ${number}`, lines.join("\n\n"), now);
+  const orgMail = typeof organizer.email === "string" ? accountEmail(organizer.email) : "";
+  const teamTo = await teamEmails(env, org, eidForInvoice || meta.eid || null).catch(() => null), invSeen = new Set<string>([accountEmail(p.email)]), invTo: string[] = [];
+  for (const t0 of [orgMail, teamTo?.organizer ?? "", ...(teamTo?.hosts ?? [])]) { const t = accountEmail((t0 ?? "")); if (t && EMAIL.test(t) && !invSeen.has(t)) { invSeen.add(t); invTo.push(t); } }
+  const ownerSet = new Set([orgMail, accountEmail((teamTo?.organizer ?? ""))]);
+  for (const to of invTo) await sendMail(env, db, to, `${brand.name}: ${ownerSet.has(to) ? `invoice ${number} for the game` : `the game ${eidForInvoice ?? ""} is paid`}`, ownerSet.has(to)
+    ? `An invoice for the game${eidForInvoice ? ` ${eidForInvoice}` : ""} was issued by ${brand.name}.
+
+INVOICE
+${renderInvoiceText(data)}
+
+View or print it: ${origin}/api/invoice/${token}
+Download the PDF: ${origin}/api/invoice/${token}.pdf`
+    : `Good news: the game${eidForInvoice ? ` ${eidForInvoice}` : ""} you are a Co-organizer of is paid for and ready. The organizer has the invoice. Open the Co-organizer link to see the game.`, now);
+  const result = { ...result0, invoicePending: false, invoiceUrl: `/api/invoice/${token}`, invoiceNumber: number };
+  await db.prepare("UPDATE payment SET meta=?, result=? WHERE id=?").bind(JSON.stringify(meta), JSON.stringify(result), p.id).run();
+  if (meta.eid) { try { await keepLegalParty(db, meta.eid, now); } catch { /* the deletion step copies it again */ } } // the invoice details are now part of the permanent record of who paid
+  return { result, fresh: true };
+}
+/** Issues the invoice of every Razorpay-first payment whose payer closed the page: INVOICE_AFTER_MS after the capture, "as is" (billed to the Razorpay e-mail and mobile, no company, no GST number). Run by the scheduled tick, and by a read of the receipt. */
+export async function issueDueInvoices(env: PayEnv, now: number): Promise<number> {
+  let n = 0;
+  try {
+    const rows = ((await env.DB.prepare("SELECT id FROM payment WHERE status='paid' AND paid_ms IS NOT NULL AND paid_ms<=? AND result LIKE '%\"invoicePending\":true%' ORDER BY paid_ms LIMIT 20").bind(now - INVOICE_AFTER_MS).all()) as any).results ?? [];
+    for (const r of rows as { id: string }[]) { try { const x: any = await issueInvoice(env, r.id, now); if (x.fresh) n++; } catch { /* the next tick tries again */ } }
+  } catch { /* the next tick tries again */ }
+  return n;
+}
+/** What the payer's browser may be told about a Razorpay-first payment (never the organizer key: that is mailed with the invoice). */
+const publicReceipt = (r: any) => { const { organizerKey, ...rest } = r ?? {}; return { ...rest, newOrganizer: !!organizerKey }; };
+
 /** Which keys may pay a game of their account, and how the payment is shown. */
 export const PAYER: Record<string, string> = { master: "organizer", host: "host", cohost: "co-host" };
+
+/** The console's signed notice is valid for this long either side of its time stamp (a copy sent later is refused, so an old notice cannot be replayed for ever). */
+export const CONSOLE_NOTICE_WINDOW_MS = 5 * 60_000;
+/** A shared secret shorter than this is treated as no secret at all (the address stays 404): a short secret can be guessed. Use a long random value. */
+export const CONSOLE_SECRET_MIN = 32;
+const hmacHexOf = async (secret: string, msg: string): Promise<string> => { const k = await crypto.subtle.importKey("raw", new TextEncoder().encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]); return Array.from(new Uint8Array(await crypto.subtle.sign("HMAC", k, new TextEncoder().encode(msg))), (b) => b.toString(16).padStart(2, "0")).join(""); };
+const sameText = (a: string, b: string): boolean => { if (a.length !== b.length) return false; let d = 0; for (let i = 0; i < a.length; i++) d |= a.charCodeAt(i) ^ b.charCodeAt(i); return d === 0; };
+/**
+ * POST /api/console/paid (owner rules 1.1): the master console says "this game is paid". The notice is {orderId, gameId} signed with CONSOLE_PAID_SECRET:
+ * header x-console-timestamp = milliseconds, header x-console-signature = hex HMAC-SHA-256 of `${timestamp}.${exact body}`. Without the secret, or without OWNER_RULES=1.1,
+ * the address answers 404 and no money switch exists. One order id counts once: a repeat of the same notice answers ok with already:true and changes nothing; an order id
+ * that was used for another game is refused. No money is taken here and nothing is charged: the game only learns that the console already took the payment.
+ */
+async function consolePaid(req: Request, env: PayEnv, now: number): Promise<Response> {
+  const secret = env.CONSOLE_PAID_SECRET;
+  if (!secret || secret.length < CONSOLE_SECRET_MIN || env.OWNER_RULES !== "1.1" || req.method !== "POST") return json({ error: "Not found" }, 404);
+  if (Number(req.headers.get("content-length") ?? 0) > 1024) return json({ error: "Too large." }, 413); // refused before the body is read
+  const raw = await req.text();
+  if (raw.length > 1024) return json({ error: "Too large." }, 413);
+  const ts = Number(req.headers.get("x-console-timestamp")), sig = (req.headers.get("x-console-signature") ?? "").trim().toLowerCase();
+  if (!Number.isFinite(ts) || Math.abs(now - ts) > CONSOLE_NOTICE_WINDOW_MS) return json({ error: "This notice is too old or has no time.", code: "stale" }, 401);
+  if (!/^[0-9a-f]{64}$/.test(sig) || !sameText(sig, await hmacHexOf(secret, `${ts}.${raw}`))) return json({ error: "The signature does not match.", code: "bad-signature" }, 401);
+  let b: any = null; try { b = JSON.parse(raw); } catch { /* answered below */ }
+  const orderId = typeof b?.orderId === "string" ? b.orderId : "", gameId = typeof b?.gameId === "string" ? b.gameId : "";
+  if (!/^[A-Za-z0-9_-]{6,64}$/.test(orderId) || !/^[A-Za-z0-9_-]{3,40}$/.test(gameId)) return json({ error: "A notice needs an order id and a game id.", code: "bad-notice" }, 400);
+  const db = env.DB, key = `cpaid/${orderId}`;
+  const answerSeen = (v: string): Response => { let was: any = {}; try { was = JSON.parse(v); } catch { /* unreadable: treated as another game */ } return was.gameId === gameId ? json({ ok: true, already: true, gameId }) : json({ error: "This order id was already used for another game.", code: "order-reused" }, 409); };
+  const gameOfClaim = (v: string): string | null => { try { const x = JSON.parse(v); return typeof x?.gameId === "string" ? x.gameId : null; } catch { return null; } };
+  const seen = await db.prepare("SELECT v FROM kv WHERE k=?").bind(key).first<{ v: string }>();
+  if (seen && gameOfClaim(seen.v) !== gameId) return answerSeen(seen.v); // this order id belongs to another game (or is unreadable): refused
+  const g = await db.prepare("SELECT id, org, cap, pack, start_round, cancelled_ms, unplayed_ms FROM engagement WHERE id=?").bind(gameId).first<any>();
+  if (!g) return json({ error: "No such game.", code: "no-game" }, 404);
+  // A repeat of a notice answers "already" ONLY when the game really is paid. A claim row with an unpaid game (a notice that stopped half way) is not a success: the repeat finishes the job below (audit 1 M1, 22 Nov).
+  // The published and paid-by markers are written by an earlier try that stopped after the batch (audit 2 L2, 23 Nov), so a repeat writes them again (insert-or-ignore: harmless when they exist).
+  const markers = async () => {
+    await db.prepare("INSERT OR IGNORE INTO kv(k,v) VALUES(?,?)").bind(`pub/${gameId}`, String(now)).run();
+    await db.prepare("INSERT OR IGNORE INTO kv(k,v) VALUES(?,?)").bind(`paidby/${gameId}`, JSON.stringify({ by: "console", ms: now })).run();
+  };
+  if (seen && (g.pack ?? 0) > 0) { await markers(); return json({ ok: true, already: true, gameId }); }
+  if (g.cancelled_ms || g.unplayed_ms) return json({ error: "This game was cancelled or closed, so it cannot be marked paid.", code: "game-closed" }, 409);
+  const pack = PACKS.find((x) => x[0] >= g.cap)?.[0] ?? null;
+  if (!pack) return json({ error: "That many people needs a custom arrangement.", code: "no-pack" }, 400);
+  if ((g.pack ?? 0) > 0) return json({ ok: true, gameId, paid: true, already: true }); // already paid: nothing to mark, and this order id is not used up for no effect
+  // The order id is claimed and the game is marked in ONE batch (all or nothing), and the game is marked only if the claim row names THIS game: so a failure half way leaves no claim behind,
+  // and two notices with one order id for two games, sent at the same moment, cannot both mark a game.
+  const mine = JSON.stringify({ gameId, ms: now });
+  let done: any[];
+  try {
+    done = await db.batch([
+      db.prepare("INSERT INTO kv(k,v) VALUES(?,?) ON CONFLICT(k) DO NOTHING").bind(key, mine),
+      db.prepare("UPDATE engagement SET pack=?, cap=MIN(cap, ?) WHERE id=? AND pack=0 AND cancelled_ms IS NULL AND unplayed_ms IS NULL AND EXISTS (SELECT 1 FROM kv WHERE k=? AND json_extract(v,'$.gameId')=?)").bind(pack, pack, gameId, key, gameId),
+    ]);
+  } catch {
+    // The reply may have been lost AFTER the database committed (audit 2 L1, 23 Nov): look before letting the order id go. If the game is paid and the claim row is this notice's own, the batch did
+    // commit, so the claim stays and the notice is finished as a success below; only an unpaid game gives the claim up.
+    let committed = false;
+    try {
+      const nowG = await db.prepare("SELECT pack FROM engagement WHERE id=?").bind(gameId).first<{ pack: number | null }>();
+      const mineNow = await db.prepare("SELECT v FROM kv WHERE k=?").bind(key).first<{ v: string }>();
+      committed = (nowG?.pack ?? 0) > 0 && mineNow?.v === mine;
+      if (!committed) await db.prepare("DELETE FROM kv WHERE k=? AND v=?").bind(key, mine).run();
+    } catch { /* the claim is only ever honoured for an unpaid game (above), so a leftover cannot hide it */ }
+    if (!committed) return json({ error: "The database could not finish this just now. Send the same notice again.", code: "try-again" }, 503);
+    done = [null, { meta: { changes: 1 } }]; // it did commit: carry on as for any marked game
+  }
+  const changed = (done[1] as any)?.meta?.changes ?? 0;
+  if (changed === 0) { // nothing was marked: the order id belongs to another game, or the game was paid or cancelled between the check and the write
+    const w = await db.prepare("SELECT v FROM kv WHERE k=?").bind(key).first<{ v: string }>();
+    if (w && gameOfClaim(w.v) !== gameId) return answerSeen(w.v);
+    const now0 = await db.prepare("SELECT pack FROM engagement WHERE id=?").bind(gameId).first<{ pack: number | null }>();
+    if (!now0 || (now0.pack ?? 0) === 0) { await db.prepare("DELETE FROM kv WHERE k=? AND v=?").bind(key, mine).run(); return json({ error: "This game was cancelled or closed, so it cannot be marked paid.", code: "game-closed" }, 409); } // the order id is released: the console can send it again
+  }
+  if (changed > 0) {
+    await markers();
+    if ((1692803367 + (g.start_round - 1) * 3) * 1000 <= now) { // held because it was not paid at its start time: the first number comes 2 minutes after the payment, as for any late payment
+      const restart = Math.floor((now / 1000 - 1692803367) / 3) + 2 + LATE_PAY_LEAD_ROUNDS - GRACE_ROUNDS;
+      await db.prepare("UPDATE engagement SET start_round=? WHERE id=?").bind(restart, gameId).run();
+    }
+  }
+  return json({ ok: true, gameId, paid: true, ...(changed > 0 ? {} : { already: true }) });
+}
+
+/**
+ * An AI assistant cannot pay: an AI key (kind "ai"), or a co-organizer's key used through an AI work link (header x-cb-link), is refused on every payment address with one plain
+ * message (ai-pay.ts), HTTP 403, before anything else is looked at (owner rules, consent and the body come after). A request with no key, or with any other key, passes untouched.
+ */
+export async function aiPayGuard(req: Request, env: PayEnv, now: number): Promise<Response | null> {
+  if (!PAY_PATH.test(new URL(req.url).pathname)) return null;
+  const presented = (req.headers.get("x-organizer") || (req.headers.get("authorization") ?? "").replace(/^Bearer\s+/i, "")).trim();
+  if (!presented) return null;
+  const k = await env.DB.prepare("SELECT kind FROM organizer_key WHERE hash=? AND revoked=0 AND (expires_ms IS NULL OR expires_ms>?)").bind(await sha("key|" + presented), now).first<{ kind: string }>();
+  return k && isAiCaller(k.kind, req.headers.get("x-cb-link") === "1") ? aiCannotPay() : null;
+}
+
 /** Returns a Response for payment routes, or null when the path is not one of ours. */
 export async function payRoute(req: Request, env: PayEnv, now: number, spend: (n: number) => Promise<boolean>): Promise<Response | null> {
   const url = new URL(req.url); const p = url.pathname; const db = env.DB;
+  { const ai = await aiPayGuard(req, env, now); if (ai) return ai; } // an AI key never pays: the first check of every payment route, before owner rules, consent and the body
   const rzp = rzpOf(env); const mode = payMode(env);
   const busy = () => json({ error: "It is very busy right now. Please try again in a few minutes." }, 503);
 
-  if (req.method === "GET" && p === "/api/payments/status") { const co = company(env); return json({ mode: (await getMode(env)) === "TEST" ? "test" : mode, siteMode: await getMode(env), freeLaunch: freeLaunch(env), freeCap: FREE_CAP, brand: brand.name, legalEntity: co.legalName, missingCompanyDetails: companyGaps(co), international: env.RAZORPAY_INTERNATIONAL === "1" }); }
+  // OWNER RULES 1.1: this game takes no money itself. The one way a game becomes paid is the console's signed notice (below).
+  if (p === "/api/console/paid") return consolePaid(req, env, now);
+  if (env.OWNER_RULES === "1.1" && req.method === "POST" && (p === "/api/checkout" || p === "/api/payments/test" || p === "/api/payments/paytest" || /^\/api\/paylink\/[0-9a-f]{48}\/checkout$/.test(p))) return json({ error: "You pay in the console. This page does not take payments.", code: "pay-in-console" }, 410);
+
+  if (req.method === "GET" && p === "/api/payments/status") { const co = company(env); return json({ mode: (await getMode(env)) === "TEST" ? "test" : mode, siteMode: await getMode(env), freeLaunch: freeLaunch(env), freeCap: FREE_CAP, brand: brand.name, legalEntity: co.legalName, missingCompanyDetails: companyGaps(co), international: env.RAZORPAY_INTERNATIONAL === "1", ownerRules: env.OWNER_RULES === "1.1" }); }
 
   // The public pay link (paylink.ts): anyone holding the token sees the game's name, start and price, and may pay for THIS game only.
   const plm = p.match(/^\/api\/paylink\/([0-9a-f]{48})(\/checkout)?$/);
@@ -311,9 +537,11 @@ export async function payRoute(req: Request, env: PayEnv, now: number, spend: (n
     let name = v.e.id; try { const c = v.e.config ? JSON.parse(v.e.config) : {}; if (typeof c.name === "string" && c.name) name = c.name; } catch { /* the id is the name */ }
     const pub = payLinkPublic(v, name, (1692803367 + (v.e.start_round - 1) * 3) * 1000, url.searchParams.get("currency") === "USD" ? "USD" : "INR");
     // the full price, unless the person who made the link had already applied credit to this game: then (and only then) the reduced amount is what gets charged. The credit itself is never shown.
+    const cpn = pub.price && v.status === "open" && pub.game.participants ? await adjustFor(db, v.e.id, pub.game.participants, pub.price.currency) : null; // a price the owner set for THIS game id: the net is simply what is charged, nothing else is said
+    if (pub.price && cpn) pub.price = { ...pub.price, total: cpn.netMinor / 100, base: cpn.netMinor / 100, gst: 0 };
     const credited = pub.price && v.status === "open" ? await creditAppliedFor(db, v.e.id) : 0;
     if (pub.price && credited > 0 && pub.price.currency === "INR") { const total = Math.max(0, Math.round((pub.price.total - credited) * 100) / 100); pub.price = { ...pub.price, total, base: Math.round((total / 1.18) * 100) / 100, gst: Math.round((total - total / 1.18) * 100) / 100 }; }
-    return json(pub);
+    return json(await payLinkGame(env, v.e.id, pub));
   }
   if (req.method === "POST" && (p === "/api/checkout" || p === "/api/payments/test" || !!plm?.[2])) {
     // TEST mode (mode.ts): no Razorpay order is ever made; the payment is a labelled test payment that is marked paid at once, flagged is_test, and publishes the draft it was made for. LIVE refuses the labelled path.
@@ -323,7 +551,7 @@ export async function payRoute(req: Request, env: PayEnv, now: number, spend: (n
     if (mode === "off") return json({ error: "Payments are not switched on yet. Please try again later." }, 503);
     const b = await body(req);
     { const c = checkConsent("K3", b?.consent); if (!c.ok) return json(refusalBody("K3", c), c.status); } // K3: no payment starts without the Terms + Refund tick
-    { const who = plm ? "paylink:" + plm[1] : (req.headers.get("x-organizer") ?? "").trim() ? "key:" + (await sha("key|" + (req.headers.get("x-organizer") ?? "").trim())).slice(0, 16) : "payer:" + (await sha("email|" + String(b?.email ?? "").trim().toLowerCase())).slice(0, 16); await recordConsent(db, "K3", who, typeof b?.eid === "string" ? b.eid : null, now); }
+    { const who = plm ? "paylink:" + plm[1] : (req.headers.get("x-organizer") ?? "").trim() ? "key:" + (await sha("key|" + (req.headers.get("x-organizer") ?? "").trim())).slice(0, 16) : "payer:" + (await sha("email|" + cleanEmail(String(b?.email ?? "")))).slice(0, 16); await recordConsent(db, "K3", who, typeof b?.eid === "string" ? b.eid : null, now); }
     // a signed-in organizer paying to publish their own draft: the pack is the smallest one that fits the draft, and the payment is bound to them and to it
     let boundOrg: string | null = null, boundEid: string | null = null, boundPack: number | null = null, paidBy: string | null = null;
     const presented = (req.headers.get("x-organizer") ?? "").trim();
@@ -332,7 +560,7 @@ export async function payRoute(req: Request, env: PayEnv, now: number, spend: (n
       if (!pv) return json({ error: "Not found" }, 404);
       if (pv.status !== "open") return json({ error: pv.status === "paid" ? "This game has already been paid for." : pv.status === "cancelled" ? "This game was cancelled by the organizer. It cannot be paid for." : pv.status === "closed" ? "This game did not start and is closed. It cannot be paid for." : pv.status === "confirming" ? "A payment for this game is being confirmed. Please wait a few minutes." : "This pay link has run out or was replaced. Ask for the newest link.", status: pv.status }, 409);
       boundPack = packFor(pv.e.cap);
-      if (!boundPack) return json({ error: "That many participants needs a custom arrangement. Please write to us." }, 400);
+      if (!boundPack) return json({ error: "That many players needs a custom arrangement. Please write to us." }, 400);
       boundOrg = pv.link.org; boundEid = pv.link.eid; paidBy = "link";
       try { // the same free-plan guard as other public writes: a few attempts per network address per day, and a daily write budget
         const ipk = `plim/${new Date(now).toISOString().slice(0, 10)}/pl${(await sha("ip|" + (req.headers.get("cf-connecting-ip") ?? "local"))).slice(0, 16)}`;
@@ -346,49 +574,74 @@ export async function payRoute(req: Request, env: PayEnv, now: number, spend: (n
       paidBy = PAYER[k.kind]!;
       const eg = await db.prepare("SELECT org, cap, pack, cancelled_ms, unplayed_ms FROM engagement WHERE id=?").bind(b.eid).first<{ org: string | null; cap: number; pack: number | null; cancelled_ms: number | null; unplayed_ms: number | null }>();
       if (!eg || eg.org !== k.org) return json({ error: "No such game." }, 404);
-      if (k.kind === "cohost" && k.eid && k.eid !== b.eid) return json({ error: "Your Co-host link is for a different game." }, 403); // a Co-host belongs to one game
+      if (k.kind === "cohost" && k.eid && k.eid !== b.eid) return json({ error: "The Invite-only co-organizer link is for a different game." }, 403); // a Co-host belongs to one game
       if (eg.cancelled_ms) return json({ error: "This game was cancelled by the organizer. It cannot be paid for." }, 409);
       if (eg.unplayed_ms) return json({ error: "This game did not start and is closed. It cannot be paid for.", code: "did-not-start" }, 409);
       if (eg.pack !== 0) return json({ error: "This game is already published." }, 409);
       if (await db.prepare("SELECT 1 AS x FROM payment WHERE eid=? AND status<>'paid' AND confirming_ms IS NOT NULL AND confirming_ms>?").bind(b.eid, now - 30 * 60_000).first()) return json({ error: "A payment for this game is being confirmed. Please wait a few minutes.", code: "confirming" }, 409); // a second order while one is being confirmed could charge twice
       if (await db.prepare("SELECT 1 AS x FROM kv WHERE k=?").bind(`startpending/${b.eid}`).first()) return json({ error: "Pick the date and time of this game first.", code: "start-pending" }, 400);
       boundPack = PACKS.find((x) => x[0] >= eg.cap)?.[0] ?? null;
-      if (!boundPack) return json({ error: "That many participants needs a custom arrangement. Please write to us." }, 400);
+      if (!boundPack) return json({ error: "That many players needs a custom arrangement. Please write to us." }, 400);
       boundOrg = k.org; boundEid = b.eid;
     }
-    const pack = boundPack ?? Number(b?.pack); const cur = b?.currency === "USD" ? "USD" : "INR";
+    const pack = boundPack ?? Number(b?.pack); const cur = orderCurrency(b); const first = isPayFirst(b); // Razorpay-first (payfirst.ts): the country chosen on the page is the currency; no name, e-mail or company is asked before the payment
     if (!b || !PACKS.some((x) => x[0] === pack)) return json({ error: "Choose a pack." }, 400);
-    if (typeof b.email !== "string" || !EMAIL.test(b.email.trim())) return json({ error: "Enter a valid e-mail address." }, 400);
+    if (!first && (typeof b.email !== "string" || !EMAIL.test(b.email.trim()) || !cleanEmail(b.email))) return json({ error: "Enter a valid e-mail address." }, 400);
     // minimum to pay: a name and an e-mail. Organisation, mobile, country and GSTIN are optional (an older caller that sends only `org` still works: it is used as the name).
     const payerName = (typeof b.name === "string" && b.name.trim() ? b.name : typeof b.org === "string" ? b.org : "").trim();
-    if (payerName.length < 2) return json({ error: "Enter your name." }, 400);
+    if (!first && payerName.length < 2) return json({ error: "Enter the name." }, 400);
     const orgName = typeof b.org === "string" ? b.org.trim() : "";
     const dial = typeof b.phoneCode === "string" && /^\d{1,4}$/.test(b.phoneCode) ? b.phoneCode : "91", phoneDigits = typeof b.phone === "string" ? b.phone.replace(/\D/g, "").replace(/^0+/, "") : "";
     const contact = phoneDigits.length >= 6 && phoneDigits.length <= 14 ? `+${dial}${phoneDigits}` : "";
     if ((typeof b.country !== "string" || b.country.slice(0, 2) === "IN") && typeof b.taxId === "string" && b.taxId.trim() && !/^\d{2}[A-Z]{5}\d{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/.test(b.taxId.trim().toUpperCase())) return json({ error: "That GSTIN does not look right. It has 15 characters, like 27ABCDE1234F1Z5." }, 400);
-    if (cur === "USD" && rzp && env.RAZORPAY_INTERNATIONAL !== "1") return json({ error: "Payments in US dollars are not switched on yet. Please pay in Indian rupees or write to us." }, 400);
+    if (cur === "USD" && rzp && env.RAZORPAY_INTERNATIONAL !== "1") return json({ error: "Payments in US dollars are not switched on yet. Please pay in Indian rupees or write to IT Services." }, 400);
     if (!(await spend(2))) return busy();
-    const full = price(pack, cur);
+    const list = price(pack, cur);
+    const cpn = await adjustFor(db, boundEid, pack, cur); // the owner's price for THIS game id (never for a bare pack, never once paid); the list price itself is untouched
+    const full = cpn ? { total: cpn.netMinor / 100, base: cpn.netMinor / 100, tax: 0 } : list;
     // credit already applied to THIS game (by the Organizer, a Host or a Co-host, before this checkout) reduces what is charged; nothing else about credit is ever shown or used here
     const credited = boundEid ? Math.round((await creditAppliedFor(db, boundEid)) * 100) / 100 : 0;
     const cash = Math.round((full.total - credited) * 100) / 100;
-    if (boundEid && credited > 0 && cash < 1) return json({ error: "Credit already covers this game. Tap Use my credit to finish.", code: "use-credit" }, 409);
+    if (boundEid && credited > 0 && cash < 1) return json({ error: "Credit already covers this game. Tap Use the credit to finish.", code: "use-credit" }, 409);
     const pr = credited > 0 ? { total: cash, base: cur === "INR" ? Math.round((cash / 1.18) * 100) / 100 : cash, tax: cur === "INR" ? Math.round((cash - cash / 1.18) * 100) / 100 : 0 } : full;
-    const id = "pay_" + randHex(8);
-    const meta = { org: orgName.slice(0, 120), name: payerName.slice(0, 120), ...(contact ? { phone: contact } : {}), country: typeof b.country === "string" ? b.country.slice(0, 2) : "IN", taxId: typeof b.taxId === "string" ? b.taxId.trim().slice(0, 20) : "", origin: env.PUBLIC_ORIGIN ?? url.origin, ...(boundOrg ? { orgId: boundOrg, eid: boundEid, paidBy, ...(credited > 0 ? { creditInr: credited } : {}) } : {}) };
+    const id = "pay_" + randHex(8), payEmail = first ? pendingEmail(id) : cleanEmail(b.email);
+    const meta = { org: orgName.slice(0, 120), name: payerName.slice(0, 120), ...(first ? { deferInvoice: true } : {}), ...(contact ? { phone: contact } : {}), country: chosenCountry(b) ?? "IN", taxId: typeof b.taxId === "string" ? b.taxId.trim().slice(0, 20) : "", origin: env.PUBLIC_ORIGIN ?? url.origin, ...(boundOrg ? { orgId: boundOrg, eid: boundEid, gameId: boundEid, paidBy, ...(credited > 0 ? { creditInr: credited } : {}) } : {}), ...adjustMeta(cpn) };
     let order: any = null;
     if (rzp) {
-      try { order = await placeOrder(env, rzp, { amountMinor: toMinor(pr.total), currency: cur, receipt: id, plan: `snakes_pack_${pack}`, user: boundOrg ?? null, email: b.email.trim().toLowerCase(), notes: { brand: brand.name, site: env.PAY_SITE ?? "corporate-snakes-and-ladders.pages.dev", stream: "sales", product: "corporate_snakes_and_ladders", plan: `snakes_pack_${pack}`, variation: `snakes_pack_${pack}`, pack: String(pack), currency: cur, organization: (meta.org || meta.name).slice(0, 80), payment_ref: id } }); }
+      try { order = await placeOrder(env, rzp, { amountMinor: toMinor(pr.total), currency: cur, receipt: id, plan: `snakes_pack_${pack}`, user: boundOrg ?? null, gameId: boundEid, email: first ? undefined : cleanEmail(b.email), notes: { ...adjustNotes(cpn), brand: brand.name, site: env.PAY_SITE ?? "corporate-snakes-and-ladders.pages.dev", stream: "sales", product: "corporate_snakes_and_ladders", plan: `snakes_pack_${pack}`, variation: `snakes_pack_${pack}`, pack: String(pack), currency: cur, organization: (meta.org || meta.name).slice(0, 80), payment_ref: id } }); }
       catch (e: any) { return json({ error: `The payment service said: ${e.message}` }, 502); }
     }
     const ref = (await helperRefFor(db, boundEid)) ?? refCode(b.ref); // a game a Help Desk helper prepared always pays its helper (helpdesk.ts); otherwise from the buyer's own browser (valid for 30 days after the link was opened); checked against real partners when the payment is fulfilled
     const bph = partnerCode(b.phone); // optional, only used to spot a partner buying through their own link
     const lf = ledgerFields(siteOf(meta.origin), "game_pack", `pack_${pack}`, boundOrg ?? null);
-    await db.prepare("INSERT INTO payment(id,org,email,pack,currency,amount,tax,rzp_order_id,status,created_ms,meta,ref,buyer_phone_hash,is_test,eid,site,product,product_type,product_ref,payer_user,txn_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)").bind(id, null, b.email.trim().toLowerCase(), pack, cur, pr.total, pr.tax, order?.id ?? null, "created", now, JSON.stringify(meta), ref, bph ? await phoneHashFor(env, bph) : null, siteTest ? 1 : 0, boundEid, lf.site, lf.product, lf.productType, lf.productRef, lf.payerUser, txnIdOf(id)).run();
+    await db.prepare("INSERT INTO payment(id,org,email,pack,currency,amount,tax,rzp_order_id,status,created_ms,meta,ref,buyer_phone_hash,is_test,eid,site,product,product_type,product_ref,payer_user,txn_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)").bind(id, null, payEmail, pack, cur, pr.total, pr.tax, order?.id ?? null, "created", now, JSON.stringify(meta), ref, bph ? await phoneHashFor(env, bph) : null, siteTest ? 1 : 0, boundEid, lf.site, lf.product, lf.productType, lf.productRef, lf.payerUser, txnIdOf(id)).run();
+    await recordFunnel(env as any, "payment_started", boundEid ?? id, now, { org: boundOrg, props: { size: pack } }); // sales funnel (funnel.ts)
     if (!rzp) { const f = await fulfil(env, id, now, spend); return "result" in f ? json({ mode: "test", paymentId: id, result: f.result, ...(siteTest ? { testPayment: true, label: "TEST payment: nothing was charged." } : {}) }) : json({ error: f.error }, f.status); }
-    return json({ mode: "razorpay", paymentId: id, ...hopOf(env), razorpay: { keyId: rzp.keyId, orderId: order.id, amount: toMinor(pr.total), currency: cur, name: brand.name, description: "(close group snakes and ladders software) | owned and made by IT Services by Rajat Agarwal", prefill: { email: b.email.trim(), name: payerName.slice(0, 80), ...(contact ? { contact } : {}) }, notes: { brand: brand.name, participants: String(pack) }, theme: { color: brand.theme }, ...(cur === "INR" ? { config: UPI_FIRST } : {}) } });
+    return json({ mode: "razorpay", paymentId: id, ...hopOf(env), razorpay: { keyId: rzp.keyId, orderId: order.id, amount: toMinor(pr.total), currency: cur, name: brand.name, description: "(close group snakes and ladders software) | owned and made by IT Services by Rajat Agarwal", ...(first ? {} : { prefill: { email: b.email.trim(), name: payerName.slice(0, 80), ...(contact ? { contact } : {}) } }), notes: { brand: brand.name, participants: String(pack) }, theme: { color: brand.theme }, ...(cur === "INR" ? { config: UPI_FIRST } : {}) } });
   }
 
+  // Razorpay-first (payfirst.ts, owner order 2 Nov 2026). Where is the visitor? Only the DEFAULT the page starts from; the payer's own choice is what the order uses.
+  if (req.method === "GET" && p === "/api/payments/where") { const c = visitorCountry(req); return json({ country: c, currency: c ? currencyForCountry(c) : null, international: env.RAZORPAY_INTERNATIONAL === "1" }); }
+  // What Razorpay gave and what is still to do (the optional invoice details), for the payer who holds the payment id; reading it also issues an invoice that is already due.
+  const rcm = p.match(/^\/api\/payments\/(pay_[0-9a-f]{16})\/(receipt|invoice)$/);
+  if (rcm) {
+    const row = await db.prepare("SELECT * FROM payment WHERE id=?").bind(rcm[1]).first<any>();
+    let m: any = {}; try { m = JSON.parse(row?.meta ?? "{}"); } catch { m = {}; }
+    if (!row || m.paytest) return json({ error: "Not found" }, 404);
+    if (row.status !== "paid") return json({ confirming: true }, 202);
+    if (req.method === "GET" && rcm[2] === "receipt") {
+      let r = JSON.parse(row.result ?? "{}");
+      if (r.invoicePending && now - Number(row.paid_ms ?? now) >= INVOICE_AFTER_MS) { const x: any = await issueInvoice(env, row.id, now, spend); if (x.result) r = x.result; }
+      return json(publicReceipt(r));
+    }
+    if (req.method === "POST" && rcm[2] === "invoice") {
+      const b = await body(req); // { skip: true } or { name, org, taxId }: all optional
+      const d = b?.skip === true ? ({ ok: true, name: "", org: "", taxId: "" } as const) : cleanInvoiceDetails(b, m.country ?? "IN");
+      if (!d.ok) return json({ error: d.error }, 400);
+      const x: any = await issueInvoice(env, row.id, now, spend, b?.skip === true ? undefined : { name: d.name, org: d.org, taxId: d.taxId });
+      return x.result ? json({ ...publicReceipt(x.result), ...(x.fresh ? {} : { alreadyIssued: true }) }) : json({ error: x.error }, x.status);
+    }
+  }
   const ptm = p.match(/^\/api\/payments\/paytest\/(pay_[0-9a-f]{16})$/); // the test page asks while Razorpay is still confirming
   if (req.method === "GET" && ptm) {
     const row = await db.prepare("SELECT status, result, meta FROM payment WHERE id=?").bind(ptm[1]).first<any>();
@@ -398,32 +651,34 @@ export async function payRoute(req: Request, env: PayEnv, now: number, spend: (n
   }
   if (req.method === "POST" && p === "/api/payments/paytest") { // Payment Testing: Rs 1 from India, US$ 1 from abroad; buys nothing; anyone, any number of times
     if (!rzp || (await getMode(env)) === "TEST") return json({ error: "Online payments are not switched on." }, 503);
-    const b = await body(req);
+    const b = await body(req); const first = isPayFirst(b); // Razorpay-first: the public test asks for no key, no name and no e-mail; Razorpay asks the payer itself
     { const c = checkConsent("K3", b?.consent); if (!c.ok) return json(refusalBody("K3", c), c.status); }
-    if (!b || typeof b.email !== "string" || !EMAIL.test(b.email.trim())) return json({ error: "Enter a valid e-mail address." }, 400);
-    const nm = typeof b.name === "string" ? b.name.trim() : ""; if (nm.length < 2) return json({ error: "Enter your name." }, 400);
+    if (!b || (!first && (typeof b.email !== "string" || !EMAIL.test(b.email.trim()) || !cleanEmail(b.email)))) return json({ error: "Enter a valid e-mail address." }, 400);
+    const nm = typeof b.name === "string" ? b.name.trim() : ""; if (!first && nm.length < 2) return json({ error: "Enter the name." }, 400);
     const cty = typeof b.country === "string" && /^[A-Z]{2}$/.test(b.country) ? b.country : "IN", cur = cty === "IN" ? "INR" : "USD";
     if (cur === "USD" && env.RAZORPAY_INTERNATIONAL !== "1") return json({ error: "Payments in US dollars are not switched on yet. Please try again later." }, 400);
     const dial = typeof b.phoneCode === "string" && /^\d{1,4}$/.test(b.phoneCode) ? b.phoneCode : "91", digits = typeof b.phone === "string" ? b.phone.replace(/\D/g, "").replace(/^0+/, "") : "";
     const contact = digits.length >= 6 && digits.length <= 14 ? `+${dial}${digits}` : "";
+    if (!(await paytestAllowed(db, req, now))) return json({ error: "Please try again later." }, 429); // the public test: a few orders an hour and a day for each visitor, on top of the shared daily budget below
     if (!(await spend(2))) return busy();
     const id = "pay_" + randHex(8);
+    const testRef = typeof b.gameId === "string" ? b.gameId.trim().replace(/[^A-Za-z0-9 _.-]/g, "").slice(0, 40) : ""; // optional free text, never looked up
     let order: any;
-    try { order = await placeOrder(env, rzp, { amountMinor: 100, currency: cur, receipt: id, plan: "payment_test", email: b.email.trim().toLowerCase(), notes: { brand: brand.name, site: env.PAY_SITE ?? "corporate-snakes-and-ladders.pages.dev", stream: "sales", product: "corporate_snakes_and_ladders", plan: "payment_test", variation: "payment_test", payment_ref: id } }); }
+    try { order = await placeOrder(env, rzp, { amountMinor: 100, currency: cur, receipt: id, plan: "payment_test", email: first ? undefined : cleanEmail(b.email), notes: { ...(testRef ? { test_ref: testRef } : {}), brand: brand.name, site: env.PAY_SITE ?? "corporate-snakes-and-ladders.pages.dev", stream: "sales", product: "corporate_snakes_and_ladders", plan: "payment_test", variation: "payment_test", payment_ref: id } }); }
     catch (e: any) { return json({ error: `The payment service said: ${e.message}` }, 502); }
     const taxId = typeof b.taxId === "string" ? b.taxId.trim().toUpperCase().slice(0, 20) : "";
     if (cty === "IN" && taxId && !/^\d{2}[A-Z]{5}\d{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/.test(taxId)) return json({ error: "That GSTIN does not look right. It has 15 characters, like 27ABCDE1234F1Z5." }, 400);
-    const meta = { paytest: true, name: nm.slice(0, 120), ...(typeof b.org === "string" && b.org.trim() ? { org: b.org.trim().slice(0, 120) } : {}), ...(taxId ? { taxId } : {}), ...(contact ? { phone: contact } : {}), country: cty, origin: env.PUBLIC_ORIGIN ?? url.origin };
+    const meta = { paytest: true, name: nm.slice(0, 120), ...(typeof b.org === "string" && b.org.trim() ? { org: b.org.trim().slice(0, 120) } : {}), ...(taxId ? { taxId } : {}), ...(testRef ? { testRef } : {}), ...(contact ? { phone: contact } : {}), country: cty, origin: env.PUBLIC_ORIGIN ?? url.origin };
     const lf = ledgerFields(siteOf(meta.origin), "payment_test", "payment_test", null);
-    await db.prepare("INSERT INTO payment(id,org,email,pack,currency,amount,tax,rzp_order_id,status,created_ms,meta,is_test,site,product,product_type,product_ref,payer_user,txn_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,1,?,?,?,?,?,?)").bind(id, null, b.email.trim().toLowerCase(), 0, cur, 1, 0, order.id, "created", now, JSON.stringify(meta), lf.site, lf.product, lf.productType, lf.productRef, lf.payerUser, txnIdOf(id)).run();
-    return json({ mode: "razorpay", paymentId: id, ...hopOf(env), razorpay: { keyId: rzp.keyId, orderId: order.id, amount: 100, currency: cur, name: brand.name, description: "(close group snakes and ladders software) | owned and made by IT Services by Rajat Agarwal", prefill: { email: b.email.trim(), name: nm.slice(0, 80), ...(contact ? { contact } : {}) }, notes: { brand: brand.name }, theme: { color: brand.theme }, ...(cur === "INR" ? { config: UPI_FIRST } : {}) } });
+    await db.prepare("INSERT INTO payment(id,org,email,pack,currency,amount,tax,rzp_order_id,status,created_ms,meta,is_test,site,product,product_type,product_ref,payer_user,txn_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,1,?,?,?,?,?,?)").bind(id, null, first ? pendingEmail(id) : cleanEmail(b.email), 0, cur, 1, 0, order.id, "created", now, JSON.stringify(meta), lf.site, lf.product, lf.productType, lf.productRef, lf.payerUser, txnIdOf(id)).run();
+    return json({ mode: "razorpay", paymentId: id, ...hopOf(env), razorpay: { keyId: rzp.keyId, orderId: order.id, amount: 100, currency: cur, name: brand.name, description: "(close group snakes and ladders software) | owned and made by IT Services by Rajat Agarwal", ...(first ? {} : { prefill: { email: b.email.trim(), name: nm.slice(0, 80), ...(contact ? { contact } : {}) } }), notes: { brand: brand.name }, theme: { color: brand.theme }, ...(cur === "INR" ? { config: UPI_FIRST } : {}) } });
   }
 
   if (req.method === "POST" && p === "/api/payments/verify") {
     if (!rzp) return json({ error: "Online payments are not switched on." }, 400);
     const b = await body(req);
     const row = b && typeof b.paymentId === "string" ? await db.prepare("SELECT * FROM payment WHERE id=?").bind(b.paymentId).first<any>() : null;
-    if (!row || row.rzp_order_id !== b.razorpay_order_id) return json({ error: "We could not match this payment." }, 404);
+    if (!row || row.rzp_order_id !== b.razorpay_order_id) return json({ error: "This payment could not be matched yet. Nothing is lost, and you are charged only once." }, 404);
     if (row.status === "paid") return json(JSON.parse(row.result));
     if (!verifyPaymentSignature(rzp.keySecret, String(b.razorpay_order_id), String(b.razorpay_payment_id), String(b.razorpay_signature)))
       return json({ error: "The payment could not be verified. If money was taken it will be refunded." }, 400);
@@ -433,11 +688,12 @@ export async function payRoute(req: Request, env: PayEnv, now: number, spend: (n
     const unconfirm = async () => { if (marked) await db.prepare("UPDATE payment SET confirming_ms=NULL WHERE id=? AND status<>'paid'").bind(row.id).run(); };
     const pay = await fetchPayment(rzp, String(b.razorpay_payment_id)).catch(() => null);
     if (!pay || pay.order_id !== b.razorpay_order_id || Number(pay.amount) !== toMinor(row.amount)) { await unconfirm(); return json({ error: "The payment details did not match the order." }, 400); }
+    if (pay.status === "failed") await recordFunnel(env as any, "payment_failed", row.id, now, { props: { reason: "declined" } }); // sales funnel (funnel.ts)
     if (pay.status === "failed") { try { await recordAttempt(db, { ...pay, currency: pay.currency ?? row.currency }, "failed", now, now, row.id); } catch { /* the webhook records it too */ } } // ledger C: a failed try is kept with Razorpay's reason; it never marks the payment paid
-    if (pay.status === "created") { await db.prepare("UPDATE payment SET rzp_payment_id=COALESCE(rzp_payment_id,?) WHERE id=?").bind(String(b.razorpay_payment_id), row.id).run(); return json({ confirming: true, paid: false, message: "Confirming your payment..." }, 202); } // the page asks again in a few seconds; the gateway's webhook finishes it too
+    if (pay.status === "created") { await db.prepare("UPDATE payment SET rzp_payment_id=COALESCE(rzp_payment_id,?) WHERE id=?").bind(String(b.razorpay_payment_id), row.id).run(); return json({ confirming: true, paid: false, message: "Confirming the payment..." }, 202); } // the page asks again in a few seconds; the gateway's webhook finishes it too
     let done: any = pay;
     if (pay.status === "authorized") { const cap = await capturePayment(rzp, pay.id, toMinor(row.amount), row.currency).catch(() => null); if (cap && cap.status === "captured") done = cap; }
-    else if (pay.status !== "captured") { await unconfirm(); return json({ error: `The payment is ${pay.status}. Nothing was charged to your order.` }, 402); }
+    else if (pay.status !== "captured") { await unconfirm(); return json({ error: `The payment is ${pay.status}. Nothing was charged to the order.` }, 402); }
     await db.prepare("UPDATE payment SET rzp_payment_id=? WHERE id=?").bind(String(b.razorpay_payment_id), row.id).run();
     const central = await reportToCentral(env, b);
     try { await recordAttempt(db, { ...done, currency: done.currency ?? row.currency }, done.status === "captured" ? "captured" : "authorized", now, now, row.id); } catch { /* the webhook records it too */ }
@@ -476,6 +732,7 @@ export async function payRoute(req: Request, env: PayEnv, now: number, spend: (n
         const pr = await db.prepare("SELECT id FROM payment WHERE rzp_order_id=?").bind(orderId).first<{ id: string }>();
         return hook(json({ ok: true, confirming: true }), "confirming", { ...seen, paymentId: pr?.id });
       }
+      if (ev.event === "payment.failed" && prow) await recordFunnel(env as any, "payment_failed", prow.id, now, { props: { reason: "declined" } }); // sales funnel (funnel.ts)
       if (ev.event === "payment.failed" && prow) return hook(json({ ok: true, attempt: "failed" }), "attempt recorded: failed (the payment stays unpaid)", { ...seen, paymentId: prow.id }); // a failed try never marks the payment paid; a later paying try still can
       if (!["payment.captured", "order.paid"].includes(ev.event) || !orderId) return hook(json({ ok: true, ignored: ev.event }), "ignored: not a payment event", seen);
       const row = await db.prepare("SELECT * FROM payment WHERE rzp_order_id=?").bind(orderId).first<any>();
@@ -512,17 +769,17 @@ export async function payRoute(req: Request, env: PayEnv, now: number, spend: (n
     if (!eid) return json({ error: "Not found" }, 404);
     const g = await db.prepare("SELECT cap, pack, config, start_round FROM engagement WHERE id=?").bind(eid).first<{ cap: number; pack: number | null; config: string | null; start_round: number }>();
     if (!g || g.pack !== 0) return json({ error: "This game is not waiting for payment." }, 409);
-    const pack = PACKS.find((x) => x[0] >= g.cap)?.[0]; if (!pack) return json({ error: "That many participants needs a custom arrangement. Please write to us." }, 400);
+    const pack = PACKS.find((x) => x[0] >= g.cap)?.[0]; if (!pack) return json({ error: "That many players needs a custom arrangement. Please write to us." }, 400);
     const cur = b.currency === "USD" ? "USD" : "INR", co = company(env), fy = financialYear(new Date(now));
-    const credited = Math.round((await creditAppliedFor(db, eid)) * 100) / 100, total = Math.max(0, Math.round((price(pack, cur).total - credited) * 100) / 100);
+    const credited = Math.round((await creditAppliedFor(db, eid)) * 100) / 100, pcp = credited > 0 ? null : await adjustFor(db, eid, pack, cur), total = Math.max(0, Math.round(((pcp ? pcp.netMinor / 100 : price(pack, cur).total) - credited) * 100) / 100);
     const tax = splitGst(total, cur, co.stateCode, typeof b.taxId === "string" && b.taxId.trim() ? b.taxId.trim().toUpperCase() : undefined);
     let gameName: string | undefined; try { const c = g.config ? JSON.parse(g.config) : {}; if (typeof c.name === "string" && c.name) gameName = c.name.slice(0, 120); } catch { /* the id is the name */ }
     const s = (x: unknown, n: number) => (typeof x === "string" ? x.trim().slice(0, n) : "");
     const data: InvoiceData = { kind: "proforma", number: `PF-${fy}-${eid}`.slice(0, 60), issuedAt: now, brand, company: co, draft: false, currency: cur,
-      buyer: { name: s(b.org, 120) || s(b.name, 120) || "(your name)", gstin: s(b.taxId, 20) || undefined, email: s(b.email, 120) || undefined, phone: s(b.phone, 20) || undefined, country: s(b.country, 2) || undefined },
-      lines: [{ description: `${brand.name}: up to ${pack} participants (one game)${credited > 0 ? ", balance after credit" : ""}`, quantity: 1, amount: tax.taxable }], tax, orderRef: eid,
+      buyer: { name: s(b.org, 120) || s(b.name, 120) || "(the name)", gstin: s(b.taxId, 20) || undefined, email: s(b.email, 120) || undefined, phone: s(b.phone, 20) || undefined, country: s(b.country, 2) || undefined },
+      lines: [{ description: `${brand.name}: up to ${pack} players (one game)${pcp ? `, ${PRICE_LINE}` : credited > 0 ? ", balance after credit" : ""}`, quantity: 1, amount: tax.taxable }], tax, orderRef: eid,
       game: { id: eid, name: gameName, startMs: (1692803367 + (g.start_round - 1) * 3) * 1000 }, organizer: { name: s(b.name, 120) || undefined, org: s(b.org, 120) || undefined, email: s(b.email, 120) || undefined },
-      note: "This is a proforma invoice. It is NOT PAID and is not a tax invoice. Pay now to receive your invoice, and the same invoice is e-mailed to you and to the organizer." };
+      note: "This is a proforma invoice. It is NOT PAID and is not a tax invoice. Pay now to receive the invoice, and the same invoice is e-mailed to you and to the organizer." };
     const full = renderInvoiceHtml(data), style = full.match(/<style>[\s\S]*?<\/style>/)?.[0] ?? "";
     const html = style + full.replace(/^[\s\S]*?<\/head>\s*(<body[^>]*>)?/i, "").replace(/<\/body>\s*<\/html>\s*$/i, "");
     return json({ ok: true, number: data.number, total, currency: cur, html });
@@ -552,7 +809,7 @@ export async function payRoute(req: Request, env: PayEnv, now: number, spend: (n
       if (used >= 5) return json({ error: "This invoice has already been e-mailed 5 times." }, 429);
       if (!(await spend(1))) return busy();
       await db.prepare("INSERT OR REPLACE INTO kv(k,v) VALUES(?,?)").bind(k, String(used + 1)).run();
-      await sendMail(env, db, to, `${data.brand.name}: invoice ${r.number}`, `Your invoice.\n\nINVOICE\n${renderInvoiceText(data)}\n\nView or print it: ${origin}/api/invoice/${ix[1]}\nDownload the PDF: ${origin}/api/invoice/${ix[1]}.pdf`, now);
+      await sendMail(env, db, to, `${data.brand.name}: invoice ${r.number}`, `The invoice.\n\nINVOICE\n${renderInvoiceText(data)}\n\nView or print it: ${origin}/api/invoice/${ix[1]}\nDownload the PDF: ${origin}/api/invoice/${ix[1]}.pdf`, now);
       return json({ ok: true });
     }
   }

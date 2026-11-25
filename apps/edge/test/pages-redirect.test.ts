@@ -14,7 +14,7 @@ describe("the old pages.dev address", () => {
     expect(redirectTarget(new URL(OLD + "/api/pay/webhook"), "POST")).toBeNull();
     expect(redirectTarget(new URL(OLD + "/terms.html"), "POST")).toBeNull();
   });
-  test("the new address and other hosts are not redirected", () => {
+  test("the new address and other co-organizers are not redirected", () => {
     expect(redirectTarget(new URL(NEW + "/"), "GET")).toBeNull();
     expect(redirectTarget(new URL("https://abc123.corporate-snakes-and-ladders.pages.dev/"), "GET")).toBeNull();
   });

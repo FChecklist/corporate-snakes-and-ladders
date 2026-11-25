@@ -62,7 +62,7 @@ Each prize is a reward line, as in Tambola (prize text, how many winners).
 3. **NO TIES (owner rule 2026-10-12, all games):** a prize is never shared. If several players reach a prize on the same turn, the next measure in the chain below decides, and the last measure is fate: each tied player gets a number from the beacon (hash of game id, seat and a tie label); the lowest number wins first place, and so on. Anyone can re-check it, and the results screen says in one line how a tie was decided.
 4. **Optional extra prizes** (organizer): "Biggest climb" (the largest single ladder), "Comeback" (the biggest recovery after a snake), "Never missed" (a perfect attendance prize in presence mode).
 5. A player may win more than one prize (the organizer may switch this off).
-6. **The ranking and the top-10 list** (always complete, never tied): places 1 to 5 are the first five finishers in finishing order. Places 6 to 10 are the best-placed of the rest when the game ends. Ordering chain for any set of players who are level: (1) finished earlier (turn number), (2) on a higher square, (3) climbed more ladders, (4) missed fewer turns, (5) **fate** (a beacon number per player; lowest wins). The top-10 list shows place, nickname and square (or "finished on turn N"), and a one-line note whenever a tie was broken.
+6. **The ranking and the top-10 list** (always complete, never tied): places 1 to 5 are the first five finishers in finishing order. Places 6 to 10 are the best-placed of the rest when the game ends. Ordering chain for any set of players who are level: (1) finished earlier (turn number), (2) on a higher square, (3) climbed more ladders, (4) missed fewer turns, (5) **fate** (a beacon number per player; lowest wins). The top-10 list shows place, player number and square (or "finished on turn N"), and a one-line note whenever a tie was broken.
 7. Prizes are decided by software only: each phone computes results; a result counts when enough different phones agree (the same vote and quorum rule as Tambola); the organizer's console only watches.
 
 ## 7. How long a game lasts, from simulation (100 squares, nobody misses a turn, boards in the fairness band, finishing by exact roll)
@@ -164,6 +164,6 @@ New for this game: **registration closes before the start** (boards are drawn fr
 5. **Board size:** classic 100 squares only, or also 144 and 225 for longer games.
 6. ~~Ties~~ DECIDED 2026-10-12: never shared; always a clear order (section 6).
 7. **Extra prizes:** none, or Biggest climb / Comeback / Never missed.
-8. ~~Crowd strip~~ DECIDED 2026-10-12: players use **nicknames** (chosen when they join); the top-10 list shows nicknames; the crowd chart shows counts. The organizer sees real names only for prize hand-over.
+8. ~~Crowd strip~~ DECIDED 2026-10-12, reworded 2026-11-25: a player gives a **name** when joining (the older word for it is no longer used); the top-10 list shows place and player number; the crowd chart shows counts. The organizer gets a winner's hand-over details only when the winner confirms them.
 9. **Theme:** jungle, Career Ladder, or both.
 10. **Price:** the Tambola ladder (default) or its own.

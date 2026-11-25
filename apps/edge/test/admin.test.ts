@@ -26,11 +26,11 @@ async function organizer(email: string) {
 }
 async function game(id: string, email = `org${++n}@acme.com`) {
   const o = await organizer(email);
-  expect((await call("POST", "/api/z", { id, startRound: START, callSeconds: 20, cap: 100 }, o.h)).status).toBe(200);
+  expect((await call("POST", "/api/z", { id, startRound: START, callSeconds: 10, cap: 100 }, o.h)).status).toBe(200);
   expect((await call("POST", `/api/z/${id}/publish`, { email: "boss@acme.com", phone: "98765 43210" }, o.h)).status).toBe(200);
   return o;
 }
-beforeEach(() => { const d = makeD1(); raw = d.raw; n = 0; env = { DB: d.db, ORGANIZER_SECRET: "plat", DAILY_WRITE_BUDGET: "1000000", PUBLIC_ORIGIN: "https://game.test", PHONE_SALT: "salt", DATA_KEY: "k" } as any; });
+beforeEach(() => { const d = makeD1(); raw = d.raw; n = 0; env = { DB: d.db, ORGANIZER_SECRET: "plat", RUNNER_KEY: "test-runner-key-test-runner-key-test0000", DAILY_WRITE_BUDGET: "1000000", PUBLIC_ORIGIN: "https://game.test", PHONE_SALT: "salt", DATA_KEY: "k" } as any; });
 
 describe("A5: the owner's site switch", () => {
   test("only the owner can read or switch it; everybody else gets the same 404 as an unknown address, and the try is on the access log", async () => {
@@ -91,7 +91,7 @@ describe("A3: look up an organizer and their games", () => {
   test("by e-mail: their games with id, state, start, paid and created; no phone number, nothing about anyone else", async () => {
     const o = await game("LK-1", "Maya.Lopez@acme.com");
     await game("LK-2", "other@acme.com");
-    expect((await call("POST", "/api/z", { id: "LK-3", startRound: START + 10, callSeconds: 20, cap: 50 }, o.h)).status).toBe(200); // a draft
+    expect((await call("POST", "/api/z", { id: "LK-3", startRound: START + 10, callSeconds: 10, cap: 50 }, o.h)).status).toBe(200); // a draft
     const r = await call("GET", "/api/owner/organizer?email=maya.lopez%40ACME.com", undefined, PLAT); expect(r.status).toBe(200);
     const b = await j(r);
     expect(b.found).toBe(true); expect(b.email).toBe("maya.lopez@acme.com");
@@ -132,7 +132,7 @@ describe("A6: the data-request queue", () => {
   test("a player's request shows in the owner's list, can be closed once, and then moves to the closed list", async () => {
     await game("DQ-1"); const a = await joinAs("DQ-1", 1), b = await joinAs("DQ-1", 2);
     expect((await ask("DQ-1", a, dev(1), "access", { note: "what do you hold?" })).status).toBe(200);
-    expect((await ask("DQ-1", b, dev(2), "correction", { note: "my name is wrong" })).status).toBe(200);
+    expect((await ask("DQ-1", b, dev(2), "correction", { note: "the name is wrong" })).status).toBe(200);
     const list = await j(await call("GET", "/api/owner/data-requests", undefined, PLAT));
     expect(list.requests.length).toBe(2);
     const r0 = list.requests.find((r: any) => r.kind === "access");
@@ -208,7 +208,7 @@ describe("E12: the mail bounce log", () => {
     const body = typeof payload === "string" ? payload : JSON.stringify(payload), ts = opts.ts ?? Math.floor(at / 1000);
     return call("POST", "/api/mail/events", body, { "svix-id": id, "svix-timestamp": String(ts), "svix-signature": opts.sig ?? sign(id, ts, body, opts.secret) }, at, { ...env, RESEND_WEBHOOK_SECRET: SECRET });
   };
-  const bounced = { type: "email.bounced", created_at: "2026-10-14T10:00:00Z", data: { email_id: "e1", from: "Corporate Snakes and Ladders <bingo@veridian-aios.com>", to: ["Maya.Lopez@Acme.com"], subject: "Corporate Snakes and Ladders: your sign-in code", bounce: { type: "Permanent", subType: "General", message: "550 5.1.1 maya.lopez@acme.com does not exist" } } };
+  const bounced = { type: "email.bounced", created_at: "2026-10-14T10:00:00Z", data: { email_id: "e1", from: "Corporate Snakes and Ladders <bingo@veridian-aios.com>", to: ["Maya.Lopez@Acme.com"], subject: "Corporate Snakes and Ladders: the sign-in code", bounce: { type: "Permanent", subType: "General", message: "550 5.1.1 maya.lopez@acme.com does not exist" } } };
   test("with no secret set the address answers 404 and accepts nothing", async () => {
     const r = await call("POST", "/api/mail/events", JSON.stringify(bounced), { "svix-id": "m", "svix-timestamp": String(Math.floor(T / 1000)), "svix-signature": "v1,x" }); expect(r.status).toBe(404);
     expect(one("SELECT COUNT(*) c FROM mail_bounce").c).toBe(0);
@@ -216,7 +216,7 @@ describe("E12: the mail bounce log", () => {
   });
   test("a correctly signed bounce is stored with the recipient hashed and masked, and no message text", async () => {
     const r = await hook(bounced); expect(r.status).toBe(200); expect(await j(r)).toEqual({ ok: true, event: "bounced", again: false });
-    const row = one("SELECT * FROM mail_bounce"); expect(row).toMatchObject({ id: "msg_1", event: "bounced", to_mask: "m***@acme.com", subject: "Corporate Snakes and Ladders: your sign-in code", detail: "Permanent/General", at_ms: T });
+    const row = one("SELECT * FROM mail_bounce"); expect(row).toMatchObject({ id: "msg_1", event: "bounced", to_mask: "m***@acme.com", subject: "Corporate Snakes and Ladders: the sign-in code", detail: "Permanent/General", at_ms: T });
     expect(row.to_hash).toMatch(/^[0-9a-f]{64}$/); expect(JSON.stringify(row)).not.toMatch(/Lopez|maya|does not exist/i);
   });
   test("bounced, complained and delivered are kept; delayed and failed too; other events are ignored; a repeat (same message id) is not stored twice", async () => {
@@ -249,7 +249,7 @@ describe("E12: the mail bounce log", () => {
     const ownerEnv = { ...env, RESEND_WEBHOOK_SECRET: SECRET };
     const v = await j(await call("GET", "/api/owner/mail-events", undefined, PLAT, T + 3000, ownerEnv));
     expect(v.counts).toEqual({ bounced: 1, delivered: 1, complained: 1 }); expect(v.events.map((e: any) => e.event)).toEqual(["complained", "delivered", "bounced"]); expect(v.webhook).toBe("on");
-    expect(v.events[2]).toMatchObject({ to: "m***@acme.com", subject: "Corporate Snakes and Ladders: your sign-in code", detail: "Permanent/General" }); expect(JSON.stringify(v)).not.toMatch(/Lopez/i);
+    expect(v.events[2]).toMatchObject({ to: "m***@acme.com", subject: "Corporate Snakes and Ladders: the sign-in code", detail: "Permanent/General" }); expect(JSON.stringify(v)).not.toMatch(/Lopez/i);
     expect((await j(await call("GET", "/api/owner/mail-events?event=bounced", undefined, PLAT, T + 3000, ownerEnv))).events.length).toBe(1);
     expect((await j(await call("GET", "/api/owner/mail-events", undefined, PLAT))).webhook).toMatch(/^off/);
     const o = await organizer("boss@acme.com");

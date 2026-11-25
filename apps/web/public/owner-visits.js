@@ -24,7 +24,7 @@
       block("Sections seen", ["Section", "Visits that saw it", "Average time"], s.sections.map((x) => [x.section, x.views, mins(x.avgDwellMs)]));
       block("Where visitors left", ["Page", "Visits"], kn(s.exits.pages)); block("Last section seen before leaving", ["Section", "Visits"], kn(s.exits.sections));
       block("Time and scroll at exit", ["", ""], [["Average time on the last page", mins(s.exits.avgTimeOnPageMs)], ["Average scroll depth", s.exits.avgScrollPct + "%"]]);
-      block("Number of participants chosen", ["Up to", "Times chosen", "Price shown"], s.sizeChoice.map((x) => [x.size, x.n, x.shown.map((p) => p.price + " x" + p.n).join(", ")]));
+      block("Number of players chosen", ["Up to", "Times chosen", "Price shown"], s.sizeChoice.map((x) => [x.size, x.n, x.shown.map((p) => p.price + " x" + p.n).join(", ")]));
       block("Actions", ["Action", "Times"], s.actions.map((x) => [x.name, x.n])); block("Currency switch", ["Currency", "Times"], s.currencyChoice.map((x) => [x.currency, x.n]));
       block("Devices", ["Device", "Visits"], kn(s.devices)); block("Languages", ["Language", "Visits"], kn(s.languages)); block("Countries", ["Country", "Visits"], kn(s.countries)); block("Cities", ["City", "Visits"], kn(s.cities));
       block("Crawlers (search engines and others)", ["Name", "Visits", "Pages"], s.bots.crawlers.map((b) => [b.name, b.sessions, b.pages.join(" ")]));

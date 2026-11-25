@@ -1,0 +1,50 @@
+{
+  "product": "Corporate Snakes and Ladders",
+  "version": "1.6.0",
+  "commit": "set by the build",
+  "builtAt": "set by the build",
+  "changes": [
+    {
+      "id": "2026-11-25-games-gaps-1-6-0",
+      "what": "A player gives a name (the older word for it is gone), a Retro or Modern board look chosen by each player, Snakes' own colour scheme, a full AI manual page and llms.txt where the AI can prepare the pre-game, winner and closing messages but cannot pay, winners are told what they won, one wording set (game and player, co-organizer, boards, Pay now and credits) and the rules in one short line each",
+      "where": "apps/edge/src (people.ts, ai-manual.ts, ai-pay.ts, ai-link.ts, worker.ts, mails.ts), packages/beacon/src (config.ts, winwords.ts, phone-runtime.ts), packages/shared/src/lines.ts, apps/web/public (z.js, zc.js, looks.css, looks.js, snakes-scheme.css, llms.txt), apps/web/test, docs/WORDING_2026-11-25.md",
+      "pr": "cloud/snakes-gaps-2026-11-25"
+    },
+    {
+      "id": "2026-11-23-audit-fix-1-5-4",
+      "what": "A winner can no longer be made up: before a report of a win counts, the server checks it against the public game (the turn has happened, the game has started, the seat exists, and the named player really got there on that turn); a winner's name and mobile number are kept for 365 days so the prize can be handed over, and nothing else about the winner (no network address, browser or phone details) is kept past 24 hours; the pages, the report and the e-mails say exactly that; smaller tidy-ups to how the site checks its own codes and counts joins",
+      "where": "apps/edge/src (verifywin.ts, winners.ts, audit.ts, lifecycle.ts, worker.ts, report-layout.ts, trust-page.ts), apps/web/public (index.html, llms.txt, z.js, guide.js, reportgen.js), apps/edge/test",
+      "pr": "p1/owner-rules-v1-1"
+    },
+    {
+      "id": "2026-11-23-audit-fix-1-5-3",
+      "what": "The console's paid notice no longer frees its order id when the database committed but the reply was lost, and a repeat writes the markers a stopped try missed (the winners' wording of this version was put right again in 1.5.4)",
+      "where": "apps/edge/src (pay.ts), apps/edge/test/owner-rules.test.ts",
+      "pr": "p1/owner-rules-v1-1"
+    },
+    {
+      "id": "2026-11-23-audit-fixes-1-5-2",
+      "what": "The console's paid notice can no longer use up an order id and answer ok for a game that is not paid (the order id and the game are now written together, and a repeat finishes the job)",
+      "where": "apps/edge/src (pay.ts), apps/edge/test/d1-sqlite.ts",
+      "pr": "p1/owner-rules-v1-1"
+    },
+    {
+      "id": "2026-11-22-audit-fixes-1-5-1",
+      "what": "Wrong employee IDs are now limited for each network in a way that holds (one count for \"Is this you?\" and joining, counted in one step, an IPv6 network counted as one), a right ID is never counted and the screens and notes now say so; one order id can never mark two games paid; the AI guide names the Your people button correctly; a too-short signing code for the console's notice is refused",
+      "where": "apps/edge/src (worker.ts, pay.ts, lifecycle.ts, ai-functions.ts, price-adjust.ts), apps/web/public/zc.js",
+      "pr": "p1/owner-rules-v1-1"
+    },
+    {
+      "id": "2026-11-22-owner-rules-1-1",
+      "what": "Invite by employee ID only (A-1101, A 1101 and A/1101 are one ID; an ID not on your list waits for your yes or no); the game starts by itself and every throw happens by itself; a game is paid only from the console; every organizer and host screen says you; rupee sign, one privacy line, one fairness sentence",
+      "where": "apps/edge/src (worker.ts, pay.ts, people.ts), packages/beacon/src/config.ts, apps/web/public (zc.js, z.js, pay.js, guide.js), pages/wrangler.toml",
+      "pr": "p1/owner-rules-v1-1"
+    },
+    {
+      "id": "2026-11-19-milestone-tiebreak",
+      "what": "Milestone prize tie on the same turn is decided by the square at arrival, not the current square",
+      "where": "packages/beacon/src/race.ts",
+      "pr": "12"
+    }
+  ]
+}

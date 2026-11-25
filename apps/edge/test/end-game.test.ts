@@ -14,13 +14,13 @@ const KEY = "11".repeat(32);
 
 async function setup(players: number, seed: string) {
   const d = makeD1(); const raw = d.raw;
-  const env = { DB: d.db, ORGANIZER_SECRET: "plat", DAILY_WRITE_BUDGET: "100000000", JOIN_PER_IP_DAY: "1000000", JOIN_PER_IP_MINUTE: "1000000", DATA_KEY: "k", TEST_MODE: "1" } as unknown as Env;
+  const env = { DB: d.db, ORGANIZER_SECRET: "plat", RUNNER_KEY: "test-runner-key-test-runner-key-test0000", DAILY_WRITE_BUDGET: "100000000", JOIN_PER_IP_DAY: "1000000", JOIN_PER_IP_MINUTE: "1000000", DATA_KEY: "k", TEST_MODE: "1" } as unknown as Env;
   let vt = Date.UTC(2026, 9, 20, 10, 0, 0);
   const req = (method: string, path: string, body?: unknown, headers: Record<string, string> = {}) => handle(new Request("http://x" + path, { method, headers: { "content-type": "application/json", ...headers }, body: body === undefined ? undefined : JSON.stringify(body) }), env, vt);
   const j = async (r: Response) => (await r.json()) as any;
   const org = await j(await req("POST", "/api/start", { email: "boss@acme.com", consent: TICKS }, { "cf-connecting-ip": "1.1.1.1" }));
   const h = { "x-organizer": org.token as string };
-  const window = 20, startMs = vt + 10 * 60_000, startRound = roundAt(startMs);
+  const window = 10, startMs = vt + 10 * 60_000, startRound = roundAt(startMs);
   expect((await req("POST", "/api/z", { id: "EN-1", startRound, callSeconds: window, cap: 100 }, h)).status).toBe(200);
   expect((await req("POST", "/api/z/EN-1/publish", { email: "boss@acme.com", phone: "9876543210", consent: TICKS }, h)).status).toBe(200);
   raw.prepare("UPDATE engagement SET pack=100").run();
@@ -47,16 +47,16 @@ const turns = (ps: { rt: PhoneRuntime }[]) => ps.map((p) => p.rt.view().turnsPla
 describe("O7: the organizer's signed stop ends the game on every phone", () => {
   test("a stop the organizer signed is accepted; every phone ends at the same turn, long before the game would have ended by itself; without a stop the same game plays on", async () => {
     const g = await setup(6, "end6");
-    await g.step(120);
+    await g.step(70);
     const before = turns(g.phones); expect(Math.min(...before)).toBeGreaterThan(0); expect(g.phones.every((p) => p.rt.phase !== "ended")).toBe(true);
     const r = await g.stop(KEY); expect(r.status).toBe(200);
-    await g.step(200);
+    await g.step(60);
     expect(g.phones.every((p) => p.rt.phase === "ended")).toBe(true);
     const after = turns(g.phones); expect(new Set(after).size).toBe(1); // the same last turn on every phone
     expect(after[0]).toBeGreaterThanOrEqual(before[0]!); expect(after[0]).toBeLessThan(before[0]! + 8); // it stopped about when the stop took effect, a few turns at most after the press
     const tops = g.phones.map((p) => JSON.stringify(p.rt.view().top.map((x) => x.seat))); expect(new Set(tops).size).toBe(1); // and the same standings
     // the same game with nobody pressing stop is still going over the same stretch of time
-    const c = await setup(6, "end6"); await c.step(120 + 200);
+    const c = await setup(6, "end6"); await c.step(70 + 60);
     expect(c.phones.some((p) => p.rt.phase === "ended")).toBe(false); expect(Math.min(...turns(c.phones))).toBeGreaterThan(after[0]!);
   }, 300_000);
   test("a stop signed by anybody else is refused and the phones play on", async () => {

@@ -7,7 +7,7 @@ import { RoundStore, activeBreak, callRoundR, luckyEligible, luckyRound, luckyWi
 import { seatOfPid } from "./seat";
 import { QUICKNET, fetchRound, roundAt, roundTimeMs, type BeaconOpts } from "./index";
 import { betaOffset, turnRounds } from "./schedule";
-import { boardOf, crowdOf, rankPlayers, teamTable, teamsOf, DEFAULT_TURN_CAP, type RankRow, type TeamRow, type Settled } from "./race";
+import { boardOf, crowdOf, rankPlayers, teamTable, teamsOf, DEFAULT_END_PRIZES, DEFAULT_TURN_CAP, type RankRow, type TeamRow, type Settled } from "./race";
 import { rankTable } from "./table";
 import { rollFor, runFrom, squareOf, type Run, type Step } from "./play";
 import type { Board } from "./board";
@@ -49,7 +49,7 @@ export interface RuntimeView {
   board: Pick<Board, "size" | "side" | "snakes" | "ladders"> | null;
   me: { square: number; path: number[]; ladders: number; snakes: number; missed: number; finishedTurn: number | null; lastStep: Step | null; history: Step[] } | null;
   turn: TurnView;
-  turnsPlayed: number; turnCap: number; ended: boolean;
+  turnsPlayed: number; turnCap: number; /** The game ends when this many players are home (race and team games). */ endPrizes: number; ended: boolean;
   crowd: { players: number; bands: number[]; finished: number; ahead: number } | null;
   top: (RankRow | { rank: number; seat: number; finishedTurn: number | null; square: number; ladders: number; missed: number; note: string })[];
   myRank: number | null;
@@ -142,7 +142,7 @@ export class PhoneRuntime {
     } catch (e: any) {
       const st = e?.status; // the real reason: a wrong link, a game that is not open, or the connection / the service
       this.phase = st === 404 || st === 403 || st === 410 ? "missing" : "boot";
-      this.error = st === 404 ? "This game link is not valid." : st === 403 || st === 410 ? String(e?.message || "This game is not open yet.") : st && st >= 500 ? "The game could not be opened just now. Please try again in a minute." : "Could not reach the game. Check your connection.";
+      this.error = st === 404 ? "This game link is not valid." : st === 403 || st === 410 ? String(e?.message || "This game is not open yet.") : st && st >= 500 ? "The game could not be opened just now. Please try again in a minute." : "Could not reach the game. Check the connection.";
       return;
     }
     const pid = this.deps.store.get(this.key("pid"));
@@ -164,7 +164,7 @@ export class PhoneRuntime {
     return d;
   }
 
-  /** Joins with a nickname (and a mobile number if the organizer asked for one). The same number again returns the same player. */
+  /** Joins with a name (and a mobile number if the organizer asked for one). The same number again returns the same player. */
   async join(phone: string, name?: string, invite?: { from?: number; cat?: string }, consent?: unknown, empId?: string): Promise<boolean> {
     try {
       const r = await this.deps.api("POST", `/api/z/${this.eid}/join`, { phone, name, ...(empId ? { empId } : {}), device: this.device(), ...(invite && Number.isInteger(invite.from) ? { from: invite.from, cat: invite.cat } : {}), ...(consent ? { consent } : {}) });
@@ -174,7 +174,7 @@ export class PhoneRuntime {
       this.adopt(r.pid); this.error = null;
       return true;
     } catch (e: any) {
-      this.error = e?.status === 423 || e?.code === "invite-full" ? String(e.message || "This place is already on another phone.") : e?.status === 409 ? "This game is full." : e?.status === 410 || e?.code === "closed" ? "Sign-up for this game has closed. It is already running." : e?.code === "need-id" || e?.code === "bad-id" ? String(e.message) : e?.status === 400 ? "Enter a valid nickname." : e?.status === 503 ? "It is a busy day. Please try again in a few minutes." : "Could not join. Check your connection and try again.";
+      this.error = e?.status === 423 || e?.code === "invite-full" ? String(e.message || "This place is already on another phone.") : e?.status === 409 ? "This game is full." : e?.status === 410 || e?.code === "closed" ? "Sign-up for this game has closed. It is already running." : e?.code === "need-id" || e?.code === "bad-id" || e?.code === "bad-name" || e?.code === "need-name" ? String(e.message) : e?.status === 400 ? "Please check the name and try again." : e?.status === 503 ? "It is a busy day. Please try again in a few minutes." : "Could not join. Please check the internet connection and try again.";
       return false;
     }
   }
@@ -228,7 +228,7 @@ export class PhoneRuntime {
   async tick(): Promise<RuntimeView> {
     if (this.phase === "ended") { await this.pollResults(); await this.castVotes(); return this.view(); }
     if (this.phase !== "play") return this.view();
-    if (!(await this.syncClock())) { this.error = "Waiting for the clock. Check your connection."; return this.view(); }
+    if (!(await this.syncClock())) { this.error = "Waiting for the clock. Check the connection."; return this.view(); }
     this.error = null;
     const now = this.nowRound!;
     await this.pollControl(now);
@@ -506,7 +506,7 @@ export class PhoneRuntime {
       kind: this.cfg.mode === "table" ? "table" : this.cfg.mode === "team" ? "team" : "race",
       board: board ? { size: board.size, side: board.side, snakes: board.snakes, ladders: board.ladders } : null,
       me: run ? { square: squareOf(run), path: [1, ...run.pos], ladders: run.ladders, snakes: run.snakes, missed: run.missed, finishedTurn: run.finishedTurn, lastStep: run.history[run.history.length - 1] ?? null, history: run.history } : (board ? { square: 1, path: [1], ladders: 0, snakes: 0, missed: 0, finishedTurn: null, lastStep: null, history: [] } : null),
-      turn, turnsPlayed, turnCap: this.turnCap, ended, crowd, top, myRank, team, table, nextTurnInSec,
+      turn, turnsPlayed, turnCap: this.turnCap, endPrizes: this.cfg.endPrizes ?? DEFAULT_END_PRIZES, ended, crowd, top, myRank, team, table, nextTurnInSec,
     };
   }
 }

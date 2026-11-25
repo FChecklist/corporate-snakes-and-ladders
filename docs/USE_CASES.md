@@ -159,6 +159,7 @@ Run: `bun test packages apps tools/control-worker` gives **479 passing, 0 failin
 | UC-94 | Organizer, Host, Co-host, AI or a stranger posts a result (`/settle`) | Refused (403); nothing stored |
 | UC-95 | One phone reports a winner | Not accepted; accepted only when `quorumFor(people)` different phones report exactly the same winners |
 | UC-96 | Phones disagree, or a minority reports a made-up result | The agreed result stands; a made-up one is ignored; an accepted result is final |
+| UC-96b | Enough phones report a made-up result (a turn that has not happened, a seat that does not exist, a seat that did not get there), even before the game starts | Not counted at all (1.5.4: the server checks the report against the public game first); an early report is answered "not yet" and kept by the phone |
 | UC-97 | Lucky draw | Every phone works it out from the public randomness and the seat list; accepted by the same quorum |
 | UC-98 | A second mobile number on the same phone | Refused (`device-used`); other phones still join; invitations (max 4 per person) still give each invitee their own ticket on their own phone |
 | UC-99 | A winner confirms name and mobile after the game | Only the phone holding the ticket can; a change keeps the original and an audit trail; organizer and co-host see both |

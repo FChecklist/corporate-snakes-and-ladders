@@ -21,7 +21,7 @@ const read = (...p: string[]) => readFileSync(join(root, ...p), "utf8");
 
 beforeEach(() => {
   const d = makeD1(); raw = d.raw;
-  env = { DB: d.db, ORGANIZER_SECRET: "plat", DAILY_WRITE_BUDGET: "100000", PUBLIC_ORIGIN: ORIGIN, DATA_KEY: "test-data-key", TEST_MODE: "1" };
+  env = { DB: d.db, ORGANIZER_SECRET: "plat", RUNNER_KEY: "test-runner-key-test-runner-key-test0000", DAILY_WRITE_BUDGET: "100000", PUBLIC_ORIGIN: ORIGIN, DATA_KEY: "test-data-key", TEST_MODE: "1" };
   sentReports.length = 0;
 });
 const realFetch = globalThis.fetch;
@@ -71,9 +71,9 @@ describe("mail that is not built by mails.ts gets the same brand when it is sent
     const h = plainToHtml("t", "<script>alert(1)</script>\n\nhttps://x.test/a?b=1&c=2", ORIGIN);
     expect(h).not.toContain("<script>"); expect(h).toContain("&lt;script&gt;"); expect(h).toContain('data-brand="header"');
   });
-  test("every mail a whole unpaid lifecycle sends (sign-up, publish, co-host, reminder, could-not-begin, sign-in, replace, alert) carries the footer, and the name is spelled right", async () => {
+  test("every mail a whole unpaid lifecycle sends (sign-up, publish, invite-only co-organizer, reminder, could-not-begin, sign-in, replace, alert) carries the footer, and the name is spelled right", async () => {
     const o = await j(await call("POST", "/api/start", { email: "boss@acme.com" }, { "cf-connecting-ip": "1.1.1.1" })); const h = { "x-organizer": o.token };
-    await call("POST", "/api/z", { id: "BRAND-1", startRound: roundAt(T + 30 * 3_600_000), callSeconds: 20, cap: 500 }, h);
+    await call("POST", "/api/z", { id: "BRAND-1", startRound: roundAt(T + 30 * 3_600_000), callSeconds: 10, cap: 500 }, h);
     await call("POST", "/api/z/BRAND-1/publish", { email: "boss@acme.com", phone: "98765 43210" }, h);
     const use = (ip: string, c: string, now: number) => call("GET", `/ai/${o.aiKey}`, undefined, { "cf-connecting-ip": ip, "cf-ipcountry": c, "user-agent": "ChatGPT-User/1" }, now);
     await use("1.2.3.4", "US", T); await use("5.6.7.8", "DE", T + 1000);
@@ -84,7 +84,7 @@ describe("mail that is not built by mails.ts gets the same brand when it is sent
     const rows = raw.prepare("SELECT subject, body FROM outbox").all() as { subject: string; body: string }[];
     expect(rows.length).toBeGreaterThanOrEqual(8);
     for (const r of rows) { expect([r.subject, hasFooter(r.body)]).toEqual([r.subject, true]); expect(r.body + r.subject).not.toMatch(/CORPORATE SNAKES AND LADDERS|Corporate Snakes and Ladders Bingo/); }
-    expect(rows.some((r) => /Someone new used/.test(r.subject))).toBe(true); expect(rows.some((r) => /could not begin/.test(r.subject))).toBe(true); expect(rows.some((r) => /^\[Snakes \& Ladders\] Payment pending for your game/.test(r.subject))).toBe(true);
+    expect(rows.some((r) => /Someone new used/.test(r.subject))).toBe(true); expect(rows.some((r) => /could not begin/.test(r.subject))).toBe(true); expect(rows.some((r) => /^\[Snakes \& Ladders\] Payment pending for the game/.test(r.subject))).toBe(true);
   });
   test("pay.ts and nothing else talks to the mail service, and both senders add the brand", () => {
     const pay = read("apps/edge/src/pay.ts");
@@ -94,16 +94,17 @@ describe("mail that is not built by mails.ts gets the same brand when it is sent
 });
 
 describe("pages: one title pattern, icons, manifest, theme colour", () => {
-  const PAGES = ["index.html", "report.html", "legal.html", "terms.html", "dpa.html", "subprocessors.html", "partner-terms.html", "organizer-guide.html", "partner.html", "pay.html", "big.html", "zc.html", "z.html", "ai-link.html", "signin.html", "404.html"];
+  const PRIMARY = /--snk-primary:\s*(#[0-9A-Fa-f]{6})/.exec(read("apps/web/public", "snakes-scheme.css"))![1]!; // the one place the colour lives (snakes-scheme.css)
+  const PAGES =["index.html", "report.html", "legal.html", "terms.html", "dpa.html", "subprocessors.html", "partner-terms.html", "organizer-guide.html", "partner.html", "pay.html", "big.html", "zc.html", "z.html", "ai-link.html", "signin.html", "404.html"];
   for (const f of PAGES) {
     test(`${f}: title names Corporate Snakes and Ladders exactly; favicon, touch icon, manifest and theme colour`, () => {
       const s = read("apps/web/public", f); const title = (s.match(/<title>([^<]*)<\/title>/) ?? [])[1]!;
       expect(title).toMatch(/(^Corporate Snakes and Ladders|\| Corporate Snakes and Ladders$)/); expect(title).not.toMatch(/CORPORATE|Bingo Corporate/);
-      for (const needle of ['rel="icon"', "apple-touch-icon", 'rel="manifest"', 'name="theme-color" content="#0B5D5B"']) expect(s).toContain(needle);
+      for (const needle of ['rel="icon"', "apple-touch-icon", 'rel="manifest"', `name="theme-color" content="${PRIMARY}"`]) expect(s).toContain(needle);
     });
   }
   test("the PWA manifest and the build ship the brand", () => {
-    const m = JSON.parse(read("apps/web/public/manifest.webmanifest")); expect(m.name).toBe("Corporate Snakes and Ladders"); expect(m.short_name).toBe("Corporate Snakes and Ladders"); expect(m.theme_color).toBe("#0B5D5B");
+    const m = JSON.parse(read("apps/web/public/manifest.webmanifest")); expect(m.name).toBe("Corporate Snakes and Ladders"); expect(m.short_name).toBe("Corporate Snakes and Ladders"); expect(m.theme_color).toBe(PRIMARY.toUpperCase());
     expect(read("pages/build.mjs")).toContain('"404.html"');
   });
   test("every page header uses the Corporate Snakes and Ladders name; the report PDF names it and carries the support address and legal link", () => {
@@ -127,7 +128,7 @@ describe("claims register: customer-facing text never says what the build does n
   test("structured data prices equal the real packs", () => {
     const h = read("apps/web/public/index.html"); const { PACKS } = require("../../../packages/shared/src/pricing") as typeof import("../../../packages/shared/src/pricing");
     expect(h).toContain(`"lowPrice":"${Math.min(...PACKS.map((p) => p[1]))}"`); expect(h).toContain(`"highPrice":"${Math.max(...PACKS.map((p) => p[1]))}"`); expect(h).toContain(`"offerCount":"${PACKS.length}"`);
-    const site = read("apps/web/public/site.js"); expect(site).toContain("Festive offer: 50% off"); expect(site).toContain("Regular price after the festive offer"); expect(h).toContain("Festive offer: 50% off"); // owner decision: keep the offer, worded as a festive offer
+    const site = read("apps/web/public/site.js"); expect(`${site}${h}`).not.toMatch(/Festive offer|50% OFF|Regular price after/i); expect(site).not.toMatch(/was\s*=|\* 2 \+ 1/); // SL-24 (Boss ruling Q8, 2026-10-29): one honest price, no computed "was" price, no permanent badge
     expect(`${h}${site}`).not.toMatch(/Most popular|2nd most popular/); // the offer price is what is charged, and equals the structured-data price (lowPrice above)
   });
 });

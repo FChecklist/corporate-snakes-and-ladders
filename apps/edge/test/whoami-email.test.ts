@@ -8,7 +8,7 @@ beforeEach(() => { reset(); lazyTickReset(); sentReports.length = 0; });
 afterEach(restore);
 
 describe("whoami e-mail", () => {
-  test("a new account's whoami carries its e-mail; a host or an AI key does not", async () => {
+  test("a new account's whoami carries its e-mail; a co-organizer or an AI key does not", async () => {
     const o = await organizer("who.am.i@acme.com");
     const me = await j(await call("GET", "/api/whoami", undefined, { "x-organizer": o.key })); expect(me).toMatchObject({ kind: "master", email: "who.am.i@acme.com" });
     const ai = await j(await call("GET", "/api/whoami", undefined, { "x-organizer": o.ai })); expect(ai.email).toBeUndefined();

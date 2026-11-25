@@ -3,6 +3,7 @@
 import { beforeEach, describe, expect, test } from "bun:test";
 import { SEEN_DEVICES, withDevice, TICKS } from "./device";
 import { settleByPhones } from "./settle";
+import { settleTrue, trueGame } from "./truth";
 import { layoutPeoplePart, layoutReport } from "../src/report-layout";
 import { handle, purgeOld, type Env } from "../src/worker";
 import { makeD1 } from "./d1-sqlite";
@@ -20,7 +21,7 @@ const j = async (r: Response) => (await r.json()) as any;
 const org = { "x-organizer": SECRET };
 const tick = (now: number) => lifecycleTick(env as any, now);
 /** An engagement whose game is long over at T (it began 2 hours before). */
-const create = (id = "PRV-1", over: Record<string, unknown> = {}) => call("POST", "/api/z", { id, startRound: roundOf(T - 2 * 3_600_000), callSeconds: 20, cap: 5000, ...over }, org);
+const create = (id = "PRV-1", over: Record<string, unknown> = {}) => call("POST", "/api/z", { id, startRound: roundOf(T - 2 * 3_600_000), callSeconds: 10, cap: 2000, ...over }, org);
 const setContact = (id: string, email = "boss@acme.com") => env.DB.prepare("INSERT INTO kv(k,v) VALUES(?,?)").bind(`contact/${id}`, JSON.stringify({ email, phone: "9811122233" })).run();
 const joinAs = (i: number, name: string, id = "PRV-1", extra: Record<string, unknown> = {}, now = T - 3 * 3_600_000) => { SEEN_DEVICES.add(String(i).padStart(32, "0")); return call("POST", `/api/z/${id}/join`, { phone: "9876" + String(500000 + i), name, device: String(i).padStart(32, "0"), ...extra }, {}, now); };
 /** A phone says the game is over: its own device id goes with the report (the one that fits the card is the one let through). */
@@ -28,7 +29,7 @@ const overAs = async (pid: string, now: number) => { let r!: Response; for (cons
 
 beforeEach(() => {
   const d = makeD1(); raw = d.raw;
-  env = { DB: d.db, ORGANIZER_SECRET: SECRET, DAILY_WRITE_BUDGET: "10000000" };
+  env = { DB: d.db, ORGANIZER_SECRET: SECRET, RUNNER_KEY: "test-runner-key-test-runner-key-test0000", DAILY_WRITE_BUDGET: "10000000" };
   sentReports.length = 0;
 });
 
@@ -52,7 +53,7 @@ describe("names and numbers are sealed", () => {
     expect(await openPii({ DATA_KEY: "key-one" }, flipped)).toBeNull();
     expect(await openPii({ DATA_KEY: "key-one" }, "plain text")).toBeNull();
   });
-  test("the participant list carries ids, join rounds, roles and inviters but no names; the organizer opens a few names at a time", async () => {
+  test("the player list carries ids, join rounds, roles and inviters but no names; the organizer opens a few names at a time", async () => {
     await create(); await joinAs(1, "Asha"); await joinAs(2, "Bala");
     const list = await j(await call("GET", "/api/z/PRV-1/participants", undefined, org));
     expect(JSON.stringify(list)).not.toMatch(/Asha|Bala/); expect(Object.keys(list.participants[0]).sort()).toEqual(["blocked", "cat", "inv", "jr", "pid", "role"]);
@@ -62,7 +63,7 @@ describe("names and numbers are sealed", () => {
     const names = (await j(await call("GET", `/api/z/PRV-1/names?pids=${pids}`, undefined, org))).names as Record<string, string>;
     expect(Object.values(names).sort()).toEqual(["Asha", "Bala"]);
   });
-  test("people on the invitation list get seats too (collision-free tickets, one device), and the first device to open the link takes the seat", async () => {
+  test("people on the invitation list get seats too (collision-free boards, one device), and the first device to open the link takes the seat", async () => {
     await create();
     await call("POST", "/api/z/PRV-1/roster", { people: [{ phone: "9876543210", name: "Rani" }] }, org, T - 3 * 3_600_000);
     const seat = raw.query("SELECT seq, pid, dev, src FROM seat").get() as any; expect(seat.pid).toMatch(/^1x[0-9a-f]{12}$/); expect(seat.dev).toBeNull(); expect(seat.src).toBe("roster");
@@ -99,7 +100,7 @@ describe("invitations", () => {
     expect((await joinAs(2, "Bala", "PRV-1", { from: s.seq, cat: "family" })).status).toBe(200);
     expect(raw.query("SELECT inv, cat FROM seat WHERE seq=2").get()).toEqual({ inv: null, cat: null });
   });
-  test("one person can invite at most 4: the 5th person using their link is told so, and each invitee is recorded with the kind of guest", async () => {
+  test("one person can invite at most 4: the 5th person using their link is told so, and each invitee is recorded with the kind of player", async () => {
     await create(); await withInvites("PRV-1", { on: true, per: 4, cats: ["family", "colleagues"] });
     await joinAs(1, "Asha"); const inviter = (raw.query("SELECT seq FROM seat").get() as any).seq;
     for (let i = 2; i <= 5; i++) expect((await joinAs(i, "G" + i, "PRV-1", { from: inviter, cat: i % 2 ? "family" : "colleagues" })).status).toBe(200);
@@ -111,16 +112,16 @@ describe("invitations", () => {
     expect((await joinAs(7, "Chain", "PRV-1", { from: 2, cat: "family" })).status).toBe(200);
     expect(raw.query("SELECT inv, cat FROM seat WHERE seq=6").get()).toEqual({ inv: null, cat: null });
   });
-  test("a kind of guest the organizer did not allow is not recorded; an unknown inviter is ignored", async () => {
+  test("a kind of player the organizer did not allow is not recorded; an unknown inviter is ignored", async () => {
     await create(); await withInvites("PRV-1", { on: true, per: 4, cats: ["family"] });
     await joinAs(1, "Asha");
     await joinAs(2, "Bala", "PRV-1", { from: 1, cat: "dealers" }); await joinAs(3, "Cara", "PRV-1", { from: 999, cat: "family" });
     expect(raw.query("SELECT inv, cat FROM seat WHERE seq=2").get()).toEqual({ inv: 1, cat: null });
     expect(raw.query("SELECT inv, cat FROM seat WHERE seq=3").get()).toEqual({ inv: null, cat: null });
   });
-  test("the organizer, hosts and co-hosts can invite any number of people, and their seats are flagged", async () => {
+  test("the organizer, co-organizers and invite-only co-organizers can invite any number of people, and their seats are flagged", async () => {
     await create(); await withInvites("PRV-1", { on: true, per: 2, cats: ["family"] });
-    await joinAs(1, "Boss"); await joinAs(2, "Host");
+    await joinAs(1, "Boss"); await joinAs(2, "Co-organizer");
     expect((await call("POST", "/api/z/PRV-1/mark", { phone: "9876500001", role: "organizer" })).status).toBe(403); // only the organizer can mark
     expect((await call("POST", "/api/z/PRV-1/mark", { phone: "9876500001", role: "organizer" }, org, T - 4 * 3_600_000)).status).toBe(200);
     expect((await call("POST", "/api/z/PRV-1/mark", { phone: "9876500002", role: "co-host" }, org, T - 4 * 3_600_000)).status).toBe(200);
@@ -141,19 +142,21 @@ describe("invitations", () => {
 
 describe("the winners record", () => {
   test("results the phones agree on become winner rows (seat, prize, round, time, no names); a phone's own word, and the console, change nothing", async () => {
-    await create(); await joinAs(1, "Asha"); await joinAs(2, "Bala"); await joinAs(3, "Cara");
+    await create("PRV-1", { turnCap: 100 }); await joinAs(1, "Asha"); await joinAs(2, "Bala"); await joinAs(3, "Cara");
     const pids = (raw.query("SELECT pid FROM seat ORDER BY seq").all() as any[]).map((x) => x.pid);
-    expect((await call("POST", "/api/z/PRV-1/settle", { results: [{ pattern: "finish", ordinal: 1, idx: 33, pids: [pids[0]!] }] }, org)).status).toBe(403); // the organizer cannot post a winner
+    const tg = trueGame(raw, "PRV-1"), w = tg.settled.find((x) => x.pattern === "finish" && x.ordinal === 1)!, wseat = Number(w.pids[0]!.split("x")[0]);
+    expect((await call("POST", "/api/z/PRV-1/settle", { results: [{ pattern: "finish", ordinal: 1, idx: w.idx, pids: w.pids }] }, org)).status).toBe(403); // the organizer cannot post a winner
     expect(raw.query("SELECT COUNT(*) c FROM winner").get()).toEqual({ c: 0 });
-    await settleByPhones(call, "PRV-1", [{ pattern: "finish", idx: 33, pids: [pids[0]!] }], pids);
-    expect(raw.query("SELECT round, pattern, ordinal, seat, idx, src FROM winner").all()).toEqual([{ round: 1, pattern: "finish", ordinal: 1, seat: 1, idx: 33, src: "phones" }]);
+    await settleByPhones(call, "PRV-1", [{ pattern: "finish", idx: w.idx, pids: w.pids }], pids, tg.endMs);
+    expect(raw.query("SELECT round, pattern, ordinal, seat, idx, src FROM winner").all()).toEqual([{ round: 1, pattern: "finish", ordinal: 1, seat: wseat, idx: w.idx, src: "phones" }]);
     const at = (raw.query("SELECT at_ms FROM winner").get() as any).at_ms; expect(at).toBeGreaterThan(T - 3 * 3_600_000); expect(at).toBeLessThan(T);
     // an older phone page still reporting its own win: accepted politely, recorded as nothing
     expect((await call("POST", "/api/z/PRV-1/won", { pid: pids[1], wins: [{ round: 1, pattern: "milestone", ordinal: 1, idx: 72 }] })).status).toBe(200);
     expect(raw.query("SELECT COUNT(*) c FROM winner").get()).toEqual({ c: 1 });
-    // a result already accepted is never replaced by later reports
-    await settleByPhones(call, "PRV-1", [{ pattern: "finish", idx: 30, pids: [pids[2]!] }], pids);
-    expect(raw.query("SELECT seat, idx FROM winner WHERE pattern='finish'").all()).toEqual([{ seat: 1, idx: 33 }]);
+    // a result already accepted is never replaced by later reports (and a made-up one is not even counted)
+    const other = pids.find((p) => p !== w.pids[0])!;
+    await settleByPhones(call, "PRV-1", [{ pattern: "finish", idx: w.idx - 1, pids: [other] }], pids, tg.endMs);
+    expect(raw.query("SELECT seat, idx FROM winner WHERE pattern='finish'").all()).toEqual([{ seat: wseat, idx: w.idx }]);
   });
   test("a game is over only when several different phones say so, and never before it could be", async () => {
     await create(); for (let i = 1; i <= 5; i++) await joinAs(i, "P" + i);
@@ -171,13 +174,16 @@ describe("the winners record", () => {
 });
 
 describe("the report and the deletion", () => {
+  const won = { lines: 0, milestoneSeat: 0 }; // how many prize lines were settled, and which seat won the milestone
   const prep = async (n = 6) => {
-    await create(); await call("PATCH", "/api/z/PRV-1/settings", { invites: { on: true, per: 4, cats: ["family", "colleagues"] } }, org, T - 4 * 3_600_000);
+    await create("PRV-1", { turnCap: 100 }); await call("PATCH", "/api/z/PRV-1/settings", { invites: { on: true, per: 4, cats: ["family", "colleagues"] } }, org, T - 4 * 3_600_000);
     await setContact("PRV-1");
     await joinAs(1, "Organizer Olga"); await call("POST", "/api/z/PRV-1/mark", { phone: "9876500001", role: "organizer" }, org, T - 3 * 3_600_000);
-    for (let i = 2; i <= n; i++) await joinAs(i, i === 4 ? "Zed अन" : "Guest " + i, "PRV-1", { from: 1, cat: "family" });
+    for (let i = 2; i <= n; i++) await joinAs(i, i === 4 ? "Zed अन" : "Player " + i, "PRV-1", { from: 1, cat: "family" });
     const pids = (raw.query("SELECT pid FROM seat ORDER BY seq").all() as any[]).map((x) => x.pid);
-    await settleByPhones(call, "PRV-1", [{ pattern: "milestone", idx: 72, pids: [pids[2]!] }, { pattern: "finish", idx: 30, pids: [pids[0]!, pids[3]!] }], pids);
+    // the phones report the TRUE result of this game (the server checks it against the public numbers): the milestone and every home place
+    const reported = await settleTrue(call, raw, "PRV-1", pids, ["milestone", "finish"]);
+    won.lines = reported.length; won.milestoneSeat = Number(reported.find((x) => x.pattern === "milestone")!.pids[0]!.split("x")[0]);
     return pids;
   };
   /** What the report page does in the organizer's browser: asks for the base, then the people 250 at a time, then lays the PDF out on that device. */
@@ -201,18 +207,18 @@ describe("the report and the deletion", () => {
     expect(sentReports.length).toBe(1);
     const m = sentReports[0]!;
     expect(m.to).toBe("boss@acme.com"); expect(m.subject).toMatch(/PRV-1/); expect(m.attachments.length).toBe(0);
-    expect(m.text).toMatch(/built on your own/); expect(m.text).toMatch(/within 24 hours/); expect(m.text).toMatch(/365 days/); expect(m.text).not.toMatch(/backup/i); expect(m.text).toMatch(/winners record/);
+    expect(m.text).toMatch(/built on the computer or phone/); expect(m.text).toMatch(/within 24 hours/); expect(m.text).toMatch(/365 days/); expect(m.text).not.toMatch(/backup/i); expect(m.text).toMatch(/winners record/);
     expect(m.text).toMatch(/DPDP Act/); expect(m.text).toMatch(/CCPA/); expect(m.text).not.toMatch(/personal data(?! protection)/i);
     expect(m.text + "").not.toMatch(/the law requires|required by law/i);
     const link = linkOf(m); expect(link).toMatch(/report\.html\?e=PRV-1&k=/);
     const r = await buildReport(link); const pdf = r.text;
     expect(pdf.startsWith("%PDF-1.4")).toBe(true); expect(pdf).toMatch(/%%EOF\s*$/);
-    for (const needle of ["Organizer Olga", "Guest 3", "98765 00001", "98765 00002", "Zed ??", "organizer", "boss@acme.com", "Sent on:", "deleted", "365th day"]) expect(pdf.toLowerCase()).toContain(needle.toLowerCase());
-    for (const needle of ["Our commitment to your data", "permanently deleted from our systems within 24 hours", "DPDP", "GDPR", "California Consumer Privacy Act", "advertising", "encryption", "winners record", "Agreed by", "Prize given"]) expect(pdf).toContain(needle);
+    for (const needle of ["Organizer Olga", "Player 3", "98765 00001", "98765 00002", "Zed ??", "organizer", "boss@acme.com", "Sent on:", "deleted", "365th day"]) expect(pdf.toLowerCase()).toContain(needle.toLowerCase());
+    for (const needle of ["The commitment to the data", "permanently deleted from the systems within 24 hours", "DPDP", "GDPR", "California Consumer Privacy Act", "advertising", "encryption", "winners record", "Agreed by", "Prize given"]) expect(pdf).toContain(needle);
     expect(pdf).not.toMatch(/personal data(?! protection)/i);
     expect(pdf).not.toMatch(/the law requires|required by law/i);
     expect(pdf).not.toMatch(/(rs|inr|usd|price)[^\n(]{0,12}per (person|participant|head|user)/i);
-    expect(pdf).toMatch(/Who invited whom/); expect(pdf).toMatch(/\+- Guest 3/);
+    expect(pdf).toMatch(/Who invited whom/); expect(pdf).toMatch(/\+- Player 3/);
     expect(raw.query("SELECT report_ms FROM life").get()).not.toEqual({ report_ms: null });
     expect((raw.query("SELECT COUNT(*) c FROM kv WHERE k LIKE 'rpt%'").get() as any).c).toBeGreaterThanOrEqual(2); // working copies exist until the deletion
     // the link is the credential: a wrong key, and a link for another engagement, open nothing
@@ -223,15 +229,15 @@ describe("the report and the deletion", () => {
   });
   test("the report shows what each winner confirmed, whether they changed it, and whether the prize was given", async () => {
     const pids = await prep();
-    const dev = String(3).padStart(32, "0"); // joinAs(3) used this device
-    expect((await call("POST", "/api/z/PRV-1/confirm", { pid: pids[2], device: dev, name: "Gita Menon", phone: "9000000003" }, {}, T)).status).toBe(200);
-    expect((await call("POST", "/api/z/PRV-1/prizegiven", { round: 1, pattern: "milestone", ordinal: 1, seat: 3, given: true }, org, T)).status).toBe(200);
+    const ws = won.milestoneSeat, dev = String(ws).padStart(32, "0"); // joinAs(ws) used this device
+    expect((await call("POST", "/api/z/PRV-1/confirm", { pid: pids[ws - 1], device: dev, name: "Gita Menon", phone: "9000000003" }, {}, T)).status).toBe(200);
+    expect((await call("POST", "/api/z/PRV-1/prizegiven", { round: 1, pattern: "milestone", ordinal: 1, seat: ws, given: true }, org, T)).status).toBe(200);
     const end = await endBoundMs(env as any, raw.query("SELECT * FROM engagement WHERE id='PRV-1'").get());
     let guard = 0; while (!sentReports.length && guard++ < 20) await tick(end + 5 * 60_000);
     const r = await buildReport(linkOf(sentReports[0]!));
-    expect(r.text).toContain("Gita Menon"); expect(r.text).toContain("90000 00003"); expect(r.text).toMatch(/details changed after the game/); expect(r.text).toMatch(/joined as Guest 3/);
+    expect(r.text).toContain("Gita Menon"); expect(r.text).toContain("90000 00003"); expect(r.text).toMatch(/details changed after the game/); expect(r.text).toMatch(ws === 1 ? /joined as Organizer Olga/ : ws === 4 ? /joined as Zed/ : new RegExp("joined as Player " + ws));
   });
-  test("22 hours after the end every participant record is gone (working copies too); the winners record, the organizer's details and the engagement stay", async () => {
+  test("22 hours after the end every player record is gone (working copies too); the winners record, the organizer's details and the engagement stay", async () => {
     await prep();
     const e0 = raw.query("SELECT * FROM engagement WHERE id='PRV-1'").get();
     const end = await endBoundMs(env as any, e0);
@@ -244,7 +250,7 @@ describe("the report and the deletion", () => {
     expect((raw.query("SELECT COUNT(*) c FROM kv WHERE k LIKE 'rpt%' OR k LIKE 'seats-base%'").get() as any).c).toBe(0);
     const link = linkOf(sentReports[0]!);
     expect((await call("GET", `/api/report/PRV-1?k=${new URL(link).searchParams.get("k")}&part=base`)).status).toBe(404); // the link no longer opens anything
-    expect((raw.query("SELECT COUNT(*) c FROM winner").get() as any).c).toBe(3); // what, which round, when, which seat
+    expect((raw.query("SELECT COUNT(*) c FROM winner").get() as any).c).toBe(won.lines); // what, which round, when, which seat
     expect(JSON.stringify(raw.query("SELECT * FROM winner").all())).not.toMatch(/Olga|Guest|98765/);
     expect(raw.query("SELECT v FROM kv WHERE k='contact/PRV-1'").get()).toBeTruthy(); expect(raw.query("SELECT id FROM engagement").get()).toEqual({ id: "PRV-1" });
     expect(JSON.stringify(raw.query("SELECT * FROM outbox").all())).not.toMatch(/Olga|Guest/);
@@ -259,7 +265,7 @@ describe("the report and the deletion", () => {
     expect((raw.query("SELECT COUNT(*) c FROM participant").get() as any).c).toBe(0);
   });
   test("a big game: one link, the report page reads the people in pieces and lays out the parts on the device, which together list every person once", async () => {
-    await create("PRV-BIG", { cap: 5000 }); await setContact("PRV-BIG");
+    await create("PRV-BIG", { cap: 2000 }); await setContact("PRV-BIG");
     const N = 1620;
     for (let i = 1; i <= N; i++) {
       const pii = await sealPii(env as any, { phone: "9876" + String(100000 + i), name: "Person " + i });
@@ -295,9 +301,9 @@ describe("exact deletion dates", () => {
     expect((raw.query("SELECT COUNT(*) c FROM kv WHERE k LIKE 'contact/%'").get() as any).c).toBe(0);
   });
   test("the scheduler's own door needs the platform key, and the console's Erase deletes personal data at once but keeps the winners record", async () => {
-    await create(); await joinAs(1, "Asha"); await joinAs(2, "Bala");
+    await create("PRV-1", { turnCap: 100 }); await joinAs(1, "Asha"); await joinAs(2, "Bala");
     const pids = (raw.query("SELECT pid FROM seat ORDER BY seq").all() as any[]).map((x) => x.pid);
-    await settleByPhones(call, "PRV-1", [{ pattern: "milestone", idx: 70, pids: [pids[1]!] }], pids);
+    expect((await settleTrue(call, raw, "PRV-1", pids, ["milestone"])).length).toBe(1);
     expect((await call("POST", "/api/lifecycle/tick")).status).toBe(403);
     expect((await call("POST", "/api/lifecycle/tick", {}, org)).status).toBe(200);
     expect((await call("POST", "/api/z/PRV-1/erase", {})).status).toBe(403);
@@ -310,7 +316,7 @@ describe("asking for deletion", () => {
   const key = async () => { const r = await handle(new Request("http://x/api/start", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ consent: TICKS, email: "boss@acme.com" }) }), env, T); return (await j(r)) as { token: string; aiKey: string }; };
   test("an AI assistant can only ASK for a deletion: nothing is deleted until the organizer confirms in their console, and the organizer is e-mailed", async () => {
     const k = await key();
-    await call("POST", "/api/z", { id: "PRV-AI", startRound: roundOf(T - 2 * 3_600_000), callSeconds: 20, cap: 100 }, { "x-organizer": k.token });
+    await call("POST", "/api/z", { id: "PRV-AI", startRound: roundOf(T - 2 * 3_600_000), callSeconds: 10, cap: 100 }, { "x-organizer": k.token });
     await call("POST", "/api/z/PRV-AI/publish", { email: "boss@acme.com", phone: "9811122233" }, { "x-organizer": k.token }, T - 5 * 3_600_000);
     await joinAs(1, "Asha", "PRV-AI");
     expect((await call("POST", "/api/z/PRV-AI/erase", {}, { "x-organizer": k.aiKey })).status).toBe(403); // the AI key can never erase
@@ -319,7 +325,7 @@ describe("asking for deletion", () => {
     expect((raw.query("SELECT COUNT(*) c FROM participant WHERE eid='PRV-AI'").get() as any).c).toBe(1);
     expect((await j(await call("GET", "/api/z/PRV-AI/control/request", undefined, { "x-organizer": k.token }))).requests[0].action).toBe("erase");
     const mail = raw.query("SELECT subject, body FROM outbox WHERE to_addr='boss@acme.com' ORDER BY id DESC LIMIT 1").get() as any;
-    expect(mail.subject).toMatch(/asked to delete all participant data/); expect(mail.body).toMatch(/Nothing is deleted yet/);
+    expect(mail.subject).toMatch(/asked to delete all player data/); expect(mail.body).toMatch(/Nothing is deleted yet/);
     expect((await call("POST", "/api/z/PRV-AI/erase", {}, { "x-organizer": k.token })).status).toBe(200); // the organizer's own confirmation
     expect((raw.query("SELECT COUNT(*) c FROM participant WHERE eid='PRV-AI'").get() as any).c).toBe(0);
   });
@@ -332,7 +338,7 @@ describe("asking for deletion", () => {
     expect((raw.query("SELECT COUNT(*) c FROM participant").get() as any).c).toBe(2);
     expect((await j(await inbound({ from: "boss@acme.com", subject: "Hello", text: "thanks for the game PRV-MAIL" }))).action).toBe("none"); // no deletion wish
     // a forged sender is not enough: the first mail only sends a code to the REGISTERED address; nothing is deleted yet
-    const first = await j(await inbound({ from: "The Boss <Boss@Acme.com>", subject: "Re: your report", text: "Please DELETE all the data of PRV-MAIL now." }));
+    const first = await j(await inbound({ from: "The Boss <Boss@Acme.com>", subject: "Re: the report", text: "Please DELETE all the data of PRV-MAIL now." }));
     expect(first.action).toBe("confirm-sent"); expect((raw.query("SELECT COUNT(*) c FROM participant").get() as any).c).toBe(2);
     const ask = raw.query("SELECT to_addr, subject, body FROM outbox WHERE subject LIKE '%Confirm the deletion%' ORDER BY id DESC LIMIT 1").get() as any;
     expect(ask.to_addr).toBe("boss@acme.com"); const code = ask.body.match(/\b\d{6}\b/)[0];
@@ -343,7 +349,7 @@ describe("asking for deletion", () => {
     expect((raw.query("SELECT COUNT(*) c FROM participant").get() as any).c).toBe(0);
     expect((await j(await inbound({ from: "Boss@acme.com", subject: "again", text: "delete PRV-MAIL " + code }))).action).not.toBe("deleted"); // the code works once
     const confirmation = raw.query("SELECT subject, body FROM outbox WHERE subject LIKE '%Deleted:%' ORDER BY id DESC LIMIT 1").get() as any;
-    expect(confirmation.subject).toMatch(/Deleted: participant data of PRV-MAIL/); expect(confirmation.body).toMatch(/365 days/);
+    expect(confirmation.subject).toMatch(/Deleted: player data of PRV-MAIL/); expect(confirmation.body).toMatch(/365 days/);
   });
   test("a deletion code expires after 30 minutes, and a second request within 5 minutes does not send a second code", async () => {
     (env as any).INBOUND_SECRET = "in-secret"; await create("PRV-MAIL2"); await setContact("PRV-MAIL2", "boss@acme.com"); await joinAs(1, "Asha", "PRV-MAIL2");

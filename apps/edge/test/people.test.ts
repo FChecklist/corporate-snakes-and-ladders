@@ -26,7 +26,7 @@ const joinAs = (id: string, i: number, extra: Record<string, unknown> = {}, now 
 async function setup(opts: { closed?: boolean; cap?: number; invites?: unknown } = {}) {
   const st = await j(await handle(new Request("http://x/api/start", { method: "POST", headers: { "content-type": "application/json", "cf-connecting-ip": `7.7.7.${++ipN}` }, body: JSON.stringify({ consent: TICKS, email: `o${ipN}@acme.com` }) }), env as Env, T));
   const master = st.token as string, ai = st.aiKey as string;
-  await call("POST", "/api/z", { id: "PPL-1", startRound: START, callSeconds: 20, cap: opts.cap ?? 100, ...(opts.closed ? { whoCanJoin: "list" } : {}) }, master);
+  await call("POST", "/api/z", { id: "PPL-1", startRound: START, callSeconds: 10, cap: opts.cap ?? 100, ...(opts.closed ? { whoCanJoin: "list" } : {}) }, master);
   await call("POST", "/api/z/PPL-1/publish", { email: "boss@acme.com", phone: "98765 43210" }, master);
   if (opts.invites) await call("PATCH", "/api/z/PPL-1/settings", { guestInvites: opts.invites }, master);
   const host = (await j(await call("POST", "/api/org/host", { label: "Priya", email: "priya@acme.com", mobile: "9876500001" }, master))).hostKey as string;
@@ -38,7 +38,7 @@ const list = async (key: string, id = "PPL-1", q = "") => j(await call("GET", `/
 const tokenOf = (link: string) => link.split("/j/")[1]!;
 const rowsOf = (sql: string, ...v: unknown[]) => raw.prepare(sql).all(...(v as any[])) as any[];
 
-beforeEach(() => { const d = makeD1(); raw = d.raw; env = { DB: d.db, ORGANIZER_SECRET: "plat", DAILY_WRITE_BUDGET: "1000000", PUBLIC_ORIGIN: "https://bingo.test", PHONE_SALT: "salt" }; (globalThis as any).fetch = async () => new Response("{}", { status: 404 }); });
+beforeEach(() => { const d = makeD1(); raw = d.raw; env = { DB: d.db, ORGANIZER_SECRET: "plat", RUNNER_KEY: "test-runner-key-test-runner-key-test0000", DAILY_WRITE_BUDGET: "1000000", PUBLIC_ORIGIN: "https://bingo.test", PHONE_SALT: "salt" }; (globalThis as any).fetch = async () => new Response("{}", { status: 404 }); });
 afterEach(() => { globalThis.fetch = realFetch; });
 
 describe("cleaning numbers", () => {
@@ -47,7 +47,7 @@ describe("cleaning numbers", () => {
     expect(cleanPhone("+971 50 123 4567")).toMatchObject({ ok: true, digits: "971501234567" });
     for (const bad of ["", "abc", "12345", "5876543210", "+91 5876543210", "91987654321", "1234567890123456"]) expect(cleanPhone(bad).ok).toBe(false);
   });
-  test("link codes: the Organizer, Hosts, Co-hosts and a guest's seat never collide", () => {
+  test("link codes: the Organizer, Co-organizers, Invite-only co-organizers and a player's seat never collide", () => {
     expect(parseFrom(ORG_FROM)).toEqual({ kind: "org" });
     expect(parseFrom(HOST_FROM + 255)).toEqual({ kind: "host", hex: "00000ff" });
     expect(parseFrom(COHOST_FROM + 255)).toEqual({ kind: "cohost", hex: "00000ff" });
@@ -79,7 +79,7 @@ describe("adding people", () => {
     expect(again).toMatchObject({ added: 1, duplicates: 1 });
     expect(rowsOf("SELECT inviter FROM person ORDER BY added_ms, id").map((x) => x.inviter[0]).sort()).toEqual(["h", "o"]);
   });
-  test("a Co-host's limit counts the list (default 100, settable 10 to 1000); over the limit nothing is added; a removal frees the place", async () => {
+  test("an invite-only co-organizer's limit counts the list (default 100, settable 10 to 1000); over the limit nothing is added; a removal frees the place", async () => {
     const t = await setup();
     expect((await call("PATCH", "/api/z/PPL-1/settings", { coHostLimit: 5 }, t.master)).status).toBe(400);
     expect((await call("PATCH", "/api/z/PPL-1/settings", { coHostLimit: 1001 }, t.master)).status).toBe(400);
@@ -98,12 +98,12 @@ describe("adding people", () => {
     const r = await add(t.master, Array.from({ length: 4 }, (_, i) => ({ name: "P" + i, phone: mob(i + 1) })));
     expect(r.status).toBe(409); expect((await j(r)).code).toBe("over-cap");
   });
-  test("a Co-host sees only their own list; the Organizer and Host see everything with who invited", async () => {
+  test("an invite-only co-organizer sees only their own list; the Organizer and co-organizer see everything with who invited", async () => {
     const t = await setup();
     await add(t.cohost, [{ name: "C1", phone: mob(1) }]); await add(t.host, [{ name: "H1", phone: mob(2) }]); await add(t.master, [{ name: "O1", phone: mob(3) }]);
     const co = await list(t.cohost); expect(co.people).toHaveLength(1); expect(co.people[0].inviter).toBeUndefined(); expect(co.canExport).toBe(false);
     const all = await list(t.master); expect(all.people).toHaveLength(3); expect(all.total).toBe(3);
-    expect(all.people.map((p: any) => p.inviter).sort()).toEqual(["Co-host Ravi", "Host Priya", "Organizer"]);
+    expect(all.people.map((p: any) => p.inviter).sort()).toEqual(["Co-organizer Priya", "Invite-only co-organizer Ravi", "Organizer"]);
     expect((await list(t.host)).people).toHaveLength(3);
   });
 });
@@ -118,17 +118,17 @@ describe("who may call", () => {
     expect(rowsOf("SELECT COUNT(*) c FROM person")[0].c).toBe(1);
     expect(await (await call("GET", `/ai/${t.ai}/z/PPL-1/people`)).status).toBe(403);
   });
-  test("a stranger and another organizer's key are refused; a Co-host of another game is refused", async () => {
+  test("a stranger and another organizer's key are refused; an invite-only co-organizer of another game is refused", async () => {
     const t = await setup(); const other = await setup();
     expect((await call("GET", "/api/z/PPL-1/people")).status).toBe(403);
     expect((await call("GET", "/api/z/PPL-1/people", undefined, other.master)).status).toBe(403);
   });
-  test("a Co-host cannot export; the Organizer and a Host can", async () => {
+  test("an invite-only co-organizer cannot export; the Organizer and a Co-organizer can", async () => {
     const t = await setup(); await add(t.master, [{ name: "A", phone: mob(1) }]);
     expect((await call("GET", "/api/z/PPL-1/people/export", undefined, t.cohost)).status).toBe(403);
     expect((await call("GET", "/api/z/PPL-1/people/export", undefined, t.host)).status).toBe(200);
   });
-  test("a level-1 guest has a list within their limit, known by ticket id; a guest invited by a guest has none; with invitations off nobody does", async () => {
+  test("a level-1 player has a list within their limit, known by board id; a player invited by a player has none; with invitations off nobody does", async () => {
     const t = await setup({ invites: { on: true, per: 2 } });
     const a = await j(await joinAs("PPL-1", 1)); const b = await j(await joinAs("PPL-1", 2, { from: 1 })); // seat 1 is level 1, seat 2 was invited by it
     const q = (pid: string, d = 1) => `?me=${pid}&device=${dev(d)}`; // the card id is public: the phone's own device id goes with it
@@ -148,7 +148,7 @@ describe("who may call", () => {
   });
   test("settings: guestInvites per goes up to 10, whoCanJoin is list or anyone and is the same switch as closed", async () => {
     const t = await setup();
-    expect((await call("PATCH", "/api/z/PPL-1/settings", { guestInvites: { on: true, per: 10 } }, t.master)).status).toBe(200);
+    expect((await call("PATCH", "/api/z/PPL-1/settings", { guestInvites: { on: true, per: 4 } }, t.master)).status).toBe(200);
     expect((await call("PATCH", "/api/z/PPL-1/settings", { guestInvites: { on: true, per: 11 } }, t.master)).status).toBe(400);
     expect((await call("PATCH", "/api/z/PPL-1/settings", { whoCanJoin: "everyone" }, t.master)).status).toBe(400);
     expect((await j(await call("PATCH", "/api/z/PPL-1/settings", { whoCanJoin: "list" }, t.host))).closed).toBe(true);
@@ -170,7 +170,7 @@ describe("personal links", () => {
     const other = await join("PPL-1", { token: tok, device: dev(2) });
     expect(other.status).toBe(423); expect((await j(other)).needPhone).toBe(true);
   });
-  test("send again rotates the link, kills the old one and unlocks the ticket for a new phone", async () => {
+  test("send again rotates the link, kills the old one and unlocks the board for a new phone", async () => {
     const t = await setup(); const added = (await j(await add(t.master, [{ name: "Asha", phone: mob(1) }]))).people[0];
     await join("PPL-1", { token: tokenOf(added.link), device: dev(1) });
     const re = await j(await call("POST", `/api/z/PPL-1/people/${added.id}/resend`, {}, t.master));
@@ -207,7 +207,7 @@ describe("personal links", () => {
     await call("POST", `/api/z/PPL-1/people/${added.id}/remove`, {}, t.master);
     expect((await call("GET", `/j/${tokenOf(added.link)}`)).status).toBe(404);
   });
-  test("an Organizer's or Host's own play seat is made through a personal link and is flagged automatically", async () => {
+  test("an Organizer's or Co-organizer's own play seat is made through a personal link and is flagged automatically", async () => {
     const t = await setup();
     const mine = await j(await call("POST", "/api/z/PPL-1/people/me", {}, t.master)); // the publish step already gave the Organizer's mobile
     expect(mine.role).toBe("organizer"); expect(mine.person.link).toContain("/j/");
@@ -242,7 +242,7 @@ describe("the common link and who can join", () => {
     expect(rowsOf("SELECT inviter FROM person")[0].inviter[0]).toBe("c");
     expect(rowsOf("SELECT src FROM seat")[0].src).toMatch(/^co:/);
   });
-  test("under 'anyone', joining through a limited inviter stops at their limit and the rest wait for the Organizer or Host", async () => {
+  test("under 'anyone', joining through a limited inviter stops at their limit and the rest wait for the Organizer or co-organizer", async () => {
     const t = await setup({ invites: { on: true, per: 2 } });
     await joinAs("PPL-1", 1);
     expect((await joinAs("PPL-1", 2, { from: 1 })).status).toBe(200); expect((await joinAs("PPL-1", 3, { from: 1 })).status).toBe(200);
@@ -272,7 +272,7 @@ describe("places promised to invited people", () => {
 });
 describe("the waiting room", () => {
   const wait = async (t: Awaited<ReturnType<typeof setup>>, n: number, from: number | undefined = ORG_FROM) => { for (let i = 0; i < n; i++) await joinAs("PPL-1", 40 + i, { from }); };
-  test("approvers: Organizer and Host see all; a Co-host sees only requests that came through their link", async () => {
+  test("approvers: Organizer and co-organizer see all; an invite-only co-organizer sees only requests that came through their link", async () => {
     const t = await setup({ closed: true });
     const ch = fromCodeOf("c:" + rowsOf("SELECT substr(hash,1,7) h FROM organizer_key WHERE kind='cohost'")[0].h)!;
     await wait(t, 2, ORG_FROM); await wait(t, 0); await joinAs("PPL-1", 70, { from: ch });
@@ -299,7 +299,7 @@ describe("the waiting room", () => {
     const ad = await j(await call("POST", `/api/z/PPL-1/waiting/${w1.id}`, { decision: "admit" }, t.host, T + 5000));
     expect(ad.admitted).toBe(true);
     const row = rowsOf("SELECT approved_by, approved_ms FROM person")[0]; expect(row.approved_by).toMatch(/^h:/); expect(row.approved_ms).toBe(T + 5000);
-    expect((await list(t.master)).people[0].approvedBy).toBe("Host Priya");
+    expect((await list(t.master)).people[0].approvedBy).toBe("Co-organizer Priya");
     expect((await j(await call("GET", `/api/z/PPL-1/me?wid=${w1.id}`))).state).toBe("admitted");
     expect((await joinAs("PPL-1", 1, { from: ORG_FROM })).status).toBe(200);
     await call("POST", `/api/z/PPL-1/waiting/${w2.id}`, { decision: "decline" }, t.master);
@@ -398,16 +398,16 @@ describe("removing people", () => {
     const r = await j(await call("POST", `/api/z/PPL-1/people/${p.id}/remove`, { withTheirPeople: true }, t.master));
     expect(r.removed).toBe(2); expect(rowsOf("SELECT COUNT(*) c FROM person WHERE status<>'removed'")[0].c).toBe(0);
   });
-  test("a Co-host and a guest can remove only their own people; a Host's removal mails the Organizer", async () => {
+  test("an invite-only co-organizer and a player can remove only their own people; a Co-organizer's removal mails the Organizer", async () => {
     const t = await setup();
     const own = (await j(await add(t.cohost, [{ name: "C", phone: mob(1) }]))).people[0], theirs = (await j(await add(t.master, [{ name: "O", phone: mob(2) }]))).people[0];
     expect((await call("POST", `/api/z/PPL-1/people/${theirs.id}/remove`, {}, t.cohost)).status).toBe(404);
     expect((await call("POST", `/api/z/PPL-1/people/${own.id}/remove`, {}, t.cohost)).status).toBe(200);
     expect((await call("POST", `/api/z/PPL-1/people/${theirs.id}/remove`, {}, t.host)).status).toBe(200);
-    expect(rowsOf("SELECT subject FROM outbox WHERE subject LIKE '%A Host removed%'")).toHaveLength(1);
+    expect(rowsOf("SELECT subject FROM outbox WHERE subject LIKE '%A Co-organizer removed%'")).toHaveLength(1);
     expect(rowsOf("SELECT removed_by FROM person WHERE id=?", theirs.id)[0].removed_by).toMatch(/^h:/);
   });
-  test("a Co-host can put back a person they removed themselves, but not one the Organizer removed: the refusal says who can", async () => {
+  test("an invite-only co-organizer can put back a person they removed themselves, but not one the Organizer removed: the refusal says who can", async () => {
     const t = await setup();
     const mine = (await j(await add(t.cohost, [{ name: "C", phone: mob(1) }]))).people[0], theirs = (await j(await add(t.cohost, [{ name: "D", phone: mob(2) }]))).people[0];
     expect((await call("POST", `/api/z/PPL-1/people/${mine.id}/remove`, {}, t.cohost)).status).toBe(200);
@@ -416,11 +416,11 @@ describe("removing people", () => {
     expect(back).toMatchObject({ added: 1, duplicates: 0 }); expect(back.invalid).toEqual([]);
     expect(rowsOf("SELECT status FROM person WHERE id=?", mine.id)[0].status).toBe("invited");
     const refused = await j(await add(t.cohost, [{ name: "D", phone: mob(2) }]));
-    expect(refused).toMatchObject({ added: 0, duplicates: 0 }); expect(refused.invalid[0].why).toMatch(/Ask the Organizer or a Host to put them back/);
+    expect(refused).toMatchObject({ added: 0, duplicates: 0 }); expect(refused.invalid[0].why).toMatch(/Ask the Organizer or a Co-organizer to put them back/);
     expect(rowsOf("SELECT status FROM person WHERE id=?", theirs.id)[0].status).toBe("removed");
     expect((await j(await add(t.master, [{ name: "D", phone: mob(2) }]))).added).toBe(1); // the Organizer can
   });
-  test("during the game only the Organizer and Host can remove; the seat STAYS in the public seat list, the phone stops, the prize is marked not given", async () => {
+  test("during the game only the Organizer and co-organizer can remove; the seat STAYS in the public seat list, the phone stops, the prize is marked not given", async () => {
     const t = await setup({ invites: { on: true, per: 4 } });
     const p = (await j(await add(t.master, [{ name: "Asha", phone: mob(1) }]))).people[0];
     const asha = await j(await join("PPL-1", { token: tokenOf(p.link), device: dev(1) })); await joinAs("PPL-1", 2);
@@ -452,20 +452,20 @@ describe("export, privacy and cleanup", () => {
     expect(r.headers.get("content-type")).toContain("text/csv"); const csv = await r.text();
     expect(csv).toContain("Name,Mobile,Personal link,WhatsApp link,Status"); expect(csv).toContain("HYPERLINK(1),91" + mob(1)); expect(csv).toContain("https://bingo.test/j/"); expect(csv).toContain(",Invited");
   });
-  test("a Co-host adding a foreign number the Organizer removed is told with ONE plus sign", async () => {
+  test("an invite-only co-organizer adding a foreign number the Organizer removed is told with ONE plus sign", async () => {
     const t = await setup();
     const theirs = (await j(await add(t.master, [{ name: "U", phone: "+44 7911 123456" }]))).people[0];
     expect((await call("POST", `/api/z/PPL-1/people/${theirs.id}/remove`, {}, t.master)).status).toBe(200);
     const refused = await j(await add(t.cohost, [{ name: "U", phone: "+44 7911 123456" }]));
     expect(refused.added).toBe(0); expect(refused.invalid[0].raw).toContain("+447911123456"); expect(refused.invalid[0].raw).not.toContain("++");
   });
-  test("deleting the guests' data (the 23-hour rule or on request) deletes people and waiting rows too", async () => {
+  test("deleting the players' data (the 23-hour rule or on request) deletes people and waiting rows too", async () => {
     const t = await setup({ closed: true }); await add(t.master, [{ name: "A", phone: mob(1) }]); await joinAs("PPL-1", 5, { from: ORG_FROM });
     expect(rowsOf("SELECT COUNT(*) c FROM person")[0].c + rowsOf("SELECT COUNT(*) c FROM waiting")[0].c).toBe(2);
     expect((await call("POST", "/api/z/PPL-1/erase", {}, t.master)).status).toBe(200);
     expect(rowsOf("SELECT COUNT(*) c FROM person")[0].c + rowsOf("SELECT COUNT(*) c FROM waiting")[0].c).toBe(0);
   });
-  test("a Host needs an e-mail or a mobile number (one is enough), kept sealed; a Co-host records who made them", async () => {
+  test("a Co-organizer needs an e-mail or a mobile number (one is enough), kept sealed; an invite-only co-organizer records who made them", async () => {
     const t = await setup();
     expect((await call("POST", "/api/org/host", { label: "X" }, t.master)).status).toBe(400);
     expect((await call("POST", "/api/org/host", { email: "x@acme.com", mobile: "123" }, t.master)).status).toBe(400);
@@ -476,8 +476,8 @@ describe("export, privacy and cleanup", () => {
   test("the report's who-invited-whom tree shows roles and who admitted whom", async () => {
     const { treeLines } = await import("../src/report-layout");
     const P = (o: any) => ({ seat: null, name: null, phone: null, joinedMs: 1, late: false, role: null, invitedBy: null, onRoster: false, joined: true, ...o });
-    const lines = treeLines([P({ seat: 1, name: "Boss", role: "organizer", via: "Organizer" }), P({ seat: 2, name: "Asha", via: "Host Priya", admittedBy: "Organizer" }), P({ seat: 3, name: "Kid", via: "Host Priya", invitedBy: 2 }), P({ seat: 4, name: "Zed", via: "Co-host Ravi", removed: true })]);
-    expect(lines[0]).toBe("[Organizer]"); expect(lines.join(" ")).toContain("[Host Priya]"); expect(lines.join(" ")).toContain("[Co-host Ravi]");
+    const lines = treeLines([P({ seat: 1, name: "Boss", role: "organizer", via: "Organizer" }), P({ seat: 2, name: "Asha", via: "Co-organizer Priya", admittedBy: "Organizer" }), P({ seat: 3, name: "Kid", via: "Co-organizer Priya", invitedBy: 2 }), P({ seat: 4, name: "Zed", via: "Invite-only co-organizer Ravi", removed: true })]);
+    expect(lines[0]).toBe("[Organizer]"); expect(lines.join(" ")).toContain("[Co-organizer Priya]"); expect(lines.join(" ")).toContain("[Invite-only co-organizer Ravi]");
     expect(lines.find((l) => l.includes("Asha"))).toContain("(admitted by Organizer)"); expect(lines.find((l) => l.includes("Zed"))).toContain("(removed)");
     expect(lines.find((l) => l.includes("Kid"))!.indexOf("Kid")).toBeGreaterThan(lines.find((l) => l.includes("Asha"))!.indexOf("Asha")); // a guest's guest sits under the guest
   });

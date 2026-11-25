@@ -14,18 +14,18 @@ const call = (method: string, path: string, body?: unknown, key?: string, extra:
   handle(new Request("http://x" + path, { method, headers: { "content-type": "application/json", ...(key ? { "x-organizer": key } : {}), ...extra }, body: withDevice(method, path, body) }), env, T);
 const j = async (r: Response) => (await r.json()) as any;
 const sql = (q: string, ...a: unknown[]) => raw.query(q).all(...(a as any[])) as any[];
-beforeEach(() => { const d = makeD1(); raw = d.raw; env = { DB: d.db, ORGANIZER_SECRET: "plat", DAILY_WRITE_BUDGET: "100000", PUBLIC_ORIGIN: "https://snl.test", DATA_KEY: "k", PHONE_SALT: "s" } as unknown as Env; ip = 0; });
+beforeEach(() => { const d = makeD1(); raw = d.raw; env = { DB: d.db, ORGANIZER_SECRET: "plat", RUNNER_KEY: "test-runner-key-test-runner-key-test0000", DAILY_WRITE_BUDGET: "100000", PUBLIC_ORIGIN: "https://snl.test", DATA_KEY: "k", PHONE_SALT: "s" } as unknown as Env; ip = 0; });
 
 async function team() {
   const master = (await j(await handle(new Request("http://x/api/start", { method: "POST", headers: { "content-type": "application/json", "cf-connecting-ip": `9.9.9.${++ip}` }, body: JSON.stringify({ consent: TICKS, email: "boss@acme.com" }) }), env, T))).token as string;
-  expect((await call("POST", "/api/z", { id: "CO-1", startRound: FAR_START, callSeconds: 20, cap: 300 }, master)).status).toBe(200);
+  expect((await call("POST", "/api/z", { id: "CO-1", startRound: FAR_START, callSeconds: 10, cap: 300 }, master)).status).toBe(200);
   const cohost = (await j(await call("POST", "/api/org/cohost", { label: "Ravi", phone: "9876500001", e: "CO-1" }, master))).cohostKey as string;
   const cohost2 = (await j(await call("POST", "/api/org/cohost", { label: "Meera", phone: "9876500002", e: "CO-1" }, master))).cohostKey as string;
   return { master, cohost, cohost2 };
 }
 const tick = (v = TERMS_VERSION, boxes = ["A"]) => ({ consent: { v, boxes } });
 
-describe("K5: a Co-host has to accept the role", () => {
+describe("K5: an invite-only co-organizer has to accept the role", () => {
   test("before accepting, the header says so (roleAccepted:false) and every other address answers consent-required with the box to show; nothing else works", async () => {
     const t = await team();
     const head = await j(await call("GET", "/api/z/CO-1/cohost", undefined, t.cohost)); expect(head.roleAccepted).toBe(false); expect(head.name).toBeTruthy();
@@ -52,7 +52,7 @@ describe("K5: a Co-host has to accept the role", () => {
     expect((await call("GET", "/api/z/CO-1/summary", undefined, t.cohost)).status).toBe(403); // and it is still only a Co-host: no settings, no summary
     expect((await call("POST", "/api/org/role/accept", tick(), t.cohost)).status).toBe(200); expect(sql("SELECT COUNT(*) c FROM consent_log WHERE kind='K5'")[0].c).toBe(1); // twice is stored once
   });
-  test("each Co-host key accepts for itself: one key's tick does not open another's", async () => {
+  test("each Invite-only co-organizer key accepts for itself: one key's tick does not open another's", async () => {
     const t = await team();
     expect((await call("POST", "/api/org/role/accept", tick(), t.cohost)).status).toBe(200);
     expect((await call("GET", "/api/z/CO-1/people", undefined, t.cohost)).status).toBe(200);
@@ -66,7 +66,7 @@ describe("K5: a Co-host has to accept the role", () => {
     const r = await call("GET", "/api/z/CO-1/people", undefined, t.cohost); expect(r.status).toBe(400); expect((await j(r)).code).toBe("consent-required");
     expect((await j(await call("GET", "/api/z/CO-1/cohost", undefined, t.cohost))).roleAccepted).toBe(false);
   });
-  test("the Organizer, a Host and the AI key are not asked for this box and cannot tick it for a Co-host", async () => {
+  test("the Organizer, a Co-organizer and the AI key are not asked for this box and cannot tick it for an invite-only co-organizer", async () => {
     const t = await team();
     expect((await call("GET", "/api/z/CO-1/summary", undefined, t.master)).status).toBe(200);
     const ai = (await j(await call("POST", "/api/org/ai", {}, t.master))).aiKey as string; const asAi = await call("POST", "/api/org/role/accept", tick(), ai); expect(asAi.status).not.toBe(200);

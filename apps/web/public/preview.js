@@ -19,7 +19,7 @@
   const q = new URLSearchParams(location.hash.replace(/^#/, ""));
   if (q.get("w") === "card") { ticketPreview(); return; }
   const when = ["break", "opening", "closing"].includes(q.get("w")) ? q.get("w") : "break";
-  const b = { kind: q.get("k") || "speech", title: (q.get("t") || "Your message").slice(0, 80), mediaUrl: q.get("u") || "", seconds: Math.max(15, Math.min(600, Number(q.get("s")) || 60)) };
+  const b = { kind: q.get("k") || "speech", title: (q.get("t") || "The message").slice(0, 80), mediaUrl: q.get("u") || "", seconds: Math.max(15, Math.min(600, Number(q.get("s")) || 60)) };
   let badLink = false; if (b.mediaUrl && !/^https:\/\/[^\s<>"'`]+$/i.test(b.mediaUrl)) { b.mediaUrl = ""; badLink = true; }
 
   const mediaHost = document.createElement("div");
@@ -36,7 +36,7 @@
   };
   function soundButton(onTap) {
     const t = document.createElement("button"); t.type = "button"; t.textContent = "Tap for sound";
-    t.style.cssText = "position:absolute;right:8px;bottom:8px;z-index:2;background:#FFC93C;color:#1b1b1b;border:0;border-radius:8px;padding:6px 12px;font:700 13px system-ui,sans-serif";
+    t.style.cssText = "position:absolute;right:8px;bottom:8px;z-index:2;background:var(--snk-accent);color:var(--snk-deep);border:0;border-radius:8px;padding:6px 12px;font:700 13px system-ui,sans-serif";
     t.onclick = () => { try { onTap(); } catch {} t.remove(); };
     mediaHost.appendChild(t);
   }
@@ -54,7 +54,7 @@
     const el = document.createElement(kind === "video" ? "video" : "audio");
     el.src = b.mediaUrl; el.controls = true; el.autoplay = true; el.setAttribute("playsinline", ""); el.preload = "auto";
     el.style.cssText = kind === "video" ? "width:100%;height:100%;background:#000" : "position:absolute;left:8px;right:8px;top:50%;transform:translateY(-50%);width:calc(100% - 16px)";
-    if (kind === "audio") { mediaHost.style.background = "#0B5D5B"; const t = document.createElement("div"); t.textContent = b.title; t.style.cssText = "position:absolute;left:0;right:0;top:18%;text-align:center;color:#fff;font:700 18px system-ui,sans-serif;padding:0 12px"; mediaHost.appendChild(t); }
+    if (kind === "audio") { mediaHost.style.background = "var(--snk-primary)"; const t = document.createElement("div"); t.textContent = b.title; t.style.cssText = "position:absolute;left:0;right:0;top:18%;text-align:center;color:#fff;font:700 18px system-ui,sans-serif;padding:0 12px"; mediaHost.appendChild(t); }
     el.addEventListener("error", () => { const n = document.getElementById("pvnote"); if (n) n.innerHTML = "<b>This link did not play.</b> Check that it starts with https:// and opens a video or audio file directly (for a YouTube video, that the owner allows it to be shown on other sites)."; });
     mediaHost.appendChild(el);
     const p = typeof el.play === "function" ? el.play() : null; if (p && p.catch) p.catch(() => { el.muted = true; const r = el.play(); if (r && r.catch) r.catch(() => {}); soundButton(() => { el.muted = false; }); });
@@ -68,20 +68,20 @@
   addEventListener("resize", placeMedia);
 
   const kind = mediaKind(b);
-  const sampleCard = `<div class="zcard"><h2>Your board (sample)</h2>${cardGrid("Sample board")}</div>`;
-  const what = b.kind === "speech" ? "Please listen to the host." : b.kind === "slides" ? "Please look at the screen." : "";
-  const heading = when === "break" ? "A short break" : when === "opening" ? "A message from your organizer" : "Thank you from your organizer";
-  const verdict = badLink ? "<b>The link you pasted was not used.</b> It must start with https:// and have no spaces. Go back, correct it and press Test it again." : !b.mediaUrl ? "No link: guests see your message only." : kind ? "This link plays inside the game." : "<b>This link will NOT play inside the game.</b> It opens in a new tab and takes the guest out of the game. Use a YouTube link, or a direct link to a video (.mp4) or audio (.mp3) file.";
+  const sampleCard = `<div class="zcard"><h2>The board (sample)</h2>${cardGrid("Sample board")}</div>`;
+  const what = b.kind === "speech" ? "Please listen to the speaker." : b.kind === "slides" ? "Please look at the screen." : "";
+  const heading = when === "break" ? "A short break" : when === "opening" ? "A message from the organizer" : "Thank you from the organizer";
+  const verdict = badLink ? "<b>The link you pasted was not used.</b> It must start with https:// and have no spaces. Go back, correct it and press Test it again." : !b.mediaUrl ? "No link: players see the message only." : kind ? "This link plays inside the game." : "<b>This link will NOT play inside the game.</b> It opens in a new tab and takes the player out of the game. Use a YouTube link, or a direct link to a video (.mp4) or audio (.mp3) file.";
   let timer = 0, endsAt = 0;
 
   function paint(secondsLeft) {
     const over = secondsLeft !== null && secondsLeft <= 0;
     const act = b.mediaUrl && !over ? (kind ? `<div id="mslot" class="zmslot"></div><a class="zsmall" target="_blank" rel="noopener noreferrer" href="${esc(b.mediaUrl)}">Trouble playing? Open it in a new tab</a>` : `<a class="zbtn s" style="display:inline-flex;align-items:center;text-decoration:none;margin-top:10px" target="_blank" rel="noopener noreferrer" href="${esc(b.mediaUrl)}">${b.kind === "youtube" ? "Watch the video" : "Open"}</a>`) : "";
     const tail = when === "break" ? ` The game continues in ${Math.max(0, secondsLeft)}s.` : when === "opening" ? " The game starts in a moment." : "";
-    const card = over ? `<div class="zcard zbreak" role="status"><h2>${when === "break" ? "The break is over" : "The opening is over"}</h2><div class="zsmall" style="margin:0">The message and the video have gone, and ${when === "break" ? "the game carries on" : "the first turn comes next"}. This is what your guests see: their board is right there again.</div><button class="zbtn s" id="again" type="button" style="margin-top:10px">Play it again</button></div>`
+    const card = over ? `<div class="zcard zbreak" role="status"><h2>${when === "break" ? "The break is over" : "The opening is over"}</h2><div class="zsmall" style="margin:0">The message and the video have gone, and ${when === "break" ? "the game carries on" : "the first turn comes next"}. This is what the players see: their board is right there again.</div><button class="zbtn s" id="again" type="button" style="margin-top:10px">Play it again</button></div>`
       : `<div class="zcard zbreak" role="status"><h2>${heading}</h2><div style="font:700 20px var(--sans,inherit);margin:2px 0 4px">${esc(b.title)}</div><div class="zsmall" style="margin:0">${what}${tail}</div>${act}</div>`;
     $app.innerHTML = `<div class="zhead"><b><a class="zlogo" href="/" aria-label="Corporate Snakes and Ladders home"><img src="/logo-mark.svg" alt="Corporate Snakes and Ladders logo" width="20" height="20"></a>Corporate Snakes and Ladders</b></div>
-      <div class="zbanner info" role="note"><b>Test only.</b> No game is running. It shows what a guest's phone shows during your ${when === "break" ? "break" : when}.</div>
+      <div class="zbanner info" role="note"><b>Test only.</b> No game is running. It shows what a player's phone shows during the ${when === "break" ? "break" : when}.</div>
       <div class="zcard"><div class="zsmall" id="pvnote" style="margin:0">${verdict}</div></div>${card}${sampleCard}`;
     if (!over && kind && mediaHost.dataset.k !== "on") { mediaHost.dataset.k = "on"; startMedia(kind); }
     if (over) { mediaHost.textContent = ""; mediaHost.style.display = "none"; delete mediaHost.dataset.k; }
@@ -106,7 +106,7 @@
       if (!b || typeof b !== "object") return null;
       const name = String(b.name == null ? "" : b.name).replace(/\s+/g, " ").trim().slice(0, 60);
       let color = String(b.color || ""); if (/^#[0-9a-f]{3}$/i.test(color)) color = "#" + color.slice(1).split("").map((c) => c + c).join("");
-      if (!/^#[0-9a-f]{6}$/i.test(color)) color = "#0B5D5B";
+      if (!/^#[0-9a-f]{6}$/i.test(color)) color = "#9C3D1E";
       const logo = typeof b.logo === "string" && b.logo.length < 90000 && /^data:image\/(png|jpeg|webp|gif);base64,[A-Za-z0-9+/=]+$/.test(b.logo) ? b.logo : "";
       if (!name && !logo) return null;
       const L = 0.2126 * lin(color.slice(1, 3)) + 0.7152 * lin(color.slice(3, 5)) + 0.0722 * lin(color.slice(5, 7));
@@ -130,20 +130,20 @@
       const luckyN = lucky && lucky.winners ? lucky.winners : 3;
       $app.innerHTML = `<div class="zhead"><b><a class="zlogo" href="/" aria-label="Corporate Snakes and Ladders home"><img src="/logo-mark.svg" alt="Corporate Snakes and Ladders logo" width="20" height="20"></a>Corporate Snakes and Ladders</b></div>
         <div class="zbanner info" role="note"><b>PREVIEW.</b> This is a sample board, not a real one. Nothing is saved, nobody is told, and no game is running.${note ? " " + esc(note) : ""}</div>
-        ${brand ? `<div class="zbrand" id="pvbrand">${brand.logo ? `<img class="zblogo" alt="" src="${esc(brand.logo)}">` : ""}${brand.name ? `<b>${esc(brand.name)}</b>` : ""}</div><div class="zpow"><a class="zlogo" href="/" aria-label="Corporate Snakes and Ladders home"><img src="/logo-mark.svg" alt="Corporate Snakes and Ladders logo" width="12" height="12"></a>Powered by Corporate Snakes and Ladders</div>` : `<div class="zbrand" id="pvbrand0"><a class="zlogo" href="/" aria-label="Corporate Snakes and Ladders home"><img src="/logo-mark.svg" alt="Corporate Snakes and Ladders logo" width="18" height="18"></a>CORPORATE SNAKES AND LADDERS</div><div class="zsmall" style="margin:4px 0 0">No company name or logo is set yet, so guests see our name. Set yours in the Brand step to see it here.</div>`}
-        <div class="zcard"><h2>Your board <span class="zdemotag">PREVIEW</span></h2>${cardGrid("Sample board")}</div>
+        ${brand ? `<div class="zbrand" id="pvbrand">${brand.logo ? `<img class="zblogo" alt="" src="${esc(brand.logo)}">` : ""}${brand.name ? `<b>${esc(brand.name)}</b>` : ""}</div><div class="zpow"><a class="zlogo" href="/" aria-label="Corporate Snakes and Ladders home"><img src="/logo-mark.svg" alt="Corporate Snakes and Ladders logo" width="12" height="12"></a>Powered by Corporate Snakes and Ladders</div>` : `<div class="zbrand" id="pvbrand0"><a class="zlogo" href="/" aria-label="Corporate Snakes and Ladders home"><img src="/logo-mark.svg" alt="Corporate Snakes and Ladders logo" width="18" height="18"></a>CORPORATE SNAKES AND LADDERS</div><div class="zsmall" style="margin:4px 0 0">No company name or logo is set yet, so players see the default name. Set a name or a logo in the Brand step to see it here.</div>`}
+        <div class="zcard"><h2>The board <span class="zdemotag">PREVIEW</span></h2>${cardGrid("Sample board")}</div>
         <div class="zcard"><h2>What you can win</h2><ul class="zlist">${prizeLi}</ul></div>
-        <div class="zcard zbreak"><h2>A short break</h2><div style="font:700 20px var(--sans,inherit);margin:2px 0 4px">${esc(brk ? brk.title : "A message from your organizer")}</div><div class="zsmall" style="margin:0">Please listen to the host. The game continues in ${esc(String(brk && brk.seconds ? brk.seconds : 60))}s.</div></div>
+        <div class="zcard zbreak"><h2>A short break</h2><div style="font:700 20px var(--sans,inherit);margin:2px 0 4px">${esc(brk ? brk.title : "A message from the organizer")}</div><div class="zsmall" style="margin:0">Please listen to the speaker. The game continues in ${esc(String(brk && brk.seconds ? brk.seconds : 60))}s.</div></div>
         <div class="zcard"><h2>Lucky draw</h2><div class="zrow"><span>${esc(luckyTitle)}<br><small class="zsmall" style="margin:0">${luckyN} ${luckyN === 1 ? "person is" : "people are"} picked at random</small></span><i>at the end of the break</i></div></div>`;
-      const b0 = document.getElementById("pvbrand0"); if (b0) { b0.style.background = "#0B5D5B"; b0.style.color = "#ffffff"; }
+      const b0 = document.getElementById("pvbrand0"); if (b0) { b0.style.background = "var(--snk-primary)"; b0.style.color = "#ffffff"; }
       const b = document.getElementById("pvbrand"); if (b && brand) { b.style.background = brand.color; b.style.color = brand.fg; }
     }
-    try { document.title = "See what guests see | Corporate Snakes and Ladders"; } catch {}
+    try { document.title = "See what players see | Corporate Snakes and Ladders"; } catch {}
     $app.innerHTML = `<p class="zmsg">Loading…</p>`;
     if (!eid) return draw(fromHash(), "");
     fetch(`/api/z/${encodeURIComponent(eid)}/info`, { method: "GET", headers: key ? { "x-organizer": key } : {} })
       .then((r) => { if (!r.ok) throw new Error("http " + r.status); return r.json(); })
       .then((j) => draw({ brand: j.brand, rewards: Array.isArray(j.rewards) ? j.rewards : [], breaks: Array.isArray(j.breaks) ? j.breaks : [], lucky: "" }, ""))
-      .catch(() => draw(fromHash(), "We could not read your game just now, so this shows sample words."));
+      .catch(() => draw(fromHash(), "The game could not be read just now, so this shows sample words."));
   }
 })();

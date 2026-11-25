@@ -14,7 +14,7 @@ const call = (method: string, path: string, body?: unknown, headers: Record<stri
   handle(new Request("http://x" + path, { method, headers: { "content-type": "application/json", ...headers }, body: withDevice(method, path, body) }), env as Env, now);
 const j = async (r: Response) => (await r.json()) as any;
 const roundAt = (ms: number) => Math.floor((ms / 1000 - 1692803367) / 3) + 1;
-beforeEach(() => { const d = makeD1(); raw = d.raw; env = { DB: d.db, ORGANIZER_SECRET: "plat", DAILY_WRITE_BUDGET: "1000000", PUBLIC_ORIGIN: ORIGIN, DATA_KEY: "test-data-key" }; });
+beforeEach(() => { const d = makeD1(); raw = d.raw; env = { DB: d.db, ORGANIZER_SECRET: "plat", RUNNER_KEY: "test-runner-key-test-runner-key-test0000", DAILY_WRITE_BUDGET: "1000000", PUBLIC_ORIGIN: ORIGIN, DATA_KEY: "test-data-key" }; });
 
 const PLANTED = [{ name: "Plantina Zyxwvu", phone: "9123456789" }, { name: "Rosterio Quuxbar", phone: "9345678901" }, { name: "Winnerella Blorptag", phone: "9456789012" }];
 const needles = () => PLANTED.flatMap((p) => [p.name, p.name.split(" ")[0]!, p.phone, p.phone.slice(-4), "XXXXXXXX" + p.phone.slice(-2), p.phone.replace(/(\d{5})(\d{5})/, "$1 $2")]);
@@ -22,7 +22,7 @@ const needles = () => PLANTED.flatMap((p) => [p.name, p.name.split(" ")[0]!, p.p
 async function setup() {
   const x = await j(await call("POST", "/api/start", { email: "boss@acme.com" }, { "cf-connecting-ip": "1.1.1.1" }));
   const h = { "x-organizer": x.token as string };
-  await call("POST", "/api/z", { id: "PLANT-1", startRound: roundAt(T) + 1200, callSeconds: 20, cap: 100 }, h);
+  await call("POST", "/api/z", { id: "PLANT-1", startRound: roundAt(T) + 1200, callSeconds: 10, cap: 100 }, h);
   await call("POST", "/api/z/PLANT-1/publish", { email: "boss@acme.com", phone: "98765 43210" }, h);
   await call("POST", "/api/z/PLANT-1/join", { phone: PLANTED[0]!.phone, name: PLANTED[0]!.name });
   await call("POST", "/api/z/PLANT-1/roster", { people: [PLANTED[1]] }, h); // the owner loads a list in the console
@@ -38,7 +38,7 @@ describe("no AI-readable route returns a name or a mobile number", () => {
     const names = JSON.stringify(await j(await call("GET", "/api/z/PLANT-1/names?pids=" + (await j(await call("GET", "/api/z/PLANT-1/participants", undefined, o.h))).participants.map((p: any) => p.pid).join(","), undefined, o.h)));
     expect(names).toContain("Plantina"); expect(JSON.stringify(await j(await call("GET", "/api/z/PLANT-1/prizes", undefined, o.h)))).toContain("Winnerella");
   });
-  for (const role of ["ai", "host"] as const) test(`${role === "ai" ? "organizer's AI link" : "co-host's AI link"}: every readable address in its own manual, plus the manifest, the manual and the audit trail, is free of the planted names and numbers`, async () => {
+  for (const role of ["ai", "host"] as const) test(`${role === "ai" ? "organizer's AI link" : "invite-only co-organizer's AI link"}: every readable address in its own manual, plus the manifest, the manual and the audit trail, is free of the planted names and numbers`, async () => {
     const o = await setup(); const key = role === "ai" ? o.ai : o.host;
     const man = manualJson(ORIGIN, key, role, T); const bodies: string[] = [JSON.stringify(man), manualText(ORIGIN, key, role, T)];
     for (const e of man.endpoints.filter((x) => x.method === "GET")) {
@@ -63,13 +63,13 @@ describe("no AI-readable route returns a name or a mobile number", () => {
   });
   test("the manual tells the AI that the owner loads the list in the console, and still teaches the same conversation", () => {
     const t = manualText(ORIGIN, "cba_" + "a".repeat(48), "ai", T);
-    expect(t).toMatch(/the owner loads their list in the Participants card/); expect(t).toMatch(/names and mobile numbers never pass through you/); expect(t).not.toMatch(/roster\?_method|ask them to paste lines like/);
+    expect(t).toMatch(/The organizer pastes or uploads the list of IDs in the console/); expect(t).toMatch(/the list never passes through an AI/); expect(t).not.toMatch(/roster\?_method|ask them to paste lines like/);
     for (const step of ["A. Greet the owner", "2. THE CONVERSATION", "11. When they say it is ready", "12. Afterwards"]) expect(t).toContain(step);
   });
 });
 
 describe("a player asks to see or delete their own data (console only)", () => {
-  test("the organizer sees what is held and deletes that one person; the prize record loses its identity; nothing else changes; an AI or co-host cannot", async () => {
+  test("the organizer sees what is held and deletes that one person; the prize record loses its identity; nothing else changes; an AI or invite-only co-organizer cannot", async () => {
     const o = await setup();
     const prize = () => raw.prepare("SELECT pii, orig FROM prize WHERE eid='PLANT-1'").get() as any;
     raw.prepare("UPDATE prize SET seat=(SELECT seq FROM seat WHERE eid='PLANT-1' AND ph IS NOT NULL ORDER BY seq LIMIT 1) WHERE eid='PLANT-1'").run();

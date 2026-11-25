@@ -5,7 +5,7 @@ import { advance, fateOf, newRun, rollFor, squareOf, type Run } from "./play";
 
 export type Mode = "race" | "team" | "table";
 export type Play = "fate" | "presence";
-export const DEFAULT_TURN_CAP = 60, MAX_TURN_CAP = 150, DEFAULT_END_PRIZES = 5, MAX_END_PRIZES = 5, DEFAULT_MILESTONE = 75;
+export const DEFAULT_TURN_CAP = 26, MAX_TURN_CAP = 150, DEFAULT_END_PRIZES = 5, MAX_END_PRIZES = 5, DEFAULT_MILESTONE = 75;
 
 /** What the game needs to know to play (public settings, the same on every device). */
 export interface RaceCfg {
@@ -79,7 +79,7 @@ export function playRace(cfg: RaceCfg, input: RaceInput): RaceState {
 /* ---------------- ranking (no ties, ever) ---------------- */
 
 export interface RankRow { rank: number; seat: number; finishedTurn: number | null; square: number; ladders: number; missed: number; note: string }
-const KEYS = ["finished earlier", "a higher square", "more ladders climbed", "fewer turns missed", "fate"] as const;
+const KEYS = ["finished earlier", "a higher square", "more ladders climbed", "fewer turns missed", "chance"] as const;
 
 /** Compares two players by the chain of section 6: earlier finish, higher square, more ladders, fewer missed turns, then fate. Returns the order and the index of the key that decided it. */
 function compareChain(gameId: string, a: Run, b: Run, label: string): { order: number; key: number } {
@@ -142,7 +142,8 @@ function candidates(st: RaceState, pattern: string, ordinal: number): { seat: nu
   if (pattern === "milestone") {
     const ms = [...st.cfg.milestones].sort((a, b) => a - b), m = ms[ordinal - 1]; if (m === undefined) return [];
     const reached = runs.map((r) => ({ r, t: reachTurn(r, m) })).filter((x) => x.t >= 0);
-    reached.sort((a, b) => a.t - b.t || squareOf(b.r) - squareOf(a.r) || (fateOf(g, a.r.seat, `milestone${ordinal}`) < fateOf(g, b.r.seat, `milestone${ordinal}`) ? -1 : 1));
+    // Same turn: the player who landed further on that turn comes first. It is the square at ARRIVAL (pos[t]), never the current square, which keeps changing while the game runs and would change the winner afterwards.
+    reached.sort((a, b) => a.t - b.t || b.r.pos[b.t]! - a.r.pos[a.t]! ||(fateOf(g, a.r.seat, `milestone${ordinal}`) < fateOf(g, b.r.seat, `milestone${ordinal}`) ? -1 : 1));
     return reached.map((x) => { const same = reached.filter((y) => y.t === x.t).length; return { seat: x.r.seat, idx: x.t, ...(same > 1 ? { tied: same } : {}) }; });
   }
   if (!st.ended) return [];

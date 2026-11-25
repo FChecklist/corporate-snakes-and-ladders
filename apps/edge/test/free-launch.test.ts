@@ -10,11 +10,11 @@ const call = (method: string, path: string, body?: unknown, headers: Record<stri
   handle(new Request("http://x" + path, { method, headers: { "content-type": "application/json", ...headers }, body: withDevice(method, path, body) }), env as Env, now);
 const roundAt = (ms: number) => Math.floor((ms / 1000 - 1692803367) / 3) + 1;
 const FUT = roundAt(T) + 1200; // an hour ahead
-const eng = (id: string, cap = 100) => ({ id, startRound: FUT, callSeconds: 20, cap });
+const eng = (id: string, cap = 100) => ({ id, startRound: FUT, callSeconds: 10, cap });
 
 beforeEach(() => {
   const d = makeD1(); raw = d.raw;
-  env = { DB: d.db, ORGANIZER_SECRET: "plat", DAILY_WRITE_BUDGET: "100000", PUBLIC_ORIGIN: "https://bingo.test" };
+  env = { DB: d.db, ORGANIZER_SECRET: "plat", RUNNER_KEY: "test-runner-key-test-runner-key-test0000", DAILY_WRITE_BUDGET: "100000", PUBLIC_ORIGIN: "https://bingo.test" };
 });
 
 /** A new organizer types an email and the console opens at once: no mail, no code. */
@@ -29,7 +29,7 @@ const ok = { email: "boss@acme.com", phone: "98765 43210" };
 describe("build first, pay to publish", () => {
   test("entering an email opens the console at once, with a ready AI work link, and the same link is e-mailed to the organizer", async () => {
     const o = await organizer();
-    expect(o.aiMessage).toContain(`https://bingo.test/ai/${o.ai}`); expect(o.aiMessage).toMatch(/MY OWN Corporate Snakes and Ladders account/); expect(o.aiMessage.split(String.fromCharCode(10)).length).toBe(2);
+    expect(o.aiMessage).toContain(`https://bingo.test/ai/${o.ai}`); expect(o.aiMessage).toMatch(/the Corporate Snakes and Ladders account that I own/); expect(o.aiMessage.split(String.fromCharCode(10)).length).toBe(2);
     expect((await call("GET", "/api/history", undefined, { "x-organizer": o.ai })).status).toBe(200); // the AI link really works
     const sent = raw.prepare("SELECT to_addr, subject, body FROM outbox").all() as { to_addr: string; subject: string; body: string }[];
     expect(sent.length).toBe(1); expect(sent[0]!.to_addr).toBe("boss@acme.com"); expect(sent[0]!.subject).toMatch(/personal AI work link/i);
@@ -56,14 +56,14 @@ describe("build first, pay to publish", () => {
     const hist = await (await call("GET", "/api/history", undefined, h)).json() as any;
     expect(hist.engagements[0].id).toBe("DRAFT-1"); expect(!!hist.engagements[0].draft).toBe(true);
   });
-  test("participants cannot see or join a draft; the organizer can read it", async () => {
+  test("players cannot see or join a draft; the organizer can read it", async () => {
     const { h } = await organizer();
     await call("POST", "/api/z", eng("DRAFT-2"), h);
     expect((await call("POST", "/api/z/DRAFT-2/join", { phone: "9876543210" })).status).toBe(403);
     expect((await call("GET", "/api/z/DRAFT-2/info")).status).toBe(403);
     expect((await call("GET", "/api/z/DRAFT-2/info", undefined, h)).status).toBe(200);
   });
-  test("publishing is free: the link opens to participants at once, unpaid, and the organizer is e-mailed what is due", async () => {
+  test("publishing is free: the link opens to players at once, unpaid, and the organizer is e-mailed what is due", async () => {
     const { h, ai } = await organizer();
     await call("POST", "/api/z", eng("PUB-1", 500), h);
     const r = await call("POST", "/api/z/PUB-1/publish", ok, h);
@@ -109,7 +109,7 @@ describe("build first, pay to publish", () => {
     await call("POST", "/api/z/REM-1/publish", ok, h);
     const { housekeeping } = await import("../src/worker");
     await housekeeping(env as Env, T + 86_400_000); await housekeeping(env as Env, T + 2 * 86_400_000); // the next day: 6 hours to go; the day after: already started
-    const n = (raw.prepare("SELECT COUNT(*) AS c FROM outbox WHERE to_addr='boss@acme.com' AND subject LIKE '%Payment pending for your game%'").get() as any).c;
+    const n = (raw.prepare("SELECT COUNT(*) AS c FROM outbox WHERE to_addr='boss@acme.com' AND subject LIKE '%Payment pending for the game%'").get() as any).c;
     expect(n).toBe(1);
   });
   test("after a pack is bought, publishing counts as paid at once", async () => {

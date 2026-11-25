@@ -36,7 +36,7 @@ beforeEach(() => {
     if (pm) { const p = payments[pm[1]!]; if (pm[2]) p.status = "captured"; return new Response(JSON.stringify(p)); }
     return new Response("{}", { status: 404 });
   };
-  env = { DB: d.db, ORGANIZER_SECRET: "plat", DAILY_WRITE_BUDGET: "1000000", RAZORPAY_KEY_ID: "rzp_test_x", RAZORPAY_KEY_SECRET: "sek", RAZORPAY_WEBHOOK_SECRET: "whsec", RAZORPAY_BASE_URL: "https://rzp.test/v1", PUBLIC_ORIGIN: "https://bingo.test", OWNER_EMAIL: "owner@platform.test" };
+  env = { DB: d.db, ORGANIZER_SECRET: "plat", RUNNER_KEY: "test-runner-key-test-runner-key-test0000", DAILY_WRITE_BUDGET: "1000000", RAZORPAY_KEY_ID: "rzp_test_x", RAZORPAY_KEY_SECRET: "sek", RAZORPAY_WEBHOOK_SECRET: "whsec", RAZORPAY_BASE_URL: "https://rzp.test/v1", PUBLIC_ORIGIN: "https://bingo.test", OWNER_EMAIL: "owner@platform.test" };
 });
 afterEach(() => { globalThis.fetch = realFetch; });
 
@@ -46,7 +46,7 @@ const start = async (email: string) => { const r = await j(await handle(new Requ
 /** Organizer + a Host (own e-mail) + a Co-host for game CAN-1, 300 places, starting 3 hours after T. */
 const team = async () => {
   const master = await start("boss@acme.com"); const ai = lastAi;
-  await call("POST", "/api/z", { id: "CAN-1", startRound: START, callSeconds: 20, cap: 300 }, master);
+  await call("POST", "/api/z", { id: "CAN-1", startRound: START, callSeconds: 10, cap: 300 }, master);
   const hostR = await j(await call("POST", "/api/org/host", { mobile: "9876500009", label: "Priya", email: "priya@acme.com" }, master));
   const cohostR = await j(await call("POST", "/api/org/cohost", { label: "Ravi", phone: "98765 00001", e: "CAN-1" }, master));
   return { master, ai, host: hostR.hostKey as string, cohost: cohostR.cohostKey as string, hostId: hostR.id as string, cohostId: cohostR.id as string };
@@ -58,7 +58,7 @@ const complete = async (c: any, id = "pay_1", now = T, status = "captured") => {
   return call("POST", "/api/payments/verify", { paymentId: c.paymentId, razorpay_order_id: c.razorpay.orderId, razorpay_payment_id: id, razorpay_signature: sign(c, id) }, undefined, now);
 };
 const paidGame = async (t: { master: string }) => { const c = await j(await pay(t.master)); expect((await j(await complete(c))).published).toBe(true); return c; };
-const join = (phone: string, name = "Guest") => call("POST", "/api/z/CAN-1/join", { phone, name });
+const join = (phone: string, name = "Player") => call("POST", "/api/z/CAN-1/join", { phone, name });
 const cancelIt = (key: string, now = T, confirmations = 3) => call("POST", "/api/z/CAN-1/cancel", { confirmations }, key, now);
 const paymentRow = () => raw.prepare("SELECT * FROM payment WHERE status='paid'").get() as any;
 
@@ -73,7 +73,7 @@ describe("cancel: who, when, how many confirmations", () => {
     expect(p.canCancel).toBe(true); expect(p.paid).toBe(true);
     expect(p.credit.amountInr).toBe(paid); expect(p.credit.expiresMs).toBe(creditExpiryMs(T)); expect(p).not.toHaveProperty("refund");
   });
-  test("only the Organizer and a Host can cancel; a Co-host, an AI key, a stranger and no key cannot", async () => {
+  test("only the Organizer and a Co-organizer can cancel; an invite-only co-organizer, an AI key, a stranger and no key cannot", async () => {
     const t = await team();
     expect(t.ai).toMatch(/^cba_/);
     for (const key of [t.cohost, "cbk_" + "0".repeat(48), undefined, t.ai]) {
@@ -100,13 +100,13 @@ describe("cancel: who, when, how many confirmations", () => {
     expect(raw.prepare("SELECT cancelled_ms FROM engagement WHERE id='CAN-1'").get()).toEqual({ cancelled_ms: null });
     expect(raw.prepare("SELECT COUNT(*) AS c FROM credit").get()).toEqual({ c: 0 });
     // the same far-later time on an unpaid game is fine
-    await call("POST", "/api/z", { id: "CAN-2", startRound: START, callSeconds: 20, cap: 100 }, t.master);
+    await call("POST", "/api/z", { id: "CAN-2", startRound: START, callSeconds: 10, cap: 100 }, t.master);
     expect((await call("POST", "/api/z/CAN-2/cancel", { confirmations: 3 }, t.master, after)).status).toBe(200);
   });
 });
 
-describe("cancel: what guests and everybody see afterwards", () => {
-  test("guests see 'cancelled by the organizer'; nobody can join, publish, pay or change it; the keys still read the state", async () => {
+describe("cancel: what players and everybody see afterwards", () => {
+  test("players see 'cancelled by the organizer'; nobody can join, publish, pay or change it; the keys still read the state", async () => {
     const t = await team(); await paidGame(t);
     expect((await join("9876543210")).status).toBe(200);
     expect((await cancelIt(t.master)).status).toBe(200);
@@ -123,14 +123,14 @@ describe("cancel: what guests and everybody see afterwards", () => {
     expect(s.cancelled).toBe(true); expect(s.status).toMatch(/cancelled/); expect(s.cancelCredit.amountInr).toBe(paymentRow().amount); expect(s).not.toHaveProperty("refund");
     expect((await call("POST", "/api/z/CAN-1/cancel", { confirmations: 3 }, t.master)).status).toBe(200); // saying it twice is harmless
   });
-  test("an unpublished-payment game that was cancelled never sends the 'payment is due' nudge to guests who open it", async () => {
+  test("an unpublished-payment game that was cancelled never sends the 'payment is due' nudge to players who open it", async () => {
     const t = await team();
     await call("POST", "/api/z/CAN-1/publish", { email: "boss@acme.com", phone: "9876543210" }, t.master);
     await cancelIt(t.master);
     await call("GET", "/api/z/CAN-1/info", undefined, undefined, T + 4 * H);
     expect(outbox("%could not begin%")).toHaveLength(0);
   });
-  test("guests' names and numbers are erased 23 hours after the CANCEL time (not the start time), and the Organizer and Host are told", async () => {
+  test("players' names and numbers are erased 23 hours after the CANCEL time (not the start time), and the Organizer and co-organizer are told", async () => {
     const t = await team(); await paidGame(t);
     await join("9876543210", "Asha"); await join("9876543211", "Ben");
     const at = T + 30 * 60_000;
@@ -146,18 +146,18 @@ describe("cancel: what guests and everybody see afterwards", () => {
 });
 
 describe("cancel e-mails", () => {
-  test("the Organizer and each Host are told, with the credit amount and date, never a refund; the payer and the Co-host (no e-mail) are not; a Host's cancel says so", async () => {
+  test("the Organizer and each Co-organizer are told, with the credit amount and date, never a refund; the payer and the Invite-only co-organizer (no e-mail) are not; a Co-organizer's cancel says so", async () => {
     const t = await team(); await paidGame(t);
     expect((await cancelIt(t.host)).status).toBe(200);
     const paid = paymentRow().amount;
     for (const to of ["boss@acme.com", "priya@acme.com"]) {
       const m = mailsTo(to).find((x) => /^\[Snakes \& Ladders\] Game cancelled/.test(x.subject))!; expect(m).toBeTruthy();
-      expect(m.body).toContain("cancelled by a Host"); expect(m.body).toContain("stays as credit until"); expect(m.body).toContain(paid.toLocaleString("en-IN")); expect(m.body).toContain("We do not give refunds.");
+      expect(m.body).toContain("cancelled by a Co-organizer"); expect(m.body).toContain("stays as credit until"); expect(m.body).toContain(paid.toLocaleString("en-IN")); expect(m.body).toContain("stays with the organizer as credit for the next game");
       expect(m.body).not.toMatch(/refund of|2\.36|credit note/i);
     }
     expect(mailsTo("payer@acme.com").some((x) => /^\[Snakes \& Ladders\] Game cancelled/.test(x.subject))).toBe(false);
   });
-  test("when the Organizer cancels, the Organizer (not only a Host) is mailed; addresses are not repeated", async () => {
+  test("when the Organizer cancels, the Organizer (not only a Co-organizer) is mailed; addresses are not repeated", async () => {
     const t = await team(); await paidGame(t);
     await cancelIt(t.master);
     expect(mailsTo("boss@acme.com").filter((m) => /^\[Snakes \& Ladders\] Game cancelled/.test(m.subject))).toHaveLength(1);
@@ -186,7 +186,7 @@ describe("no refund machinery is left", () => {
   });
 });
 
-describe("Confirming your payment", () => {
+describe("Confirming the payment", () => {
   test("a correctly signed payment the gateway has not confirmed shows 'confirming', never Paid; confirmation then marks it Paid", async () => {
     const t = await team();
     const c = await j(await pay(t.master));
@@ -233,7 +233,7 @@ describe("Confirming your payment", () => {
 describe("late payment starts 2 minutes after confirmation", () => {
   test("the first number comes 120 to 123 seconds after the payment is confirmed (was about 3 minutes)", async () => {
     const master = await start("boss@acme.com");
-    await call("POST", "/api/z", { id: "CAN-1", startRound: START, callSeconds: 20, cap: 300 }, master);
+    await call("POST", "/api/z", { id: "CAN-1", startRound: START, callSeconds: 10, cap: 300 }, master);
     await call("POST", "/api/z/CAN-1/publish", { email: "boss@acme.com", phone: "9876543210" }, master);
     const late = T + 5 * H + 1234;
     const c = await j(await pay(master, "CAN-1", late));
@@ -243,28 +243,28 @@ describe("late payment starts 2 minutes after confirmation", () => {
   });
 });
 
-describe("Host e-mail", () => {
-  test("a Host needs a valid e-mail; the Host's own link goes to the Host's address, sealed on the key row, never to the Organizer", async () => {
+describe("Co-organizer e-mail", () => {
+  test("a Co-organizer needs a valid e-mail; the Co-organizer's own link goes to the Co-organizer's address, sealed on the key row, never to the Organizer", async () => {
     const master = await start("boss@acme.com");
     for (const bad of ["not-an-email", "a@b"]) expect((await call("POST", "/api/org/host", { mobile: "9876500009", label: "X", ...(bad === undefined ? {} : { email: bad }) }, master)).status).toBe(400);
     expect(raw.prepare("SELECT COUNT(*) AS c FROM organizer_key WHERE kind='host'").get()).toEqual({ c: 0 });
     const r = await j(await call("POST", "/api/org/host", { mobile: "9876500009", label: "Priya", email: "Priya@Acme.com" }, master));
     expect(r.emailed).toBe(true); expect(r.email).toBe("priya@acme.com");
-    const m = mailsTo("priya@acme.com").find((x) => /Host/.test(x.subject))!;
+    const m = mailsTo("priya@acme.com").find((x) => /Co-organizer/.test(x.subject))!;
     expect(m.body).toContain(`/zc.html?k=${r.hostKey}`);
     expect(mailsTo("boss@acme.com").some((x) => x.body.includes(`/zc.html?k=${r.hostKey}`))).toBe(false); // the Organizer does not get the Host's own link
     const row = raw.prepare("SELECT email_sealed FROM organizer_key WHERE kind='host'").get() as any;
     expect(row.email_sealed).toMatch(/^v1\./); expect(row.email_sealed).not.toContain("priya");
     expect(JSON.stringify(raw.prepare("SELECT * FROM organizer_key").all())).not.toContain("priya@acme.com");
   });
-  test("the team list shows a Host's e-mail to the Organizer and to Hosts, never to an AI key or a Co-host", async () => {
+  test("the team list shows a Co-organizer's e-mail to the Organizer and to Hosts, never to an AI key or an invite-only co-organizer", async () => {
     const t = await team();
     for (const key of [t.master, t.host]) expect((await j(await call("GET", "/api/org/team", undefined, key))).hosts[0].email).toBe("priya@acme.com");
     expect((await call("GET", "/api/org/team", undefined, t.cohost)).status).toBe(403);
     const r = await call("GET", "/api/org/team", undefined, t.ai); expect(r.status).toBe(200);
     expect(JSON.stringify(await j(r))).not.toContain("priya@acme.com");
   });
-  test("retiring a Host revokes the key at once and drops the stored e-mail", async () => {
+  test("retiring a Co-organizer revokes the key at once and drops the stored e-mail", async () => {
     const t = await team();
     expect((await call("GET", "/api/whoami", undefined, t.host)).status).toBe(200);
     expect((await call("POST", "/api/org/team/retire", { id: t.hostId }, t.master)).status).toBe(200);
@@ -273,20 +273,20 @@ describe("Host e-mail", () => {
   });
 });
 
-describe("Co-host: name + mobile (no e-mail), bound to one game", () => {
+describe("Invite-only co-organizer: name + mobile (no e-mail), bound to one game", () => {
   test("a name and a valid mobile number are required, and the game must be the account's own", async () => {
     const master = await start("boss@acme.com");
-    await call("POST", "/api/z", { id: "CAN-1", startRound: START, callSeconds: 20, cap: 300 }, master);
+    await call("POST", "/api/z", { id: "CAN-1", startRound: START, callSeconds: 10, cap: 300 }, master);
     const base = { label: "Ravi", phone: "9876500001", e: "CAN-1" };
     for (const bad of [{ ...base, label: "" }, { ...base, label: undefined }, { ...base, phone: "" }, { ...base, phone: "123" }, { ...base, e: undefined }, { ...base, e: "NOPE-1" }]) expect((await call("POST", "/api/org/cohost", bad, master)).status).toBe(400);
     const other = await start("other@rival.com");
-    await call("POST", "/api/z", { id: "RIV-1", startRound: START, callSeconds: 20, cap: 100 }, other);
+    await call("POST", "/api/z", { id: "RIV-1", startRound: START, callSeconds: 10, cap: 100 }, other);
     expect((await call("POST", "/api/org/cohost", { ...base, e: "RIV-1" }, master)).status).toBe(400); // someone else's game
     expect((await call("POST", "/api/org/cohost", base, master)).status).toBe(200);
   });
   test("the mobile number is stored sealed; the team list shows only the last 4 digits, per game", async () => {
     const t = await team();
-    await call("POST", "/api/z", { id: "CAN-2", startRound: START, callSeconds: 20, cap: 100 }, t.master);
+    await call("POST", "/api/z", { id: "CAN-2", startRound: START, callSeconds: 10, cap: 100 }, t.master);
     await call("POST", "/api/org/cohost", { label: "Sunita", phone: "+91 91234 56789", e: "CAN-2" }, t.master);
     expect(JSON.stringify(raw.prepare("SELECT * FROM organizer_key").all())).not.toMatch(/9876500001|9123456789/);
     const one = await j(await call("GET", "/api/org/team?e=CAN-1", undefined, t.host));
@@ -295,30 +295,30 @@ describe("Co-host: name + mobile (no e-mail), bound to one game", () => {
     expect(two.cohosts).toHaveLength(1); expect(two.cohosts[0]).toMatchObject({ label: "Sunita", phoneMasked: "******6789" });
     expect((await j(await call("GET", "/api/org/team", undefined, t.master))).cohosts).toHaveLength(2);
   });
-  test("an AI key cannot add a Co-host (it must not handle a mobile number)", async () => {
+  test("an AI key cannot add an invite-only co-organizer (it must not handle a mobile number)", async () => {
     const t = await team();
     expect((await call("POST", "/api/org/cohost", { label: "Ravi", phone: "9876500001", e: "CAN-1" }, t.ai)).status).toBe(403);
   });
-  test("the Co-host key works for its own game only: header and payment for another game are refused", async () => {
+  test("the Invite-only co-organizer key works for its own game only: header and payment for another game are refused", async () => {
     const t = await team();
-    await call("POST", "/api/z", { id: "CAN-2", startRound: START, callSeconds: 20, cap: 100 }, t.master);
+    await call("POST", "/api/z", { id: "CAN-2", startRound: START, callSeconds: 10, cap: 100 }, t.master);
     expect((await call("GET", "/api/z/CAN-1/cohost", undefined, t.cohost)).status).toBe(200);
     expect((await call("GET", "/api/z/CAN-2/cohost", undefined, t.cohost)).status).toBe(403);
     expect((await pay(t.cohost, "CAN-2")).status).toBe(403);
     expect((await pay(t.cohost, "CAN-1")).status).toBe(200);
   });
-  test("a Co-host's invite link only brings people into its own game", async () => {
+  test("an invite-only co-organizer's invite link only brings people into its own game", async () => {
     const t = await team();
     await call("POST", "/api/z/CAN-1/publish", { email: "boss@acme.com", phone: "9876543210" }, t.master);
     const h = await j(await call("GET", "/api/z/CAN-1/cohost", undefined, t.cohost));
     expect(h.inviteLink).toContain("from=");
     const from = Number(h.inviteLink.match(/from=(\d+)/)![1]);
-    await call("POST", "/api/z", { id: "CAN-2", startRound: START, callSeconds: 20, cap: 100 }, t.master); await call("POST", "/api/z/CAN-2/publish", { email: "boss@acme.com", phone: "9876543210" }, t.master);
+    await call("POST", "/api/z", { id: "CAN-2", startRound: START, callSeconds: 10, cap: 100 }, t.master); await call("POST", "/api/z/CAN-2/publish", { email: "boss@acme.com", phone: "9876543210" }, t.master);
     await call("POST", "/api/z/CAN-1/join", { phone: "9876543210", from }); await call("POST", "/api/z/CAN-2/join", { phone: "9876543211", from });
     expect(raw.prepare("SELECT src FROM seat WHERE eid='CAN-1'").get()).toMatchObject({ src: expect.stringMatching(/^co:/) });
     expect((raw.prepare("SELECT src FROM seat WHERE eid='CAN-2'").get() as any).src).toBe("link"); // not credited to a Co-host of another game
   });
-  test("name and mobile are erased (key retired) when the game's participant data is erased", async () => {
+  test("name and mobile are erased (key retired) when the game's player data is erased", async () => {
     const t = await team(); await paidGame(t); await join("9876543210");
     expect((await call("POST", "/api/z/CAN-1/erase", {}, t.master)).status).toBe(200);
     expect((await call("GET", "/api/whoami", undefined, t.cohost)).status).toBe(403);
@@ -331,7 +331,7 @@ describe("Co-host: name + mobile (no e-mail), bound to one game", () => {
     await lifecycleTick(env as any, T + 3 * H + 40 * H);
     expect(raw.prepare("SELECT label, pii, revoked FROM organizer_key WHERE kind='cohost'").get()).toEqual({ label: null, pii: null, revoked: 1 });
   });
-  test("cancelling the game erases the Co-hosts at once", async () => {
+  test("cancelling the game erases the Invite-only co-organizers at once", async () => {
     const t = await team();
     await cancelIt(t.master);
     expect(raw.prepare("SELECT label, pii, revoked FROM organizer_key WHERE kind='cohost'").get()).toEqual({ label: null, pii: null, revoked: 1 });
@@ -339,8 +339,8 @@ describe("Co-host: name + mobile (no e-mail), bound to one game", () => {
   });
 });
 
-describe("'your guests' personal data has been deleted' e-mail", () => {
-  test("the automatic deletion mails the Organizer and every Host with the exact time in IST; the Co-host (no e-mail) gets nothing", async () => {
+describe("'the players' personal data has been deleted' e-mail", () => {
+  test("the automatic deletion mails the Organizer and every Co-organizer with the exact time in IST; the Invite-only co-organizer (no e-mail) gets nothing", async () => {
     const t = await team(); await paidGame(t); await join("9876543210", "Asha");
     const at = T + 3 * H + 40 * H;
     await lifecycleTick(env as any, at);

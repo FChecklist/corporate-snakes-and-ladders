@@ -14,18 +14,18 @@ const call = (method: string, path: string, body?: unknown, headers: Record<stri
 const j = async (r: Response) => (await r.json()) as any;
 const roundAt = (ms: number) => Math.floor((ms / 1000 - 1692803367) / 3) + 1;
 const rd = (f: string) => readFileSync(new URL("../../web/public/" + f, import.meta.url), "utf8");
-beforeEach(() => { const d = makeD1(); raw = d.raw; env = { DB: d.db, ORGANIZER_SECRET: "plat", DAILY_WRITE_BUDGET: "1000000", PUBLIC_ORIGIN: "https://bingo.test", DATA_KEY: "k", TEST_MODE: "1" }; });
+beforeEach(() => { const d = makeD1(); raw = d.raw; env = { DB: d.db, ORGANIZER_SECRET: "plat", RUNNER_KEY: "test-runner-key-test-runner-key-test0000", DAILY_WRITE_BUDGET: "1000000", PUBLIC_ORIGIN: "https://bingo.test", DATA_KEY: "k", TEST_MODE: "1" }; });
 async function org(email = "boss@acme.com", ip = "1.1.1.1") {
   const x = await j(await call("POST", "/api/start", { email }, { "cf-connecting-ip": ip }));
   return { h: { "x-organizer": x.token as string }, token: x.token as string, ai: x.aiKey as string };
 }
 async function game(o: { h: Record<string, string> }, id: string, startOffset = 1200) {
-  await call("POST", "/api/z", { id, startRound: roundAt(T) + startOffset, callSeconds: 20, cap: 100 }, o.h);
+  await call("POST", "/api/z", { id, startRound: roundAt(T) + startOffset, callSeconds: 10, cap: 100 }, o.h);
   await call("POST", `/api/z/${id}/publish`, { email: "boss@acme.com", phone: "98765 43210" }, o.h);
 }
 
 describe("replace the report link (G-07)", () => {
-  test("the organizer makes a new link: the old key stops, the new one works; an AI key, a Co-host and strangers cannot", async () => {
+  test("the organizer makes a new link: the old key stops, the new one works; an AI key, an invite-only co-organizer and strangers cannot", async () => {
     const o = await org(); await game(o, "RPT-1");
     const before = await reportLink(env as any, "RPT-1"); const kOld = before.match(/k=([0-9a-f]{40})/)![1]!;
     const ok = (k: string) => call("GET", `/api/report/RPT-1?k=${k}&part=base`);
@@ -43,7 +43,7 @@ describe("replace the report link (G-07)", () => {
   });
 });
 
-describe("Close my organizer account", () => {
+describe("Close the organizer account", () => {
   test("only the organizer's own key, with a confirmation; it deletes the account and every engagement; payments stay; all keys die", async () => {
     const o = await org(); await game(o, "CLS-1"); await game(o, "CLS-2");
     await call("POST", "/api/z/CLS-1/join", { phone: "9811111111", name: "Asha", device: "1".repeat(32) });
@@ -64,11 +64,11 @@ describe("Close my organizer account", () => {
     const o = await org(); await game(o, "CLS-3", 0);
     const r = await call("POST", "/api/org/close", { confirm: true }, o.h, T + 5 * 60_000); expect(r.status).toBe(409);
     expect((raw.prepare("SELECT COUNT(*) AS c FROM engagement").get() as any).c).toBe(1);
-    const z = rd("zc.js"); expect(z).toContain("Close my account"); expect(z).toContain("This cannot be undone.");
+    const z = rd("zc.js"); expect(z).toContain("Close the account"); expect(z).toContain("This cannot be undone.");
   });
 });
 
-describe("Close my partner account", () => {
+describe("Close the partner account", () => {
   test("the partner row is deleted with their own key; commission rows stay as accounting records; a stranger cannot", async () => {
     const a: any = await (await call("POST", "/api/partner/enroll", { phone: "9811122233", email: "p@partner.example", consent: true })).json();
     const v: any = await (await call("POST", "/api/partner/enroll/verify", { email: "p@partner.example", code: a.devCode })).json();
@@ -78,7 +78,7 @@ describe("Close my partner account", () => {
     expect((raw.prepare("SELECT COUNT(*) AS c FROM partner").get() as any).c).toBe(0);
     expect((raw.prepare("SELECT COUNT(*) AS c FROM commission").get() as any).c).toBe(1);
     expect((await call("GET", "/api/partner/me", undefined, { "x-partner": v.partnerKey })).status).toBe(403);
-    expect(rd("partner.js")).toContain("Close my partner account");
+    expect(rd("partner.js")).toContain("Close the partner account");
   });
 });
 
@@ -91,7 +91,7 @@ describe("the notification question", () => {
 
 describe("wording: third parties, fairness, version", () => {
   test("the privacy policy names drand and YouTube in one line, with a version date; the sub-processor page says the phone contacts them", () => {
-    const l = rd("legal.html"); expect(l).toContain("Your phone contacts drand for public random numbers, and YouTube (privacy mode) only if your organizer adds a video."); expect(l).toContain("Version 2026-10-15.");
-    const s = rd("subprocessors.html"); expect(s).toContain("drand: public random numbers. Your phone contacts it"); expect(s).toContain("YouTube (privacy mode)");
+    const l = rd("terms.html"); expect(l).toContain("A public source of random values is used for draws, and YouTube in privacy mode only if an Organizer adds a video."); expect(l).toContain("Version 2026-11-01");
+    const s = rd("subprocessors.html"); expect(s).toContain('href="/terms.html#processors"'); // the older page only points to the one document
   });
 });

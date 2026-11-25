@@ -5,8 +5,8 @@ import { roundAt, QUICKNET } from "./index";
 import type { ControlState } from "./control";
 
 export const ROUND_SEC = QUICKNET.periodSec;
-export const WINDOWS = [15, 20, 25, 30] as const;
-export const DEFAULT_WINDOW = 20;
+export const WINDOWS = [10] as const;
+export const DEFAULT_WINDOW = 10;
 /** About 5 seconds after the window closes the dice shows and the pawns move: the reveal. */
 export const REVEAL_ROUNDS = 2;
 /** Turn 0 opens this many rounds (about 2 minutes) after B0, so every phone has the time to make its board and openings can play. B0 itself is one round after the start time, so the first turn is GRACE_ROUNDS (40) after it. */

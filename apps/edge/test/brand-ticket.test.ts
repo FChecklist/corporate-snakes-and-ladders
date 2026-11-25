@@ -23,10 +23,10 @@ const PNG = pngOf(96, 96), JPG = jpgOf(96, 96), WEBP = webpOf(96, 96);
 const png = (pad = 0) => dataUrl("image/png", PNG, pad), jpeg = (pad = 0) => dataUrl("image/jpeg", JPG, pad), webp = (pad = 0) => dataUrl("image/webp", WEBP, pad);
 const C0 = BRAND_COLORS[0]!;
 
-beforeEach(() => { const d = makeD1(); raw = d.raw; env = { DB: d.db, ORGANIZER_SECRET: "plat", DAILY_WRITE_BUDGET: "100000", PUBLIC_ORIGIN: "http://x" } as PayEnv; });
+beforeEach(() => { const d = makeD1(); raw = d.raw; env = { DB: d.db, ORGANIZER_SECRET: "plat", RUNNER_KEY: "test-runner-key-test-runner-key-test0000", DAILY_WRITE_BUDGET: "100000", PUBLIC_ORIGIN: "http://x" } as PayEnv; });
 const game = async () => {
   const st = await j(await handle(new Request("http://x/api/start", { method: "POST", headers: { "content-type": "application/json", "cf-connecting-ip": `5.5.5.${++ipN}` }, body: JSON.stringify({ consent: TICKS, email: `b${ipN}@acme.com` }) }), env as Env, T));
-  await call("POST", "/api/z", { id: "BRAND-1", startRound: START, callSeconds: 20, cap: 100 }, st.token);
+  await call("POST", "/api/z", { id: "BRAND-1", startRound: START, callSeconds: 10, cap: 100 }, st.token);
   await call("POST", "/api/z/BRAND-1/publish", { email: "boss@acme.com", phone: "98765 43210" }, st.token);
   return st.token as string;
 };
@@ -89,14 +89,14 @@ describe("the brand through the API", () => {
     const info = await j(await call("GET", "/api/z/BRAND-1/info"));
     expect(info.brand).toEqual({ name: "Acme Foods", color: BRAND_COLORS[2], logo });
     expect((await j(await call("GET", "/api/z/BRAND-1/summary", undefined, k))).brand.name).toBe("Acme Foods");
-    const joined = await j(await call("POST", "/api/z/BRAND-1/join", { phone: "9123456780", name: "Guest", device: "c".repeat(32) }));
+    const joined = await j(await call("POST", "/api/z/BRAND-1/join", { phone: "9123456780", name: "Player", device: "c".repeat(32) }));
     expect(joined.brand).toEqual({ name: "Acme Foods", color: BRAND_COLORS[2], hasLogo: true }); expect(JSON.stringify(joined)).not.toContain("base64");
     const list = await j(await call("GET", "/api/z/BRAND-1/participants", undefined, k));
     expect(list.brand.hasLogo).toBe(true); expect(JSON.stringify(list)).not.toContain("base64");
   });
   test("a game can be created with a brand, and the brand can be removed again", async () => {
     const st = await j(await handle(new Request("http://x/api/start", { method: "POST", headers: { "content-type": "application/json", "cf-connecting-ip": "5.5.9.9" }, body: JSON.stringify({ consent: TICKS, email: "c@acme.com" }) }), env as Env, T));
-    expect((await call("POST", "/api/z", { id: "BRAND-2", startRound: START, callSeconds: 20, cap: 100, brand: { name: "Zed", color: C0, logo: webp() } }, st.token)).status).toBe(200);
+    expect((await call("POST", "/api/z", { id: "BRAND-2", startRound: START, callSeconds: 10, cap: 100, brand: { name: "Zed", color: C0, logo: webp() } }, st.token)).status).toBe(200);
     await call("POST", "/api/z/BRAND-2/publish", { email: "boss@acme.com", phone: "98765 43210" }, st.token);
     expect((await j(await call("GET", "/api/z/BRAND-2/info"))).brand.name).toBe("Zed");
     expect((await call("PATCH", "/api/z/BRAND-2/settings", { brand: null }, st.token)).status).toBe(200);

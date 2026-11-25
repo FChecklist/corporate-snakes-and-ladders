@@ -1,6 +1,6 @@
 // Presence play ("Players throw"): a player taps Throw and the phone reports it here. A throw counts only if the server receives it before the turn window ends:
 // the SERVER clock decides (never the phone's). After that the answer is code "late-move" and nothing is recorded. The record is read back by every phone (GET .../throws)
-// to know who threw in each finished turn, and goes with the other personal rows when the game is erased (lifecycle.ts).
+// to know who threw in each finished turn, and goes with the other personal rows when the game is auto-deleted (lifecycle.ts).
 import { seatOfPid } from "../../../packages/beacon/src/seat";
 import { turnWindowMs, cfgOfRow } from "./lifecycle";
 import { deviceMatches, prefixEnd } from "./checkin";
@@ -8,13 +8,13 @@ import type { Env } from "./worker";
 
 type Json = (o: unknown, s?: number) => Response;
 type Spend = (env: Env, now: number, n?: number) => Promise<boolean>;
-export const LATE_MOVE_MSG = "Ohooo! 😊 Sorry, you moved after your turn ended. This move cannot be made.";
+export const LATE_MOVE_MSG = "Ohooo! 😊 Sorry, you moved after the turn ended. This move cannot be made.";
 const key = (eid: string, turn: number, seat: number) => `thr/${eid}/${String(turn).padStart(4, "0")}/${seat}`;
 
 export async function acceptThrow(env: Env, e: any, eid: string, b: any, now: number, json: Json, spend: Spend): Promise<Response> {
   const seat = typeof b?.pid === "string" ? seatOfPid(b.pid) : null;
   if (!b || seat === null || !Number.isInteger(b.turn) || b.turn < 0 || b.turn > 1000) return json({ error: "Bad request." }, 400);
-  if (!(await env.DB.prepare("SELECT 1 AS x FROM participant WHERE eid=? AND pid=?").bind(eid, b.pid).first())) return json({ error: "Not a participant of this game." }, 403);
+  if (!(await env.DB.prepare("SELECT 1 AS x FROM participant WHERE eid=? AND pid=?").bind(eid, b.pid).first())) return json({ error: "Not a player of this game." }, 403);
   if (!(await deviceMatches(env, eid, b.pid, b.device))) return json({ error: "This board belongs to another phone.", code: "other-phone" }, 403);
   if (cfgOfRow(e).play !== "presence") return json({ error: "In this game every throw happens by itself. There is nothing to send.", code: "automatic" }, 409);
   const w = await turnWindowMs(env, e, b.turn);

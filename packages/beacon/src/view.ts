@@ -14,7 +14,7 @@ export interface SpectatorView {
   leaders: { rank: number; name: string; square: number; finished: boolean }[];
 }
 /**
- * The public picture of a game: counts per band and the top-10 list by nickname. It holds no board, no seed, no beacon value and nothing about turns
+ * The public picture of a game: counts per band and the top-10 list by name. It holds no board, no seed, no beacon value and nothing about turns
  * that have not been played, so it can be shown on a big screen or to a viewer who is not playing.
  */
 export function spectatorView(st: RaceState | TableState, nick: (seat: number) => string = (s) => `Player ${s}`): SpectatorView {

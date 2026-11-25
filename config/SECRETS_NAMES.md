@@ -15,10 +15,13 @@ Where things are set:
 | `DATA_KEY` | Seals names and mobile numbers at rest (AES-256-GCM); never stored in the database | Pages secret | secret |
 | `PHONE_SALT` | Salt for the one-way hash of mobile numbers | Pages secret | secret |
 | `ORGANIZER_SECRET` | The platform (owner) key: opens every `/api/owner/*` address and the owner's tools | Pages secret | secret |
+| `RUNNER_KEY` | A long secret the owner's test programs send as the X-Runner-Key header: only with it are the test sign-in, the free owner-test packs and the SMK10M- join-guard bypass honoured | Pages secret | secret |
 | `CRON_KEY` | The scheduled job's own key: it can call only `/api/lifecycle/tick` | Pages secret and Cron secret (same value) | secret |
 | `INBOUND_SECRET` | Shared secret of the mail service's inbound webhook (e-mail to us asking for a deletion) | Pages secret | secret |
 | `VISIT_KEY` | Key that hashes network addresses for first-party public-page visit counts | Pages secret | secret |
 | `VISIT_DAILY_WRITES` | Most visit-count writes per day (a cap) | Optional Pages variable | setting |
+| `FUNNEL_EVENTS` | Sales-funnel counting switch: only the exact value `on` turns it on; unset means off | Optional Pages variable | setting |
+| `DEMO_GAME` | Free demo game switch: only the exact value `on` turns it on; unset means off | Optional Pages variable | setting |
 | `REPORT_KEY` | Key to read the first-party error and speed reports (`/api/telemetry`) | Pages secret | secret |
 | `RESEND_API_KEY` | Sends e-mail through the mail service (sign-in codes, invoices, reports, notes to the owner) | Pages secret | secret |
 | `RESEND_WEBHOOK_SECRET` | Checks the signature of the mail service's bounce / complaint / delivery webhook (`POST /api/mail/events`); with no value that address answers 404 | Pages secret | secret |
@@ -40,6 +43,8 @@ Where things are set:
 | `COMPANY_JSON` | Company details shown on invoices and the contact page (public) | wrangler var | setting |
 | `TEST_MODE` | "1" lets a local or test run show codes instead of mailing them; never set on the live site | Local and test runs only | setting |
 | `FREE_LAUNCH` | "1" lets small games be made without payment | Optional Pages variable | setting |
+| `OWNER_RULES` | Set to the version 1.1 to apply the owner rules of 20 Nov 2026 to every game made from now on: invite by employee ID only, every throw by itself, no payment taken by this site (only the console's signed notice marks a game paid). Not set means the older rules | wrangler var | setting |
+| `CONSOLE_PAID_SECRET` | Signs the console's "paid" notice (`POST /api/console/paid`, HMAC-SHA-256 of `timestamp.body`); with no value that address answers 404 and no game can be marked paid that way | Pages secret | secret |
 | `PARTNER_COMMISSION_RATE` | Partner commission rate | Optional Pages variable | setting |
 | `DAILY_WRITE_BUDGET` | Most database writes the Worker allows itself per day | wrangler var | setting |
 | `STRICT_KEYS` | "1" on the live site: the Worker refuses every request unless the required secrets are set | Pages variable | setting |
@@ -53,3 +58,6 @@ Where things are set:
 | `ANALYZE_AI_MODEL` | Model name for that endpoint | Optional Pages variable | setting |
 | `TARGET` | The scheduled job: the web address it calls | `apps/cron/wrangler.toml` | setting |
 | `AI_LINK_MAIL_AT_SIGNUP` | Switch for the AI work-link welcome e-mail sent when an account is made; the live site turns it off because the AI link is hidden in the console | wrangler var | setting |
+| `ANALYTICS` | The one central visitor database `site-analytics`: this game's own visit tracker also copies each visit into it (the copy does nothing without this binding and `ANALYTICS_KEY`) | Binding in `pages/wrangler.toml` | binding |
+| `ANALYTICS_KEY` | Key that hashes network addresses for the central visitor database; the same value on every site, so one visitor can be followed across sites | Pages secret | secret |
+| `ANALYTICS_DAILY_WRITES` | Most central visitor-database writes per day (a cap; the default in the code is 400,000) | Optional Pages variable | setting |

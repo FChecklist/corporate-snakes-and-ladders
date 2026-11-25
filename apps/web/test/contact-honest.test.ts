@@ -10,9 +10,9 @@ describe("E8 / O11: the contact page keeps no promise of an automatic acknowledg
   test("it is a mail link and says how long a real answer takes, and nowhere says a reply is sent automatically", () => {
     const html = pub("contact.html"), t = text(html);
     expect(html).toMatch(/href="mailto:[^"]+@[^"]+"/);
-    expect(t).toMatch(/We reply within 30 days/);
+    expect(t).toMatch(/A reply is sent within 30 days/);
     for (const f of ["contact.html", "legal.html", "terms.html", "refund-policy.html", "trust.html", "index.html", "pricing.html"]) {
-      expect([f, /auto-?repl|automatic(ally)? (reply|replies|acknowledg|confirm|response)|acknowledg(e)?ment|instant(ly)? repl|we have received your (message|request)/i.test(text(pub(f)))]).toEqual([f, false]);
+      expect([f, /auto-?repl|automatic(ally)? (reply|replies|acknowledg|confirm|response)|acknowledg(e)?ment|instant(ly)? repl|we have received the (message|request)/i.test(text(pub(f)))]).toEqual([f, false]);
     }
   });
   test("there is no contact form and no address that takes a message (so there is nothing to acknowledge)", () => {

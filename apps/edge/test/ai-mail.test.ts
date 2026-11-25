@@ -24,7 +24,7 @@ const DEDICATED = new Set([AI_SUBJECT, HOST_SUBJECT, HOST_LINK_SUBJECT]); // HOS
 
 beforeEach(() => {
   const d = makeD1(); raw = d.raw;
-  env = { DB: d.db, ORGANIZER_SECRET: "plat", DAILY_WRITE_BUDGET: "100000", PUBLIC_ORIGIN: ORIGIN, DATA_KEY: "test-data-key" };
+  env = { DB: d.db, ORGANIZER_SECRET: "plat", RUNNER_KEY: "test-runner-key-test-runner-key-test0000", DAILY_WRITE_BUDGET: "100000", PUBLIC_ORIGIN: ORIGIN, DATA_KEY: "test-data-key" };
 });
 
 async function organizer() {
@@ -37,32 +37,32 @@ describe("the dedicated mail builders", () => {
   test("organizer mail: own subject, warning at the top and the bottom, plain-text part, numbered steps, the paste as plain text (no hyperlink)", () => {
     const m = aiLinkMail(ORIGIN, KEY, "start", T + 86_400_000);
     expect(m.subject).toBe(AI_SUBJECT); expect(m.subject).toMatch(/personal AI work link/i);
-    expect(AI_WARNING).toBe("DO NOT FORWARD: this e-mail holds your personal AI work link"); expect(AI_WARNING.length).toBeLessThan(70); // one line
+    expect(AI_WARNING).toBe("DO NOT FORWARD: this e-mail holds the personal AI work link"); expect(AI_WARNING.length).toBeLessThan(70); // one line
     expect(m.text.startsWith(AI_WARNING)).toBe(true); expect(m.text.replace(footerText(ORIGIN), "").trim().endsWith(AI_WARNING)).toBe(true); // plain-text part, warning top and bottom
     expect(m.text.split(AI_WARNING).length).toBe(3);
     const h = m.html; const first = h.indexOf(AI_WARNING), last = h.lastIndexOf(AI_WARNING);
     expect(first).toBeGreaterThan(0); expect(last).toBeGreaterThan(first);
     expect(first).toBeLessThan(h.indexOf("<h1")); expect(last).toBeGreaterThan(h.indexOf("WHAT TO DO")); expect(h.split(AI_WARNING).length).toBe(3);
-    expect(h).toMatch(/#b71c1c/); // red
-    const hrefs = [...h.matchAll(/href\s*=\s*"([^"]*)"/gi)].map((x) => x[1]).filter((h) => !/^mailto:|legal.html$/.test(h!)); expect(hrefs).toEqual([`${ORIGIN}/ai-link.html`]); expect(h).toContain("Show my AI work link"); // the only link is the button to the sign-in page, never the key; the paste box is not a link
+    expect(h).toMatch(/#c81d2b/i); // red (the scheme's stop colour, --snk-bad in apps/web/public/snakes-scheme.css)
+    const hrefs = [...h.matchAll(/href\s*=\s*"([^"]*)"/gi)].map((x) => x[1]).filter((h) => !/^mailto:|legal.html$/.test(h!)); expect(hrefs).toEqual([`${ORIGIN}/ai-link.html`]); expect(h).toContain("Show the AI work link"); // the only link is the button to the sign-in page, never the key; the paste box is not a link
     expect(h).toContain(`${ORIGIN}/ai/${KEY}`); // but the text is in the box, to copy
     for (const t of ["ChatGPT", "Claude", "Gemini", "Grok", "DeepSeek", "z.ai"]) { expect(m.text).toContain(t); expect(h).toContain(t); }
     expect(m.text).toMatch(/1\. Copy the box/); expect(m.text).toMatch(/2\. Paste it into any AI chat/); expect(m.text).toMatch(/3\. Answer its questions/); expect(m.text).toMatch(/does the work/);
-    for (const t of [/payment/, /publishing/, /erasing/, /pause or stop/, /Replace my AI link/, /stops at once/]) { expect(m.text).toMatch(t); expect(h).toMatch(t); }
+    for (const t of [/payment/, /publishing/, /erasing/, /pause or stop/, /Replace the AI link/, /stops at once/]) { expect(m.text).toMatch(t); expect(h).toMatch(t); }
     expect(m.text.split(KEY).length).toBe(2); expect(h.split(KEY).length).toBe(2); // the key appears once, inside the paste
-    expect(m.text).toContain("MY OWN Corporate Snakes and Ladders account");
+    expect(m.text).toContain("the Corporate Snakes and Ladders account that I own");
   });
   test("a replacement mail says the old link has stopped", () => {
     const m = aiLinkMail(ORIGIN, KEY, "replace", T + 86_400_000);
     expect(m.text).toMatch(/NEW personal AI work link/i); expect(m.text).toMatch(/Every older link stopped at once/);
-    expect(m.text).toMatch(/WORKS FOR 24 HOURS ONLY/); expect(m.text).toMatch(/Show my AI work link/i); expect(m.html).toMatch(/WORKS FOR 24 HOURS ONLY/);
+    expect(m.text).toMatch(/WORKS FOR 24 HOURS ONLY/); expect(m.text).toMatch(/Show the AI work link/i); expect(m.html).toMatch(/WORKS FOR 24 HOURS ONLY/);
   });
-  test("co-host mail: whose engagement, a watch and announce role, own warning top and bottom, plain-text part, no hyperlink", () => {
+  test("invite-only co-organizer mail: whose engagement, a watch and announce role, own warning top and bottom, plain-text part, no hyperlink", () => {
     const k = "cbh_" + "cd".repeat(24), m = coHostLinkMail(ORIGIN, k, "boss@acme.com", T + 86_400_000);
     expect(m.text).toMatch(/WORKS FOR 24 HOURS ONLY/);
     expect(m.subject).toBe(HOST_SUBJECT);
     expect(m.text.startsWith(HOST_WARNING)).toBe(true); expect(m.text.replace(footerText(ORIGIN), "").trim().endsWith(HOST_WARNING)).toBe(true); expect(m.html.split(HOST_WARNING).length).toBe(3);
-    expect(m.text).toContain("boss@acme.com"); expect(m.text).toMatch(/watch and announce/i); expect(m.text).toMatch(/host/i);
+    expect(m.text).toContain("boss@acme.com"); expect(m.text).toMatch(/watch and announce/i); expect(m.text).toMatch(/co-organizer/i);
     expect([...m.html.matchAll(/href\s*=\s*"([^"]*)"/gi)].map((x) => x[1]).filter((h) => !/^mailto:|legal.html$/.test(h!))).toEqual([`${ORIGIN}/zc.html`]); expect(m.text).toContain(`${ORIGIN}/ai/${k}`);
     expect(m.text).toMatch(/cannot change settings/);
   });
@@ -86,14 +86,14 @@ describe("the AI link is in the dedicated mails and nowhere else", () => {
   });
   test("publish, reminder, could-not-begin and every other mail of a full unpaid lifecycle carry no AI link; only the dedicated mails do", async () => {
     const { h } = await organizer();
-    await call("POST", "/api/z", { id: "MAIL-1", startRound: roundAt(T + 30 * 3_600_000), callSeconds: 20, cap: 500 }, h);
+    await call("POST", "/api/z", { id: "MAIL-1", startRound: roundAt(T + 30 * 3_600_000), callSeconds: 10, cap: 500 }, h);
     expect((await call("POST", "/api/z/MAIL-1/publish", contact, h)).status).toBe(200);
     expect((await call("POST", "/api/org/host", { mobile: "9876500009", email: "host@acme.com" }, h)).status).toBe(200);
     expect((await call("POST", "/api/org/ai/replace", {}, h)).status).toBe(200);
     await housekeeping(env as Env, T + 86_400_000); // payment reminder
     await call("GET", "/api/z/MAIL-1/info", undefined, {}, T + 40 * 3_600_000); // start passed unpaid: the "could not begin" mail
     const sent = outbox(); const subjects = sent.map((m) => m.subject);
-    expect(subjects.some((s) => /published/i.test(s))).toBe(true); expect(subjects.some((s) => /^\[Snakes \& Ladders\] Payment pending for your game/.test(s))).toBe(true); expect(subjects.some((s) => /could not begin/i.test(s))).toBe(true);
+    expect(subjects.some((s) => /published/i.test(s))).toBe(true); expect(subjects.some((s) => /^\[Snakes \& Ladders\] Payment pending for the game/.test(s))).toBe(true); expect(subjects.some((s) => /could not begin/i.test(s))).toBe(true);
     for (const m of sent) {
       if (DEDICATED.has(m.subject.replace(/^\[[^\]]+\] /, ""))) { expect(m.body).toMatch(LEAK); continue; }
       expect(m.body + "\n" + m.subject).not.toMatch(LEAK); // forwardable
@@ -104,10 +104,10 @@ describe("the AI link is in the dedicated mails and nowhere else", () => {
     expect(pub.body).toContain("/z.html?e=MAIL-1"); expect(pub.body).toContain("/pay.html?e=MAIL-1");
     expect(pub.body).not.toMatch(/AI work link|Option 1|\/ai\//);
   });
-  test("no other source that builds a mail, a PDF, a report or a guest page can carry an AI link", () => {
+  test("no other source that builds a mail, a PDF, a report or a player page can carry an AI link", () => {
     const root = join(import.meta.dir, "..", "..", "..");
     const read = (...p: string[]) => readFileSync(join(root, ...p), "utf8");
-    const edge = readdirSync(join(root, "apps/edge/src")).filter((f) => f.endsWith(".ts") && !["ai-link.ts", "ai-facts.ts", "ai-functions.ts", "ai-go.ts", "trust-page.ts", "mails.ts", "worker.ts", "local.ts", "helpdesk.ts"].includes(f));
+    const edge = readdirSync(join(root, "apps/edge/src")).filter((f) => f.endsWith(".ts") && !["ai-link.ts", "ai-facts.ts", "ai-functions.ts", "ai-go.ts", "ai-manual.ts", "trust-page.ts", "mails.ts", "worker.ts", "local.ts", "helpdesk.ts"].includes(f)); // ai-manual.ts is the PUBLIC manual page: it names the key prefixes and the shape of an AI link, never a key (apps/edge/test/ai-manual.test.ts checks that)
     for (const f of edge) expect(read("apps/edge/src", f)).not.toMatch(/aiPaste|aiMessage|aiLinkMail|coHostLinkMail|cba_|cbh_|\/ai\//);
     expect(read("apps/edge/src", "helpdesk.ts")).not.toMatch(/aiPaste|aiMessage|aiLinkMail|coHostLinkMail/); // Help Desk mints its keys, but a key travels by e-mail only in the builder of mails.ts (helpDeskPublishedMail)
     const pages = ["report.html", "report.js", "reportgen.js", "z.html", "z.js", "zgame.js", "big.html", "big.js", "play.html", "play.js", "pay.html", "pay.js", "partner.html", "partner.js", "screen.js"];
@@ -117,7 +117,7 @@ describe("the AI link is in the dedicated mails and nowhere else", () => {
   });
 });
 
-describe("Replace my AI link", () => {
+describe("Replace the AI link", () => {
   test("the signed-in organizer replaces it: the old link answers 404 at once, the new one works, the new link is e-mailed, and the call is audited", async () => {
     const o = await organizer();
     expect((await call("GET", `/ai/${o.ai}`)).status).toBe(200);
@@ -139,7 +139,7 @@ describe("Replace my AI link", () => {
     const x = await j(await call("POST", "/api/org/ai", {}, o.h));
     expect((await call("GET", `/ai/${o.ai}`)).status).toBe(404); expect((await call("GET", `/ai/${x.aiKey}`)).status).toBe(200); expect(x.mailed).toBe(true);
   });
-  test("an AI key, a co-host key, the platform key and strangers cannot replace it", async () => {
+  test("an AI key, an invite-only co-organizer key, the platform key and strangers cannot replace it", async () => {
     const o = await organizer();
     const hk = await j(await call("POST", "/api/org/host", { mobile: "9876500009", email: "host@acme.com" }, o.h));
     for (const hdr of <Record<string, string>[]>[{ "x-organizer": o.ai }, { "x-organizer": hk.hostKey }, { "x-organizer": "plat" }, {}, { "x-organizer": "cba_" + "0".repeat(48) }])
@@ -153,7 +153,7 @@ describe("Replace my AI link", () => {
     const x = await j(await call("POST", "/api/org/ai/replace", {}, { "x-organizer": mk.organizerKey }));
     expect(x.ok).toBe(true); expect(x.mailed).toBe(false); expect((await call("GET", `/ai/${x.aiKey}`)).status).toBe(200); expect(outbox().length).toBe(0);
   });
-  test("a co-host key made later is e-mailed to the organizer in its own mail", async () => {
+  test("an invite-only co-organizer key made later is e-mailed to the organizer in its own mail", async () => {
     const o = await organizer();
     const hk = await j(await call("POST", "/api/org/host", { mobile: "9876500009", email: "host@acme.com" }, o.h)); expect(hk.mailed).toBe(true);
     const m = outbox().at(-1)!; expect(m.subject).toBe("[Snakes & Ladders] " + HOST_SUBJECT); expect(m.to_addr).toBe("boss@acme.com"); expect(m.body).not.toContain(hk.hostKey); expect(m.body).toContain("boss@acme.com"); expect(m.body).toMatch(/WORKS FOR 24 HOURS ONLY/);
@@ -164,7 +164,7 @@ describe("Replace my AI link", () => {
 describe("opening the manual never changes anything", () => {
   test("GET and HEAD on /ai/<key> (a mail scanner or a chat AI) leave keys, engagements, people and mail untouched", async () => {
     const o = await organizer();
-    await call("POST", "/api/z", { id: "SAFE-1", startRound: roundAt(T) + 1200, callSeconds: 20, cap: 100 }, o.h);
+    await call("POST", "/api/z", { id: "SAFE-1", startRound: roundAt(T) + 1200, callSeconds: 10, cap: 100 }, o.h);
     const snap = () => {
       const tables = (raw.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT IN ('ai_audit','sqlite_sequence')").all() as { name: string }[]).map((t) => t.name).sort();
       return JSON.stringify(tables.map((n) => [n, raw.prepare(n === "kv" ? `SELECT * FROM kv WHERE k NOT LIKE 'seen/%'` : `SELECT * FROM "${n}"`).all()])); // the only bookkeeping a read leaves is the unfamiliar-use baseline (seen/) and the audit line

@@ -22,7 +22,7 @@ async function game(id: string) {
   orgMail = `org${++n}@acme.com`;
   const r = await j(await call("POST", "/api/start", { email: orgMail }, { "cf-connecting-ip": `10.0.0.${n}` }));
   const h = { "x-organizer": r.token as string };
-  expect((await call("POST", "/api/z", { id, startRound: START, callSeconds: 20, cap: 100 }, h)).status).toBe(200);
+  expect((await call("POST", "/api/z", { id, startRound: START, callSeconds: 10, cap: 100 }, h)).status).toBe(200);
   expect((await call("POST", `/api/z/${id}/publish`, { email: "boss@acme.com", phone: "98765 43210" }, h)).status).toBe(200);
   return h;
 }
@@ -31,7 +31,7 @@ const leave = (id: string, pid: string, device: string) => call("POST", `/api/z/
 const ask = (id: string, pid: string, device: string, kind: string, extra: Record<string, unknown> = {}, now = T) => call("POST", `/api/z/${id}/datareq`, { pid, device, kind, ...extra }, {}, now);
 const count = (sql: string, ...a: any[]) => (raw.prepare(sql).get(...a) as any).c as number;
 
-beforeEach(() => { const d = makeD1(); raw = d.raw; env = { DB: d.db, ORGANIZER_SECRET: "plat", DAILY_WRITE_BUDGET: "1000000", PUBLIC_ORIGIN: "https://bingo.test", PHONE_SALT: "salt", DATA_KEY: "k" } as Env; n = 0; });
+beforeEach(() => { const d = makeD1(); raw = d.raw; env = { DB: d.db, ORGANIZER_SECRET: "plat", RUNNER_KEY: "test-runner-key-test-runner-key-test0000", DAILY_WRITE_BUDGET: "1000000", PUBLIC_ORIGIN: "https://bingo.test", PHONE_SALT: "salt", DATA_KEY: "k" } as Env; n = 0; });
 
 describe("U5: a player can leave at any time", () => {
   test("before the game starts the seat, the name and the consent record are deleted, and the answer says so in plain words", async () => {
@@ -111,9 +111,9 @@ describe("U6 / D7: what do you hold about me, correct it, delete me", () => {
   test("correction needs a note and goes to the organizer with the note", async () => {
     await game("RQ-3"); const a = await joinAs("RQ-3", 1, "Maia Lopes");
     expect((await ask("RQ-3", a, dev(1), "correction")).status).toBe(400);
-    const r = await ask("RQ-3", a, dev(1), "correction", { note: "My name is spelled Maya Lopez" }); expect(r.status).toBe(200);
+    const r = await ask("RQ-3", a, dev(1), "correction", { note: "The name is spelled Maya Lopez" }); expect(r.status).toBe(200);
     const m = mails().find((x) => x.to_addr === orgMail && /data request/i.test(x.subject))!; expect(m.body).toContain("Maya Lopez"); expect(m.body).toContain("correct");
-    expect((raw.query("SELECT note FROM data_request").get() as any).note).toBe("My name is spelled Maya Lopez");
+    expect((raw.query("SELECT note FROM data_request").get() as any).note).toBe("The name is spelled Maya Lopez");
   });
   test("erasure removes the player at once with the same code as leaving, the request is closed, and both mails say so", async () => {
     await game("RQ-4"); const a = await joinAs("RQ-4", 1, "Maya Lopez"); await joinAs("RQ-4", 2);
@@ -141,10 +141,10 @@ describe("U6 / D7: what do you hold about me, correct it, delete me", () => {
   });
   test("nomination (DPDP Act s14): it is a request in the owner's queue and goes to the organizer and the owner; the player is told the e-mail route; nothing is deleted", async () => {
     await game("RQ-N"); const a = await joinAs("RQ-N", 1, "Maya Lopez");
-    const r = await ask("RQ-N", a, dev(1), "nomination", { note: "my sister" }); expect(r.status).toBe(200);
+    const r = await ask("RQ-N", a, dev(1), "nomination", { note: "the sister" }); expect(r.status).toBe(200);
     const b = await j(r); expect(b.kind).toBe("nomination"); expect(b.status).toBe("open"); expect(b.erased).toBeUndefined(); expect(b.message).toContain("hello@corporatetambola.com"); expect(b.message).toContain("within 7 days");
     expect(count("SELECT COUNT(*) c FROM seat WHERE pid=?", a)).toBe(1); // nothing is deleted
-    expect(raw.query("SELECT kind, status, note, due_ms FROM data_request").get()).toEqual({ kind: "nomination", status: "open", note: "my sister", due_ms: T + 7 * 86_400_000 });
+    expect(raw.query("SELECT kind, status, note, due_ms FROM data_request").get()).toEqual({ kind: "nomination", status: "open", note: "the sister", due_ms: T + 7 * 86_400_000 });
     const m = mails(); expect(m.some((x) => x.to_addr === orgMail && /nominat|section 14/i.test(x.body) && x.body.includes("hello@corporatetambola.com"))).toBe(true);
     expect(m.some((x) => x.to_addr === OWNER_NOTIFY_EMAIL && /section 14/.test(x.body))).toBe(true);
     const q = await j(await call("GET", "/api/owner/data-requests?status=open", undefined, { "x-organizer": "plat" })); expect(q.requests.map((x: any) => x.kind)).toEqual(["nomination"]); // the owner's queue
@@ -164,7 +164,7 @@ describe("U6 / D7: what do you hold about me, correct it, delete me", () => {
 });
 
 describe("the request rows do not outlive the game", () => {
-  test("they are deleted with the game's other participant data (23 hours after the end), and with the game itself", async () => {
+  test("they are deleted with the game's other player data (23 hours after the end), and with the game itself", async () => {
     await game("RQ-9"); const a = await joinAs("RQ-9", 1);
     await ask("RQ-9", a, dev(1), "access");
     expect(count("SELECT COUNT(*) c FROM data_request")).toBe(1);
@@ -184,7 +184,7 @@ describe("the answer time the pages promise is the one constant", () => {
     for (const f of ["apps/web/public/legal.html", "apps/web/public/privacy.html"]) {
       const file = Bun.file(new URL(f, root)); if (!(await file.exists())) continue;
       const t = plain(await file.text()); if (!/A player can leave/.test(t)) continue; // the page that carries the player's rights sentence
-      expect([f, t.includes(`We answer within ${PROMISE_DAYS} days.`)]).toEqual([f, true]);
+      expect([f, t.includes(`An answer is sent within ${PROMISE_DAYS} days.`)]).toEqual([f, true]);
     }
     const doc = await Bun.file(new URL("docs/PRIVACY_AND_LIFECYCLE.md", root)).text();
     expect(doc).toContain(`(\`PROMISE_DAYS = ${PROMISE_DAYS}\``);
