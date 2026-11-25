@@ -1,7 +1,8 @@
 // Bundled to apps/web/public/zgame.js (window.ZG): everything the phone page and the organizer page need from the shared logic.
 import { spokenRoll } from "../../shared/src/audio";
 import { rankName, activeBreak, callRoundR, callRoundFull, scheduleFull, unshiftedRound, activeIntermission, luckyRound, luckyWinners, luckyEligible, RoundStore, raceCfgOf, tableCfgOf, playGame, settleGame } from "./game";
-import { INVITE_CATEGORIES, GRACE_ROUNDS, LATE_LAG_ROUNDS, INTERMISSION_ROUNDS, MAX_ROUNDS, roundEid, MAX_BREAKS, PATTERN_ORDER, PRIZE_HOUSES, HOUSE_ORDER, HOUSES_LINE, maxWinnersFor, houseLabel, LEGACY_MAX_ORDINAL, breakShift, defaultCfg, keysInPlay, linesFor, validateCfg } from "./config";
+import { INVITE_CATEGORIES, GRACE_ROUNDS, LATE_LAG_ROUNDS, INTERMISSION_ROUNDS, MAX_ROUNDS, roundEid, MAX_BREAKS, PATTERN_ORDER, PRIZE_HOUSES, HOUSE_ORDER, HOUSES_LINE, maxWinnersFor, houseLabel, LEGACY_MAX_ORDINAL, breakShift, defaultCfg, keysInPlay, linesFor, validateCfg, MESSAGE_MAX, cleanMessage } from "./config";
+import { winWords, plainWin, ordinalWord } from "./winwords";
 import { PhoneRuntime } from "./phone-runtime";
 import { QUICKNET, fetchRound, roundAt, roundTimeMs } from "./index";
 import { callRound, resolveControl, cfgOf, scheduleWithControl } from "./control";
@@ -13,7 +14,7 @@ import { spectatorView } from "./view";
 
 (globalThis as any).ZG = {
   rankName, fateOf, spokenRoll, PRIZE_HOUSES, HOUSE_ORDER, HOUSES_LINE, maxWinnersFor, houseLabel, LEGACY_MAX_ORDINAL, INVITE_CATEGORIES, GRACE_ROUNDS, LATE_LAG_ROUNDS, INTERMISSION_ROUNDS, MAX_ROUNDS,
-  activeIntermission, callRoundR, unshiftedRound, roundEid, luckyRound, luckyWinners, luckyEligible, activeBreak, callRoundFull, scheduleFull, MAX_BREAKS, PATTERN_ORDER, breakShift, defaultCfg, keysInPlay, linesFor, validateCfg,
+  activeIntermission, callRoundR, unshiftedRound, roundEid, luckyRound, luckyWinners, luckyEligible, activeBreak, callRoundFull, scheduleFull, MAX_BREAKS, PATTERN_ORDER, breakShift, defaultCfg, keysInPlay, linesFor, validateCfg, MESSAGE_MAX, cleanMessage, winWords, plainWin, ordinalWord,
   PhoneRuntime, RoundStore, QUICKNET, fetchRound, roundAt, roundTimeMs, callRound, resolveControl, cfgOf, scheduleWithControl,
   // the game
   generateBoard, squareXY, limits, BOARD_SIZES, targetTurnsFor, rollFor, step, playRace, rankPlayers, crowdOf, teamTable, teamsOf, spectatorView, raceCfgOf, tableCfgOf, playGame, settleGame,
