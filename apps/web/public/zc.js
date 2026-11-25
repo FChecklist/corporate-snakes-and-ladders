@@ -863,7 +863,7 @@
     const presence = S.cfg && S.cfg.play === "presence";
     return `<div class="zc-block"><h3>Prizes won, from the public throws</h3>${S.settledPreview.length ? S.settledPreview.map((s) => rowl(`${esc(lineLabel(s))} · turn ${Number(s.idx) + 1}`, `<b>${s.pids.length} player${s.pids.length === 1 ? "" : "s"}${s.names ? " · " + esc(s.names) : ""}</b>`)).join("") : small("No prize has been won yet.")}
       ${presence ? small(`Throws received: ${S.claims.length}. A throw counts only if it reached the software from the right phone inside its turn window.`) : ""}
-      ${small(`Every throw comes from a public random beacon. Winners are confirmed when several phones agree. Neither you nor IT Services can choose or change them in the software. Confirmed so far: ${(S.published || []).filter((r) => r.pattern !== "lucky").length}.`)}
+      ${small(`Every throw comes from a public random beacon. Winners are confirmed when several phones agree. Nobody can choose them. A correction, if one is ever needed, is made from the console and is kept with who made it and when. Confirmed so far: ${(S.published || []).filter((r) => r.pattern !== "lucky").length}.`)}
       <button type="button" class="zc-mini" id="csv"${S.settledPreview.length && !S.shield ? "" : " disabled"}>Download report</button></div>`;
   }
   function stepDay() {

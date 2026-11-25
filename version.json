@@ -1,9 +1,15 @@
 {
   "product": "Corporate Snakes and Ladders",
-  "version": "1.5.4",
+  "version": "1.5.5",
   "commit": "set by the build",
   "builtAt": "set by the build",
   "changes": [
+    {
+      "id": "2026-11-25-audit-fix-1-5-5",
+      "what": "The prizes for biggest climb, biggest comeback, never missed a turn and the winning team can no longer be picked by a few phones: the server now plays every seat of the game itself from the public numbers and accepts only the answer it works out; older games that cannot be replayed hand these four prizes out from the console; the privacy line now says a winner's name, mobile number and employee ID are kept for 365 days so the prize can be handed over; the wording that a winner can never be changed was put right (a correction is possible only from the console and is kept with who made it and when); order checks are no longer skipped for the second and later winners of a line",
+      "where": "apps/edge/src (replay.ts, verifywin.ts, winners.ts, lifecycle.ts, ai-facts.ts), apps/web/public (index.html, trust.html, z.js, zc.js), packages/shared/src/lines.ts, apps/edge/test",
+      "pr": "p1/owner-rules-v1-1"
+    },
     {
       "id": "2026-11-23-audit-fix-1-5-4",
       "what": "A winner can no longer be made up: before a report of a win counts, the server checks it against the public game (the turn has happened, the game has started, the seat exists, and the named player really got there on that turn); a winner's name and mobile number are kept for 365 days so the prize can be handed over, and nothing else about the winner (no network address, browser or phone details) is kept past 24 hours; the pages, the report and the e-mails say exactly that; smaller tidy-ups to how the site checks its own codes and counts joins",
