@@ -220,7 +220,7 @@
     f.ph = (HS.find(([k]) => f.hs[k].on) || [DEFAULT_PRIZE_HOUSE])[0];
     const pad = (arr, n) => { const o = arr.slice(0, n); while (o.length < n) o.push({ k: "msg", v: "", t: "", s: "" }); return o; };
     const lk = (c.breaks || []).filter((b) => b.kind === "lucky"), mk = (c.breaks || []).filter((b) => b.kind !== "lucky");
-    f.brand = Object.assign({ name: "", color: "", logo: "" }, inf.brand || (S.sum && S.sum.brand) || {}); f.opN = (c.opening || []).length; f.op = pad((c.opening || []).map(momentFrom), 2);
+    f.brand = Object.assign({ name: "", color: "", logo: "" }, inf.brand || (S.sum && S.sum.brand) || {}); const sm = (k) => String(inf[k] || (S.sum && S.sum[k]) || ""); f.msg = { pre: sm("preGameMessage"), win: sm("winnerMessage"), cl: sm("closingMessage") }; f.opN = (c.opening || []).length; f.op = pad((c.opening || []).map(momentFrom), 2);
     f.midN = mk.length; f.mid = pad(mk.map(momentFrom), 6);
     f.clN = (c.closing || []).length; f.cl = pad((c.closing || []).map(momentFrom), 2);
     f.lucky = lk.map((b) => { const a = prizeFrom(b.title === "Lucky draw" ? "" : b.title); return { win: String(b.winners || 3), style: b.style === "scratch" ? "scratch" : "draw", pt: a.pt, pd: a.pd, ...(b.after && !b.auto ? { after: b.after } : {}) }; });
@@ -414,6 +414,18 @@
     }
     throw new Error("big");
   }
+  // ---------- the three optional messages: before the game starts, for a winner, when the game is over (plain text, up to 300 characters each; the server cleans and checks them) ----------
+  const MSG_MAX = (window.ZG && ZG.MESSAGE_MAX) || 300;
+  const GAME_MSGS = [["pre", "preGameMessage", "Message before the game starts", "Players read it on the waiting screen, before the first turn."], ["win", "winnerMessage", "Message for a winner", "A winner reads it under what they won."], ["cl", "closingMessage", "Message when the game is over", "Every player reads it on the final screen."]];
+  const msgLen = (t) => Array.from(String(t || "")).length;
+  function messagesBox() {
+    const m = S.f.msg || { pre: "", win: "", cl: "" };
+    return `<div class="zc-block" id="messagesbox"><h3>Messages</h3>${small("Three short messages. All are optional: leave one empty to show nothing. Plain text, up to " + MSG_MAX + " characters each.")}`
+      + GAME_MSGS.map(([k, , label, hint]) => `${lbl("f-msg-" + k, label)}<textarea id="f-msg-${k}" class="zc-in zc-ta" data-fi="msg.${k}" rows="3" maxlength="${MSG_MAX}" aria-describedby="cnt-line-${k}">${esc(m[k])}</textarea><p class="zc-small" id="cnt-line-${k}"><span id="cnt-${k}" data-cnt="msg.${k}">${msgLen(m[k])}</span> of ${MSG_MAX} characters. ${hint}</p>`).join("")
+      + small("An AI assistant can write these for you. Read them here, change what you like and press Save and continue. Nothing is shown to players until you save.") + `</div>`;
+  }
+  /** Only the messages the person changed are sent (an empty one clears it), so a message an AI wrote in the meantime is never overwritten by an old copy. */
+  function messagesOut(f) { const o = {}, was = (S.fBase || {}).msg || {}; for (const [k, field] of GAME_MSGS) { const v = String((f.msg || {})[k] || "").trim(); if (v !== String(was[k] || "").trim()) o[field] = v; } return o; }
   // ---------- a payment link anyone can open ----------
   function payLinkBlock() {
     if (rulesNow()) return ""; // owner rules 1.1: the payment link is made in the console
@@ -448,7 +460,7 @@
     if (lockedGame()) return lockedNote() + readBack();
     const f = S.f, t = 1, lim = maxFor(t), u = usedMoments();
     const N = (k) => Math.min(Number(f[k]) || 0, lim[{ opN: "op", midN: "mid", clN: "cl" }[k]]);
-    let h = brandBox() + `<p class="zc-small">You can use 5 brand moments. Used: <b id="bmcount">${u} of ${5 * t}</b>.</p>`;
+    let h = brandBox() + messagesBox() + `<p class="zc-small">You can use 5 brand moments. Used: <b id="bmcount">${u} of ${5 * t}</b>.</p>`;
     if (u > 5 * t) h += `<p class="zc-small zc-badt">That is more than the allowance. Switch some off.</p>`;
     h += `<span class="zc-lbl zc-sec">Before the game starts</span>` + small("Plays while guests wait for the first turn.") + countChips("opN", lim.op);
     for (let i = 0; i < N("opN"); i++) h += momentBox("op", i, "Moment " + (i + 1));
@@ -471,7 +483,7 @@
     const t = 1, used = (c.opening || []).length + (c.breaks || []).length + (c.closing || []).length;
     const blankDate = S.cloneNew === eid && S.cloneDated !== eid;
     const bd = c.board || {}, kind = c.mode === "team" ? `team race, ${c.teams || "?"} teams` : c.mode === "table" ? "table game" : "race";
-    const rows = [["Game", blankDate ? `${name}, date and time still to pick` : `${name}, ${when(inf.startMs)}`, 1], ["People and play", `Up to ${inf.cap}, ${kind}, ${bd.size || 100} squares, ${c.play === "presence" ? "players throw" : "automatic throws"}, ${inf.callSeconds} seconds a turn, ${whoNow() === "anyone" ? "anyone with the link" : "only people on a list"}`, 2], ["Prizes", `${prizes} prize${prizes === 1 ? "" : "s"}${wait ? ` (${wait} to decide)` : ""}`, 3], ["Brand moments", `${used} of ${5 * t}`, 4]];
+    const rows = [["Game", blankDate ? `${name}, date and time still to pick` : `${name}, ${when(inf.startMs)}`, 1], ["People and play", `Up to ${inf.cap}, ${kind}, ${bd.size || 100} squares, ${c.play === "presence" ? "players throw" : "automatic throws"}, ${inf.callSeconds} seconds a turn, ${whoNow() === "anyone" ? "anyone with the link" : "only people on a list"}`, 2], ["Prizes", `${prizes} prize${prizes === 1 ? "" : "s"}${wait ? ` (${wait} to decide)` : ""}`, 3], ["Brand moments", `${used} of ${5 * t}`, 4], ["Messages", `${[inf.preGameMessage, inf.winnerMessage, inf.closingMessage].filter(Boolean).length} of 3 written`, 4]];
     return rows.map((r) => `<div class="zc-rowl"><span><span class="zc-small zc-nomargin">${r[0]}</span><br>${esc(r[1])}</span>${lockedGame() ? "" : `<button type="button" class="zc-mini" data-open="${r[2]}" aria-label="Change ${esc(r[0])}">Change</button>`}</div>`).join("")
       + (wait ? `<p class="zc-small zc-warnt" id="no-gift-note"><b>These prizes have no gift written yet:</b> ${esc(blankPrizeNames(c.rewards))}. Players will see "decided later". Open step 3 to add them. You can still publish.</p>` : "");
   }
@@ -1206,7 +1218,7 @@
   }
   S.pp = { list: null, err: "", limit: 0, common: "", me: null, waiting: null, approved: [], decided: [], confirm: "", sent: {}, sentFor: "", sum: "", wrong: [] };
   S.shield = ss.get("cbz-shield") === "1"; S.acctOpen = null; S.mkrole = "organizer"; S.screen = "";
-  const GROUPS = { 1: ["occ", "oname", "day", "dayo", "time", "timeo"], 2: ["cap", "tix", "spd", "who", "gj", "inv", "per", "cats", "gm", "tm", "pl", "bs", "sn", "ld", "fin", "ms", "tc", "ep", "ex", "th"], 3: ["hs", "ph", "bundle"], 4: ["opN", "op", "midN", "mid", "clN", "cl", "lucky", "brand"] };
+  const GROUPS = { 1: ["occ", "oname", "day", "dayo", "time", "timeo"], 2: ["cap", "tix", "spd", "who", "gj", "inv", "per", "cats", "gm", "tm", "pl", "bs", "sn", "ld", "fin", "ms", "tc", "ep", "ex", "th"], 3: ["hs", "ph", "bundle"], 4: ["opN", "op", "midN", "mid", "clN", "cl", "lucky", "brand", "msg"] };
   /** Brings the form in line with what the server holds, step by step, but never over a step the person has started changing (an AI may be changing the draft at the same time). */
   function syncForm() {
     const fresh = formFromServer();
@@ -1370,7 +1382,7 @@
         const bn = (f.brand.name || "").trim(), bc = f.brand.color || "", bl = f.brand.logo || "", brandChanged = JSON.stringify(f.brand) !== JSON.stringify((S.fBase || {}).brand);
         if (brandChanged && (bn || bc || bl) && !bn) throw new Error("Add your company name for the top of the board, or clear the colour and logo.");
         if (brandChanged && (bn || bl) && !bc) throw new Error("Pick an accent colour for your company strip.");
-        await call("PATCH", `/api/z/${eid}/settings`, { ...momentsOut(f), ...(brandChanged ? { brand: bn ? { name: bn, color: bc, ...(bl ? { logo: bl } : {}) } : {} } : {}) });
+        await call("PATCH", `/api/z/${eid}/settings`, { ...momentsOut(f), ...(brandChanged ? { brand: bn ? { name: bn, color: bc, ...(bl ? { logo: bl } : {}) } : {} } : {}), ...messagesOut(f) });
       }
       if (n === 1 && S.cloneNew === eid) S.cloneDated = eid;
       if (n <= 4) { markDone(n); S.note = "Saved."; await refreshEng(); return advance(n); }
@@ -1443,6 +1455,7 @@
     const lk = document.querySelector(`[data-lk="${path.replace(/\.(v|t|s)$/, "")}"]`);
     if (lk && /\.v$/.test(path)) lk.innerHTML = noteHtml(path.replace(/\.v$/, ""));
     const bm = document.getElementById("bmcount"); if (bm && S.f) bm.textContent = `${usedMoments()} of 5`;
+    const cn = document.querySelector(`[data-cnt="${path}"]`); if (cn) cn.textContent = String(msgLen(el.value));
     if (document.getElementById("qk-summary")) quickSummary();
   }
   function chipClick(b) {
