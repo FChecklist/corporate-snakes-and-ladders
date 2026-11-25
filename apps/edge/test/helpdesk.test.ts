@@ -46,7 +46,7 @@ const world = async (orgEmail = "boss@acme.com") => {
   const aiKey = m.clients[0].consoleUrl.match(/k=(cba_[0-9a-f]{48})/)[1] as string;
   return { p, master, t, linkId: inv.id as string, aiKey, org: (raw.query("SELECT org FROM helpdesk_link").get() as any).org as string };
 };
-const makeGame = (key: string, id = "HD-GAME-1") => call("POST", "/api/z", { id, startRound: FAR_START, callSeconds: 20, cap: 300, name: "Annual Day" }, org(key));
+const makeGame = (key: string, id = "HD-GAME-1") => call("POST", "/api/z", { id, startRound: FAR_START, callSeconds: 10, cap: 300, name: "Annual Day" }, org(key));
 /** The helper asks the Organizer to publish. */
 const askAt = (w: Awaited<ReturnType<typeof world>>, eid: string, now = T) => call("POST", "/api/helpdesk/request-publish", { linkId: w.linkId, eid }, part(w.p.partnerKey), now);
 const req = call;
@@ -61,7 +61,7 @@ const approveAndPublish = async (t: string, eid = "HD-GAME-1", now = T) => {
 
 beforeEach(() => {
   const d = makeD1(); raw = d.raw; ip = 0;
-  env = { DB: d.db, ORGANIZER_SECRET: "plat", DAILY_WRITE_BUDGET: "100000", TEST_MODE: "1", PUBLIC_ORIGIN: "https://snakes.test" };
+  env = { DB: d.db, ORGANIZER_SECRET: "plat", RUNNER_KEY: "test-runner-key-test-runner-key-test0000", DAILY_WRITE_BUDGET: "100000", TEST_MODE: "1", PUBLIC_ORIGIN: "https://snakes.test" };
 });
 
 describe("joining Help Desk", () => {
@@ -185,7 +185,7 @@ describe("asking the Organizer to publish", () => {
     const w = await world(); await makeGame(w.aiKey);
     const ownAi = (await j(await call("GET", "/api/org/ai/link", undefined, org(w.master)))).aiMessage.match(/cba_[0-9a-f]{48}/)[0];
     await makeGame(ownAi, "OWN-GAME-1"); // not made through the helper
-    const other = await startOrg("other@acme.com"); await call("POST", "/api/z", { id: "OTHER-ONE", startRound: FAR_START, callSeconds: 20, cap: 300 }, org(other));
+    const other = await startOrg("other@acme.com"); await call("POST", "/api/z", { id: "OTHER-ONE", startRound: FAR_START, callSeconds: 10, cap: 300 }, org(other));
     const go = (eid: string, headers = part(w.p.partnerKey), linkId: unknown = w.linkId) => call("POST", "/api/helpdesk/request-publish", { linkId, eid }, headers);
     expect((await go("OWN-GAME-1")).status).toBe(404); expect((await go("OTHER-ONE")).status).toBe(404); expect((await go("NO-SUCH")).status).toBe(404);
     expect((await go("HD-GAME-1", {})).status).toBe(403); // no key

@@ -113,13 +113,13 @@ export default [
     },
   },
   {
-    id: "S02-05", name: "Step 3: the four start-from bundles (Classic, Simple, Rich, Choose myself) change the ticked prizes and are saved",
+    id: "S02-05", name: "Step 3: the four start-from bundles (Classic, Simple, Rich, Choose yourself) change the ticked prizes and are saved",
     async run(t) {
       const { org, x, eid } = await startGameUi(t);
       await openStep(x.page, 3);
       const ticked = async () => x.page.$$eval("#sec3 [data-hc]", (els) => els.filter((e) => e.checked).map((e) => e.dataset.hc));
       const seen = {};
-      for (const b of ["Classic", "Simple", "Rich", "Choose myself"]) { await chip(x.page, "bundle", b); await x.page.waitForTimeout(300); seen[b] = await ticked(); }
+      for (const b of ["Classic", "Simple", "Rich", "Choose yourself"]) { await chip(x.page, "bundle", b); await x.page.waitForTimeout(300); seen[b] = await ticked(); }
       t.check("bundles tick different sets", new Set(Object.values(seen).map((a) => a.join())).size >= 3, JSON.stringify(seen));
       t.check("Rich has at least as many prizes as Simple", seen.Rich.length >= seen.Simple.length, `${seen.Rich.length} vs ${seen.Simple.length}`);
       await chip(x.page, "bundle", "Rich"); await saveStep(x.page, 3);
@@ -305,7 +305,7 @@ export default [
       t.check("pill says Payment pending", /Payment pending/i.test(await t.text(x.page)));
       await openStep(x.page, 8);
       const price = await t.text(x.page, "#sec8");
-      t.check("Pay step shows the price (no GST)", /Rs\s?[\d,]+/i.test(price), price.slice(300, 520));
+      t.check("Pay step shows the price (no GST)", /(Rs|₹)\s?[\d,]+/i.test(price), price.slice(300, 520));
       t.check("Copy payment link button exists", !!(await x.page.$("#copypaylink")));
       await t.shot(x.page, "step8-pending");
     },

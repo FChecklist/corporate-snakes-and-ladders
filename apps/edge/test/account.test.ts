@@ -14,13 +14,13 @@ const call = (method: string, path: string, body?: unknown, headers: Record<stri
 const j = async (r: Response) => (await r.json()) as any;
 const roundAt = (ms: number) => Math.floor((ms / 1000 - 1692803367) / 3) + 1;
 const rd = (f: string) => readFileSync(new URL("../../web/public/" + f, import.meta.url), "utf8");
-beforeEach(() => { const d = makeD1(); raw = d.raw; env = { DB: d.db, ORGANIZER_SECRET: "plat", DAILY_WRITE_BUDGET: "1000000", PUBLIC_ORIGIN: "https://bingo.test", DATA_KEY: "k", TEST_MODE: "1" }; });
+beforeEach(() => { const d = makeD1(); raw = d.raw; env = { DB: d.db, ORGANIZER_SECRET: "plat", RUNNER_KEY: "test-runner-key-test-runner-key-test0000", DAILY_WRITE_BUDGET: "1000000", PUBLIC_ORIGIN: "https://bingo.test", DATA_KEY: "k", TEST_MODE: "1" }; });
 async function org(email = "boss@acme.com", ip = "1.1.1.1") {
   const x = await j(await call("POST", "/api/start", { email }, { "cf-connecting-ip": ip }));
   return { h: { "x-organizer": x.token as string }, token: x.token as string, ai: x.aiKey as string };
 }
 async function game(o: { h: Record<string, string> }, id: string, startOffset = 1200) {
-  await call("POST", "/api/z", { id, startRound: roundAt(T) + startOffset, callSeconds: 20, cap: 100 }, o.h);
+  await call("POST", "/api/z", { id, startRound: roundAt(T) + startOffset, callSeconds: 10, cap: 100 }, o.h);
   await call("POST", `/api/z/${id}/publish`, { email: "boss@acme.com", phone: "98765 43210" }, o.h);
 }
 
@@ -43,7 +43,7 @@ describe("replace the report link (G-07)", () => {
   });
 });
 
-describe("Close my organizer account", () => {
+describe("Close your organizer account", () => {
   test("only the organizer's own key, with a confirmation; it deletes the account and every engagement; payments stay; all keys die", async () => {
     const o = await org(); await game(o, "CLS-1"); await game(o, "CLS-2");
     await call("POST", "/api/z/CLS-1/join", { phone: "9811111111", name: "Asha", device: "1".repeat(32) });
@@ -64,7 +64,7 @@ describe("Close my organizer account", () => {
     const o = await org(); await game(o, "CLS-3", 0);
     const r = await call("POST", "/api/org/close", { confirm: true }, o.h, T + 5 * 60_000); expect(r.status).toBe(409);
     expect((raw.prepare("SELECT COUNT(*) AS c FROM engagement").get() as any).c).toBe(1);
-    const z = rd("zc.js"); expect(z).toContain("Close my account"); expect(z).toContain("This cannot be undone.");
+    const z = rd("zc.js"); expect(z).toContain("Close your account"); expect(z).toContain("This cannot be undone.");
   });
 });
 
@@ -91,7 +91,7 @@ describe("the notification question", () => {
 
 describe("wording: third parties, fairness, version", () => {
   test("the privacy policy names drand and YouTube in one line, with a version date; the sub-processor page says the phone contacts them", () => {
-    const l = rd("legal.html"); expect(l).toContain("Your phone contacts drand for public random numbers, and YouTube (privacy mode) only if your organizer adds a video."); expect(l).toContain("Version 2026-10-15.");
-    const s = rd("subprocessors.html"); expect(s).toContain("drand: public random numbers. Your phone contacts it"); expect(s).toContain("YouTube (privacy mode)");
+    const l = rd("terms.html"); expect(l).toContain("A public source of random values is used for draws, and YouTube in privacy mode only if an Organizer adds a video."); expect(l).toContain("Version 2026-11-01");
+    const s = rd("subprocessors.html"); expect(s).toContain('href="/terms.html#processors"'); // the older page only points to the one document
   });
 });

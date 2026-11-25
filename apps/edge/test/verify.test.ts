@@ -6,6 +6,7 @@ import { handle } from "./cohost-accepted";
 import type { PayEnv } from "../src/pay";
 import { normEmp, empHashOf } from "../src/people";
 import { makeD1 } from "./d1-sqlite";
+import { setMode } from "../src/mode";
 
 const T = Date.UTC(2026, 9, 1, 10, 0, 0);
 const GEN = 1692803367;
@@ -25,7 +26,7 @@ const rowsOf = (sql: string, ...v: unknown[]) => raw.prepare(sql).all(...(v as a
 async function setup(opts: { closed?: boolean; verify?: string; employeesOnly?: boolean; invites?: unknown } = {}) {
   const st = await j(await handle(new Request("http://x/api/start", { method: "POST", headers: { "content-type": "application/json", "cf-connecting-ip": `7.7.7.${++ipN}` }, body: JSON.stringify({ consent: TICKS, email: `o${ipN}@acme.com` }) }), env as Env, T));
   const master = st.token as string;
-  await call("POST", "/api/z", { id: "PPL-1", startRound: START, callSeconds: 20, cap: 100, ...(opts.closed ? { whoCanJoin: "list" } : {}) }, master);
+  await call("POST", "/api/z", { id: "PPL-1", startRound: START, callSeconds: 10, cap: 100, ...(opts.closed ? { whoCanJoin: "list" } : {}) }, master);
   await call("POST", "/api/z/PPL-1/publish", { email: "boss@acme.com", phone: "98765 43210" }, master);
   const body = { ...(opts.invites ? { guestInvites: opts.invites } : {}), ...(opts.verify ? { verify: opts.verify } : {}), ...(opts.employeesOnly !== undefined ? { employeesOnly: opts.employeesOnly } : {}) };
   if (Object.keys(body).length) expect((await call("PATCH", "/api/z/PPL-1/settings", body, master)).status).toBe(200);
@@ -33,7 +34,7 @@ async function setup(opts: { closed?: boolean; verify?: string; employeesOnly?: 
 }
 const add = (key: string, people: unknown[]) => call("POST", "/api/z/PPL-1/people", { people }, key);
 
-beforeEach(() => { const d = makeD1(); raw = d.raw; env = { DB: d.db, ORGANIZER_SECRET: "plat", DAILY_WRITE_BUDGET: "1000000", PUBLIC_ORIGIN: "https://snakes.test", PHONE_SALT: "salt" }; (globalThis as any).fetch = async () => new Response("{}", { status: 404 }); });
+beforeEach(() => { const d = makeD1(); raw = d.raw; env = { DB: d.db, ORGANIZER_SECRET: "plat", RUNNER_KEY: "test-runner-key-test-runner-key-test0000", DAILY_WRITE_BUDGET: "1000000", PUBLIC_ORIGIN: "https://snakes.test", PHONE_SALT: "salt" }; (globalThis as any).fetch = async () => new Response("{}", { status: 404 }); });
 afterEach(() => { globalThis.fetch = realFetch; });
 
 describe("employee ID", () => {
@@ -183,6 +184,7 @@ describe("the list download carries the ID", () => {
 
 describe("the owner's three test sign-ins", () => {
   test("demo1/2/3@xyz.in sign in with 123456, no e-mail is sent, the same account comes back each time, and a wrong code or another address is refused", async () => {
+    await setMode(env as any, "TEST", "test", T); // WP-17: the fixed code works only while the service is in TEST mode
     for (const em of ["demo1@xyz.in", "demo2@xyz.in", "demo3@xyz.in"]) {
       expect((await call("POST", "/api/auth/email", { email: em })).status).toBe(200);
       const a = await j(await call("POST", "/api/auth/verify", { email: em, code: "123456" })); expect(a.token).toMatch(/^cbk_/);
@@ -193,10 +195,11 @@ describe("the owner's three test sign-ins", () => {
     expect(rowsOf("SELECT COUNT(*) c FROM organizer_email")[0].c).toBe(3);
     expect((await call("POST", "/api/auth/verify", { email: "demo4@xyz.in", code: "123456" })).status).toBe(400);
   });
-  test("the test sign-ins are limited per network per day, record no Terms consent, never send mail, and keep only their latest six keys", async () => {
+  test("the test sign-ins have no daily limit (owner order 4 Nov 2026), record no Terms consent, never send mail, and keep only their latest six keys", async () => {
+    await setMode(env as any, "TEST", "test", T);
     const em = "demo2@xyz.in"; const fire = () => call("POST", "/api/auth/verify", { email: em, code: "123456" });
-    for (let i = 0; i < 30; i++) expect((await fire()).status).toBe(200);
-    const blocked = await fire(); expect(blocked.status).toBe(429);
+    for (let i = 0; i < 35; i++) expect((await fire()).status).toBe(200); // owner order 4 Nov 2026: no per-network daily limit any more
+    expect((await fire()).status).toBe(200);
     // (in this game the console asks a new account for the Terms tick before the first game is made, so a test sign-in gets the K2 record the console needs; no mail goes out)
     const org = rowsOf("SELECT org FROM organizer_email")[0].org;
     expect(rowsOf("SELECT COUNT(*) c FROM organizer_key WHERE org=? AND kind='master'", org)[0].c).toBeLessThanOrEqual(6);

@@ -7,7 +7,7 @@ import { RoundStore, activeBreak, callRoundR, luckyEligible, luckyRound, luckyWi
 import { seatOfPid } from "./seat";
 import { QUICKNET, fetchRound, roundAt, roundTimeMs, type BeaconOpts } from "./index";
 import { betaOffset, turnRounds } from "./schedule";
-import { boardOf, crowdOf, rankPlayers, teamTable, teamsOf, DEFAULT_TURN_CAP, type RankRow, type TeamRow, type Settled } from "./race";
+import { boardOf, crowdOf, rankPlayers, teamTable, teamsOf, DEFAULT_END_PRIZES, DEFAULT_TURN_CAP, type RankRow, type TeamRow, type Settled } from "./race";
 import { rankTable } from "./table";
 import { rollFor, runFrom, squareOf, type Run, type Step } from "./play";
 import type { Board } from "./board";
@@ -49,7 +49,7 @@ export interface RuntimeView {
   board: Pick<Board, "size" | "side" | "snakes" | "ladders"> | null;
   me: { square: number; path: number[]; ladders: number; snakes: number; missed: number; finishedTurn: number | null; lastStep: Step | null; history: Step[] } | null;
   turn: TurnView;
-  turnsPlayed: number; turnCap: number; ended: boolean;
+  turnsPlayed: number; turnCap: number; /** The game ends when this many players are home (race and team games). */ endPrizes: number; ended: boolean;
   crowd: { players: number; bands: number[]; finished: number; ahead: number } | null;
   top: (RankRow | { rank: number; seat: number; finishedTurn: number | null; square: number; ladders: number; missed: number; note: string })[];
   myRank: number | null;
@@ -506,7 +506,7 @@ export class PhoneRuntime {
       kind: this.cfg.mode === "table" ? "table" : this.cfg.mode === "team" ? "team" : "race",
       board: board ? { size: board.size, side: board.side, snakes: board.snakes, ladders: board.ladders } : null,
       me: run ? { square: squareOf(run), path: [1, ...run.pos], ladders: run.ladders, snakes: run.snakes, missed: run.missed, finishedTurn: run.finishedTurn, lastStep: run.history[run.history.length - 1] ?? null, history: run.history } : (board ? { square: 1, path: [1], ladders: 0, snakes: 0, missed: 0, finishedTurn: null, lastStep: null, history: [] } : null),
-      turn, turnsPlayed, turnCap: this.turnCap, ended, crowd, top, myRank, team, table, nextTurnInSec,
+      turn, turnsPlayed, turnCap: this.turnCap, endPrizes: this.cfg.endPrizes ?? DEFAULT_END_PRIZES, ended, crowd, top, myRank, team, table, nextTurnInSec,
     };
   }
 }

@@ -9,10 +9,13 @@
 //   - Money in this file is rupees with 2 decimals; every comparison is done in whole paise.
 //   - E-mails (Organizer + Hosts only, once each per credit): on cancel/arrival, 30 days before the lapse, 3 days before, on use, on lapse.
 // `expires_ms` is the instant the credit lapses: 00:00 IST at the START of day 366 (= the end of day 365 in India time). A credit is usable while now < expires_ms.
+import { cleanAccountEmail as cleanEmail } from "./emailclean";
 import { PACKS, price } from "../../../packages/shared/src/pricing";
 import { fulfil, PAYER, sendMail, type PayEnv } from "./pay";
 import { openText } from "./pii";
 import { orgIsTest, testFlag } from "./mode";
+/** Was this game made under owner rules 1.1 (its settings carry rules "1.1")? Same reading as people.ts rulesOf, kept here so the two files do not import each other. */
+const underOwnerRules = (e: { config?: string | null }): boolean => { try { return !!e.config && JSON.parse(e.config).rules === "1.1"; } catch { return false; } };
 import type { D1, Env } from "./worker";
 
 /** 0018_credit_retention_clone.sql */
@@ -37,7 +40,7 @@ const json = (o: unknown, status = 200) => new Response(JSON.stringify(o), { sta
 export const creditExpiryMs = (paidMs: number): number => (Math.floor((paidMs + IST) / DAY) + CREDIT_DAYS + 1) * DAY - IST;
 /** The India-time date a person is told ("14 Jun 2027"): the LAST day the credit can be used. */
 export const creditLastDay = (expiresMs: number): string => new Date(expiresMs - 1).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata", day: "numeric", month: "short", year: "numeric" });
-export const rs = (n: number, cur = "INR"): string => (cur === "USD" ? "US$" : "Rs ") + (Math.abs(n - Math.round(n)) < 0.005 ? Math.round(n).toLocaleString(cur === "USD" ? "en-US" : "en-IN") : n.toLocaleString(cur === "USD" ? "en-US" : "en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+export const rs = (n: number, cur = "INR"): string => (cur === "USD" ? "US$" : "₹") + (Math.abs(n - Math.round(n)) < 0.005 ? Math.round(n).toLocaleString(cur === "USD" ? "en-US" : "en-IN") : n.toLocaleString(cur === "USD" ? "en-US" : "en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
 const istStamp = (ms: number) => new Date(ms).toLocaleString("en-IN", { timeZone: "Asia/Kolkata", day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit", hour12: true }) + " IST";
 const gameName = (e: { id: string; config?: string | null }) => { try { return JSON.parse(e.config ?? "{}").name || e.id; } catch { return e.id; } };
 
@@ -64,7 +67,7 @@ export async function mailTeam(env: PayEnv, org: string | null, eid: string | nu
 }
 
 /** The rule in one sentence, for e-mails and pages. */
-export const NO_REFUND_LINE = "We do not give refunds. If you cancel a paid game before it starts, your payment stays as credit for your next game for 365 days. Unused credit lapses at the end of day 365.";
+export const NO_REFUND_LINE = "A paid game cancelled before it starts stays with the organizer as credit for the next game, valid for 365 days. Unused credit lapses at the end of day 365.";
 
 // ------------------------------------------------------------------------------------------------ making credit
 /**
@@ -161,7 +164,7 @@ export async function mailCreditCreated(env: PayEnv, c: CreditRow, e: { id: stri
   const lines = why === "cancel"
     ? [c.expires_ms <= now ? `Your game "${gameName(e)}" (${e.id}) is cancelled. The credit from your payment of ${rs(c.total_inr, c.currency)} lapsed on ${lapseDate(c)}, 365 days after the payment, so there is nothing left to use.` : `Your game "${gameName(e)}" (${e.id}) is cancelled. Your payment of ${rs(c.total_inr, c.currency)} stays as credit until ${lapseDate(c)}. Use it for your next game.`]
     : [`A payment of ${rs(c.total_inr, c.currency)} arrived for the game "${gameName(e)}" (${e.id}) after it was cancelled or closed. It stays as credit until ${lapseDate(c)}. Use it for your next game.`];
-  await mailTeam(env, c.org, c.eid ?? e.id, why === "cancel" ? `Your credit of ${rs(c.total_inr, c.currency)}: ${gameName(e)}` : `A payment became credit: ${gameName(e)}`, [...lines, NO_REFUND_LINE, `Open your console and choose "Use my credit" on the Pay step of your next game.`].join("\n\n"), now);
+  await mailTeam(env, c.org, c.eid ?? e.id, why === "cancel" ? `Your credit of ${rs(c.total_inr, c.currency)}: ${gameName(e)}` : `A payment became credit: ${gameName(e)}`, [...lines, NO_REFUND_LINE, `Open your console and choose "Use your credit" on the Pay step of your next game.`].join("\n\n"), now);
 }
 async function mailCreditUsed(env: PayEnv, c: CreditRow, amount: number, e: { id: string; org: string | null; config?: string | null }, left: number, now: number): Promise<void> {
   await mailTeam(env, c.org, e.id, `${rs(amount, c.currency)} of credit used for ${gameName(e)}`, [`${rs(amount, c.currency)} of credit was used for the game "${gameName(e)}" (${e.id}).`, left > 0.004 ? `That credit still has ${rs(left, c.currency)} left, valid until ${lapseDate(c)}.` : "That credit is now fully used."].join("\n\n"), now);
@@ -190,7 +193,7 @@ export async function creditTick(env: PayEnv, now: number): Promise<{ lapsed: nu
     const claim = await db.prepare(`UPDATE credit SET ${col}=? WHERE id=? AND ${col} IS NULL`).bind(now, c.id).run();
     if ((claim.meta?.changes ?? 0) === 0) continue;
     if (three && c.mail30_ms === null) await db.prepare("UPDATE credit SET mail30_ms=? WHERE id=? AND mail30_ms IS NULL").bind(now, c.id).run(); // the 3-day mail replaces the 30-day one when we are already that close
-    await mailTeam(env, c.org, c.eid, `Your credit of ${rs(c.remaining_inr, c.currency)} lapses on ${lapseDate(c)}`, `Your credit of ${rs(c.remaining_inr, c.currency)} lapses on ${lapseDate(c)} (${three ? "in 3 days" : "in 30 days"}). Use it for your next game before then. After that it is gone: we do not give refunds.`, now); out.mailed++;
+    await mailTeam(env, c.org, c.eid, `Your credit of ${rs(c.remaining_inr, c.currency)} lapses on ${lapseDate(c)}`, `Your credit of ${rs(c.remaining_inr, c.currency)} lapses on ${lapseDate(c)} (${three ? "in 3 days" : "in 30 days"}). Use it for your next game before then. After that it lapses, as credit is valid for 365 days.`, now); out.mailed++;
   }
   return out;
 }
@@ -232,8 +235,9 @@ export async function creditRoute(req: Request, env: PayEnv, now: number, spend:
   if (a.kind === "cohost" && a.eid && a.eid !== e.id) return json({ error: "Your Co-host link is for a different game." }, 403);
   if (e.cancelled_ms) return json({ error: "This game was cancelled. It cannot be paid for.", code: "cancelled" }, 409);
   if (e.unplayed_ms) return json({ error: "This game did not start and is closed. It cannot be paid for.", code: "did-not-start" }, 409);
+  if (underOwnerRules(e)) return json({ error: "You pay in the console. This page does not take payments.", code: "pay-in-console" }, 410); // owner rules 1.1: a game is paid only by the console's notice, credit included
   const pack = PACKS.find((x) => x[0] >= e.cap)?.[0] ?? null;
-  if (!pack) return json({ error: "That many participants needs a custom arrangement. Please write to us." }, 400);
+  if (!pack) return json({ error: "That many participants needs a custom arrangement. Please write from the contact page." }, 400);
   const bodyText = await req.text(); let b: any = {}; try { b = bodyText ? JSON.parse(bodyText) : {}; } catch { b = {}; }
   const cur = b?.currency === "USD" ? "USD" : "INR";
   const total = price(pack, cur).total;
@@ -265,7 +269,7 @@ async function payGameFromCredit(env: PayEnv, e: any, a: CreditAuth, pack: numbe
   const src = first?.pid ? await db.prepare("SELECT meta, email FROM payment WHERE id=?").bind(first.pid).first<{ meta: string; email: string }>() : null;
   let sm: any = {}; try { sm = src ? JSON.parse(src.meta) : {}; } catch { sm = {}; }
   const tos = await teamEmails(env, e.org, e.id);
-  const email = (tos.organizer ?? src?.email ?? "").toLowerCase();
+  const email = cleanEmail((tos.organizer ?? src?.email ?? ""));
   const test = (await testFlag(env)) === 1 || (await orgIsTest(env, e.org)) ? 1 : 0;
   const meta = { org: sm.org ?? "", name: sm.name || sm.org || "Organizer", country: sm.country ?? "IN", taxId: sm.taxId ?? "", origin: env.PUBLIC_ORIGIN ?? "", orgId: e.org, eid: e.id, paidBy: PAYER[a.kind ?? ""] ?? "organizer", creditInr: usedInr, viaCredit: true, by: a.kind };
   await db.prepare("INSERT OR IGNORE INTO payment(id,org,email,pack,currency,amount,tax,rzp_order_id,status,created_ms,meta,ref,buyer_phone_hash,is_test,eid) VALUES(?,?,?,?,?,0,0,NULL,'created',?,?,NULL,NULL,?,?)").bind(id, null, email || "credit@invalid.local", pack, cur, now, JSON.stringify(meta), test, e.id).run();

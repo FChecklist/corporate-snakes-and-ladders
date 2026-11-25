@@ -22,12 +22,12 @@ const count = (sql: string) => (raw.prepare(sql).get() as any).c as number;
 
 beforeEach(() => {
   const d = makeD1(); raw = d.raw;
-  env = { DB: d.db, ORGANIZER_SECRET: "plat", DAILY_WRITE_BUDGET: "1000000", PUBLIC_ORIGIN: "https://bingo.test", DATA_KEY: "test-data-key" };
+  env = { DB: d.db, ORGANIZER_SECRET: "plat", RUNNER_KEY: "test-runner-key-test-runner-key-test0000", DAILY_WRITE_BUDGET: "1000000", PUBLIC_ORIGIN: "https://bingo.test", DATA_KEY: "test-data-key" };
 });
 async function game() {
   const x = await j(await call("POST", "/api/start", { email: "boss@acme.com" }, { "cf-connecting-ip": "1.1.1.1" }));
   const h = { "x-organizer": x.token as string, "cf-connecting-ip": "203.0.113.9", "user-agent": "OrganizerBrowser/1" };
-  expect((await call("POST", "/api/z", { id: "EVT1", startRound: roundAt(T) + 1200, callSeconds: 20, cap: 100 }, h)).status).toBe(200);
+  expect((await call("POST", "/api/z", { id: "EVT1", startRound: roundAt(T) + 1200, callSeconds: 10, cap: 100 }, h)).status).toBe(200);
   raw.prepare("UPDATE engagement SET pack=100 WHERE id='EVT1'").run();
   await call("POST", "/api/z/EVT1/join", { phone: PHONE, name: "Asha Rao", device: DEV }, { "cf-connecting-ip": IP, "user-agent": UA }, T);
   await call("POST", "/api/z/EVT1/join", { phone: "9123456780", name: "Ravi", device: "cd".repeat(16) }, { "cf-connecting-ip": "198.51.100.6", "user-agent": UA }, T);
@@ -87,15 +87,17 @@ describe("participant crypto-shredding", () => {
     const w = await verifyChain((env as any).DB, "EVT1"); expect(w.ok).toBe(false); expect(w.reason).toMatch(/without a recorded erasure/);
   });
 
-  test("rows of the organizer, co-host and AI key, and the winners' prize confirmations, are NOT shredded", async () => {
+  test("rows of the organizer, co-host and AI key are NOT shredded; a winner's prize confirmation keeps only the winner's own name and number (the network address and the rest are shredded)", async () => {
     await game();
     const base = { eid: "EVT1", org: null, status: 200, now: T, country: "IN", corr: "c" };
-    await appendAudit(env as any, { ...base, actor: "participant", event: "prize", target: "confirm", details: { ip: IP, name: "Winner W" } });
+    await appendAudit(env as any, { ...base, actor: "participant", event: "prize", target: "confirm", details: { method: "POST", path: "/api/z/EVT1/confirm", status: 200, ip: IP, ua: "UA-X", device_id: "d".repeat(32), changes: { pid: "7x" + "ab".repeat(6), name: "Winner W", phone: "+917012345678" } } });
     await appendAudit(env as any, { ...base, actor: "cohost", event: "edit", target: "settings", details: { ip: "192.0.2.4" } });
     await appendAudit(env as any, { ...base, actor: "ai_key", event: "ai_read", target: "x", details: { ip: "192.0.2.5" }, aiVendor: "openai" });
     expect(await shredParticipantAudit(env as any, "EVT1", T + 23 * HOUR)).toBe(true);
     const after = await loadRows(env as any, "EVT1");
-    expect(after.find((x) => x.event === "prize")!.details.name).toBe("Winner W");
+    const prize = after.find((x) => x.event === "prize")!.details;
+    expect(prize.winner).toEqual({ seat: 7, name: "Winner W", phone: "+917012345678" }); expect(prize.personal_data_erased).toBe(true);
+    expect(JSON.stringify(prize)).not.toContain(IP); expect(JSON.stringify(prize)).not.toContain("UA-X"); expect(JSON.stringify(prize)).not.toContain("ab".repeat(6));
     expect(after.find((x) => x.actor === "cohost")!.details.ip).toBe("192.0.2.4");
     expect(after.find((x) => x.actor === "ai_key")!.details.ip).toBe("192.0.2.5");
     expect(after.filter((x) => x.event === "join").every((x) => x.details.personal_data_erased)).toBe(true);

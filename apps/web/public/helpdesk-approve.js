@@ -21,7 +21,7 @@
     const s = info.summary;
     if (!s) return `<p class="zsmall">Game ${esc(info.eid)}</p>`;
     const rewards = Array.isArray(s.rewards) ? s.rewards.filter((r) => r && (r.label || r.pattern || r.text)) : [];
-    return `<div class="zsmall" style="line-height:1.6"><b>${esc(s.name || info.eid)}</b><br>Starts: ${esc(s.startsAtIST || "")}<br>Up to ${esc(s.limit)} people${s.tickets ? ", " + esc(s.tickets) + " ticket" + (s.tickets === 1 ? "" : "s") + " each" : ""}${s.rounds ? ", " + esc(s.rounds) + " round" + (s.rounds === 1 ? "" : "s") : ""}${s.gameMinutes ? ", about " + esc(s.gameMinutes) + " minutes" : ""}<br>Who can join: ${s.whoCanJoin === "list" ? "only people on your list" : "anyone with the link"}${s.breaks ? "<br>Brand moments: " + esc(s.breaks) : ""}${s.priceInr ? "<br>Price when you pay: Rs " + esc(s.priceInr) : ""}</div>
+    return `<div class="zsmall" style="line-height:1.6"><b>${esc(s.name || info.eid)}</b><br>Starts: ${esc(s.startsAtIST || "")}<br>Up to ${esc(s.limit)} people${s.tickets ? ", " + esc(s.tickets) + " ticket" + (s.tickets === 1 ? "" : "s") + " each" : ""}${s.rounds ? ", " + esc(s.rounds) + " round" + (s.rounds === 1 ? "" : "s") : ""}${s.gameMinutes ? ", about " + esc(s.gameMinutes) + " minutes" : ""}<br>Who can join: ${s.whoCanJoin === "list" ? "only people on your list" : "anyone with the link"}${s.breaks ? "<br>Brand moments: " + esc(s.breaks) : ""}${s.priceInr ? "<br>Price when you pay: ₹" + esc(s.priceInr) : ""}</div>
       ${rewards.length ? `<div class="zsmall" style="margin-top:8px"><b>Prizes</b></div><ul class="zsmall" style="margin:4px 0 0;padding-left:20px">${rewards.map(prizeLine).join("")}</ul>` : ""}`;
   }
   function view() {

@@ -1,6 +1,6 @@
 // Presence play ("Players throw"): a player taps Throw and the phone reports it here. A throw counts only if the server receives it before the turn window ends:
 // the SERVER clock decides (never the phone's). After that the answer is code "late-move" and nothing is recorded. The record is read back by every phone (GET .../throws)
-// to know who threw in each finished turn, and goes with the other personal rows when the game is erased (lifecycle.ts).
+// to know who threw in each finished turn, and goes with the other personal rows when the game is auto-deleted (lifecycle.ts).
 import { seatOfPid } from "../../../packages/beacon/src/seat";
 import { turnWindowMs, cfgOfRow } from "./lifecycle";
 import { deviceMatches, prefixEnd } from "./checkin";

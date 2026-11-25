@@ -12,16 +12,16 @@ import { GRACE_ROUNDS } from "../../../packages/beacon/src/config";
 import { turnRounds } from "../../../packages/beacon/src/schedule";
 import { roundTimeMs } from "../../../packages/beacon/src/index";
 // @ts-ignore plain JS module shared with the other harnesses
-import { fakeFetcher, fakeVerify, randomnessOf, roundAt } from "../../../tools/sim2/lib/beacon.mjs";
+import { fakeFetcher, fakeRound, fakeVerify, randomnessOf, roundAt } from "../../../tools/sim2/lib/beacon.mjs";
 
 /** When the lucky draw of drawGame is decided (the time of the beacon round that ends its break), worked out the way a phone does. */
-const WINDOW = 20, START_MS = Date.UTC(2026, 9, 20, 10, 0, 0) + 10 * 60_000, BRK = { after: 3, seconds: 30, kind: "lucky" as const, title: "Lucky draw", winners: 10 as 1 | 3 | 5 | 10 };
+const WINDOW = 10, START_MS = Date.UTC(2026, 9, 20, 10, 0, 0) + 10 * 60_000, BRK = { after: 3, seconds: 30, kind: "lucky" as const, title: "Lucky draw", winners: 10 as 1 | 3 | 5 | 10 };
 const DRAW_MS = roundTimeMs(luckyRound(null, roundAt(START_MS) + GRACE_ROUNDS, turnRounds(WINDOW), [BRK], BRK)!);
 
 /** `removals`: the organizer removes player i (the person's line on the organizer's list) when virtual time first reaches `at`. */
 async function drawGame(players: number, flagged: number[], winners: 1 | 3 | 5 | 10, seed: string, removals: { i: number; at: number }[] = []) {
   const d = makeD1(); const raw = d.raw;
-  const env = { DB: d.db, ORGANIZER_SECRET: "plat", DAILY_WRITE_BUDGET: "100000000", JOIN_PER_IP_DAY: "1000000", JOIN_PER_IP_MINUTE: "1000000", DATA_KEY: "k", TEST_MODE: "1" } as unknown as Env;
+  const env = { DB: d.db, ORGANIZER_SECRET: "plat", RUNNER_KEY: "test-runner-key-test-runner-key-test0000", DAILY_WRITE_BUDGET: "100000000", JOIN_PER_IP_DAY: "1000000", JOIN_PER_IP_MINUTE: "1000000", DATA_KEY: "k", TEST_MODE: "1" } as unknown as Env;
   let vt = Date.UTC(2026, 9, 20, 10, 0, 0);
   const req = (method: string, path: string, body?: unknown, headers: Record<string, string> = {}) => handle(new Request("http://x" + path, { method, headers: { "content-type": "application/json", ...headers }, body: body === undefined ? undefined : JSON.stringify(body) }), env, vt);
   const j = async (r: Response) => (await r.json()) as any;
@@ -33,6 +33,9 @@ async function drawGame(players: number, flagged: number[], winners: 1 | 3 | 5 |
   expect((await req("POST", "/api/z/LK-1/publish", { email: "boss@acme.com", phone: "9876543210", consent: TICKS }, h)).status).toBe(200);
   raw.prepare("UPDATE engagement SET pack=100").run();
   const fetcher = fakeFetcher(() => vt, seed);
+  // the Worker checks a reported draw against the public numbers (verifywin.ts): it asks the same (fake) beacon the phones use
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = (async (u: any, i?: any) => { const m = String(u).match(/\/public\/(\d+)$/); if (!m) return realFetch(u, i); const r = Number(m[1]); return r > roundAt(vt) ? new Response("{}", { status: 404 }) : new Response(JSON.stringify(fakeRound(r, seed)), { status: 200 }); }) as any;
   const phones = Array.from({ length: players }, (_, i) => {
     const mem = new Map<string, string>(); const ip = `10.1.0.${i + 1}`;
     const rt = new PhoneRuntime("LK-1", {
@@ -50,6 +53,7 @@ async function drawGame(players: number, flagged: number[], winners: 1 | 3 | 5 |
   const due = async () => { for (const r of removals) if (!removed.includes(r.i) && vt >= r.at) { removed.push(r.i); const pid = phones[r.i]!.rt.pid!; const id = (raw.prepare("SELECT p.id AS id FROM person p JOIN seat s ON s.eid=p.eid AND s.ph=p.ph WHERE s.pid=?").get(pid) as { id: string }).id; expect((await req("POST", `/api/z/LK-1/people/${id}/remove`, {}, h)).status).toBe(200); } };
   for (let step = 0; step < 900 && !done(); step++) { vt += 3000; await due(); for (const p of phones) { try { await p.rt.tick(); } catch { /* the next step tries again */ } } }
   for (let k = 0; k < 12; k++) { vt += 3000; for (const p of phones) { try { await p.rt.tick(); } catch { /* */ } } }
+  globalThis.fetch = realFetch;
   return { raw, phones, req, j, h, brk, startRound, window, seed, done: done() };
 }
 

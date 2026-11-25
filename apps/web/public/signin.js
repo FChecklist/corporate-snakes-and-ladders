@@ -22,21 +22,21 @@
     if (info) { const box = document.getElementById("k2"), s0 = CBConsent.bind(box, info, state, b); box.querySelectorAll("input.cbc-tick").forEach((i) => i.addEventListener("change", sync)); s0(); }
     sync(); // set before Google's button is drawn, so it starts switched off
     const gw = document.getElementById("gWrap"); // "Continue with Google" shows only when the server has a Google client id; it signs in exactly like the e-mail does
-    if (gw && window.TB && TB.google) TB.google.mount(gw, { intent: "signin", consent: () => (info ? CBConsent.payload(info, state) : null), onConsent: (c) => { if (c && Array.isArray(c.boxes)) { info = c; Object.keys(state).forEach((k) => delete state[k]); draw("Please read and tick the box again."); } }, onDone: (j) => { try { CTK.set("cbz-org", j.token); } catch {} location.replace(go); }, onError: (m) => draw(m) }).then((shown) => { const o = document.getElementById("gOr"); if (o && shown) o.hidden = false; }).catch(() => {});
+    if (gw && window.TB && TB.google) TB.google.mount(gw, { intent: "signin", consent: () => (info ? CBConsent.payload(info, state) : null), onConsent: (c) => { if (c && Array.isArray(c.boxes)) { info = c; Object.keys(state).forEach((k) => delete state[k]); draw("Please press Continue once more."); } }, onDone: (j) => { try { CTK.set("cbz-org", j.token); } catch {} location.replace(go); }, onError: (m) => draw(m) }).then((shown) => { const o = document.getElementById("gOr"); if (o && shown) o.hidden = false; }).catch(() => {});
     if (b) b.onclick = async () => {
-      const consent = info ? CBConsent.payload(info, state) : null; if (!consent) return draw("Please tick the box first.");
+      const consent = info ? CBConsent.payload(info, state) : null; if (!consent) return draw("The page is still getting ready. Please wait a moment and try again.");
       b.disabled = true;
       try {
         const r = await fetch("/api/auth/link", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ token: t, consent }) });
         const j = await r.json().catch(() => ({}));
         if (!r.ok && (j.code === "consent-required" || j.code === "terms-changed")) { // the token stays valid: show the fresh boxes, unticked, and let the person tick and press again
           if (j.consent && Array.isArray(j.consent.boxes)) info = j.consent; Object.keys(state).forEach((k) => delete state[k]);
-          return draw("Please read and tick the box again, then press Continue.");
+          return draw("Please press Continue once more.");
         }
         if (!r.ok) throw new Error(j.error || "Something went wrong. Please try again.");
         try { CTK.set("cbz-org", j.token); } catch {}
         location.replace(go);
-      } catch (e) { draw(e && e.name === "TypeError" ? "We could not reach the service. Please check your internet and try again." : e && e.message ? e.message : "Something went wrong. Please try again."); }
+      } catch (e) { draw(e && e.name === "TypeError" ? "The service could not be reached. Please check your internet and try again." : e && e.message ? e.message : "Something went wrong. Please try again."); }
     };
   };
   draw("");

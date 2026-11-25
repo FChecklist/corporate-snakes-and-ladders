@@ -21,7 +21,7 @@ const call = (method: string, path: string, body?: unknown, headers: Record<stri
 const j = async (r: Response) => (await r.json()) as any;
 const root = join(import.meta.dir, "..", "..", "..");
 
-beforeEach(() => { const d = makeD1(); env = { DB: d.db, ORGANIZER_SECRET: "plat", DAILY_WRITE_BUDGET: "100000", PUBLIC_ORIGIN: ORIGIN, DATA_KEY: "test-data-key" }; });
+beforeEach(() => { const d = makeD1(); env = { DB: d.db, ORGANIZER_SECRET: "plat", RUNNER_KEY: "test-runner-key-test-runner-key-test0000", DAILY_WRITE_BUDGET: "100000", PUBLIC_ORIGIN: ORIGIN, DATA_KEY: "test-data-key" }; });
 async function organizer() {
   const x = await j(await call("POST", "/api/start", { email: "boss@acme.com" }, { "cf-connecting-ip": "1.1.1.1" }));
   return { key: x.aiKey as string, token: x.token as string, base: `${ORIGIN}/ai/${x.aiKey}` };
@@ -80,7 +80,7 @@ describe("the guided path, followed like an outside AI", () => {
 
 describe("every function in the list does what the list says", () => {
   test("every refusal an AI gets also says what to do next, never contains the key, and names the console page for that game", async () => {
-    const o = await organizer(); await call("POST", `/ai/${o.key}/z`, { id: "NXT-1", startRound: Math.floor((T / 1000 - 1692803367) / 3) + 1 + 4000, callSeconds: 20, cap: 100 });
+    const o = await organizer(); await call("POST", `/ai/${o.key}/z`, { id: "NXT-1", startRound: Math.floor((T / 1000 - 1692803367) / 3) + 1 + 4000, callSeconds: 10, cap: 100 });
     const cases: [string, string, unknown, RegExp][] = [
       ["PATCH", "z/NXT-1/settings", { startRound: 5 }, /schedule/], ["PATCH", "z/NXT-1/settings", { breaks: [{ kind: "speech", title: "x" }] }, /2 or more characters/],
       ["PATCH", "z/NXT-1/settings", { tickets: 1, breaks: [1, 2, 3, 4].map(() => ({ kind: "speech", title: "A word" })) }, /fewer brand moments/], ["POST", "z/NXT-1/erase", {}, /hand-over link/],

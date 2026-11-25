@@ -23,7 +23,7 @@ let rz: { orders: any[]; payments: Record<string, any>; mail: any[]; mailDown: b
 const call = (method: string, path: string, body?: unknown, headers: Record<string, string> = {}, now = T) =>
   handle(new Request("http://x" + path, { method, headers: { "content-type": "application/json", ...headers }, body: withDevice(method, path, body) }), env as Env, now);
 const j = async (r: Response) => (await r.json()) as any;
-const eng = (id: string, over: Record<string, unknown> = {}) => ({ id, startRound: START, callSeconds: 20, cap: 100, ...over });
+const eng = (id: string, over: Record<string, unknown> = {}) => ({ id, startRound: START, callSeconds: 10, cap: 100, ...over });
 const contact = { email: "boss@acme.com", phone: "98765 43210" };
 
 async function organizer(email = `o${++ipN}@acme.com`) {
@@ -59,7 +59,7 @@ const settle = (paymentId: string, orderId: string, payId: string, now = T, stat
 beforeEach(() => {
   const d = makeD1(); raw = d.raw; ipN = 0;
   rz = { orders: [], payments: {}, mail: [], mailDown: false };
-  env = { DB: d.db, ORGANIZER_SECRET: "plat", DAILY_WRITE_BUDGET: "1000000", PUBLIC_ORIGIN: "https://bingo.test", PHONE_SALT: "salt" };
+  env = { DB: d.db, ORGANIZER_SECRET: "plat", RUNNER_KEY: "test-runner-key-test-runner-key-test0000", DAILY_WRITE_BUDGET: "1000000", PUBLIC_ORIGIN: "https://bingo.test", PHONE_SALT: "salt" };
   installGateway();
 });
 afterEach(() => { globalThis.fetch = realFetch; });
@@ -262,8 +262,8 @@ describe("C. publish and pay", () => {
   test("UC-20 an engagement bigger than every pack needs a custom arrangement", async () => {
     withGateway();
     const o = await organizer();
-    await call("POST", "/api/z", eng("HUGE-1", { cap: 100000 }), o.h);
-    const r = await checkout(o, "HUGE-1"); expect(r.status).toBe(400); expect((await j(r)).error).toMatch(/custom|write to us/i);
+    const r = await call("POST", "/api/z", eng("HUGE-1", { cap: 2001 }), o.h); expect(r.status).toBe(400); expect((await j(r)).error).toMatch(/2,000/);
+    expect((await call("POST", "/api/z", eng("HUGE-2", { cap: 2000 }), o.h)).status).toBe(200);
   });
   test("UC-21 after payment the limit can rise only up to the pack and never below the people already in", async () => {
     withGateway();
@@ -357,7 +357,8 @@ describe("D. participants", () => {
     const ok = rs.filter((r) => r.status === 200).length, full = rs.filter((r) => r.status === 409).length;
     expect((raw.prepare("SELECT COUNT(*) AS c FROM participant WHERE eid='CROWD-1'").get() as any).c).toBeLessThanOrEqual(5);
     expect(ok).toBe(5); expect(full).toBe(35);
-    expect((await call("POST", "/api/z/CROWD-1/join", { phone: phone(1) })).status).toBe(200); // someone who already has a place can always come back
+    const seated = rs.findIndex((r) => r.status === 200); // which of the 40 got a place depends on the arrival order, so take one who really has one
+    expect((await call("POST", "/api/z/CROWD-1/join", { phone: phone(seated + 1) })).status).toBe(200); // someone who already has a place can always come back
   });
   test("UC-33 invite-only: an unlisted number is refused, a listed one gets in", async () => {
     const o = await published("INVITE-1", { closed: true });
@@ -542,10 +543,6 @@ describe("H. the free plan: pause profiles by size", () => {
       expect((await call("PUT", `/api/z/${id}/control/key`, { publicKey: pk }, o.h)).status).toBe(200);
       expect((await ctl(id)).leadRounds).toBe(want);
     }
-    await call("POST", "/api/z", eng("PF-HUGE", { cap: 5000 }), o.h);
-    const r = await call("PUT", "/api/z/PF-HUGE/control/key", { publicKey: pk }, o.h);
-    expect(r.status).toBe(409); expect((await j(r)).error).toMatch(/up to 2,000 participants/);
-    expect((await call("GET", "/api/z/PF-HUGE/control", undefined, {}, T)).status).toBe(404); // no file: phones will not keep asking
   });
   test("UC-71 a bigger pause profile means a longer lead, so nobody can see a number a pause should have prevented", async () => {
     const { SAFETY_STANDARD, SAFETY_LEAN30, SAFETY_LEAN60 } = await import("../../../packages/beacon/src/control");

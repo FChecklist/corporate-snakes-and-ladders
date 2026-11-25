@@ -29,10 +29,10 @@
       ${bad(state.msg)}
       ${state.codeStep && !state.newAcct ? `<label for="cd">6-digit code sent to ${esc(state.email)}</label><input class="hdi" id="cd" inputmode="numeric" autocomplete="one-time-code" maxlength="8">${showBox ? `<div id="hdtb">${C.html(state.k2info, state.k2state)}</div>` : ""}<button class="zbtn" id="go"${showBox ? " disabled" : ""}>Sign in</button>
         <p class="zsmall"><a href="#" class="hdl" id="mk">No account yet? Make one</a></p>`
-        : state.newAcct ? `<label for="em">Your e-mail</label><input class="hdi" id="em" type="email" autocomplete="email" value="${esc(state.email)}">${showBox ? `<div id="hdtb">${C.html(state.k2info, state.k2state)}</div>` : ""}<button class="zbtn" id="go"${showBox ? " disabled" : ""}>Make my account</button>`
-        : `<label for="em">Your e-mail</label><input class="hdi" id="em" type="email" autocomplete="email" value="${esc(state.email)}" placeholder="your e-mail"><button class="zbtn" id="go">E-mail me a code</button>
+        : state.newAcct ? `<label for="em">Your e-mail</label><input class="hdi" id="em" type="email" autocomplete="email" value="${esc(state.email)}">${showBox ? `<div id="hdtb">${C.html(state.k2info, state.k2state)}</div>` : ""}<button class="zbtn" id="go"${showBox ? " disabled" : ""}>Make your account</button>`
+        : `<label for="em">Your e-mail</label><input class="hdi" id="em" type="email" autocomplete="email" value="${esc(state.email)}" placeholder="your e-mail"><button class="zbtn" id="go">E-mail a code</button>
         <p class="zsmall"><a href="#" class="hdl" id="mk">No account yet? Make one</a></p>`}
-      <p class="zsmall"><a href="#" class="hdl" id="stop">I do not want this</a></p></div>`);
+      <p class="zsmall"><a href="#" class="hdl" id="stop">Skip this</a></p></div>`);
     const go = document.getElementById("go");
     if (showBox) C.bind(document.getElementById("hdtb"), state.k2info, state.k2state, go);
     const consent = () => (showBox ? C.payload(state.k2info, state.k2state) : undefined);
@@ -44,7 +44,7 @@
         if (state.newAcct) {
           const em = document.getElementById("em").value.trim().toLowerCase(); state.email = em;
           const r = await api("POST", "/api/start", { email: em, consent: consent() }, "");
-          if (r.exists) { state.newAcct = false; state.codeStep = false; state.msg = "That address already has an account. Use the code we send."; return signIn(); }
+          if (r.exists) { state.newAcct = false; state.codeStep = false; state.msg = "That address already has an account. Use the code sent to you."; return signIn(); }
           token = r.token; ss.set("cbz-org", token); return allow();
         }
         if (!state.codeStep) {
@@ -75,7 +75,7 @@
   }
   function active() {
     shell(`<div class="zcard"><h2>Done</h2><p>${esc(info.helperName)} can now prepare games for you. You publish each one with one tap, and you can stop this at any time.</p>${bad(state.msg)}
-      <button class="zbtn alt" id="stop">Stop Help Desk</button><p class="zsmall"><a class="hdl" href="/zc.html">Open my console</a></p></div>`);
+      <button class="zbtn alt" id="stop">Stop Help Desk</button><p class="zsmall"><a class="hdl" href="/zc.html">Open your console</a></p></div>`);
     document.getElementById("stop").onclick = () => stop();
   }
   async function stop() {
