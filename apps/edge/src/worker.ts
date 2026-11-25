@@ -823,7 +823,7 @@ export const AI_MANIFEST = {
     { do: "Flag a board as the organizer's, a co-organizer's or a game helper's", call: "POST /api/z/{id}/mark {seat, role: organizer|host|co-host|none} (the board number; an AI never names a mobile number; host is a co-organizer and co-host is a game helper)" },
     { do: "Invitations by players (older games only: a game made under the current rules is by employee ID only): how many people each may invite and which kinds, before the start", call: "PATCH /api/z/{id}/settings {invites: {on, per: 1-4, cats}}" },
     { do: "Create a co-organizer key (up to 5; through an AI link a co-organizer may only watch, announce and tick gifts given)", call: "POST /api/org/host {label, email?, mobile?} (at least one of email or mobile) -> {hostKey, manualUrl, id, label}. The AI cannot call it (403). A co-organizer must have an e-mail address or a mobile number (the organizer gives it); their own one-time console link (7 days) is e-mailed to the co-organizer, or sent by the organizer on WhatsApp" },
-    { do: "Game helpers (unlimited; a game helper has a name and a mobile number, no e-mail, belongs to one game and may pay) are added by the organizer or a co-organizer in the console, never through an AI link", call: "The people on the team: GET /api/org/team (or GET /api/org/team?e={game id}); remove one: POST /api/org/team/retire {id}" },
+    { do: "Game helpers (unlimited; a game helper has a name and a mobile number, no e-mail, and belongs to one game) are added by the organizer or a co-organizer in the console, never through an AI link", call: "The people on the team: GET /api/org/team (or GET /api/org/team?e={game id}); remove one: POST /api/org/team/retire {id}" },
     { do: "Read the audit trail of AI calls, when the game ends, and whether the report is ready (the report address itself goes only to the organizer)", call: "GET /api/org/ai/audit ; GET /api/z/{id}/life ; GET /api/z/{id}/reportlink" },
     { do: "Suggest a feature, improvement or report that should be built (shared with every organizer's AI, and reviewed by the people who run the service)", call: "POST /api/z/suggestions {kind: feature|improvement|report|bug|other, title, body}" },
     { do: "See everyone's suggestions and what was decided, and add support to one", call: "GET /api/z/suggestions ; POST /api/z/suggestions/{id}/vote" },
@@ -845,7 +845,7 @@ export const AI_MANIFEST = {
     "Delete player data (you may ASK; the organizer confirms)",
     "Pause, resume or stop a running game (you may ASK; only the organizer's own browser holds that signing key)",
     "Create or retire the organizer's own sign-in keys, change their e-mail or delete the account, or sign in with Google",
-    "Make a link that lets anyone pay (POST /api/z/{id}/paylink answers 403 to an AI key: only the organizer, a co-organizer or a game helper makes one)",
+    "Make a link that lets anyone pay (POST /api/z/{id}/paylink answers 403 to an AI key: it is made in the console, by a person)",
     "Write or run code on the platform",
   ],
 };

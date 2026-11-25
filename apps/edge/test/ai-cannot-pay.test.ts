@@ -136,6 +136,13 @@ for (const rules of [false, true]) describe(rules ? "with OWNER_RULES 1.1" : "wi
     expect(cohostLink.status).toBe(rules ? 410 : 200); // a Co-host may make the pay link of their own game: as before
   });
 
+  test("through the AI link the refusal also says what to do next: tell the organizer, who presses Pay now in the console of that game", async () => {
+    const t = await team();
+    const r = await j(await call("POST", `/ai/${t.ai}/z/AIP-1/paylink`, {})); expect(r.error).toBe(MESSAGE);
+    expect(r.next).toContain("Pay now in the console"); expect(r.next).toContain("/zc.html?e=AIP-1"); expect(r.next).toMatch(/^Do not try again/); expect(JSON.stringify(r)).not.toContain(t.ai);
+    const c = await j(await call("GET", `/ai/${t.ai}/org/credit`)); expect(c.error).toBe(MESSAGE); expect(c.next).toContain("Pay now in the console");
+  });
+
   test("the AI key still does its allowed work: read, change settings before the start, read back", async () => {
     const t = await team();
     expect((await call("GET", "/api/z/AIP-1/summary", undefined, t.ai)).status).toBe(200);
