@@ -128,7 +128,7 @@ describe("invite by ID only", () => {
     expect((await call("POST", `/api/z/${t.id}/waiting/${l2[0].id}`, { decision: "decline" }, t.master)).status).toBe(200);
     const after = await joinId(t.id, "Y-8", 6); expect(after.status).toBe(403); expect((await j(after)).code).toBe("declined");
   });
-  test("a person with no ID, only a nickname or a mobile number, cannot come in", async () => {
+  test("a person with no ID, only a name or a mobile number, cannot come in", async () => {
     const t = await setup();
     const r = await call("POST", `/api/z/${t.id}/join`, { name: "Asha", device: dev(9), consent: TICKS }); expect(r.status).toBe(400); expect((await j(r)).code).toBe("need-id");
     const r2 = await call("POST", `/api/z/${t.id}/join`, { phone: "9876543210", device: dev(10), consent: TICKS }); expect(r2.status).toBe(400);

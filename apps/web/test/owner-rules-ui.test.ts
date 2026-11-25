@@ -47,7 +47,7 @@ describe("the console under the owner rules", () => {
 });
 
 describe("the player page under the owner rules", () => {
-  test("asks for the employee ID only: no nickname, no mobile number, and the same fairness and privacy lines", async () => {
+  test("asks for the employee ID only: no typed name, no mobile number, and the same fairness and privacy lines", async () => {
     const w = newWorld({ OWNER_RULES: "1.1" }); w.world.now = T;
     const s = await w.json(await w.api("POST", "/api/start", { email: "boss@acme.com" }));
     expect((await w.api("POST", "/api/z", { id: "UIR-4", startRound: roundAt(T) + 1200, callSeconds: 10, cap: 100 }, s.aiKey)).status).toBe(200);
@@ -55,7 +55,7 @@ describe("the player page under the owner rules", () => {
     const p = await openPage(w.world, { url: "http://localhost/z.html?e=UIR-4", html: "z.html", scripts: ["zgame.js", "z.js"] }); open.push(p);
     await p.waitFor((x) => /Join the game/.test(x), 20000);
     expect(!!p.$("#emp")).toBe(true); expect(!!p.$("#nm")).toBe(false); expect(!!p.$("#ph")).toBe(false);
-    expect(p.text()).toContain("No one knows the next roll: not the organizer, not the host, not even the software.");
-    expect(p.text()).toContain("All participant information, including IDs, is deleted within 24 hours after the game ends.");
+    expect(p.text()).toContain("No one knows the next roll: not the organizer, not the co-organizer, not even the software.");
+    expect(p.text()).toContain("All player information, including IDs, is deleted within 24 hours after the game ends.");
   });
 });

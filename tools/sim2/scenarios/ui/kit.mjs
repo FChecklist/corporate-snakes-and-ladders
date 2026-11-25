@@ -208,7 +208,7 @@ export async function joinForm(page, phone, name) {
   if (await page.$("#nm")) await page.fill("#nm", name);
   await page.click("#go");
 }
-/** The page a guest meets from a personal link: the boxes (K4), a nickname (taken from the list if the page offers one, else `name`), then Join. */
+/** The page a guest meets from a personal link: the boxes (K4), a name (taken from the list if the page offers one, else `name`), then Join. */
 export async function joinFromLink(page, name = "Link Guest") {
   await page.waitForSelector("#go", { timeout: 12000 }).catch(() => {});
   if (await page.$(".cbc input[data-box]")) await tickTerms(CUR, page, { scope: ".cbc", btn: "#go", what: "Join (personal link)" });

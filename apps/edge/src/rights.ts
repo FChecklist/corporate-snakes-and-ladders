@@ -47,7 +47,7 @@ export interface RightsCtx {
   erasureMs: () => Promise<number>;
   /** Spends from the day's write allowance; false = too busy. */
   spend: (n: number) => Promise<boolean>;
-  /** Statements for whatever this game keeps about a player in its OWN tables (names on a bracket, a nickname, votes ...). */
+  /** Statements for whatever this game keeps about a player in its OWN tables (names on a bracket, a typed name, votes ...). */
   extraLeave?: (eid: string, pid: string) => D1Stmt[];
 }
 

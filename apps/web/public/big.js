@@ -11,7 +11,7 @@
   const NAMES = { lucky: "Lucky draw" };
   (ZG.PRIZE_HOUSES || []).forEach((h) => { if (!NAMES[h.id]) NAMES[h.id] = h.label; }); // every prize name comes from the shared table
   const ORD = (k) => ["", "1st", "2nd", "3rd"][k] || k + "th";
-  const nickOf = (seat) => "Player " + seat; // nicknames are not available yet: the one place to change when they are
+  const nickOf = (seat) => "Player " + seat; // typed names are not available yet: the one place to change when they are
   const seatOf = (pid) => { const m = /^(\d+)x/.exec(pid || ""); return m ? Number(m[1]) : 0; };
   const plural = (n, one, many) => n + " " + (n === 1 ? one : many);
   const f2 = (n) => Math.round(n * 100) / 100;
@@ -135,7 +135,7 @@
   function draw() {
     const v = rt.view();
     if (v.phase === "missing" || v.phase === "boot") return ($app.innerHTML = `${lostBar()}<p class="msg">${esc(v.error || "Loading…")}</p>`);
-    if (dns()) return ($app.innerHTML = plain("This game did not start", "This game did not start. Your details have been auto-deleted."));
+    if (dns()) return ($app.innerHTML = plain("This game did not start", "This game did not start. The details have been auto-deleted."));
     if (cancelled()) return ($app.innerHTML = plain("This game was cancelled", "This game was cancelled by the organizer."));
     if (v.locked) return ($app.innerHTML = plain("Waiting for the Organizer or Host", "Waiting for the Organizer or Host to start the game.")); // held for non-payment: nothing is shown
     if (v.brk) return ($app.innerHTML = frame(`<div class="big"><h1>A short break</h1><p>${esc(v.brk.title)}</p><div class="cd">${v.brk.secondsLeft}</div><p>The game continues in ${v.brk.secondsLeft} seconds.</p></div>`, v, ""));

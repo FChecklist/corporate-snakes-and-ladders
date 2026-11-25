@@ -349,7 +349,7 @@ describe("D. participants", () => {
   test("UC-31 numbers that are not numbers are refused with a human message", async () => {
     await published("BADNUM-1");
     for (const p of ["123", "abcdefghij", "1".repeat(40), 12345678901234567890 as any]) { const r = await call("POST", "/api/z/BADNUM-1/join", { phone: p }); expect(r.status).toBe(400); expect((await j(r)).error).toMatch(/mobile number/i); }
-    for (const p of ["", null]) { const r = await call("POST", "/api/z/BADNUM-1/join", { phone: p }); expect(r.status).toBe(400); expect((await j(r)).error).toMatch(/your name/i); } // no number and no name: the name-only door asks for a name
+    for (const p of ["", null]) { const r = await call("POST", "/api/z/BADNUM-1/join", { phone: p }); expect(r.status).toBe(400); expect((await j(r)).error).toMatch(/type a name/i); } // no number and no name: the name-only door asks for a name
   });
   test("UC-32 a crowd arriving at the same instant never passes the limit, and the last places are fair", async () => {
     await published("CROWD-1", { cap: 5 });

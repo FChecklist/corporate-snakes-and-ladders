@@ -41,7 +41,7 @@ import { turnRounds } from "../../../packages/beacon/src/schedule";
 import { DEFAULT_TURN_CAP } from "../../../packages/beacon/src/race";
 import { PARTNER_SCHEMA, partnerRoute } from "./partners";
 import { HELPDESK_SCHEMA, HELPER_MANUAL_NOTE, helpdeskCloseStatements, helpdeskRoute, helpdeskSweep, isDeskKeyId, isHelperKey, noteHelperGame } from "./helpdesk";
-import { normEmp, normId, badIdMessage, empCleanFor, rulesOf, empHashOf, verifyOf, keptPhone, phoneDigits, cleanName as cleanPersonName, cleanNickname, PEOPLE_SCHEMA, COHOST_FROM, HOST_FROM, ORG_FROM, COHOST_LIMIT_DEFAULT, COHOST_LIMIT_MIN, COHOST_LIMIT_MAX, WAITING_MAX, addWaiting, chainOf, cleanPhone, fromCodeOf, inviterOf, joinLinkPage, limitOfInviter, listCount, parseFrom, peopleRoute, personByPhone, personByToken, srcOf, waitingWho, type PersonRow } from "./people";
+import { normEmp, normId, badIdMessage, empCleanFor, rulesOf, empHashOf, verifyOf, keptPhone, phoneDigits, cleanName as cleanPersonName, cleanPlayerName, NAME_NEEDED, PEOPLE_SCHEMA, COHOST_FROM, HOST_FROM, ORG_FROM, COHOST_LIMIT_DEFAULT, COHOST_LIMIT_MIN, COHOST_LIMIT_MAX, WAITING_MAX, addWaiting, chainOf, cleanPhone, fromCodeOf, inviterOf, joinLinkPage, limitOfInviter, listCount, parseFrom, peopleRoute, personByPhone, personByToken, srcOf, waitingWho, type PersonRow } from "./people";
 import { PAYLINK_SCHEMA, PAYLINK_TOKEN, createPayLink, packFor } from "./paylink";
 import { purgePaytestCounters } from "./payfirst";
 import { HOST_LINK_TTL_MS, HOST_SCHEMA, confirmHostEmail, emailHashOf, hostForEmail, hostKeyStatus, hostSetupRoute, hostStateRow, identityRow, maskEmail, maskMobile, mintDeviceKey, retireHost } from "./hostsetup";
@@ -823,7 +823,7 @@ export const AI_MANIFEST = {
     "Price is per engagement, by size: the smallest pack that covers the limit (see `packs`, the price in rupees is the whole amount: no GST is added). The limit does not have to match a pack size; people beyond the limit cannot join.",
     "The organizer pays on the payment page, online through Razorpay (the page shows the methods available). It takes about 2 minutes, and an invoice is e-mailed. The payment page names the seller, IT Services by Rajat Agarwal. Credit from an earlier cancelled game can pay for it (the Pay step offers it first).",
     "No payment, no game. There is no separate payment cut-off: the game can be paid at any time until the guests' data is auto-deleted (20 hours after the game was meant to end). Until it is paid the Organizer and Hosts see \"Payment pending for this game\" and everyone else sees \"Waiting for the Organizer or Host to start the game.\" Nothing is charged and there is no penalty.",
-    "If the organizer pays late, even hours later, the first number comes 2 minutes after the payment is confirmed, for everyone already waiting, and they can also choose a new start time first (at most 30 days ahead). After the guest data is auto-deleted the game is closed (\"This game did not start. Your details have been auto-deleted.\"): nobody can join or pay, and the Organizer can create a new game like it.",
+    "If the organizer pays late, even hours later, the first number comes 2 minutes after the payment is confirmed, for everyone already waiting, and they can also choose a new start time first (at most 30 days ahead). After the guest data is auto-deleted the game is closed (\"This game did not start. The details have been auto-deleted.\"): nobody can join or pay, and the Organizer can create a new game like it.",
     "If they never pay, nothing is owed. They can create a new engagement whenever they like. The settings of a game that did not start stay for 30 days, then they are forgotten (as unpublished drafts are).",
     "A paid game cancelled before it starts stays with the organizer as credit for the next game, valid for 365 days. Unused credit lapses at the end of day 365. The credit stays in the organizer's account. Unused places are not credited once the game has started. Rules and privacy are at /legal.html.",
   ],
@@ -1331,7 +1331,7 @@ async function route0(req: Request, env: Env, now: number, a: Auth): Promise<Res
       const f = await readPublished(kv, cid!);
       const ge = await env.DB.prepare("SELECT id, pack, start_round, cancelled_ms, unplayed_ms FROM engagement WHERE id=?").bind(cid).first<{ id: string; pack: number | null; start_round: number; cancelled_ms: number | null; unplayed_ms: number | null }>();
       if (ge?.cancelled_ms) return new Response(JSON.stringify({ ...(f ?? {}), cancelled: true }), { headers: { "content-type": "application/json", "cache-control": "public, max-age=3" } }); // phones and the big screen: "This game was cancelled by the organizer"
-      if (ge?.unplayed_ms) return new Response(JSON.stringify({ ...(f ?? {}), didNotStart: true }), { headers: { "content-type": "application/json", "cache-control": "public, max-age=3" } }); // "This game did not start. Your details have been auto-deleted."
+      if (ge?.unplayed_ms) return new Response(JSON.stringify({ ...(f ?? {}), didNotStart: true }), { headers: { "content-type": "application/json", "cache-control": "public, max-age=3" } }); // "This game did not start. The details have been auto-deleted."
       if (ge && ge.pack === 0 && roundMs(ge.start_round) - LOCK_LEAD_MS <= now && (await isPublished(env, ge))) // published, unpaid, start time reached: phones hold, nothing is shown
         return new Response(JSON.stringify({ ...(f ?? {}), locked: true }), { headers: { "content-type": "application/json", "cache-control": "public, max-age=3" } });
       if (f) { // the organizer's latest message rides along with the pause file phones already ask for, so it costs no extra requests
@@ -1592,7 +1592,7 @@ async function route0(req: Request, env: Env, now: number, a: Auth): Promise<Res
   const payment = await paymentOf(env, e, unpaid, now);
   const cancelled = !!e.cancelled_ms; // a cancelled game can only be read (and its guests' data deleted on request): nobody joins, nothing is changed, published or paid
   const didNotStart = !!e.unplayed_ms; // a game nobody paid for whose time and 20 hours went by: its guest data is auto-deleted and it is closed. Nobody joins, nobody pays; settings stay 30 days so a new game can be made like it.
-  const DNS_MSG = "This game did not start. Your details have been auto-deleted.";
+  const DNS_MSG = "This game did not start. The details have been auto-deleted.";
   if (didNotStart && req.method === "POST" && action === "join") return json({ error: DNS_MSG, code: "did-not-start", didNotStart: true }, 403);
   if (didNotStart && req.method !== "GET" && !["erase", "forget", "person", "cancel", "clone", "leave", "datareq"].includes(action!)) return json({ error: DNS_MSG, code: "did-not-start", didNotStart: true }, 409);
   if (cancelled && req.method === "POST" && action === "join") return json({ error: "This game was cancelled by the organizer.", code: "cancelled", cancelled: true }, 403);
@@ -1682,9 +1682,9 @@ async function route0(req: Request, env: Env, now: number, a: Auth): Promise<Res
     let nameOnly = false;
     let ph = idOnly ? await empHashOf(env, empNorm) : typedPh ?? tok?.ph ?? null;
     if (!ph && !tok && !typedGiven && !empNorm && !vf.employeesOnly && vf.mode === "mobile" && cfgOf(e).join !== "phone") { // joining with a name only (the default for the common link): the guest is known by their name, and their phone by its own random id
-      const nk = cleanNickname(b?.name); // the nickname other players see: no HTML, 2 to 20 letters, numbers or spaces
-      if (!nk.ok) return json({ error: nk.error, code: "bad-nickname" }, 400);
-      if (nk.name.length < 2) return json({ error: "Please type your name." }, 400); // blank: as before
+      const nk = cleanPlayerName(b?.name); // the name other players see: no HTML, 2 to 20 letters, numbers or spaces
+      if (!nk.ok) return json({ error: nk.error, code: "bad-name" }, 400);
+      if (nk.name.length < 2) return json({ error: NAME_NEEDED, code: "need-name" }, 400); // blank: a name is needed
       b.name = nk.name;
       if (!dev) return json({ error: "Please refresh this page and try again." }, 400);
       ph = await sha(`nm|${eid}|${dev}`); digits = ""; nameOnly = true;

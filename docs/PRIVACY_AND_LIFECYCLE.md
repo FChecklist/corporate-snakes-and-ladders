@@ -28,7 +28,7 @@ The block above is read by `apps/edge/test/data-map.test.ts`: it fails when the 
 
 | Field | Why | Where stored | Who | How long |
 |---|---|---|---|---|
-| Nickname, typed by the player (2 to 60 characters, markup removed) | To show the organizer who a board belongs to (winners, prize hand-over) | **Sealed** (AES-256-GCM) in `participant.pii` at join | CF | Deleted 23 h after the game ends |
+| Name, typed by the player (2 to 20 letters, numbers or spaces; markup removed) | To show the organizer who a board belongs to (winners, prize hand-over) | **Sealed** (AES-256-GCM) in `participant.pii` at join | CF | Deleted 23 h after the game ends |
 | Mobile number: **only** if the organizer switched "ask for a mobile number" on, or if the organizer's own list holds it (then the player's personal link carries it and the player types nothing) | To find the person who comes back; to send a personal link | **Sealed** in `participant.pii` and `person.pii`; a salted one-way hash in `participant.phone_hash`, `seat.ph`, `person.ph`. A player who gave a name only has no number: the hash is made from the game id and the phone's random id | CF | 23 h after the end |
 | Board number and player id (`pid`: the board number and a hash) | To tell players apart without a name; the winners record uses the board number | `seat`, `participant.pid`, `claim`, the seat list `kv seats-base/<id>` | CF | Deleted 23 h after the end (the winners record keeps the board number only) |
 | A hash of the phone's random device id (first 32 characters of `sha256("dev" + game id + device id)`) | One board per phone; the claims of a board come only from the phone that joined | `seat.dev` | CF | 23 h after the end |

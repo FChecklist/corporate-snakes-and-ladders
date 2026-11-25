@@ -1,6 +1,6 @@
 # Corporate Snakes and Ladders
 
-Snakes and ladders for company events and teams. Every player has their own 10 by 10 board, with different snakes and ladders that are all equally hard. Everyone throws the dice in the same 20-second window, and nobody can know a throw in advance because the dice come from a public random beacon. The first to a milestone square wins a gift, and the first five to reach the last square get 1st to 5th place. Never a tie. Players use nicknames, play on their own phone and download nothing.
+Snakes and ladders for company events and teams. Every player has their own 10 by 10 board, with different snakes and ladders that are all equally hard. Everyone throws the dice in the same 20-second window, and nobody can know a throw in advance because the dice come from a public random beacon. The first to a milestone square wins a gift, and the first five to reach the last square get 1st to 5th place. Never a tie. Players give a name, play on their own phone and download nothing.
 
 Players never pay. No real-money stake by players. No cash prizes. No betting. The organizer supplies non-cash gifts.
 

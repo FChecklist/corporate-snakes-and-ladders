@@ -8,7 +8,7 @@ import type { PayEnv } from "../src/pay";
 import { makeD1 } from "./d1-sqlite";
 
 // Spec 5 A (docs/ROLES_AND_CONSOLE_SPEC_5.md): a game that did not start. No separate payment cut-off: pay at any time until the guest data is erased (scheduled end + 23 h), a late payment starts 2 minutes after
-// confirmation; unpaid = Organizer/Host see "Payment pending", everyone else "Waiting for the Organizer or Host"; after the erasure the game is closed ("This game did not start. Your details have been auto-deleted.");
+// confirmation; unpaid = Organizer/Host see "Payment pending", everyone else "Waiting for the Organizer or Host"; after the erasure the game is closed ("This game did not start. The details have been auto-deleted.");
 // settings stay 30 days; a game time is at most 30 days ahead; the clock follows the newest time; heads-up 6 h before and a mail after, once each.
 const T = Date.UTC(2026, 9, 1, 10, 0, 0);
 const H = 3_600_000, DAY = 24 * H;
@@ -165,7 +165,7 @@ describe("the clock follows the newest time", () => {
     expect(ok.status).toBe(200);
     const closeAt = await eraseAt(); await lifecycleTick(env as any, closeAt);
     const no = await call("PATCH", "/api/z/UNP-1/settings", { startRound: roundAt(closeAt + DAY) }, t.master, closeAt + 1000);
-    expect(no.status).toBe(409); expect((await j(no)).error).toBe("This game did not start. Your details have been auto-deleted.");
+    expect(no.status).toBe(409); expect((await j(no)).error).toBe("This game did not start. The details have been auto-deleted.");
   });
   test("a game that has STARTED (paid, start time passed) cannot be rescheduled", async () => {
     const t = await team(); const c = await j(await pay(t.master)); await complete(c);
@@ -224,12 +224,12 @@ describe("what each person sees while the game is unpaid, and after it closes", 
     const closeAt = await eraseAt(); await lifecycleTick(env as any, closeAt);
     const ctl = await j(await call("GET", "/api/z/UNP-1/control", undefined, undefined, closeAt + 1000)); expect(ctl.didNotStart).toBe(true); expect(ctl.locked).toBeUndefined();
   });
-  test("after the erasure: guests and everyone see 'This game did not start. Your details have been auto-deleted.'; nobody can join; the Organizer sees it as closed", async () => {
+  test("after the erasure: guests and everyone see 'This game did not start. The details have been auto-deleted.'; nobody can join; the Organizer sees it as closed", async () => {
     const t = await team(); const closeAt = await eraseAt(); await lifecycleTick(env as any, closeAt);
     const info = await j(await call("GET", "/api/z/UNP-1/info", undefined, undefined, closeAt + 1000));
-    expect(info).toMatchObject({ didNotStart: true, message: "This game did not start. Your details have been auto-deleted.", waitingFor: null });
+    expect(info).toMatchObject({ didNotStart: true, message: "This game did not start. The details have been auto-deleted.", waitingFor: null });
     const jn = await join("9876543299", "Late", "UNP-1", closeAt + 1000); expect(jn.status).toBe(403);
-    expect(await j(jn)).toMatchObject({ code: "did-not-start", didNotStart: true, error: "This game did not start. Your details have been auto-deleted." });
+    expect(await j(jn)).toMatchObject({ code: "did-not-start", didNotStart: true, error: "This game did not start. The details have been auto-deleted." });
     const s = await j(await call("GET", "/api/z/UNP-1/summary", undefined, t.master, closeAt + 1000)); expect(s).toMatchObject({ didNotStart: true }); expect(s.status).toMatch(/did not start/);
     expect((await call("POST", "/api/z/UNP-1/announce", { text: "hi" }, t.master, closeAt + 1000)).status).toBe(409);
     expect((await people(t.master, [{ name: "X", phone: "9876543277" }])).status).toBe(409);

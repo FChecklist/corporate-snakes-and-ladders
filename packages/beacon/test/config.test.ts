@@ -105,7 +105,7 @@ describe("what a person must give to get in (verify) and employees only", () => 
     expect((validateCfg({ verify: "mobile" }, (validateCfg({ verify: "id" }) as any).cfg) as any).cfg.verify).toBeUndefined();
     expect((validateCfg({ verify: "passport" }) as any).ok).toBe(false);
   });
-  test("employees only is a yes/no, switches guest invitations off and asks for a mobile number or ID (never a nickname); it is kept when other settings change", () => {
+  test("employees only is a yes/no, switches guest invitations off and asks for a mobile number or ID (never a typed name); it is kept when other settings change", () => {
     const on = (validateCfg({ employeesOnly: true, invites: { on: true, per: 3, cats: ["family"] } }) as any).cfg;
     expect(on.employeesOnly).toBe(true); expect(on.invites.on).toBe(false); expect(on.join).toBe("phone");
     expect((validateCfg({ name: "Diwali" }, on) as any).cfg.employeesOnly).toBe(true);

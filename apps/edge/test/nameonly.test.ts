@@ -44,7 +44,7 @@ describe("joining with a name only", () => {
   });
   test("a name is needed, and a phone id; both are refused kindly", async () => {
     await game("NAME-3");
-    for (const body of [{ device: dev(1) }, { name: "", device: dev(1) }, { name: "A", device: dev(1) }]) { const r = await call("POST", "/api/z/NAME-3/join", body); expect(r.status).toBe(400); expect((await j(r)).error).toMatch(/your name/i); }
+    for (const body of [{ device: dev(1) }, { name: "", device: dev(1) }, { name: "A", device: dev(1) }]) { const r = await call("POST", "/api/z/NAME-3/join", body); expect(r.status).toBe(400); expect((await j(r)).error).toMatch(/type a name/i); }
     const r = await call("POST", "/api/z/NAME-3/join", { name: "Maya", device: undefined }); expect(r.status).toBe(400); expect((await j(r)).error).toMatch(/refresh/i);
     expect((raw.query("SELECT COUNT(*) c FROM seat").get() as any).c).toBe(0);
   });

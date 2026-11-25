@@ -11,7 +11,7 @@ G3 | true | free-launch.test.ts:72 (publish returns shareUrl) |
 G4 | false | join API: game-settings.test.ts "a join returns..." | phone page z.js never opened in a browser
 G5 | false | | waiting-room code exists in z.js; not run
 G6 | true | unplayed.test.ts (game locked until paid), game-settings.test.ts "sign-up closes at the start" |
-G7 | true | RULES.md R1-R43; tests in packages/beacon/test (board, play, race, table-view, config), game-settings.test.ts, consent.test.ts | R42 (nickname only) is covered by nameonly.test.ts
+G7 | true | RULES.md R1-R43; tests in packages/beacon/test (board, play, race, table-view, config), game-settings.test.ts, consent.test.ts | R42 (name only) is covered by nameonly.test.ts
 G8 | true | board.test.ts R3, play.test.ts R13/R14, table-view.test.ts R34 (sealed order), view R37 | nothing in the browser can set a board, a roll or an order
 G9 | true | game-settings.test.ts (impossible or foreign results dropped), snakes-crowd.test.ts (accepted winners = independent computation) |
 G10 | true | table-view.test.ts R40 (pause and stop shift the turns), control.test.ts | pause banner on the phone page not run in a browser
@@ -77,9 +77,9 @@ E1-E13 | false | mail bodies are tested through the outbox in pay.test.ts, credi
 
 ## D. Data
 D1 | true | docs/PRIVACY_AND_LIFECYCLE.md (sections 2 and 3); apps/edge/test/data-map.test.ts ("D1: the data map": every row has field, why, where stored, who) | Field, why, where stored, who processes, how long. Section 3a says where the data is and that no backup of our own exists.
-D2 | true | apps/edge/test/data-map.test.ts ("D2: the notice and the data map agree": notice fields = data map fields = fields the player page asks for) | Join box A: the nickname; a mobile number only if the organizer switches that on (join setting) - worded as conditional in the notice, listed as conditional in the data map, and the player page (z.js) has the number field for exactly that case.
+D2 | true | apps/edge/test/data-map.test.ts ("D2: the notice and the data map agree": notice fields = data map fields = fields the player page asks for) | Join box A: the name; a mobile number only if the organizer switches that on (join setting) - worded as conditional in the notice, listed as conditional in the data map, and the player page (z.js) has the number field for exactly that case.
 D3 | true | consent.test.ts |
-D4 | true | nameonly.test.ts (nickname only), consent.test.ts (no number or address in the log) |
+D4 | true | nameonly.test.ts (name only), consent.test.ts (no number or address in the log) |
 D5 | false | | deletion code is tested; the schedule is not deployed
 D6 | true | privacy.test.ts (winners record and payments kept apart) |
 D7 | true | apps/edge/test/rights.test.ts ("a request cannot be made for another player", "the request rows do not outlive the game", "asking the same thing twice ..."); sim S04-16; migration 0023 (data_request) | Access / correction / erasure request, end to end: stored (kind, note, received, answer-by), mailed to organizer and owner, closed at once for erasure. Request rows are deleted with the game's other participant data (23 h) and again with the game (365 days). Closing an open access / correction request is done by the organizer by hand; there is no console button for it (the row ages out with the game).
@@ -132,6 +132,6 @@ LR-1 | true | consent.test.ts "no code path takes money from a participant" |
 LR-6 | true | consent.test.ts (box text; acceptances erased with the game) |
 no-internal-notes | true | apps/web/test/no-internal-notes.test.ts |
 E9 | true | apps/edge/test/owner-mail.test.ts ("E9: the owner is told of each paid order": once per payment whichever of the webhook and the verify call comes first, three at the same instant, TEST mode) | Mail to rajatsiroffice@gmail.com: game, plan, amount, transaction id, organizer name and e-mail. The once-only claim is one kv row per payment. Not tested against a real inbox.
-X-7 | true | apps/edge/test/data-map.test.ts ("D2"); apps/edge/src/consent-text.json; apps/web/test/consent-pages.test.ts | Box A said name and mobile number although the game asks for a nickname. Now: the name, and the number only if this game asks for it (the organizer can switch that on). Terms version 2026-10-14.
+X-7 | true | apps/edge/test/data-map.test.ts ("D2"); apps/edge/src/consent-text.json; apps/web/test/consent-pages.test.ts | Box A said name and mobile number although the game asks for a name. Now: the name, and the number only if this game asks for it (the organizer can switch that on). Terms version 2026-10-14.
 E12 | true | apps/edge/test/admin.test.ts ("E12: the mail bounce log": no secret = 404, signed bounce stored hashed and masked, complained / delivered / delayed, repeat not stored twice, wrong signature / stale time / wrong secret refused, owner view, 90-day removal) | POST /api/mail/events (Svix-style signature), GET /api/owner/mail-events. Owner step (docs/OWNER_DESK.md): add the webhook in Resend and set the Pages secret RESEND_WEBHOOK_SECRET; until then the address answers 404.
 E8 | N/A | apps/web/test/contact-honest.test.ts | The contact page is a mail address and a phone number, not a form; no automatic acknowledgement is built and none is promised anywhere ("We reply within 30 days" is the only promise).

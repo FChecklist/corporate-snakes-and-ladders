@@ -44,7 +44,7 @@ describe("SL-11: the phone keeps its screen on, is quiet by default and tells th
 });
 
 describe("SL-21: the rules stay in reach after the game has started", () => {
-  test("once the first turn is open, the phone shows a 'Rules in five lines' fold with the five rules", async () => {
+  test("once the first turn is open, the phone shows a 'Rules, one line each' fold with the six rules, among them the milestone tie-break, the exact finish and the tie line", async () => {
     const o = await organizer(); await publishedGame(o, "RULES-1");
     const p = await phone(o, "RULES-1");
     await join(p);
@@ -52,8 +52,9 @@ describe("SL-21: the rules stay in reach after the game has started", () => {
     o.world.now = roundMs(START) + 5 * 60_000; skew.ms = o.world.now - T; // five minutes after the start: the clock of the page and the public values move together
     await p.waitFor(() => !!p.$("#rulesfold"), 60000);
     const t = String(p.$("#rulesfold").textContent).replace(/\s+/g, " ");
-    expect(t).toContain("Rules in five lines");
-    for (const n of ["1.", "2.", "3.", "4.", "5."]) expect(t).toContain(n);
+    expect(t).toContain("Rules, one line each");
+    for (const n of ["1.", "2.", "3.", "4.", "5.", "6."]) expect(t).toContain(n);
+    for (const l of ["the one who landed further on that turn wins it", "land exactly on the last square", "No gift is ever shared"]) expect(t).toContain(l);
   });
 });
 

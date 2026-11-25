@@ -52,14 +52,14 @@ The SPEC (`docs/SPEC.md`) is the source for rules, formats and prices. Where thi
 - R36. Only one pawn moves at a time, so the finishing order is never tied.
 
 ## Watching and fairness around the game
-- R37. A spectator sees counts and the top-10 list by nickname. A spectator never sees a board seed or a future throw, and cannot throw.
+- R37. A spectator sees counts and the top-10 list by place and player number. A spectator never sees a board seed or a future throw, and cannot throw.
 - R38. Presence mode: a throw counts only if it reaches the collector from the right device inside that turn's window. Late, repeated or borrowed claims are refused.
 - R39. The crowd chart always adds up to the number of players.
 - R40. Sign-up closes at the start time. B0 is the first value published after that. Turn t opens at a fixed beacon round, the window is 15, 20, 25 or 30 seconds, and b_t is the first value published after the window closed.
 
 ## Around the game (from the platform shell, unchanged in meaning)
 - R41. Players never pay, and nobody stakes money. There are no cash prizes and no betting. The organizer gives non-cash gifts.
-- R42. Players use a nickname only. The organizer sees real names only at prize hand-over.
+- R42. A player gives a name only (2 to 20 letters, numbers or spaces; HTML is removed). The organizer gets a winner's hand-over details only when the winner confirms them.
 - R43. Sign-up is closed once the game starts. A guest who opens the link later is told the game is already running.
 
 ## Data, adults and the lucky draw

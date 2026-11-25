@@ -244,7 +244,7 @@ export async function peopleRoute(c: Ctx): Promise<Response> {
   const got = await callerOf(c, bodyObj?.me, bodyObj?.device);
   if ("res" in got) return got.res;
   const who = got.who;
-  if (c.e.unplayed_ms && method !== "GET") return c.json({ error: "This game did not start. Your details have been auto-deleted.", code: "did-not-start", didNotStart: true }, 409);
+  if (c.e.unplayed_ms && method !== "GET") return c.json({ error: "This game did not start. The details have been auto-deleted.", code: "did-not-start", didNotStart: true }, 409);
   if (c.cancelled && method !== "GET") return c.json({ error: "This game was cancelled by the organizer.", code: "cancelled", cancelled: true }, 409);
 
   if (parts[0] === "waiting") {
@@ -664,14 +664,21 @@ export async function joinLinkPage(env: Env, token: string, origin: string, game
   return new Response(html, { headers });
 }
 
-/** A nickname a player types when joining: HTML removed first, then 2 to 20 letters, digits or spaces. Blank means "none given" (ok, name ""). */
-export function cleanNickname(n: unknown): { ok: true; name: string } | { ok: false; error: string } {
+/** The plain, kind messages of the name check (no my or your; the word is "name"). The name is kept for the organizer (other players see "Player" and a number). */
+export const NAME_RULE = "Please type a name with 2 to 20 letters, numbers or spaces.";
+export const NAME_TOO_SHORT = "Please type a name with at least 2 letters or numbers.";
+export const NAME_TOO_LONG = "That name is a little long. Please use 20 letters or numbers at most.";
+export const NAME_BAD_CHARS = "Please use only letters, numbers and spaces in the name.";
+export const NAME_NEEDED = "Please type a name to join.";
+
+/** The name a player types when joining by the common link: HTML removed first, then 2 to 20 letters, digits or spaces. Blank means "none given" (ok, name ""). */
+export function cleanPlayerName(n: unknown): { ok: true; name: string } | { ok: false; error: string } {
   if (n == null) return { ok: true, name: "" };
-  if (typeof n !== "string") return { ok: false, error: "Your nickname must be 2 to 20 letters, numbers or spaces." };
+  if (typeof n !== "string") return { ok: false, error: NAME_RULE };
   const plain = n.replace(/<[^>]*>/g, "").replace(/[<>]/g, "").replace(/\s+/g, " ").trim();
   if (n.trim() === "") return { ok: true, name: "" };
-  if (plain.length < 2) return { ok: false, error: "Please type your name. A nickname needs at least 2 letters or numbers." };
-  if (plain.length > 20) return { ok: false, error: "Your nickname is too long. Use 20 letters or numbers at most." };
-  if (!/^[\p{L}\p{N} ]+$/u.test(plain)) return { ok: false, error: "Your nickname can only have letters, numbers and spaces." };
+  if (plain.length < 2) return { ok: false, error: NAME_TOO_SHORT };
+  if (plain.length > 20) return { ok: false, error: NAME_TOO_LONG };
+  if (!/^[\p{L}\p{N} ]+$/u.test(plain)) return { ok: false, error: NAME_BAD_CHARS };
   return { ok: true, name: plain };
 }

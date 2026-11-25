@@ -1,4 +1,4 @@
-// "No one knows the next roll: not the organizer, not the host, not even the software." (suite rules 1.1). This file is the proof that the sentence is true.
+// "No one knows the next roll: not the organizer, not the co-organizer, not even the software." (suite rules 1.1). This file is the proof that the sentence is true.
 // A roll is a function of (game id, seat, turn, b_t) where b_t is the public beacon value published only AFTER that turn's window closes.
 // So: (1) the software cannot make a roll without b_t; (2) everything the organizer, the host or the software holds before the window closes leaves all six faces open;
 // (3) no setting can pick or steer a number; (4) the race cannot move past the last published value.
@@ -14,7 +14,7 @@ const hex = (s: string) => bytesToHex(sha256(utf8ToBytes(s)));
 
 describe("the fairness sentence is the one the owner fixed", () => {
   test("it says the organizer, the host and the software", () => {
-    expect(FAIRNESS_LINE).toBe("No one knows the next roll: not the organizer, not the host, not even the software.");
+    expect(FAIRNESS_LINE).toBe("No one knows the next roll: not the organizer, not the co-organizer, not even the software.");
   });
 });
 

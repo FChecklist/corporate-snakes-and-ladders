@@ -62,7 +62,7 @@ export default [
     },
   },
   {
-    id: "S04-03", name: "Same number on two lists: the first list wins; a nickname-only visitor on the common link of a list game is not given a seat, and nobody is placed under the wrong person",
+    id: "S04-03", name: "Same number on two lists: the first list wins; a name-only visitor on the common link of a list game is not given a seat, and nobody is placed under the wrong person",
     async run(t) {
       const org = await t.org("o"); const g = await listGame(t, org);
       const hostMail = t.mail("h"); const host = await org.inviteHost({ label: "Hema", email: hostMail, mobile: nextPhone() });
@@ -74,7 +74,7 @@ export default [
       const x = await t.open({ device: "mobile" });
       await guestJoinUi(x.page, g.id, phone, "Indu"); await x.page.waitForTimeout(3000);
       const txt = await guestText(x.page);
-      t.check("this game asks for a nickname only, so a nickname on the common link of a list game waits for the Organizer (no seat is given)", /by invitation|organizer|wait/i.test(txt) && !/You are in/i.test(txt), txt.slice(0, 200));
+      t.check("this game asks for a name only, so a name on the common link of a list game waits for the Organizer (no seat is given)", /by invitation|organizer|wait/i.test(txt) && !/You are in/i.test(txt), txt.slice(0, 200));
       t.check("exactly one request is waiting for the Organizer", (await waitingOf(org, g.id)).length === 1, JSON.stringify(await waitingOf(org, g.id)).slice(0, 120));
       t.check("the listed person has no seat yet", ((await org.participants(g.id)).body.total ?? 0) === 0);
       await t.shot(x.page, "common-link-listed");
@@ -259,7 +259,7 @@ export default [
     },
   },
   {
-    id: "S04-13", name: "Join form: opening the link again on the same phone keeps the one seat; a second phone with another nickname gets its own seat",
+    id: "S04-13", name: "Join form: opening the link again on the same phone keeps the one seat; a second phone with another name gets its own seat",
     async run(t) {
       const org = await t.org("o"); const g = await listGame(t, org, { who: "anyone" });
       const x = await t.open({ device: "mobile" });
@@ -270,7 +270,7 @@ export default [
       t.check("still exactly one seat", (await org.participants(g.id)).body.total === 1, String((await org.participants(g.id)).body.total));
       const y = await t.open({ device: "laptop" });
       await guestJoinUi(y.page, g.id, "", "Dina Two"); await y.page.waitForTimeout(3000);
-      t.check("a second phone with its own nickname gets its own seat", (await org.participants(g.id)).body.total === 2, String((await org.participants(g.id)).body.total));
+      t.check("a second phone with its own name gets its own seat", (await org.participants(g.id)).body.total === 2, String((await org.participants(g.id)).body.total));
       await t.shot(y.page, "second-phone");
     },
   },

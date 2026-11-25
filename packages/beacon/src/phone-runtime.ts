@@ -164,7 +164,7 @@ export class PhoneRuntime {
     return d;
   }
 
-  /** Joins with a nickname (and a mobile number if the organizer asked for one). The same number again returns the same player. */
+  /** Joins with a name (and a mobile number if the organizer asked for one). The same number again returns the same player. */
   async join(phone: string, name?: string, invite?: { from?: number; cat?: string }, consent?: unknown, empId?: string): Promise<boolean> {
     try {
       const r = await this.deps.api("POST", `/api/z/${this.eid}/join`, { phone, name, ...(empId ? { empId } : {}), device: this.device(), ...(invite && Number.isInteger(invite.from) ? { from: invite.from, cat: invite.cat } : {}), ...(consent ? { consent } : {}) });
@@ -174,7 +174,7 @@ export class PhoneRuntime {
       this.adopt(r.pid); this.error = null;
       return true;
     } catch (e: any) {
-      this.error = e?.status === 423 || e?.code === "invite-full" ? String(e.message || "This place is already on another phone.") : e?.status === 409 ? "This game is full." : e?.status === 410 || e?.code === "closed" ? "Sign-up for this game has closed. It is already running." : e?.code === "need-id" || e?.code === "bad-id" ? String(e.message) : e?.status === 400 ? "Enter a valid nickname." : e?.status === 503 ? "It is a busy day. Please try again in a few minutes." : "Could not join. Check your connection and try again.";
+      this.error = e?.status === 423 || e?.code === "invite-full" ? String(e.message || "This place is already on another phone.") : e?.status === 409 ? "This game is full." : e?.status === 410 || e?.code === "closed" ? "Sign-up for this game has closed. It is already running." : e?.code === "need-id" || e?.code === "bad-id" || e?.code === "bad-name" || e?.code === "need-name" ? String(e.message) : e?.status === 400 ? "Please check the name and try again." : e?.status === 503 ? "It is a busy day. Please try again in a few minutes." : "Could not join. Please check the internet connection and try again.";
       return false;
     }
   }

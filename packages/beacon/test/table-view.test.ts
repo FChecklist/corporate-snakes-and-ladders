@@ -79,7 +79,7 @@ describe("table mode", () => {
 });
 
 describe("spectator and presence", () => {
-  test("R37 a spectator sees counts and nicknames only: no seeds, no beacon values, nothing about throws not yet played", () => {
+  test("R37 a spectator sees counts and player numbers only: no seeds, no beacon values, nothing about throws not yet played", () => {
     const b = betas(6, "sp"), st = playRace(defaultRaceCfg("spect-game", 40), { b0: B0, betas: b });
     const v = spectatorView(st, (s) => `Nick${s}`), json = JSON.stringify(v);
     expect(json).not.toContain(B0); for (const x of b) expect(json).not.toContain(x);

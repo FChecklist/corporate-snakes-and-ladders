@@ -76,7 +76,7 @@
   keepAwake(); document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") keepAwake(); });
   const clock = (s) => { s = Math.max(0, Math.round(s)); return [Math.floor(s / 3600), Math.floor((s % 3600) / 60), s % 60].map((n) => String(n).padStart(2, "0")).join(":"); }; // 00:12:34
   const GRACE_SECS = ZG.GRACE_ROUNDS * 3;
-  const nickOf = (seat) => "Player " + seat; // nicknames are not available to the page yet: this is the one place to change when they are
+  const nickOf = (seat) => "Player " + seat; // typed names are not available to the page yet: this is the one place to change when they are
   const plural = (n, one, many) => n + " " + (n === 1 ? one : many);
 
   // ---------- the company strip at the top of the page (colour and name set by the organizer; the small picture travels inside the settings) ----------
@@ -143,21 +143,21 @@
     const m = msg || J.msg;
     return `${brandStrip()}${head}
     <div class="zcard zform zjoin"><h2>Join the game</h2>
-    <ol class="zsteps" aria-label="How to join"><li><b>1</b><span>Tick the boxes</span></li><li><b>2</b><span>${personal ? "Press Join" : INFO.ownerRules ? "Type your employee ID" : "Type a nickname"}</span></li><li><b>3</b><span>${personal ? "Wait for the start" : "Press Join"}</span></li></ol>
-    <p class="zgoalline zflush">Race a board of snakes and ladders. Land on the last square to win. The game plays by itself: nothing to download.</p>${INVITE_FROM ? `<div class="zbanner ok zflush">A colleague invited you. Join with your nickname to get your own board.</div>` : ""}
+    <ol class="zsteps" aria-label="How to join"><li><b>1</b><span>Tick the boxes</span></li><li><b>2</b><span>${personal ? "Press Join" : INFO.ownerRules ? "Type the employee ID" : "Type a name"}</span></li><li><b>3</b><span>${personal ? "Wait for the start" : "Press Join"}</span></li></ol>
+    <p class="zgoalline zflush">Race a board of snakes and ladders. Land on the last square to win. The game plays by itself: nothing to download.</p>${INVITE_FROM ? `<div class="zbanner ok zflush">A colleague invited you. Type a name to join and get a board.</div>` : ""}
     ${J.mode === "needPhone" ? `<div class="zbanner info zflush" role="status">${J.note ? esc(J.note) : "This link was already opened on another phone. Please type your mobile number to join."}</div>` : ""}
     <div id="k4box">${K4.info && CBC() ? CBC().html(K4.info, K4.state) : consentLoading(K4.failed, "k4retry")}</div>
     ${personal ? `<p class="zsmall">Your personal link is ready. Tick the boxes and press the button to join.</p>` : ""}
-    ${personal || INFO.ownerRules ? "" : `<label for="nm">Your nickname</label><input id="nm" autocomplete="off" maxlength="60" value="${esc(J.name)}">`}
+    ${personal || INFO.ownerRules ? "" : `<label for="nm">Name</label><input id="nm" autocomplete="off" maxlength="20" placeholder="2 to 20 letters or numbers" value="${esc(J.name)}">`}
     ${personal || !needPhone ? "" : joinWho()}
     ${m ? `<div class="zbanner bad" role="alert">${esc(m)}</div>` : ""}
     <button class="zbtn" id="go" type="button" disabled aria-disabled="true">Join the game</button>
     <p class="zsmall" id="same-app"><b>Stay in this app.</b> Your board stays with the app or browser you join in. If you open this link in Teams, keep using Teams: do not switch to Chrome later.</p>
     <p class="spriv">Players are 18 or older. Playing is free: you never pay, and no prize money is held or paid by IT Services.</p>
-    <p class="spriv" id="fairline">No one knows the next roll: not the organizer, not the host, not even the software.</p><p class="spriv" id="privline">Designed to follow US privacy laws, EU GDPR and India's DPDP. All participant information, including IDs, is deleted within 24 hours after the game ends.</p><p class="spriv"><a href="/privacy.html" target="_blank" rel="noopener">Privacy Policy</a></p></div>`;
+    <p class="spriv" id="fairline">No one knows the next roll: not the organizer, not the co-organizer, not even the software.</p><p class="spriv" id="privline">Designed to follow US privacy laws, EU GDPR and India's DPDP. All player information, including IDs, is deleted within 24 hours after the game ends.</p><p class="spriv"><a href="/privacy.html" target="_blank" rel="noopener">Privacy Policy</a></p></div>`;
   };
   const cancelledView = () => `${brandStrip()}${head}<div class="zcard" role="status"><h2>This game was cancelled</h2><p class="zsmall zflush">${esc((INFO.cancelled && INFO.cancelled.message) || "The organizer cancelled this game.")} There is nothing to do on this page. Thank you for your interest.</p></div>`;
-  const dnsView = () => `${brandStrip()}${head}<div class="zcard" role="status"><h2>This game did not start</h2><p class="zsmall zflush">This game did not start. Your details have been auto-deleted. There is nothing to do on this page. Thank you for your interest.</p></div>`;
+  const dnsView = () => `${brandStrip()}${head}<div class="zcard" role="status"><h2>This game did not start</h2><p class="zsmall zflush">This game did not start. The details have been auto-deleted. There is nothing to do on this page. Thank you for your interest.</p></div>`;
   const removedView = () => `${brandStrip()}${head}<div class="zcard" role="status"><h2>You have been removed from this game</h2><p class="zsmall zflush">This phone no longer plays in this game. If you think this is a mistake, please ask the person who invited you.</p></div>`;
   // what the server's "me" answer says about this player: removed, and (for a guest invited straight by the organizer's side) whether they may invite
   const ME = { at: -Infinity, role: null, removed: false, canInvite: false, per: 0, used: 0, loaded: false };
@@ -484,8 +484,8 @@
   /** True while the first turn has not opened yet (and no break or hold is showing): the waiting room is shown instead of the dice. */
   const isWaiting = (v) => v.phase === "play" && !v.locked && !v.brk && v.turnsPlayed === 0 && v.turn.state === "wait" && v.turn.secondsLeft !== null && v.turn.secondsLeft > 0;
   /** SL-21: the rules in five lines. Shown before the game (waiting room) and, folded away, during and after it. The finish line follows the organizer's choice. */
-  const ruleLines = (v) => { const secs = v.callSeconds || 20, pass = !!(v.cfg && v.cfg.board && v.cfg.board.finish === "pass"); return [v.kind === "table" ? "1. Everyone plays on one shared board and takes turns." : "1. You have your own board. Nobody else has the same one.", `2. Every turn lasts about ${secs} seconds. Your throw is the dice for that turn.`, "3. Snakes take you down. Ladders take you up.", pass ? "4. To finish you reach or pass the last square." : "4. To finish you need the exact number to land on the last square.", "5. The software checks everything. Nobody can change a result."]; };
-  const rulesFold = (v) => `<details class="zcard zrulesfold" id="rulesfold"><summary>Rules in five lines</summary><ul class="zlist zrules">${ruleLines(v).map((r) => `<li>${esc(r)}</li>`).join("")}</ul></details>`;
+  const ruleLines = (v) => { const secs = v.callSeconds || 10, pass = !!(v.cfg && v.cfg.board && v.cfg.board.finish === "pass"); return [v.kind === "table" ? "1. Everyone plays on one shared board and takes turns." : "1. Each player has a board of their own. Nobody else has the same one.", `2. Every turn lasts about ${secs} seconds. The dice for each turn come from public random numbers.`, "3. Snakes take a player down. Ladders take a player up.", pass ? "4. To finish, a player reaches or passes the last square." : "4. To finish, a player must land exactly on the last square; a throw that is too big is not used and the player stays where they are.", "5. If two players reach a milestone on the same turn, the one who landed further on that turn wins it; if they are still level, the public random numbers decide.", "6. No gift is ever shared: if players are level, the earlier finish wins, then the higher square, then more ladders climbed, then fewer missed turns, and then the public random numbers decide."]; };
+  const rulesFold = (v) => `<details class="zcard zrulesfold" id="rulesfold"><summary>Rules, one line each</summary><ul class="zlist zrules">${ruleLines(v).map((r) => `<li>${esc(r)}</li>`).join("")}</ul></details>`;
   /** Before the first turn: what to expect, what can be won, the rules, a sound check and a calendar entry. Everything here is known at boot, so it costs no extra requests. */
   function waitingRoom(v) {
     if (!isWaiting(v)) return "";
@@ -692,22 +692,22 @@
     if (!cats.length) return "";
     if (!inviteCat || !cats.some((c) => c.id === inviteCat)) inviteCat = cats[0].id;
     const used = inviteInfo ? inviteInfo.used : 0, unl = inviteInfo && inviteInfo.unlimited, left = Math.max(0, iv.per - used);
-    const counter = unl ? "You can invite as many people as you like." : `You can invite up to <b>${iv.per}</b> people. You have invited <b>${used}</b>${left ? `, so <b>${left}</b> ${left === 1 ? "invitation is" : "invitations are"} left` : ". You have used all your invitations"}.`;
+    const counter = unl ? "You can invite as many people as you like." : `You can invite up to <b>${iv.per}</b> people. You have invited <b>${used}</b>${left ? `, so <b>${left}</b> ${left === 1 ? "invitation is" : "invitations are"} left` : ". All the invitations are used"}.`;
     const chips = cats.map((c) => `<button type="button" class="zchip${c.id === inviteCat ? " on" : ""}" data-icat="${esc(c.id)}">${esc(c.label)}</button>`).join("");
     const link = inviteLink(v), kind = (cats.find((c) => c.id === inviteCat) || cats[0]).label.toLowerCase();
-    const text = "Join me for Corporate Snakes and Ladders! Open this link, enter your nickname and you get your own board: " + link;
-    return `<div class="zcard zinvite"><h2>Invite your colleagues / family members</h2>
+    const text = "Come and play Corporate Snakes and Ladders! Open this link, type a name and get a board: " + link;
+    return `<div class="zcard zinvite"><h2>Invite colleagues or family members</h2>
       <p class="zsmall zflush zgap">${counter}</p>
       ${!unl && !left ? "" : `<div class="zsmall zflush">Who are you inviting?</div><div class="zchips">${chips}</div>
       <div class="zlink" id="invlink">${esc(link)}</div>
       <button class="zbtn s" id="invshare">Share invitation (${esc(kind)})</button>
       <a class="zbtn s alt zlinkbtn" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent(text)}">WhatsApp</a>
       <button class="zbtn s alt" id="invcopy">Copy link</button>
-      <p class="zsmall">Your guest joins with their own nickname and gets their own board. ${unl ? "" : `Your link stops working after ${iv.per} people have joined through it.`}</p>`}</div>`;
+      <p class="zsmall">A person who joins types a name and gets a board. ${unl ? "" : `This link stops working after ${iv.per} people have joined through it.`}</p>`}</div>`;
   }
   function bindInvite(v) {
     document.querySelectorAll("[data-icat]").forEach((b) => (b.onclick = () => { inviteCat = b.dataset.icat; paint(); }));
-    const sh = document.getElementById("invshare"); if (sh) sh.onclick = async () => { const data = { title: "Corporate Snakes and Ladders", text: "Join me for Corporate Snakes and Ladders! Open this link, enter your nickname and you get your own board:", url: inviteLink(v) }; try { if (navigator.share) { await navigator.share(data); return; } } catch { return; } try { await navigator.clipboard.writeText(data.text + " " + data.url); sh.textContent = "Link copied"; } catch { sh.textContent = data.url; } };
+    const sh = document.getElementById("invshare"); if (sh) sh.onclick = async () => { const data = { title: "Corporate Snakes and Ladders", text: "Come and play Corporate Snakes and Ladders! Open this link, type a name and get a board:", url: inviteLink(v) }; try { if (navigator.share) { await navigator.share(data); return; } } catch { return; } try { await navigator.clipboard.writeText(data.text + " " + data.url); sh.textContent = "Link copied"; } catch { sh.textContent = data.url; } };
     const cp = document.getElementById("invcopy"); if (cp) cp.onclick = async () => { try { await navigator.clipboard.writeText(inviteLink(v)); cp.textContent = "Copied"; } catch { cp.textContent = "Press and hold the link above to copy"; } };
   }
   // ---------- My invites: for a guest who may invite (level 1) only. Their own small list: add, send on WhatsApp, resend, remove. A guest invited by a guest sees nothing. ----------
