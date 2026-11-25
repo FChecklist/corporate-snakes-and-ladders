@@ -66,7 +66,7 @@ describe("the १३९ mark on every page", () => {
   test("the approved look: colours, size, weight, hairline and the three numerals", () => {
     const css = RULE1 + RULE2;
     for (const t of ["#0B2A6B", "#7A1010", "font-size:6px", "font-weight:700", ".5px solid", "padding-bottom:.5px", "position:absolute", "top:0", "pointer-events:none", "user-select:none"]) expect(css).toContain(t);
-    expect(MARK).toContain("१३९".replace("३", "३")); // १ ३ ९ in this order below
+    expect(MARK).toContain("१३९"); // the three numerals in this order
     expect(Array.from("१३९").map((c) => c.codePointAt(0))).toEqual([0x0967, 0x0969, 0x096f]);
     expect(MARK).toContain('aria-hidden="true"');
     // the shared sheets hold exactly the approved rules, once
