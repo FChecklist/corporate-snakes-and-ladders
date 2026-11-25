@@ -16,7 +16,7 @@ beforeEach(async () => {
   env = { DB: makeD1().db, ORGANIZER_SECRET: "plat", DAILY_WRITE_BUDGET: "1000000", PUBLIC_ORIGIN: "https://snakesladders.test", PHONE_SALT: "salt", DATA_KEY: "k" } as any;
   const s = await j(await call("POST", "/api/start", { email: "demo1@xyz.in" }, { "cf-connecting-ip": "10.0.0.9" }));
   h = { "x-organizer": s.token as string };
-  await call("POST", "/api/z", { id: "NICK-1", startRound: START, callSeconds: 20, cap: 10 }, h);
+  await call("POST", "/api/z", { id: "NICK-1", startRound: START, callSeconds: 10, cap: 10 }, h);
   await call("POST", "/api/z/NICK-1/publish", { email: "boss@acme.com", phone: "98765 43210" }, h);
 });
 const join = (i: number, body: object) => call("POST", "/api/z/NICK-1/join", { device: dev(i), ...body }, { "cf-connecting-ip": `10.1.0.${i}` });
