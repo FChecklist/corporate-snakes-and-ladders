@@ -12,6 +12,8 @@
   const BASE = (q.get("api") || "").replace(/\/$/, "");
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const store = DEMO ? DEMO.store : { get: (k) => { try { return localStorage.getItem(k); } catch { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch {} } };
+  let LOOK = store.get("snk-look") === "modern" ? "modern" : "retro"; // the board look this player chose on this phone (Retro is the default); looks.js has already put it on the page before the first paint
+  try { document.documentElement.setAttribute("data-look", LOOK); } catch { /* the page still works without it */ }
   const rawApi = DEMO ? DEMO.api : async (method, path, body) => {
     let r;
     try { r = await fetch(BASE + path, { method, headers: { "content-type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) }); }
@@ -271,7 +273,7 @@
     }
     for (const a of Object.keys(b.ladders).map(Number).sort((x, y) => x - y)) lines += ladderSvg(a, b.ladders[a], side);
     Object.keys(b.snakes).map(Number).sort((x, y) => x - y).forEach((h, i) => { lines += snakeSvg(h, b.snakes[h], side, i); });
-    return `<div class="sqwrap"><div class="sqgrid g${side}" role="list" aria-label="${esc(label)}">${cells}</div><svg class="sqsvg" viewBox="0 0 ${side} ${side}" aria-hidden="true" focusable="false">${lines}</svg><div class="sqov g${side}" aria-hidden="true">${ov}</div></div>`;
+    return `<div class="sqwrap" data-look="${LOOK}"><div class="sqgrid g${side}" role="list" aria-label="${esc(label)}">${cells}</div><svg class="sqsvg" viewBox="0 0 ${side} ${side}" aria-hidden="true" focusable="false">${lines}</svg><div class="sqov g${side}" aria-hidden="true">${ov}</div></div>`;
   }
   function boardCard(v) {
     const b = v.board;
@@ -293,7 +295,7 @@
     const lab = (table ? "Shared board, " : "Your board, ") + b.size + " squares. Square 1 is at the bottom left and the rows zig-zag upwards.";
     return `<div class="zcard zboardcard"><h2>${table ? "The shared board" : "Your board"}</h2> <span class="zgoalpill">Goal: land exactly on ${b.size}</span>
       ${pos ? `<p class="zpos" role="status"><span>${pos}</span>${stats}</p>` : ""}
-      ${boardHtml(v, pawns, lab)}
+      ${lookPicker()}${boardHtml(v, pawns, lab)}
       <p class="zsmall zleg"><span class="zkey ms">&#9733;</span> milestone ${ms.length ? esc(ms.join(", ")) : "none"} <span class="zkey end">&#127942;</span> last square ${b.size} <span class="zkey up">&#9650;</span> ladder: up <span class="zkey down">&#9660;</span> snake: down${table ? " <span class=\"zkey you\">1</span> numbered dots are players" : ""}</p>
       ${fold("lists", "Show every ladder and snake", `<p class="zsmall zlist2" id="ladlist"><b>Ladders:</b> ${esc(lad || "none")}.</p><p class="zsmall zlist2" id="snklist"><b>Snakes:</b> ${esc(snk || "none")}.</p>`)}</div>`;
   }
@@ -301,6 +303,20 @@
   const OPENED = new Set();
   const fold = (key, title, inner) => `<details class="zfold" data-fold="${key}"${OPENED.has(key) ? " open" : ""}><summary>${title}</summary>${inner}</details>`;
   function bindFolds() { document.querySelectorAll("details[data-fold]").forEach((d) => { d.ontoggle = () => { if (d.open) OPENED.add(d.dataset.fold); else OPENED.delete(d.dataset.fold); }; }); }
+
+  // ---------- the board look: Retro (the default) or Modern. looks.css styles the page from html[data-look]. The choice stays on this phone (key "snk-look") and is never sent anywhere. ----------
+  const lookPicker = () => {
+    const af = document.activeElement, keep = af && af.name === "zlook" ? (af.value === "modern" ? "modern" : "retro") : ""; // the page redraws itself every second: the keyboard focus goes back to the same button
+    if (keep) Promise.resolve().then(() => { const r = document.querySelector("input[name=zlook][value=" + keep + "]"); if (r && document.activeElement !== r) { try { r.focus({ preventScroll: true }); } catch { /* focus stays where it is */ } } });
+    return `<div class="zlook" role="radiogroup" aria-label="Board look"><span class="zlooklbl" aria-hidden="true">Board look</span><span class="zlookopts"><label class="zlookopt"><input type="radio" name="zlook" value="retro"${LOOK === "retro" ? " checked" : ""}> Retro</label><label class="zlookopt"><input type="radio" name="zlook" value="modern"${LOOK === "modern" ? " checked" : ""}> Modern</label></span></div>`;
+  };
+  const setLook = (to) => {
+    LOOK = to === "modern" ? "modern" : "retro"; store.set("snk-look", LOOK);
+    try { document.documentElement.setAttribute("data-look", LOOK); } catch { /* the page still works without it */ }
+    document.querySelectorAll(".sqwrap").forEach((w) => w.setAttribute("data-look", LOOK)); // the board changes at once; the redraw below writes the same value into the new markup
+    paint();
+  };
+  $app.addEventListener("change", (e) => { const t = e.target; if (t && t.name === "zlook") setLook(t.value); });
 
   // ---------- the dice card: countdown ring, the last throw, the Throw button (presence mode) ----------
   const THROW = { busy: false, note: "", turn: -1, lateTurn: -1 };
