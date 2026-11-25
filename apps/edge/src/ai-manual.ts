@@ -25,7 +25,7 @@ export interface ManualInput {
   contact: string;
 }
 
-const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); // quotes too: the contact address goes into an attribute
 /** Plain text with `code` and **bold**: the only markup the page text uses. */
 const md = (s: string) => esc(s).replace(/`([^`]+)`/g, "<code>$1</code>").replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
 const p = (s: string) => `<p>${md(s)}</p>`;

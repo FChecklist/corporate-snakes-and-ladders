@@ -115,6 +115,12 @@ describe("the payee is read from the payee record, never typed in", () => {
     (env as any).COMPANY_JSON = JSON.stringify({ legalName: "<b>Odd & Co</b>" }); const html = await (await get("/ai-manual")).text();
     expect(html).toContain("<strong>&lt;b&gt;Odd &amp; Co&lt;/b&gt;</strong>"); expect(html).not.toContain("<b>Odd");
   });
+  test("the contact address cannot break out of its attribute, and only the name and the address are read from the record (never the bank details)", async () => {
+    (env as any).COMPANY_JSON = JSON.stringify({ legalName: "Safe Payee", email: 'x"onmouseover="alert(1)', bank: { name: "Some Bank", accountNumber: "1234567890", ifsc: "ABCD0123456" }, pan: "ABCDE1234F" });
+    const html = await (await get("/ai-manual")).text();
+    expect(html).not.toMatch(/onmouseover="/); expect(html).toContain("mailto:x&quot;onmouseover=&quot;alert(1)");
+    for (const secret of ["Some Bank", "1234567890", "ABCD0123456", "ABCDE1234F"]) expect(html).not.toContain(secret);
+  });
   test("with no company record at all the page still says who the payee is: the record's own default name, read from the record", async () => {
     delete (env as any).COMPANY_JSON; const { company } = await import("../src/pay"); const name = company(env).legalName; expect(name.length).toBeGreaterThan(3);
     expect(text(await (await get("/ai-manual")).text())).toContain(`is ${name}.`);
