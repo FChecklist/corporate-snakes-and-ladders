@@ -52,6 +52,7 @@ import { frontDoorText, nextHint, GET_BODY_MAX, LINK_KEY, CONVERSATION, aiPaste,
 import { factsText } from "./ai-facts";
 import { mapJson, mapText } from "./ai-functions";
 import { goScreen, screenJson, screenText } from "./ai-go";
+import { AI_CANNOT_DO, aiCannotPay, isAiCaller } from "./ai-pay";
 import { AUDIT_SCHEMA, auditRequest, analyzeChain, loadRows, logAccess, setHold, toCsv, verifyChain, closeAuditFor, sweepAudit, type AuditEnv } from "./audit";
 import { DEMO_CAP, demoAllowed, demoName, demoOn, demoRecord, isDemo } from "./demo";
 import { FUNNEL_ENDPOINT, funnelCsv, funnelRange, funnelReport, funnelRoute, recordFunnel } from "./funnel";
@@ -764,7 +765,7 @@ async function creditFields(env: Env, a: Auth, e: { id: string; org: string | nu
   const c = await activeCreditSummary(env.DB, e.org!, now);
   return { credit: c.activeTotalInr, creditExpiresMs: c.nextExpiryMs, creditApplied: await creditAppliedFor(env.DB, e.id), payable: payablePublic(await adjustAnyCur(env.DB, e.id, packOf(e.cap))) };
 }
-const deny = (a: Auth) => json({ error: a.kind === "ai" ? "Your AI assistant may not do this. It is for the organizer to do themselves in their console: tell them plainly what needs doing and where (your instructions say how)." : a.kind === "host" ? "Only the Organizer can do this. A Host looks after the game, not the account." : a.kind === "cohost" ? "A Co-host can invite people and pay. Ask the Organizer or a Host for anything else." : "Not allowed." }, 403);
+const deny = (a: Auth) => json({ error: a.kind === "ai" ? AI_CANNOT_DO : a.kind === "host" ? "Only the Organizer can do this. A Host looks after the game, not the account." : a.kind === "cohost" ? "A Co-host can invite people and pay. Ask the Organizer or a Host for anything else." : "Not allowed." }, 403);
 /** What a Host may touch through an AI work link (x-cb-link): watching, and messages to everyone. Through the console a Host may do everything inside a game. */
 const HOST_ACTIONS = new Set(["participants", "summary", "results", "info", "announce", "prizes", "prizegiven", "override", "reportlink", "life"]);
 const MAX_HOSTS = 5;
@@ -844,6 +845,7 @@ export const AI_MANIFEST = {
 async function route(req: Request, env: Env, now: number): Promise<Response> {
   const a = await authOf(req, env, now);
   if (a.kind === "host" && req.headers.get("x-cb-link") === "1") a.viaLink = true; // a Host's AI work link keeps the narrow rights
+  if (a.viaLink && /^\/api\/payments\//.test(new URL(req.url).pathname)) return aiCannotPay(); // a co-organizer's AI work link never pays: the same plain answer as an AI key gets (ai-pay.ts)
   if (a.viaLink && /^\/api\/(payments\/|org\/(team|cohost))/.test(new URL(req.url).pathname)) return json({ error: "A Host's AI assistant cannot pay or manage the team. The Host does this in their own console.", code: "ai-not-allowed" }, 403); // paying and who is on the team are for people
   const peek = req.method === "GET" || req.method === "HEAD" ? null : req.clone(); // the internal audit log reads the body from this copy; the route reads the original
   const r = await route0(req, env, now, a);
@@ -1160,7 +1162,7 @@ async function route0(req: Request, env: Env, now: number, a: Auth): Promise<Res
   { // a pay link anyone can open (paylink.ts): the Organizer, a Host or a Co-host of the game makes it; one open link per game, a new one cancels the old
     const plm = p.match(/^\/api\/z\/([A-Za-z0-9_-]{4,40})\/paylink$/);
     if (plm && req.method === "POST") {
-      if (a.kind === "ai") return json({ error: "A pay link is for people to make themselves. It is not available through an AI link. Ask the owner to make it in the console (Check, publish and pay)." }, 403);
+      if (isAiCaller(a.kind, a.viaLink)) return aiCannotPay(); // an AI key, or a co-organizer's AI work link, never makes a pay link: the one plain answer (ai-pay.ts)
       if (!a.org || a.viaLink || (a.kind !== "master" && a.kind !== "host" && a.kind !== "cohost")) return deny(a);
       const pe = await env.DB.prepare("SELECT id, org, cap, pack, cancelled_ms, config FROM engagement WHERE id=?").bind(plm[1]!).first<{ id: string; org: string | null; cap: number; pack: number | null; cancelled_ms: number | null; config: string | null }>();
       if (!pe || pe.org !== a.org) return json({ error: "No such game." }, 404);

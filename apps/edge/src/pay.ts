@@ -31,6 +31,7 @@ import { payLinkGame } from "./paysummary";
 import { INVOICE_AFTER_MS, chosenCountry, cleanInvoiceDetails, currencyForCountry, isPayFirst, isPendingEmail, orderCurrency, paytestAllowed, pendingEmail, visitorCountry } from "./payfirst";
 import { PRICE_LINE, adjustFor, adjustMeta, adjustNotes } from "./price-adjust";
 import { creditAppliedFor, creditFromPayment, creditUsesFor, mailCreditCreated, restoreCreditUses, rs, teamEmails } from "./credit";
+import { PAY_PATH, aiCannotPay, isAiCaller } from "./ai-pay";
 
 export interface PayEnv extends Env, Pick<ModeEnv, "OWNER_EMAIL" | "TEST_MAIL_ALLOW"> {
   RAZORPAY_KEY_ID?: string; RAZORPAY_KEY_SECRET?: string; RAZORPAY_WEBHOOK_SECRET?: string; RAZORPAY_BASE_URL?: string; RAZORPAY_INTERNATIONAL?: string;
@@ -503,9 +504,22 @@ async function consolePaid(req: Request, env: PayEnv, now: number): Promise<Resp
   return json({ ok: true, gameId, paid: true, ...(changed > 0 ? {} : { already: true }) });
 }
 
+/**
+ * An AI assistant cannot pay: an AI key (kind "ai"), or a co-organizer's key used through an AI work link (header x-cb-link), is refused on every payment address with one plain
+ * message (ai-pay.ts), HTTP 403, before anything else is looked at (owner rules, consent and the body come after). A request with no key, or with any other key, passes untouched.
+ */
+export async function aiPayGuard(req: Request, env: PayEnv, now: number): Promise<Response | null> {
+  if (!PAY_PATH.test(new URL(req.url).pathname)) return null;
+  const presented = (req.headers.get("x-organizer") || (req.headers.get("authorization") ?? "").replace(/^Bearer\s+/i, "")).trim();
+  if (!presented) return null;
+  const k = await env.DB.prepare("SELECT kind FROM organizer_key WHERE hash=? AND revoked=0 AND (expires_ms IS NULL OR expires_ms>?)").bind(await sha("key|" + presented), now).first<{ kind: string }>();
+  return k && isAiCaller(k.kind, req.headers.get("x-cb-link") === "1") ? aiCannotPay() : null;
+}
+
 /** Returns a Response for payment routes, or null when the path is not one of ours. */
 export async function payRoute(req: Request, env: PayEnv, now: number, spend: (n: number) => Promise<boolean>): Promise<Response | null> {
   const url = new URL(req.url); const p = url.pathname; const db = env.DB;
+  { const ai = await aiPayGuard(req, env, now); if (ai) return ai; } // an AI key never pays: the first check of every payment route, before owner rules, consent and the body
   const rzp = rzpOf(env); const mode = payMode(env);
   const busy = () => json({ error: "It is very busy right now. Please try again in a few minutes." }, 503);
 

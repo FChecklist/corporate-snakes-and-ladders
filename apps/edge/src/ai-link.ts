@@ -113,7 +113,7 @@ export function manualText(origin: string, key: string, role: LinkRole, now: num
     "- Never show or send this link or key to anyone else or to any other site. Winners and numbers are decided by the software; nobody, including you, can change them.",
     "- Every call you make is recorded in an internal audit log (time, which key, what was asked, status, network address, which program fetched it). Please say who you are on EVERY call: add ?ai_model=<your model name>&ai_version=<version>&ai_session=<this chat's id if you have one>&ai_machine=<your machine or tool name if any> to the address (or the same four words as x-ai-model, x-ai-version, x-ai-session, x-ai-machine headers, or an `ai` object {model, version, session, machine} in a POST body). It is recorded as self-declared, never as proof. Never put names, mobile numbers or keys in it.",
     "- The first number is called two minutes (40 rounds) after the start time, not one.",
-    "- If a call is refused (403, 'may not do this'), do not look for another way round. Tell the owner plainly what they must do themselves and where.",
+    "- If a call is refused (403, 'cannot do this' or 'cannot pay'), do not look for another way round. Tell the organizer plainly what they must do in the console and where.",
     "- If your tools can set headers you may instead call " + origin + "/api/<same path> with the key in the x-organizer header (JSON manifest: " + origin + "/api/z/ai-manifest). Optional.",
     "",
   );
@@ -250,7 +250,7 @@ export function nextHint(status: number, error: string, _base: string, origin: s
   if (/at most .*brand moment|you can use .*brand moments|Please switch some off/i.test(error)) return "Send fewer brand moments (1 card allows 1 opening, 3 during the game and 1 closing; 2 tickets allow twice that), or change the tickets first, then send again.";
   if (/https:\/\/|must start with/i.test(error)) return "Ask the organizer for a link that starts with https:// and has no spaces (a YouTube link, or a direct link to a video or audio file).";
   if (/Names and mobile numbers are handled by the owner/i.test(error)) return `Tell the organizer kindly that this one is theirs: they do it in their console: ${consolePage}`;
-  if (/may not do this/i.test(error) || status === 403) return `This step is for the organizer. Give them the hand-over link and say what to press: ${consolePage}`;
+  if (/cannot do this|cannot pay|may not do this/i.test(error) || status === 403) return `This step is for the organizer. Give them the hand-over link and say what to press: ${consolePage}`;
   if (/Publish the (?:engagement|game) first/i.test(error)) return `Messages need a published game. Give the organizer the publish hand-over: ${consolePage}&do=publish`;
   if (/draft|10 games|waiting/i.test(error) && status === 409) return `Ask the organizer to finish or delete one of their waiting games in the console: ${origin}/zc.html`;
   if (status === 404) return "Check the game code with GET history (on your keyed address) or use the guided path: the /go/games step link in your instructions.";

@@ -225,7 +225,7 @@ describe("what the organizer's AI may and may not do now", () => {
     expect(raw.prepare("SELECT 1 FROM participant WHERE eid='CAP-6'").all().length).toBe(0);
     const req = await j(await call("POST", `/ai/${o.ai}/z/CAP-6/control/request`, { action: "erase" })); expect(req.message).toMatch(/Nothing has been deleted/); // ask only
     const pr = await call("POST", `/ai/${o.ai}/z/CAP-6/control/request`, { action: "pause" }); expect(pr.status).toBe(200); // ask only: nothing is paused
-    const refusal = await j(await call("POST", `/ai/${o.ai}/z/CAP-6/erase`, {})); expect(refusal.error).toMatch(/tell them plainly/i);
+    const refusal = await j(await call("POST", `/ai/${o.ai}/z/CAP-6/erase`, {})); expect(refusal.error).toMatch(/tell the organizer what needs doing and where/i);
   });
   test("publishing through the link stays a hand-over: the organizer's console link, no publish", async () => {
     const o = await organizer(); await call("POST", `/ai/${o.ai}/z`, eng("CAP-7"));
