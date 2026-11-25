@@ -428,12 +428,12 @@ body:has(#go) #cb-notify{display:none}
 }
 
 /* the organizer's three optional messages (before the game, for a winner, when it is over) and what a winner won: plain text, wrapped, never cut */
-.zorgmsg{background:#EAF3FF;border:1px solid #B9D3FF;border-radius:12px;padding:10px 12px;margin:10px 0;color:#0F2F66;font-size:15px;line-height:1.45;text-align:left}
+.zorgmsg{background:var(--snk-wash);border:1px solid var(--snk-line);border-radius:12px;padding:10px 12px;margin:10px 0;color:var(--snk-ink);font-size:15px;line-height:1.45;text-align:left}
 .zorgmsg b{display:block;font-size:13px;letter-spacing:.04em;margin-bottom:2px}
 .zorgmsg p,.zclosetext{margin:0;overflow-wrap:anywhere}
-.zclosetext{font-size:16px;line-height:1.5;color:#26233B}
+.zclosetext{font-size:16px;line-height:1.5;color:var(--snk-ink)}
 .zwonrow{padding:8px 4px 0;line-height:1.35}
-.zwonwhat{display:block;font-size:17px;color:#4A2A00;overflow-wrap:anywhere}
-.zwonsub{display:block;margin-top:2px;color:#4B4560}
-.zwinmsg{margin:10px 0 0;padding:8px 10px;border-radius:10px;background:#fff;border:1px solid #F1DCA0;color:#4A2A00;font-size:15px;line-height:1.45;overflow-wrap:anywhere}
+.zwonwhat{display:block;font-size:17px;color:var(--snk-accent-ink);overflow-wrap:anywhere}
+.zwonsub{display:block;margin-top:2px;color:var(--snk-muted)}
+.zwinmsg{margin:10px 0 0;padding:8px 10px;border-radius:10px;background:#fff;border:1px solid var(--snk-accent-2);color:var(--snk-accent-ink);font-size:15px;line-height:1.45;overflow-wrap:anywhere}
 .zprizes .zwonwhat{font-size:16px}

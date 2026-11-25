@@ -6,57 +6,57 @@
 
 /* ---- the picker: Board look, Retro or Modern (z.js draws it above the board) ---- */
 .zlook{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin:0 0 10px}
-.zlooklbl{font:700 13px/1.3 var(--sans,inherit);color:var(--snk-ink,#2B2521);margin-right:2px}
+.zlooklbl{font:700 13px/1.3 var(--sans,inherit);color:var(--snk-ink);margin-right:2px}
 .zlookopts{display:flex;flex-wrap:wrap;gap:6px 10px} /* the two options wrap together: on a narrow phone they drop under the label side by side */
-.zlookopt{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 14px 0 10px;border:2px solid var(--snk-line,#DCD3C6);border-radius:999px;background:var(--snk-surface,#fff);color:var(--snk-ink,#2B2521);font:600 14px/1.2 var(--sans,inherit);cursor:pointer}
-.zlookopt input{width:20px;height:20px;margin:0;accent-color:var(--snk-primary,#6E5A4A)}
-.zlookopt:has(input:checked){border-color:var(--snk-primary,#6E5A4A);background:var(--snk-sunk,#EBE5DB)}
-.zlookopt input:focus-visible{outline:3px solid var(--snk-deep,#3B2F27);outline-offset:2px}
+.zlookopt{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 14px 0 10px;border:2px solid var(--snk-line);border-radius:999px;background:var(--snk-surface);color:var(--snk-ink);font:600 14px/1.2 var(--sans,inherit);cursor:pointer}
+.zlookopt input{width:20px;height:20px;margin:0;accent-color:var(--snk-primary)}
+.zlookopt:has(input:checked){border-color:var(--snk-primary);background:var(--snk-sunk)}
+.zlookopt input:focus-visible{outline:3px solid var(--snk-deep);outline-offset:2px}
 @media (prefers-reduced-motion:no-preference){.zlookopt{transition:background-color .15s ease,border-color .15s ease}}
 /* a phone held sideways keeps all its height for the board (the page already hides the other board-card extras there) */
 @media (orientation:landscape) and (max-height:520px){.zlook{display:none}}
 
 /* ======================= RETRO: the classic printed board game. Bold squares, a thick frame, chunky numerals. ======================= */
-html[data-look="retro"] .sqgrid{background:#fff;border-color:var(--snk-deep,#3B2F27);border-radius:8px;box-shadow:0 0 0 3px var(--snk-accent,#A89684),0 0 0 6px var(--snk-deep,#3B2F27),0 7px 10px -4px rgba(0,0,0,.4)}
-html[data-look="retro"] .sq{background:var(--snk-band-2,#C6C4A6);box-shadow:inset 0 -3px 0 rgba(0,0,0,.12),inset 0 2px 0 rgba(255,255,255,.3)}
-html[data-look="retro"] .sq.h0:not(.end){background:var(--snk-band-0,#D9B9A3)}
-html[data-look="retro"] .sq.h1:not(.end){background:var(--snk-band-1,#DDCFA9)}
-html[data-look="retro"] .sq.h2:not(.end){background:var(--snk-band-2,#C6C4A6)}
-html[data-look="retro"] .sq.h3:not(.end){background:var(--snk-band-3,#CDB9BE)}
-html[data-look="retro"] .sq.h4:not(.end){background:var(--snk-band-4,#D3BFA6)}
-html[data-look="retro"] .sq.a.h0:not(.end){background:var(--snk-band-0-alt,#CDA88F)}
-html[data-look="retro"] .sq.a.h1:not(.end){background:var(--snk-band-1-alt,#CFBF93)}
-html[data-look="retro"] .sq.a.h2:not(.end){background:var(--snk-band-2-alt,#B7B596)}
-html[data-look="retro"] .sq.a.h3:not(.end){background:var(--snk-band-3-alt,#BEA7AE)}
-html[data-look="retro"] .sq.a.h4:not(.end){background:var(--snk-band-4-alt,#C5AE92)}
-html[data-look="retro"] .sq.end{background:linear-gradient(135deg,var(--snk-accent-2,#E3D9CB),var(--snk-accent,#A89684))}
-html[data-look="retro"] .sq.ms{box-shadow:inset 0 0 0 3px var(--snk-primary,#6E5A4A)}
-html[data-look="retro"] .sq.me{box-shadow:inset 0 0 0 3px var(--snk-ink,#2B2521)}
-html[data-look="retro"] .sq.ms.me{box-shadow:inset 0 0 0 3px var(--snk-ink,#2B2521),inset 0 0 0 5px var(--snk-primary,#6E5A4A)}
-html[data-look="retro"] .so b{font-family:var(--serif,Georgia,serif);font-weight:700;color:var(--snk-deep,#3B2F27);text-shadow:0 0 2px #fff,0 0 2px #fff,0 0 3px #fff}
+html[data-look="retro"] .sqgrid{background:#fff;border-color:var(--snk-deep);border-radius:8px;box-shadow:0 0 0 3px var(--snk-accent),0 0 0 6px var(--snk-deep),0 7px 10px -4px rgba(0,0,0,.4)}
+html[data-look="retro"] .sq{background:var(--snk-band-2);box-shadow:inset 0 -3px 0 rgba(0,0,0,.12),inset 0 2px 0 rgba(255,255,255,.3)}
+html[data-look="retro"] .sq.h0:not(.end){background:var(--snk-band-0)}
+html[data-look="retro"] .sq.h1:not(.end){background:var(--snk-band-1)}
+html[data-look="retro"] .sq.h2:not(.end){background:var(--snk-band-2)}
+html[data-look="retro"] .sq.h3:not(.end){background:var(--snk-band-3)}
+html[data-look="retro"] .sq.h4:not(.end){background:var(--snk-band-4)}
+html[data-look="retro"] .sq.a.h0:not(.end){background:var(--snk-band-0-alt)}
+html[data-look="retro"] .sq.a.h1:not(.end){background:var(--snk-band-1-alt)}
+html[data-look="retro"] .sq.a.h2:not(.end){background:var(--snk-band-2-alt)}
+html[data-look="retro"] .sq.a.h3:not(.end){background:var(--snk-band-3-alt)}
+html[data-look="retro"] .sq.a.h4:not(.end){background:var(--snk-band-4-alt)}
+html[data-look="retro"] .sq.end{background:linear-gradient(135deg,var(--snk-accent-2),var(--snk-accent))}
+html[data-look="retro"] .sq.ms{box-shadow:inset 0 0 0 3px var(--snk-primary)}
+html[data-look="retro"] .sq.me{box-shadow:inset 0 0 0 3px var(--snk-ink)}
+html[data-look="retro"] .sq.ms.me{box-shadow:inset 0 0 0 3px var(--snk-ink),inset 0 0 0 5px var(--snk-primary)}
+html[data-look="retro"] .so b{font-family:var(--serif,Georgia,serif);font-weight:700;color:var(--snk-deep);text-shadow:0 0 2px #fff,0 0 2px #fff,0 0 3px #fff}
 html[data-look="retro"] .g15 .so b{font-family:var(--sans,inherit);font-weight:800} /* the smallest squares: a sturdy sans stays sharp at 8px */
 
 /* ======================= MODERN: flat and clean. Thin lines, calm tints, a light frame, a small shadow, sans numerals. ======================= */
-html[data-look="modern"] body{background:var(--snk-bg,#F5F1EA)}
+html[data-look="modern"] body{background:var(--snk-bg)}
 html[data-look="modern"] .zcard{border-radius:12px;box-shadow:none}
-html[data-look="modern"] .zcard h2{background:var(--snk-sunk,#EBE5DB);color:var(--snk-ink,#2B2521)}
+html[data-look="modern"] .zcard h2{background:var(--snk-sunk);color:var(--snk-ink)}
 html[data-look="modern"] .zbrand{border-radius:12px;box-shadow:none}
 html[data-look="modern"] .zbtn{border-radius:10px;box-shadow:none}
-html[data-look="modern"] .zbtn:not(.alt):not(.zroll){background:var(--snk-primary,#6E5A4A)}
-html[data-look="modern"] .sqgrid{background:var(--snk-line,#DCD3C6);border-color:var(--snk-surface,#fff);border-radius:8px;box-shadow:0 0 0 1px var(--snk-line,#DCD3C6),0 1px 3px rgba(0,0,0,.08)}
-html[data-look="modern"] .sq{background:var(--snk-surface,#fff)}
-html[data-look="modern"] .sq.h0:not(.end){background:linear-gradient(rgba(255,255,255,.6),rgba(255,255,255,.6)),var(--snk-band-0,#D9B9A3)}
-html[data-look="modern"] .sq.h1:not(.end){background:linear-gradient(rgba(255,255,255,.6),rgba(255,255,255,.6)),var(--snk-band-1,#DDCFA9)}
-html[data-look="modern"] .sq.h2:not(.end){background:linear-gradient(rgba(255,255,255,.6),rgba(255,255,255,.6)),var(--snk-band-2,#C6C4A6)}
-html[data-look="modern"] .sq.h3:not(.end){background:linear-gradient(rgba(255,255,255,.6),rgba(255,255,255,.6)),var(--snk-band-3,#CDB9BE)}
-html[data-look="modern"] .sq.h4:not(.end){background:linear-gradient(rgba(255,255,255,.6),rgba(255,255,255,.6)),var(--snk-band-4,#D3BFA6)}
-html[data-look="modern"] .sq.a.h0:not(.end){background:linear-gradient(rgba(255,255,255,.45),rgba(255,255,255,.45)),var(--snk-band-0-alt,#CDA88F)}
-html[data-look="modern"] .sq.a.h1:not(.end){background:linear-gradient(rgba(255,255,255,.45),rgba(255,255,255,.45)),var(--snk-band-1-alt,#CFBF93)}
-html[data-look="modern"] .sq.a.h2:not(.end){background:linear-gradient(rgba(255,255,255,.45),rgba(255,255,255,.45)),var(--snk-band-2-alt,#B7B596)}
-html[data-look="modern"] .sq.a.h3:not(.end){background:linear-gradient(rgba(255,255,255,.45),rgba(255,255,255,.45)),var(--snk-band-3-alt,#BEA7AE)}
-html[data-look="modern"] .sq.a.h4:not(.end){background:linear-gradient(rgba(255,255,255,.45),rgba(255,255,255,.45)),var(--snk-band-4-alt,#C5AE92)}
-html[data-look="modern"] .sq.end{background:var(--snk-accent-2,#E3D9CB);box-shadow:inset 0 0 0 2px var(--snk-accent,#A89684)}
-html[data-look="modern"] .sq.ms{box-shadow:inset 0 0 0 2px var(--snk-primary,#6E5A4A)}
-html[data-look="modern"] .sq.me{box-shadow:inset 0 0 0 2px var(--snk-ink,#2B2521)}
-html[data-look="modern"] .sq.ms.me{box-shadow:inset 0 0 0 2px var(--snk-ink,#2B2521),inset 0 0 0 4px var(--snk-primary,#6E5A4A)}
-html[data-look="modern"] .so b{font-family:var(--sans,inherit);font-weight:600;color:var(--snk-ink,#2B2521);text-shadow:none}
+html[data-look="modern"] .zbtn:not(.alt):not(.zroll){background:var(--snk-primary)}
+html[data-look="modern"] .sqgrid{background:var(--snk-line);border-color:var(--snk-surface);border-radius:8px;box-shadow:0 0 0 1px var(--snk-line),0 1px 3px rgba(0,0,0,.08)}
+html[data-look="modern"] .sq{background:var(--snk-surface)}
+html[data-look="modern"] .sq.h0:not(.end){background:linear-gradient(rgba(255,255,255,.6),rgba(255,255,255,.6)),var(--snk-band-0)}
+html[data-look="modern"] .sq.h1:not(.end){background:linear-gradient(rgba(255,255,255,.6),rgba(255,255,255,.6)),var(--snk-band-1)}
+html[data-look="modern"] .sq.h2:not(.end){background:linear-gradient(rgba(255,255,255,.6),rgba(255,255,255,.6)),var(--snk-band-2)}
+html[data-look="modern"] .sq.h3:not(.end){background:linear-gradient(rgba(255,255,255,.6),rgba(255,255,255,.6)),var(--snk-band-3)}
+html[data-look="modern"] .sq.h4:not(.end){background:linear-gradient(rgba(255,255,255,.6),rgba(255,255,255,.6)),var(--snk-band-4)}
+html[data-look="modern"] .sq.a.h0:not(.end){background:linear-gradient(rgba(255,255,255,.45),rgba(255,255,255,.45)),var(--snk-band-0-alt)}
+html[data-look="modern"] .sq.a.h1:not(.end){background:linear-gradient(rgba(255,255,255,.45),rgba(255,255,255,.45)),var(--snk-band-1-alt)}
+html[data-look="modern"] .sq.a.h2:not(.end){background:linear-gradient(rgba(255,255,255,.45),rgba(255,255,255,.45)),var(--snk-band-2-alt)}
+html[data-look="modern"] .sq.a.h3:not(.end){background:linear-gradient(rgba(255,255,255,.45),rgba(255,255,255,.45)),var(--snk-band-3-alt)}
+html[data-look="modern"] .sq.a.h4:not(.end){background:linear-gradient(rgba(255,255,255,.45),rgba(255,255,255,.45)),var(--snk-band-4-alt)}
+html[data-look="modern"] .sq.end{background:var(--snk-accent-2);box-shadow:inset 0 0 0 2px var(--snk-accent)}
+html[data-look="modern"] .sq.ms{box-shadow:inset 0 0 0 2px var(--snk-primary)}
+html[data-look="modern"] .sq.me{box-shadow:inset 0 0 0 2px var(--snk-ink)}
+html[data-look="modern"] .sq.ms.me{box-shadow:inset 0 0 0 2px var(--snk-ink),inset 0 0 0 4px var(--snk-primary)}
+html[data-look="modern"] .so b{font-family:var(--sans,inherit);font-weight:600;color:var(--snk-ink);text-shadow:none}

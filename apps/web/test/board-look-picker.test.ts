@@ -188,37 +188,34 @@ describe("looks.css: two clear looks, in the scheme's colours, with nothing that
     expect(rule('html[data-look="retro"] .sqgrid')).not.toBe(rule('html[data-look="modern"] .sqgrid'));
   });
   test("Retro is the printed board game: a thick frame in rings, bold squares, chunky serif numerals", () => {
-    const grid = rule('html[data-look="retro"] .sqgrid'); expect(grid).toMatch(/box-shadow:0 0 0 3px var\(--snk-accent,[^)]*\),0 0 0 6px var\(--snk-deep,/); expect(grid).toContain("border-color:var(--snk-deep,");
-    expect(rule('html[data-look="retro"] .sq.h0:not(.end)')).toBe("background:var(--snk-band-0,#D9B9A3)"); // the full band colour
+    const grid = rule('html[data-look="retro"] .sqgrid'); expect(grid).toMatch(/box-shadow:0 0 0 3px var\(--snk-accent\),0 0 0 6px var\(--snk-deep\)/); expect(grid).toContain("border-color:var(--snk-deep)");
+    expect(rule('html[data-look="retro"] .sq.h0:not(.end)')).toBe("background:var(--snk-band-0)"); // the full band colour
     expect(rule('html[data-look="retro"] .so b')).toMatch(/font-family:var\(--serif,[^)]*\)/); expect(rule('html[data-look="retro"] .so b')).toContain("font-weight:700");
-    expect(rule('html[data-look="retro"] .sq.end')).toContain("linear-gradient(135deg,var(--snk-accent-2,");
+    expect(rule('html[data-look="retro"] .sq.end')).toContain("linear-gradient(135deg,var(--snk-accent-2),");
   });
   test("Modern is flat and clean: thin line, tints washed with white, a light frame and a small shadow, sans numerals, calm page", () => {
-    const grid = rule('html[data-look="modern"] .sqgrid'); expect(grid).toContain("box-shadow:0 0 0 1px var(--snk-line,"); expect(grid).toContain("background:var(--snk-line,"); expect(grid).toContain("border-color:var(--snk-surface,");
-    expect(rule('html[data-look="modern"] .sq.h0:not(.end)')).toMatch(/^background:linear-gradient\(rgba\(255,255,255,\.6\),rgba\(255,255,255,\.6\)\),var\(--snk-band-0,/);
+    const grid = rule('html[data-look="modern"] .sqgrid'); expect(grid).toContain("box-shadow:0 0 0 1px var(--snk-line)"); expect(grid).toContain("background:var(--snk-line)"); expect(grid).toContain("border-color:var(--snk-surface)");
+    expect(rule('html[data-look="modern"] .sq.h0:not(.end)')).toMatch(/^background:linear-gradient\(rgba\(255,255,255,\.6\),rgba\(255,255,255,\.6\)\),var\(--snk-band-0\)/);
     expect(rule('html[data-look="modern"] .so b')).toMatch(/font-family:var\(--sans,/); expect(rule('html[data-look="modern"] .so b')).toContain("font-weight:600"); expect(rule('html[data-look="modern"] .so b')).toContain("text-shadow:none");
-    expect(rule('html[data-look="modern"] body')).toMatch(/^background:var\(--snk-bg,/); expect(rule('html[data-look="modern"] .zcard')).toContain("box-shadow:none"); expect(rule('html[data-look="modern"] .zbtn')).toContain("box-shadow:none");
+    expect(rule('html[data-look="modern"] body')).toMatch(/^background:var\(--snk-bg\)/); expect(rule('html[data-look="modern"] .zcard')).toContain("box-shadow:none"); expect(rule('html[data-look="modern"] .zbtn')).toContain("box-shadow:none");
   });
   test("nothing moves when the look changes: no rule here changes size, spacing, position or the frame width of the board, the cards or the buttons", () => {
     const geometry = /(^|;)(width|height|min-width|min-height|max-width|max-height|margin[a-z-]*|padding[a-z-]*|gap|row-gap|column-gap|inset|top|left|right|bottom|display|position|aspect-ratio|border|border-width|border-top|border-left|border-right|border-bottom|line-height|grid[a-z-]*|flex[a-z-]*|transform|letter-spacing):/;
     for (const r of rules.filter((x) => /html\[data-look=/.test(x.sel))) expect(r.body.match(geometry), r.sel).toBeNull();
     expect(rules.filter((x) => /html\[data-look=/.test(x.sel) && /font-size/.test(x.body))).toEqual([]); // the numbers keep the size the page gives them: only their type, weight and colour change
   });
-  test("every colour is the scheme's (--snk-*, each with a fallback) or a plain neutral; none is from the old teal block, Tambola's wine and gold, or any cool colour", () => {
+  test("every colour is the scheme's (--snk-*) or a plain neutral; none is from the old teal block, Tambola's wine and gold, or any cool colour", () => {
     expect(vars.length).toBeGreaterThan(40);
-    for (const v of vars) { expect(PROMISED.has(v.name), "--snk-" + v.name).toBe(true); expect(v.fallback, "--snk-" + v.name).not.toBeNull(); }
+    for (const v of vars) { expect(PROMISED.has(v.name), "--snk-" + v.name).toBe(true); }
     const OLD = ["#0B5D5B", "#117A77", "#063B3A", "#F7FBFA", "#F3F8F7"], TAMBOLA = ["#6B1429", "#3E0A1A", "#2A0711", "#E0B872", "#B8894D", "#E8C27A", "#FBF1DC", "#F3D9A4"];
     for (const c of [...OLD, ...TAMBOLA]) expect(css.toUpperCase().includes(c), c).toBe(false);
-    const fb = vars.map((v) => v.fallback!).flatMap((f) => [...f.matchAll(/#[0-9a-fA-F]{3,8}\b/g)].map((m) => m[0]));
-    expect(fb.length).toBeGreaterThan(30);
-    for (const h of fb) { const [r, g, b] = rgb(h); expect(r >= b && !(g > r + 12 && b > r + 12), h).toBe(true); } // warm: never bluer than it is red, so never teal or blue
     const loose = [...rest.matchAll(/#[0-9a-fA-F]{3,8}\b|rgba?\([^)]*\)|hsla?\([^)]*\)/g)].map((m) => m[0]); // a colour written outside var(--snk-...)
     expect(loose.length).toBeGreaterThan(5);
     for (const c of loose) { if (c.startsWith("#")) { const [r, g, b] = rgb(c); expect(r === g && g === b, c).toBe(true); } else { const n = c.replace(/^[a-z]+\(/, "").split(",").slice(0, 3).map((x) => parseFloat(x)); expect(n[0] === n[1] && n[1] === n[2], c).toBe(true); } }
     expect(rest).not.toMatch(/\b(red|green|blue|teal|cyan|purple|pink|orange|yellow|gold|maroon|navy|aqua)\b/i);
   });
   test("focus rings stay: the radio buttons have a visible focus ring and no rule removes an outline; motion is only for people who have not asked for less", () => {
-    expect(rule(".zlookopt input:focus-visible")).toMatch(/outline:3px solid var\(--snk-deep,/);
+    expect(rule(".zlookopt input:focus-visible")).toMatch(/outline:3px solid var\(--snk-deep\)/);
     expect(bare).not.toMatch(/outline\s*:\s*(none|0)\b/);
     const motion = bare.replace(/@media \(prefers-reduced-motion:no-preference\)\{[^{}]*\{[^{}]*\}\}/g, ""); // what is left once the no-preference block is taken out
     expect(motion).not.toMatch(/transition|animation|@keyframes/);
