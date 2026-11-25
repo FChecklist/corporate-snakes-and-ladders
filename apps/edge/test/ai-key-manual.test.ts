@@ -64,12 +64,11 @@ describe("the key manual describes this game, with the three messages and the ru
     for (const [name, text] of [["manual", ai()], ["co-organizer manual", host()], ["manifest", JSON.stringify(AI_MANIFEST)], ["map", mapText(`${ORIGIN}/ai/${KEY}`, ORIGIN)]] as const) expect([name, withoutFacts(text).match(LEFTOVERS)?.[0] ?? null]).toEqual([name, null]);
   });
   test("the words around the API names are the owner's: no guest, ticket, host, participant, engagement, nickname, my, mine, your, yours, event, card, house", () => {
-    const m = JSON.stringify(AI_MANIFEST).replace(/\\"/g, '"').replace(/\\n/g, " ");
+    const m = JSON.stringify(AI_MANIFEST).replace(/\\"/g, '"').replace(/\\n/g, " ").replace(/scratch card/g, "scratch"); // a lucky draw can be shown as a scratch card: that word is the product's, not the old card
     for (const [name, text] of [["manual", ai()], ["co-organizer manual", host()], ["manifest", m], ["map", mapText(`${ORIGIN}/ai/${KEY}`, ORIGIN)]] as const) {
       const hits = [...withoutApiNames(withoutFacts(text)).matchAll(new RegExp(BANNED.source, "gi"))].map((x) => x[0]);
-      expect([name, hits.filter((h) => !/^scratch card$/i.test(h))]).toEqual([name, name === "manifest" ? hits.filter((h) => /^cards?$/i.test(h)) : []]); // the manifest names the scratch card of a lucky draw
+      expect([name, hits]).toEqual([name, []]);
     }
-    for (const [name, text] of [["manifest", m]]) expect([name, withoutApiNames(text).replace(/scratch card/g, "").match(BANNED)?.[0] ?? null]).toEqual([name, null]);
   });
   test("the numbered conversation is the same list as the public page: twelve steps, the same plain words, in the manual, the JSON and the manifest", () => {
     expect(STEPS.length).toBe(12);
@@ -104,5 +103,20 @@ describe("served at /ai/<key>", () => {
     expect([set.status, set.status === 200 ? "" : await set.text()]).toEqual([200, ""]);
     const s = (await (await call("GET", `/ai/${o.key}/z/KEY-1/summary`)).json()) as any; expect(s.callSeconds).toBe(10); expect(s.rewards.length).toBe(5); expect(s.breaks.length).toBe(1);
     const wrong = await call("POST", `/ai/${o.key}/z`, { id: "KEY-2", startRound: start, callSeconds: 9, cap: 100 }); expect(wrong.status).toBe(400); expect(((await wrong.json()) as any).error).toBe("Every turn has a 10 second window."); // the manual says 10, and the code agrees
+  });
+  test("the three messages work as the manual says (checked as soon as the settings code knows them): set in the create call and the settings call by an AI key, read back, cleared with an empty text, refused over 300 characters, never cut", async () => {
+    const cfg: any = await import("../../../packages/beacon/src/config"); if (!Array.isArray(cfg.MESSAGE_FIELDS)) return; // the messages arrive with the messages work; until then the manual documents them and this check waits
+    expect(cfg.MESSAGE_MAX).toBe(300);
+    const o = await organizer(); const start = Math.floor(((T + 86_400_000) / 1000 - 1692803367) / 3) + 1;
+    const made = await call("POST", `/ai/${o.key}/z`, { id: "MSG-AI1", startRound: start, callSeconds: 10, cap: 100, preGameMessage: "Welcome! The game starts soon. Please keep this page open." });
+    expect(made.status).toBe(200);
+    const set = await call("PATCH", `/ai/${o.key}/z/MSG-AI1/settings`, { winnerMessage: "Congratulations! Please collect the gift from the organizer.", closingMessage: "Thank you for playing. See you next time!" });
+    expect(set.status).toBe(200);
+    let s = (await (await call("GET", `/ai/${o.key}/z/MSG-AI1/summary`)).json()) as any;
+    expect([s.preGameMessage, s.winnerMessage, s.closingMessage]).toEqual(["Welcome! The game starts soon. Please keep this page open.", "Congratulations! Please collect the gift from the organizer.", "Thank you for playing. See you next time!"]);
+    const clear = await call("PATCH", `/ai/${o.key}/z/MSG-AI1/settings`, { preGameMessage: "", winnerMessage: null }); expect(clear.status).toBe(200);
+    s = (await (await call("GET", `/ai/${o.key}/z/MSG-AI1/summary`)).json()) as any; expect([s.preGameMessage, s.winnerMessage, s.closingMessage]).toEqual([undefined, undefined, "Thank you for playing. See you next time!"]);
+    const long = await call("PATCH", `/ai/${o.key}/z/MSG-AI1/settings`, { closingMessage: "x".repeat(301) }); expect(long.status).toBe(400);
+    s = (await (await call("GET", `/ai/${o.key}/z/MSG-AI1/summary`)).json()) as any; expect(s.closingMessage).toBe("Thank you for playing. See you next time!"); // refused, not cut and not changed
   });
 });

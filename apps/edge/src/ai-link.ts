@@ -246,6 +246,7 @@ export function nextHint(status: number, error: string, _base: string, origin: s
   if (/at most .*brand moment|you can use .*brand moments|Please switch some off/i.test(error)) return "Send fewer brand moments (1 card allows 1 opening, 3 during the game and 1 closing; 2 boards allow twice that), or change the boards first, then send again.";
   if (/https:\/\/|must start with/i.test(error)) return "Ask the organizer for a link that starts with https:// and has no spaces (a YouTube link, or a direct link to a video or audio file).";
   if (/Names and mobile numbers are handled by the owner/i.test(error)) return `Tell the organizer kindly that this one is theirs: they do it in their console: ${consolePage}`;
+  if (/AI assistant cannot pay/i.test(error)) return `Do not try again. Tell the organizer that the game is ready to pay: they, or a co-organizer, press Pay now in the console: ${consolePage}`;
   if (/cannot do this|cannot pay|may not do this/i.test(error) || status === 403) return `This step is for the organizer. Give them the hand-over link and say what to press: ${consolePage}`;
   if (/Publish the (?:engagement|game) first/i.test(error)) return `Messages need a published game. Give the organizer the publish hand-over: ${consolePage}&do=publish`;
   if (/draft|10 games|waiting/i.test(error) && status === 409) return `Ask the organizer to finish or delete one of their waiting games in the console: ${origin}/zc.html`;

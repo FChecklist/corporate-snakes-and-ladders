@@ -53,6 +53,17 @@ describe("GET /ai-manual is a public page", () => {
   });
 });
 
+describe("the page is well formed", () => {
+  test("every tag is closed in order, every id is used once, and every link inside the page goes to a section that exists", async () => {
+    const html = (await (await get("/ai-manual")).text()).replace(/<style[\s\S]*?<\/style>/g, ""); const VOID = new Set(["meta", "link", "br", "img", "input", "hr"]); const stack: string[] = [];
+    for (const m of html.matchAll(/<(\/?)([a-zA-Z][a-zA-Z0-9]*)\b[^>]*>/g)) { const n = m[2]!.toLowerCase(); if (VOID.has(n)) continue; if (!m[1]) stack.push(n); else expect([m.index, stack.pop()]).toEqual([m.index, n]); }
+    expect(stack).toEqual([]);
+    const ids = [...html.matchAll(/ id="([^"]+)"/g)].map((m) => m[1]!); expect(new Set(ids).size).toBe(ids.length);
+    for (const h of [...html.matchAll(/href="#([^"]+)"/g)].map((m) => m[1]!)) expect([h, ids.includes(h)]).toEqual([h, true]);
+    expect(html.match(/<h1>/g)!.length).toBe(1); expect(html.length).toBeLessThan(60_000); // one title, and a page a chat AI can read whole
+  });
+});
+
 describe("what the page says", () => {
   test("it names each kind of key by its prefix, and says the AI key starts with cba_ and the AI link is <site>/ai/<key>", async () => {
     const t = text(await (await get("/ai-manual")).text());
@@ -115,6 +126,12 @@ describe("the payee is read from the payee record, never typed in", () => {
     (env as any).COMPANY_JSON = JSON.stringify({ legalName: "<b>Odd & Co</b>" }); const html = await (await get("/ai-manual")).text();
     expect(html).toContain("<strong>&lt;b&gt;Odd &amp; Co&lt;/b&gt;</strong>"); expect(html).not.toContain("<b>Odd");
   });
+  test("the contact address cannot break out of its attribute, and only the name and the address are read from the record (never the bank details)", async () => {
+    (env as any).COMPANY_JSON = JSON.stringify({ legalName: "Safe Payee", email: 'x"onmouseover="alert(1)', bank: { name: "Some Bank", accountNumber: "1234567890", ifsc: "ABCD0123456" }, pan: "ABCDE1234F" });
+    const html = await (await get("/ai-manual")).text();
+    expect(html).not.toMatch(/onmouseover="/); expect(html).toContain("mailto:x&quot;onmouseover=&quot;alert(1)");
+    for (const secret of ["Some Bank", "1234567890", "ABCD0123456", "ABCDE1234F"]) expect(html).not.toContain(secret);
+  });
   test("with no company record at all the page still says who the payee is: the record's own default name, read from the record", async () => {
     delete (env as any).COMPANY_JSON; const { company } = await import("../src/pay"); const name = company(env).legalName; expect(name.length).toBeGreaterThan(3);
     expect(text(await (await get("/ai-manual")).text())).toContain(`is ${name}.`);
@@ -160,7 +177,7 @@ describe("it is wired into the site the way the Trust page is", () => {
   test("a built site carries its route and its header rules (the site is built and read, not guessed)", () => {
     const b = Bun.spawnSync(["bun", "run", join(root, "pages/build.mjs")], { cwd: root, stdout: "pipe", stderr: "pipe" }); expect(b.exitCode, new TextDecoder().decode(b.stderr)).toBe(0);
     const routes = JSON.parse(readFileSync(join(root, "pages/public/_routes.json"), "utf8")); expect(routes.include).toContain("/ai-manual"); expect(routes.include).toContain("/ai-manual.html"); expect(routes.include.length).toBeLessThanOrEqual(100);
-    const headers = readFileSync(join(root, "pages/public/_headers"), "utf8"); expect(headers).toMatch(/\n\/ai-manual\n/); expect(headers).toMatch(/\n\/ai-manual\.html\n/);
+    const headers = readFileSync(join(root, "pages/public/_headers"), "utf8"); expect(headers).toMatch(/\n\/ai-manual\n/); expect(headers).toMatch(/\n\/ai-manual\.html\n/); expect(headers).toMatch(/\n\/llms\.txt\n\s+X-Robots-Tag: noindex, nofollow\n/); // llms.txt is for AIs to read: kept out of search, not marked noai
     expect(readdirSync(join(root, "pages/public")).includes("ai-manual.html")).toBe(false); // there is no file: the Worker builds the page
   });
 });
