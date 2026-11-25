@@ -109,7 +109,8 @@ export interface EngagementCfg { /** Owner rules 1.1 (20 Nov 2026) apply to this
   /** The game ends when this many players are home (1 to 5). Absent = 5. */ endPrizes?: number;
   /** True = nobody wins two prizes. Absent = a player may win several. */ exclusive?: true;
   /** Team race: how many teams (2 to 10). */ teams?: number;
-  /** The look of the board: "jungle" (default) or "career" (Career Ladder). Cosmetic only. */ theme?: "jungle" | "career" }
+  /** The look of the board: "jungle" (default) or "career" (Career Ladder). Cosmetic only. */ theme?: "jungle" | "career";
+  /** Three optional messages the organizer writes (plain text, up to MESSAGE_MAX characters each). Absent = none. preGameMessage: players see it before the game starts. winnerMessage: a winner sees it under what they won. closingMessage: every player sees it when the game is over. */ preGameMessage?: string; winnerMessage?: string; closingMessage?: string }
 /**
  * Who decides the winners: the software, never a person. Every phone works out the winners from the public numbers and reports them; our store accepts a result
  * only when this many DIFFERENT phones (one ticket per phone) reported exactly the same winners. Tiny games need half their people; larger ones 5% (3 to 25).
@@ -166,7 +167,22 @@ export const linesFor = (rewards: readonly RewardLine[], key: PatternKey) => rew
 export const breakShift = (breaks: readonly BreakCfg[], k: number): number => breaks.reduce((s, b) => s + (b.after <= k ? b.seconds / 3 : 0), 0);
 
 const cleanText = (s: unknown, max: number) => (typeof s === "string" ? s.replace(/[<>`]/g, "").replace(/\s+/g, " ").trim().slice(0, max) : "");
-const YT = /^https:\/\/((www|m|music)\.)?(youtube\.com|youtu\.be)\//i; // a phone copies m.youtube.com or music.youtube.com links; any other address (youtube.com.evil.example) is still refused
+/** The three optional messages (see EngagementCfg): plain text, at most MESSAGE_MAX characters each. The organizer, the co-organizer and the organizer's AI set them the same way as every other setting, and only before the game starts. */
+export const MESSAGE_MAX = 300;
+export const MESSAGE_FIELDS = ["preGameMessage", "winnerMessage", "closingMessage"] as const;
+/** What each message is called when a refusal names it (plain words, no my / your). */
+export const MESSAGE_LABELS: Record<(typeof MESSAGE_FIELDS)[number], string> = { preGameMessage: "message shown before the game starts", winnerMessage: "message for a winner", closingMessage: "message shown when the game is over" };
+/** Cleans a message: HTML tags (and everything inside a script or style) go, then any `<` or `>`, then control and hidden characters (a new line or a tab becomes a space), then spaces are collapsed and the ends trimmed. */
+export const cleanMessage = (s: string): string => s
+  .replace(/<(script|style)\b[\s\S]*?<\/\1\s*>/gi, " ")
+  .replace(/<\/?[A-Za-z!?][^<>]*>/g, "")
+  .replace(/[<>]/g, "")
+  .replace(/[\u{0}-\u{1f}\u{7f}-\u{9f}\u{2028}\u{2029}]/gu, " ")
+  .replace(/[\u{200b}\u{200e}\u{200f}\u{202a}-\u{202e}\u{2060}-\u{2064}\u{2066}-\u{2069}\u{feff}]/gu, "")
+  .replace(/\s+/g, " ").trim();
+/** The messages that are set, as one small object for a read-back (a message that is not set is left out, like the other optional settings). */
+export const messagesOut = (c: Pick<EngagementCfg, "preGameMessage" | "winnerMessage" | "closingMessage">): Record<string, string> => { const o: Record<string, string> = {}; for (const f of MESSAGE_FIELDS) if (c[f]) o[f] = c[f]!; return o; };
+const YT =/^https:\/\/((www|m|music)\.)?(youtube\.com|youtu\.be)\//i; // a phone copies m.youtube.com or music.youtube.com links; any other address (youtube.com.evil.example) is still refused
 /** A media file kept on our own site (for example the demo's built-in video): a path with no folders, and only a media file type. */
 export const SITE_MEDIA = /^\/[A-Za-z0-9._-]{1,80}\.(mp4|webm|m4a|mp3)$/i;
 
@@ -174,8 +190,8 @@ export const SITE_MEDIA = /^\/[A-Za-z0-9._-]{1,80}\.(mp4|webm|m4a|mp3)$/i;
 export const DEFAULT_TZ = "Asia/Kolkata";
 /** True for a real IANA time zone name this runtime knows. */
 export const isTimeZone = (z: unknown): z is string => { if (typeof z !== "string" || z.length > 64 || !/^[A-Za-z][A-Za-z0-9_+-]*(\/[A-Za-z0-9_+-]+){0,2}$/.test(z)) return false; try { new Intl.DateTimeFormat("en-US", { timeZone: z }); return true; } catch { return false; } };
-export function validateCfg(input: { verify?: unknown; employeesOnly?: unknown; idKind?: unknown; tz?: unknown; join?: unknown; mark?: unknown; tickets?: unknown; rewards?: unknown; breaks?: unknown; rounds?: unknown; invites?: unknown; opening?: unknown; closing?: unknown; name?: unknown; brand?: unknown; mode?: unknown; play?: unknown; board?: unknown; milestones?: unknown; turnCap?: unknown; engine?: unknown; survivors?: unknown; roundTurns?: unknown; endPrizes?: unknown; exclusive?: unknown; teams?: unknown; theme?: unknown }, base: EngagementCfg = defaultCfg(), opts: { stored?: boolean; rules?: boolean } = {}): { ok: true; cfg: EngagementCfg } | { ok: false; error: string } {
-  const cfg: EngagementCfg & { opening: BrandSlot[]; closing: BrandSlot[] } = { tickets: base.tickets, rewards: base.rewards, breaks: base.breaks, rounds: base.rounds ?? 1, invites: base.invites ?? defaultInvites(), opening: base.opening ?? [], closing: base.closing ?? [], ...(base.rules === "1.1" ? { rules: "1.1" as const } : {}), ...(base.verify ? { verify: base.verify } : {}), ...(base.employeesOnly ? { employeesOnly: true as const } : {}), ...(base.idKind === "email" ? { idKind: "email" as const } : {}), ...(base.name ? { name: base.name } : {}), ...(base.brand ? { brand: base.brand } : {}), ...(base.mark ? { mark: base.mark } : {}), ...(base.join ? { join: base.join } : {}), ...(base.tz ? { tz: base.tz } : {}), ...(base.mode ? { mode: base.mode } : {}), ...(base.play ? { play: base.play } : {}), ...(base.board ? { board: base.board } : {}), ...(base.milestones ? { milestones: base.milestones } : {}), ...(base.turnCap ? { turnCap: base.turnCap } : {}), ...(base.endPrizes ? { endPrizes: base.endPrizes } : {}), ...(base.exclusive ? { exclusive: base.exclusive } : {}), ...(base.teams ? { teams: base.teams } : {}), ...(base.theme ? { theme: base.theme } : {}) };
+export function validateCfg(input: { verify?: unknown; employeesOnly?: unknown; idKind?: unknown; tz?: unknown; join?: unknown; mark?: unknown; tickets?: unknown; rewards?: unknown; breaks?: unknown; rounds?: unknown; invites?: unknown; opening?: unknown; closing?: unknown; name?: unknown; brand?: unknown; mode?: unknown; play?: unknown; board?: unknown; milestones?: unknown; turnCap?: unknown; engine?: unknown; survivors?: unknown; roundTurns?: unknown; endPrizes?: unknown; exclusive?: unknown; teams?: unknown; theme?: unknown; preGameMessage?: unknown; winnerMessage?: unknown; closingMessage?: unknown }, base: EngagementCfg = defaultCfg(), opts: { stored?: boolean; rules?: boolean } = {}): { ok: true; cfg: EngagementCfg } | { ok: false; error: string } {
+  const cfg: EngagementCfg & { opening: BrandSlot[]; closing: BrandSlot[] } = { tickets: base.tickets, rewards: base.rewards, breaks: base.breaks, rounds: base.rounds ?? 1, invites: base.invites ?? defaultInvites(), opening: base.opening ?? [], closing: base.closing ?? [], ...(base.rules === "1.1" ? { rules: "1.1" as const } : {}), ...(base.verify ? { verify: base.verify } : {}), ...(base.employeesOnly ? { employeesOnly: true as const } : {}), ...(base.idKind === "email" ? { idKind: "email" as const } : {}), ...(base.name ? { name: base.name } : {}), ...(base.brand ? { brand: base.brand } : {}), ...(base.mark ? { mark: base.mark } : {}), ...(base.join ? { join: base.join } : {}), ...(base.tz ? { tz: base.tz } : {}), ...(base.mode ? { mode: base.mode } : {}), ...(base.play ? { play: base.play } : {}), ...(base.board ? { board: base.board } : {}), ...(base.milestones ? { milestones: base.milestones } : {}), ...(base.turnCap ? { turnCap: base.turnCap } : {}), ...(base.endPrizes ? { endPrizes: base.endPrizes } : {}), ...(base.exclusive ? { exclusive: base.exclusive } : {}), ...(base.teams ? { teams: base.teams } : {}), ...(base.theme ? { theme: base.theme } : {}), ...(base.preGameMessage ? { preGameMessage: base.preGameMessage } : {}), ...(base.winnerMessage ? { winnerMessage: base.winnerMessage } : {}), ...(base.closingMessage ? { closingMessage: base.closingMessage } : {}) };
   if (input.rounds !== undefined) {
     if (!Number.isInteger(input.rounds) || (input.rounds as number) < 1 || (input.rounds as number) > MAX_ROUNDS) return { ok: false, error: "A game has one round. To play again, use Play again: it makes a new game with the same settings." };
     cfg.rounds = input.rounds as number;
@@ -253,6 +269,16 @@ export function validateCfg(input: { verify?: unknown; employeesOnly?: unknown; 
       if (bd.logo !== undefined && bd.logo !== null && bd.logo !== "") { const lg = checkBrandLogo(bd.logo); if (!lg.ok) return lg; logo = bd.logo as string; }
       cfg.brand = { name: nm, color, ...(logo ? { logo } : {}) };
     }
+  }
+  for (const f of MESSAGE_FIELDS) { // the three optional messages: text is cleaned; "" (or null) clears; more than MESSAGE_MAX characters is refused, never cut (a game read back from storage is cut instead, so it can never fail to open)
+    const raw = input[f];
+    if (raw === undefined) continue;
+    if (raw === null) { delete cfg[f]; continue; }
+    if (typeof raw !== "string") return { ok: false, error: `The ${MESSAGE_LABELS[f]} must be plain text. Please type it as words and try again.` };
+    let t = cleanMessage(raw);
+    const n = Array.from(t).length;
+    if (n > MESSAGE_MAX) { if (!opts.stored) return { ok: false, error: `The ${MESSAGE_LABELS[f]} can be at most ${MESSAGE_MAX} characters. This one has ${n}. Please make it shorter and try again.` }; t = Array.from(t).slice(0, MESSAGE_MAX).join(""); }
+    if (t) cfg[f] = t; else delete cfg[f];
   }
   for (const [field, label, max, isOpening] of [["opening", "before the game starts", maxEdgeFor(cfg.tickets), true], ["closing", "at the end of the game", maxEdgeFor(cfg.tickets), false]] as const) {
     const raw = (input as any)[field];
@@ -371,7 +397,7 @@ export function validateCfg(input: { verify?: unknown; employeesOnly?: unknown; 
 }
 
 /** The game-specific settings, picked out of any object (a request body, stored JSON) so every place that reads or writes settings handles them the same way. */
-export const GAME_FIELDS = ["mode", "play", "board", "milestones", "turnCap", "timeLimit", "endPrizes", "exclusive", "teams", "theme"] as const;
+export const GAME_FIELDS = ["mode", "play", "board", "milestones", "turnCap", "timeLimit", "endPrizes", "exclusive", "teams", "theme", "preGameMessage", "winnerMessage", "closingMessage"] as const; // the last three are the organizer's optional messages (MESSAGE_FIELDS)
 export const gameFields = (src: any): Record<string, unknown> => { const o: Record<string, unknown> = {}; if (src && typeof src === "object") for (const k of GAME_FIELDS) if (src[k] !== undefined) o[k] = src[k]; return o; };
 /** The same settings out of a validated config, only those that differ from the defaults (validateCfg already drops the defaults). */
 export const gameOut = (c: EngagementCfg): Record<string, unknown> => { const o: Record<string, unknown> = {}; for (const k of GAME_FIELDS) if ((c as any)[k] !== undefined) o[k] = (c as any)[k]; return o; };
