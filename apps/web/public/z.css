@@ -81,7 +81,7 @@
 .zrolled{font-size:17px}
 .zsteptxt{color:var(--snk-clay-700);font-size:14px}
 .zmissed{margin:8px 0 0}
-.zbtn.zroll{min-height:56px;font-size:19px;background:linear-gradient(180deg,var(--snk-olive-500),var(--snk-olive-700));box-shadow:0 4px 0 var(--snk-olive-800)}
+.zbtn.zroll{min-height:56px;font-size:19px;background:linear-gradient(180deg,var(--snk-accent-2),var(--snk-accent));color:var(--snk-deep);box-shadow:0 4px 0 var(--snk-ember-700)}
 .zbtn.zroll:disabled{background:var(--snk-clay-600);box-shadow:none;opacity:1;color:#fff}
 
 /* the crowd strip: ten bars, one per band of the board */

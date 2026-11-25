@@ -101,13 +101,13 @@ body{overflow-x:hidden}
 .prow .was{font:600 15px var(--mono);color:var(--snk-clay-500);text-decoration:line-through;text-decoration-color:var(--snk-bad);text-decoration-thickness:2px}
 .prow .off{font:800 12px var(--sans);font-style:normal;letter-spacing:.06em;background:var(--snk-bad);color:#fff;border-radius:6px;padding:4px 8px;white-space:nowrap}
 .prow .badge.b2{background:var(--snk-ember-100);color:var(--deep)}
-.prow.pop{background:linear-gradient(135deg,var(--snk-honey-50),#fff);box-shadow:0 0 0 2px var(--acc) inset,0 10px 28px -14px rgba(0,0,0,.35);transform:scale(1.02)}
+.prow.pop{background:linear-gradient(135deg,var(--warnbg),var(--surface));box-shadow:0 0 0 2px var(--acc) inset,0 10px 28px -14px rgba(0,0,0,.35);transform:scale(1.02)}
 .prow.pop2{border-color:var(--acc)}
 .prow .tot{font-size:19px}
 
 .faq .opts{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;padding:0 16px 16px}
 .faq .opt{position:relative;border:1px solid var(--line);border-radius:12px;padding:14px 16px;background:var(--sunk)}
-.faq .opt.best{background:linear-gradient(135deg,var(--snk-honey-50),#fff);border:2px solid var(--acc)}
+.faq .opt.best{background:linear-gradient(135deg,var(--warnbg),var(--surface));border:2px solid var(--acc)}
 .faq .opt h4{margin:0 0 6px;font:600 16px var(--serif);display:flex;align-items:center;gap:8px;color:var(--snk-link)}
 .faq .opt h4 .ic{width:18px;height:18px;stroke:var(--pri);fill:none;stroke-width:1.8}
 .faq .opt p{padding:0;margin:0;font-size:14px}
