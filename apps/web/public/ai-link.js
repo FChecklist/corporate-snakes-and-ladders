@@ -67,7 +67,7 @@
       <hr style="border:0;border-top:1px solid var(--snk-line);margin:16px 0">
       <p class="zsmall" style="margin:0 0 8px">Fresh link: one that works for 24 hours is e-mailed to you.</p><button class="zbtn s alt" id="fr">Get a fresh AI link</button>
       <p class="zsmall" style="margin:14px 0 8px">Lost it? Replace stops every AI link at once.</p><button class="zbtn s alt" id="rp">Replace the AI link</button></div>
-      <p class="zsmall"><a href="/zc.html">Open the console</a></p>`);
+      <p class="zsmall"><a href="/zc.html">Open the console</a> &middot; <a href="/ai-manual">Read the AI manual</a>: what an AI can do, and why it cannot pay</p>`);
     if (r.aiMessage) wireAiOptions(app, r.aiMessage);
     const on = (id, f) => { const b = document.getElementById(id); if (b) b.onclick = f; };
     on("cp", () => { try { navigator.clipboard.writeText(r.aiMessage); document.getElementById("cp").textContent = "Copied. Now paste it in the AI chat"; } catch {} });

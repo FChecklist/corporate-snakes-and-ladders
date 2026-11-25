@@ -2,6 +2,7 @@
 // The older text came from the bingo game (calling speeds, cards per person, houses, a B I N G O card): it would have misled an AI. Every API name stays exactly as the code uses it
 // (tickets, /participants, host, co-host, seat, cba_ ...); this test removes those names and then checks that the words around them are the owner's.
 import { beforeEach, describe, expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
 import { withDevice } from "./device";
 import { AI_MANIFEST, handle, type Env } from "../src/worker";
 import type { PayEnv } from "../src/pay";
@@ -93,7 +94,10 @@ describe("served at /ai/<key>", () => {
   test("the manual, the map and the manifest an AI really receives carry it all; the front door still holds all ten facts in its first 7,000 characters", async () => {
     const o = await organizer(); const text = await (await call("GET", `/ai/${o.key}`)).text(); const map = await (await call("GET", `/ai/${o.key}/map`)).text(); const mf = JSON.stringify(await (await call("GET", "/api/z/ai-manifest")).json());
     expect(text).toContain("starts with cba_"); expect(text).toContain(MESSAGE); expect(text).toContain("preGameMessage"); expect(map).toContain("The pre-game, winner and closing messages"); expect(mf).toContain("preGameMessage");
-    const { FACTS } = await import("../src/ai-facts"); const last = FACTS[FACTS.length - 1]!; expect(text.indexOf(last.say) + last.say.length).toBeLessThan(7000);
+    const { FACTS } = await import("../src/ai-facts"); const last = FACTS[FACTS.length - 1]!; const end = text.indexOf(last.say) + last.say.length; expect(end).toBeLessThan(7000);
+    // The address in this test is short. The live address is longer and is printed in every link of the front door, so measure again with the live one (read from pages/wrangler.toml).
+    const live = /PUBLIC_ORIGIN\s*=\s*"([^"]+)"/.exec(readFileSync(new URL("../../../pages/wrangler.toml", import.meta.url), "utf8"))![1]!;
+    const withLive = end + (text.slice(0, end).split(ORIGIN).length - 1) * (live.length - ORIGIN.length); expect([live, withLive < 7000]).toEqual([live, true]);
   });
   test("a setting the manual teaches is accepted: a game made the way the manual says, with the three messages, reads back (when the settings code knows the messages)", async () => {
     const o = await organizer(); const start = Math.floor(((T + 86_400_000) / 1000 - 1692803367) / 3) + 1;
