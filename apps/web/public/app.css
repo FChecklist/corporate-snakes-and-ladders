@@ -24,6 +24,7 @@
   --ok:var(--snk-ok);--ok-bg:var(--snk-ok-bg);--bad:var(--snk-bad);--bad-bg:var(--snk-bad-bg);--warn:var(--snk-warn);--warn-bg:var(--snk-warn-bg);
   --bar-a:var(--snk-primary);--bar-b:var(--snk-ember-800);--bar-deep:var(--snk-deep);--bar-edge:var(--snk-accent);
   --on-bar:#fff;--on-bar-muted:var(--snk-accent-2);--bar-gold:var(--snk-accent);--bar-ink:var(--snk-deep);
+  --btn:var(--snk-primary);--card:var(--snk-surface); /* the two names the game pack (pack/pack.css, copied from the console repo and not edited here) asks the game for */
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;background:var(--bg);color:var(--ink);font:400 15px/1.5 var(--sans);-webkit-font-smoothing:antialiased}
