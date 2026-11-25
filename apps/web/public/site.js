@@ -101,9 +101,9 @@
         <label class="lb" for="oPh">Your mobile number (optional)</label><input class="inp" id="oPh" type="tel" autocomplete="tel" placeholder="98765 43210">
         <label class="lb" for="oCty">Country of your organization</label><select class="inp" id="oCty">${TB.countryOpts(def)}</select>
         <div id="taxBox"></div><div id="fErr"></div>
-        <button class="btn block" style="margin-top:16px" type="submit" id="payGo">${ic("lock")} ${PAYMODE === "razorpay" ? "Pay securely with Razorpay" : PAYMODE === "off" ? "Payments are not switched on yet" : "Pay (local test payment)"}</button>
+        <button class="btn block" style="margin-top:16px" type="submit" id="payGo">${ic("lock")} ${PAYMODE === "razorpay" ? "Pay now" : PAYMODE === "off" ? "Payments are not switched on yet" : "Pay now (test payment)"}</button>
       </form>
-      <p class="proto">${PAYMODE === "razorpay" ? "Secure payment by Razorpay. A paid game cancelled before it starts stays with the organizer as credit for the next game, valid for 365 days. Unused credit lapses at the end of day 365. The organizer keeps the credit in their account. Once it has started, a paid game cannot be cancelled. Payment to <a href='https://itservices-rajat-agarwal.pages.dev/' rel='noopener' target='_blank'>IT Services by Rajat Agarwal</a>. An invoice is e-mailed to you." : "Local test payment: no real money is taken. Unused places are not credited."}</p>`);
+      <p class="proto">${PAYMODE === "razorpay" ? "Payment is online and secure. A paid game cancelled before it starts stays with the organizer as credit for the next game, valid for 365 days. Unused credit lapses at the end of day 365. The organizer keeps the credit in their account. Once it has started, a paid game cannot be cancelled. Payment to <a href='https://itservices-rajat-agarwal.pages.dev/' rel='noopener' target='_blank'>IT Services by Rajat Agarwal</a>. An invoice is e-mailed after the payment." : "Local test payment: no real money is taken. Unused places are not credited."}</p>`);
     $("oCty").addEventListener("change", taxField);
     $("coForm").addEventListener("submit", (e) => { e.preventDefault(); pay(); });
     taxField(); focusFirst("oName");
@@ -127,7 +127,7 @@
     window.CBFunnel && CBFunnel.report("signup_started");
     try { if (Number.isInteger(S.pack) && S.pack > 10) { sessionStorage.setItem("cbz-cap", String(S.pack)); } } catch {} // the size chosen on the website carries through the sign-in: Quick setup opens with it
     TB.sheet(`${xbtn}<div class="openfree" role="group" aria-labelledby="ofTitle">
-      <div class="sheethead"><span class="rolepill">For the organizer or host</span><span class="sbrand" role="img" aria-label="Corporate Snakes and Ladders"><span class="mark"><img src="/logo-mark.svg" alt="Corporate Snakes and Ladders logo" width="34" height="34"></span><span class="word">Corporate Snakes and Ladders<i>.</i></span></span></div>
+      <div class="sheethead"><span class="rolepill">For the organizer or co-organizer</span><span class="sbrand" role="img" aria-label="Corporate Snakes and Ladders"><span class="mark"><img src="/logo-mark.svg" alt="Corporate Snakes and Ladders logo" width="34" height="34"></span><span class="word">Corporate Snakes and Ladders<i>.</i></span></span></div>
       <div class="eyebrow ofeye">Build it and publish it free.</div><h2 id="ofTitle">Create your game</h2>
       <ul class="bgrid"><li><span class="bico">${ic("play")}</span><span>Add a message, video or lucky draw between turns</span></li><li><span class="bico">${ic("trophy")}</span><span>Pick the gifts: a milestone gift and 1st to 5th place</span></li><li><span class="bico">${ic("users")}</span><span>Snakes and Ladders for a close group in a company</span></li><li><span class="bico">${ic("ticket")}</span><span>Every board is different, and equally hard</span></li><li><span class="bico">${ic("phone")}</span><span>Each player gets a board on their phone</span></li><li><span class="bico">${ic("star")}</span><span>A free AI assistant sets it up for you</span></li><li><span class="bico">${ic("gift")}</span><span>Players never pay. You provide the gifts</span></li><li><span class="bico">${ic("trash")}</span><span>Player names are auto-deleted within 24 hours of the game ending</span></li><li><span class="bico">${ic("shield")}</span><span>Designed to follow DPDP Act, GDPR and CCPA</span></li></ul>
       ${k2Box}${gBox}<form id="frForm" novalidate><label class="lb" for="fMail">Your e-mail</label><input class="inp big" id="fMail" type="email" inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" placeholder="your e-mail" aria-describedby="fErr"><div id="fErr" role="alert"></div>
@@ -284,10 +284,10 @@
     try {
       const r = await fetch("/api/whoami", { headers: { "x-organizer": t }, cache: "no-store" });
       if (!r.ok) return;
-      const k = (await r.json()).kind, who = k === "host" ? "Host" : k === "master" ? "Organizer" : "";
+      const k = (await r.json()).kind, who = k === "host" ? "Co-organizer" : k === "master" ? "Organizer" : "";
       if (!who) return;
       let both = false; try { both = !!CTK.get("cbz-alt"); } catch {}
-      a.textContent = `Signed in as ${who}${both ? " (also " + (who === "Host" ? "Organizer" : "Host") + ")" : ""} · Open my console`;
+      a.textContent = `Signed in as ${who}${both ? " (also " + (who === "Host" ? "Organizer" : "Co-organizer") + ")" : ""} · Open my console`;
       a.href = "/zc.html"; a.classList.add("signedin");
       a.addEventListener("click", (e) => e.stopImmediatePropagation(), true);
     } catch { /* offline: the normal link stays */ }

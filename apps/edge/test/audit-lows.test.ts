@@ -76,7 +76,7 @@ describe("L5: a phone's proof is not sent in an address", () => {
 });
 
 describe("L6: the 24-hour deletion does not wait for the report", () => {
-  test("when the report step fails every time, the participants' data is still deleted on time", async () => {
+  test("when the report step fails every time, the players' data is still deleted on time", async () => {
     await game("L6-A"); await call("POST", "/api/z/L6-A/join", { name: "Asha", phone: "9876543210", device: dev(1) }, {}, T);
     await raw.prepare("INSERT OR REPLACE INTO kv(k,v) VALUES('contact/L6-A','this is not json{')").run(); // the report step cannot read its contact and throws
     const end = await endBoundMs(env as any, raw.prepare("SELECT * FROM engagement WHERE id='L6-A'").get());

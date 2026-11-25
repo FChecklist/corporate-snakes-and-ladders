@@ -53,7 +53,7 @@ describe("names and numbers are sealed", () => {
     expect(await openPii({ DATA_KEY: "key-one" }, flipped)).toBeNull();
     expect(await openPii({ DATA_KEY: "key-one" }, "plain text")).toBeNull();
   });
-  test("the participant list carries ids, join rounds, roles and inviters but no names; the organizer opens a few names at a time", async () => {
+  test("the player list carries ids, join rounds, roles and inviters but no names; the organizer opens a few names at a time", async () => {
     await create(); await joinAs(1, "Asha"); await joinAs(2, "Bala");
     const list = await j(await call("GET", "/api/z/PRV-1/participants", undefined, org));
     expect(JSON.stringify(list)).not.toMatch(/Asha|Bala/); expect(Object.keys(list.participants[0]).sort()).toEqual(["blocked", "cat", "inv", "jr", "pid", "role"]);
@@ -63,7 +63,7 @@ describe("names and numbers are sealed", () => {
     const names = (await j(await call("GET", `/api/z/PRV-1/names?pids=${pids}`, undefined, org))).names as Record<string, string>;
     expect(Object.values(names).sort()).toEqual(["Asha", "Bala"]);
   });
-  test("people on the invitation list get seats too (collision-free tickets, one device), and the first device to open the link takes the seat", async () => {
+  test("people on the invitation list get seats too (collision-free boards, one device), and the first device to open the link takes the seat", async () => {
     await create();
     await call("POST", "/api/z/PRV-1/roster", { people: [{ phone: "9876543210", name: "Rani" }] }, org, T - 3 * 3_600_000);
     const seat = raw.query("SELECT seq, pid, dev, src FROM seat").get() as any; expect(seat.pid).toMatch(/^1x[0-9a-f]{12}$/); expect(seat.dev).toBeNull(); expect(seat.src).toBe("roster");
@@ -100,7 +100,7 @@ describe("invitations", () => {
     expect((await joinAs(2, "Bala", "PRV-1", { from: s.seq, cat: "family" })).status).toBe(200);
     expect(raw.query("SELECT inv, cat FROM seat WHERE seq=2").get()).toEqual({ inv: null, cat: null });
   });
-  test("one person can invite at most 4: the 5th person using their link is told so, and each invitee is recorded with the kind of guest", async () => {
+  test("one person can invite at most 4: the 5th person using their link is told so, and each invitee is recorded with the kind of player", async () => {
     await create(); await withInvites("PRV-1", { on: true, per: 4, cats: ["family", "colleagues"] });
     await joinAs(1, "Asha"); const inviter = (raw.query("SELECT seq FROM seat").get() as any).seq;
     for (let i = 2; i <= 5; i++) expect((await joinAs(i, "G" + i, "PRV-1", { from: inviter, cat: i % 2 ? "family" : "colleagues" })).status).toBe(200);
@@ -112,16 +112,16 @@ describe("invitations", () => {
     expect((await joinAs(7, "Chain", "PRV-1", { from: 2, cat: "family" })).status).toBe(200);
     expect(raw.query("SELECT inv, cat FROM seat WHERE seq=6").get()).toEqual({ inv: null, cat: null });
   });
-  test("a kind of guest the organizer did not allow is not recorded; an unknown inviter is ignored", async () => {
+  test("a kind of player the organizer did not allow is not recorded; an unknown inviter is ignored", async () => {
     await create(); await withInvites("PRV-1", { on: true, per: 4, cats: ["family"] });
     await joinAs(1, "Asha");
     await joinAs(2, "Bala", "PRV-1", { from: 1, cat: "dealers" }); await joinAs(3, "Cara", "PRV-1", { from: 999, cat: "family" });
     expect(raw.query("SELECT inv, cat FROM seat WHERE seq=2").get()).toEqual({ inv: 1, cat: null });
     expect(raw.query("SELECT inv, cat FROM seat WHERE seq=3").get()).toEqual({ inv: null, cat: null });
   });
-  test("the organizer, hosts and co-hosts can invite any number of people, and their seats are flagged", async () => {
+  test("the organizer, co-organizers and invite-only co-organizers can invite any number of people, and their seats are flagged", async () => {
     await create(); await withInvites("PRV-1", { on: true, per: 2, cats: ["family"] });
-    await joinAs(1, "Boss"); await joinAs(2, "Host");
+    await joinAs(1, "Boss"); await joinAs(2, "Co-organizer");
     expect((await call("POST", "/api/z/PRV-1/mark", { phone: "9876500001", role: "organizer" })).status).toBe(403); // only the organizer can mark
     expect((await call("POST", "/api/z/PRV-1/mark", { phone: "9876500001", role: "organizer" }, org, T - 4 * 3_600_000)).status).toBe(200);
     expect((await call("POST", "/api/z/PRV-1/mark", { phone: "9876500002", role: "co-host" }, org, T - 4 * 3_600_000)).status).toBe(200);
@@ -179,7 +179,7 @@ describe("the report and the deletion", () => {
     await create("PRV-1", { turnCap: 100 }); await call("PATCH", "/api/z/PRV-1/settings", { invites: { on: true, per: 4, cats: ["family", "colleagues"] } }, org, T - 4 * 3_600_000);
     await setContact("PRV-1");
     await joinAs(1, "Organizer Olga"); await call("POST", "/api/z/PRV-1/mark", { phone: "9876500001", role: "organizer" }, org, T - 3 * 3_600_000);
-    for (let i = 2; i <= n; i++) await joinAs(i, i === 4 ? "Zed अन" : "Guest " + i, "PRV-1", { from: 1, cat: "family" });
+    for (let i = 2; i <= n; i++) await joinAs(i, i === 4 ? "Zed अन" : "Player " + i, "PRV-1", { from: 1, cat: "family" });
     const pids = (raw.query("SELECT pid FROM seat ORDER BY seq").all() as any[]).map((x) => x.pid);
     // the phones report the TRUE result of this game (the server checks it against the public numbers): the milestone and every home place
     const reported = await settleTrue(call, raw, "PRV-1", pids, ["milestone", "finish"]);
@@ -213,12 +213,12 @@ describe("the report and the deletion", () => {
     const link = linkOf(m); expect(link).toMatch(/report\.html\?e=PRV-1&k=/);
     const r = await buildReport(link); const pdf = r.text;
     expect(pdf.startsWith("%PDF-1.4")).toBe(true); expect(pdf).toMatch(/%%EOF\s*$/);
-    for (const needle of ["Organizer Olga", "Guest 3", "98765 00001", "98765 00002", "Zed ??", "organizer", "boss@acme.com", "Sent on:", "deleted", "365th day"]) expect(pdf.toLowerCase()).toContain(needle.toLowerCase());
+    for (const needle of ["Organizer Olga", "Player 3", "98765 00001", "98765 00002", "Zed ??", "organizer", "boss@acme.com", "Sent on:", "deleted", "365th day"]) expect(pdf.toLowerCase()).toContain(needle.toLowerCase());
     for (const needle of ["The commitment to your data", "permanently deleted from the systems within 24 hours", "DPDP", "GDPR", "California Consumer Privacy Act", "advertising", "encryption", "winners record", "Agreed by", "Prize given"]) expect(pdf).toContain(needle);
     expect(pdf).not.toMatch(/personal data(?! protection)/i);
     expect(pdf).not.toMatch(/the law requires|required by law/i);
     expect(pdf).not.toMatch(/(rs|inr|usd|price)[^\n(]{0,12}per (person|participant|head|user)/i);
-    expect(pdf).toMatch(/Who invited whom/); expect(pdf).toMatch(/\+- Guest 3/);
+    expect(pdf).toMatch(/Who invited whom/); expect(pdf).toMatch(/\+- Player 3/);
     expect(raw.query("SELECT report_ms FROM life").get()).not.toEqual({ report_ms: null });
     expect((raw.query("SELECT COUNT(*) c FROM kv WHERE k LIKE 'rpt%'").get() as any).c).toBeGreaterThanOrEqual(2); // working copies exist until the deletion
     // the link is the credential: a wrong key, and a link for another engagement, open nothing
@@ -235,9 +235,9 @@ describe("the report and the deletion", () => {
     const end = await endBoundMs(env as any, raw.query("SELECT * FROM engagement WHERE id='PRV-1'").get());
     let guard = 0; while (!sentReports.length && guard++ < 20) await tick(end + 5 * 60_000);
     const r = await buildReport(linkOf(sentReports[0]!));
-    expect(r.text).toContain("Gita Menon"); expect(r.text).toContain("90000 00003"); expect(r.text).toMatch(/details changed after the game/); expect(r.text).toMatch(ws === 1 ? /joined as Organizer Olga/ : ws === 4 ? /joined as Zed/ : new RegExp("joined as Guest " + ws));
+    expect(r.text).toContain("Gita Menon"); expect(r.text).toContain("90000 00003"); expect(r.text).toMatch(/details changed after the game/); expect(r.text).toMatch(ws === 1 ? /joined as Organizer Olga/ : ws === 4 ? /joined as Zed/ : new RegExp("joined as Player " + ws));
   });
-  test("22 hours after the end every participant record is gone (working copies too); the winners record, the organizer's details and the engagement stay", async () => {
+  test("22 hours after the end every player record is gone (working copies too); the winners record, the organizer's details and the engagement stay", async () => {
     await prep();
     const e0 = raw.query("SELECT * FROM engagement WHERE id='PRV-1'").get();
     const end = await endBoundMs(env as any, e0);
@@ -325,7 +325,7 @@ describe("asking for deletion", () => {
     expect((raw.query("SELECT COUNT(*) c FROM participant WHERE eid='PRV-AI'").get() as any).c).toBe(1);
     expect((await j(await call("GET", "/api/z/PRV-AI/control/request", undefined, { "x-organizer": k.token }))).requests[0].action).toBe("erase");
     const mail = raw.query("SELECT subject, body FROM outbox WHERE to_addr='boss@acme.com' ORDER BY id DESC LIMIT 1").get() as any;
-    expect(mail.subject).toMatch(/asked to delete all participant data/); expect(mail.body).toMatch(/Nothing is deleted yet/);
+    expect(mail.subject).toMatch(/asked to delete all player data/); expect(mail.body).toMatch(/Nothing is deleted yet/);
     expect((await call("POST", "/api/z/PRV-AI/erase", {}, { "x-organizer": k.token })).status).toBe(200); // the organizer's own confirmation
     expect((raw.query("SELECT COUNT(*) c FROM participant WHERE eid='PRV-AI'").get() as any).c).toBe(0);
   });
@@ -349,7 +349,7 @@ describe("asking for deletion", () => {
     expect((raw.query("SELECT COUNT(*) c FROM participant").get() as any).c).toBe(0);
     expect((await j(await inbound({ from: "Boss@acme.com", subject: "again", text: "delete PRV-MAIL " + code }))).action).not.toBe("deleted"); // the code works once
     const confirmation = raw.query("SELECT subject, body FROM outbox WHERE subject LIKE '%Deleted:%' ORDER BY id DESC LIMIT 1").get() as any;
-    expect(confirmation.subject).toMatch(/Deleted: participant data of PRV-MAIL/); expect(confirmation.body).toMatch(/365 days/);
+    expect(confirmation.subject).toMatch(/Deleted: player data of PRV-MAIL/); expect(confirmation.body).toMatch(/365 days/);
   });
   test("a deletion code expires after 30 minutes, and a second request within 5 minutes does not send a second code", async () => {
     (env as any).INBOUND_SECRET = "in-secret"; await create("PRV-MAIL2"); await setContact("PRV-MAIL2", "boss@acme.com"); await joinAs(1, "Asha", "PRV-MAIL2");

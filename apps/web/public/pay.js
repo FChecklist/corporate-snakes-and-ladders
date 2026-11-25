@@ -41,7 +41,7 @@
         aside: PK.summary({ game: { id: gid, name: (S.info && S.info.name) || gid, startMs: S.info && S.info.startMs, participants: pack || null }, price: d.total ? { total: d.total, base: d.total, gst: 0, currency: d.currency || cur() } : null, paid: true, totalLabel: "Paid" }) + PK.trust(),
         col: PK.receipt(d, {
           title: "Payment received. Your game will begin on time.", form: PK.invoiceForm(S, d), forHtml: `Game ID <span class="pk-mono">${esc(gid)}</span>`,
-          lead: `${d.paidFromCredit ? "Paid from your credit. " : ""}Thank you. Your game for up to <b>${nf(pack)}</b> participants is confirmed.${d.restartedAtMs ? ` It begins at <b>${esc(new Date(d.restartedAtMs).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }))}</b>, for everyone already waiting.` : " Share the link with your participants from your console if you have not already."}`,
+          lead: `${d.paidFromCredit ? "Paid from your credit. " : ""}Thank you. Your game for up to <b>${nf(pack)}</b> players is confirmed.${d.restartedAtMs ? ` It begins at <b>${esc(new Date(d.restartedAtMs).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }))}</b>, for everyone already waiting.` : " Share the link with your players from your console if you have not already."}`,
           after: `${d.invoiceUrl ? '<p class="pk-note">We also emailed it to the organizer.</p>' : ""}<div class="pk-btns">${open(gid)}</div>`,
         }),
       });
@@ -50,7 +50,7 @@
     if (S.wait) return waitCard();
     const pack = packFor(S.info.cap);
     if (!S.info.draft && !S.info.unpaid) return `${back()}${head("This game is already paid and published")}<section class="pk-card pk-single"><a class="pk-btn" href="/zc.html?e=${encodeURIComponent(eid)}">Open your game</a></section>`;
-    if (!pack) return `${back()}${head("A custom arrangement is needed", "An game for more than 10,000 participants is arranged with us directly. Please write to us from the contact page.")}`;
+    if (!pack) return `${back()}${head("A custom arrangement is needed", "An game for more than 10,000 players is arranged with us directly. Please write to us from the contact page.")}`;
     const c = cur(), known = !!PK.cur(S), x = TB.price(pack, c);
     const applied = c === "INR" ? Math.max(Number(S.credited) || 0, Number(S.info.creditApplied) || 0) : 0; // credit already put on this game (by you, or by a Host); it comes off what you pay
     const toPay = Math.max(0, Math.round((x.total - applied) * 100) / 100);
@@ -58,13 +58,13 @@
     const until = S.info.creditExpiresMs ? new Date(S.info.creditExpiresMs - 1).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata", day: "numeric", month: "short", year: "numeric" }) : "";
     const off = S.mode === "off", due = applied ? toPay : x.total;
     const starts = S.info.startMs ? when(S.info.startMs) : "";
-    const pending = S.info.startMs ? `<p class="pk-note"><b>Payment pending.</b> The game does not begin until it is paid for. Starts ${esc(starts)}. You can pay at any time until the guest data is auto-deleted${S.info.erasureMs ? ` (${esc(when(S.info.erasureMs))})` : ""}.${S.info.locked ? " It is waiting for your payment now: pay and it starts 2 minutes after your payment is confirmed." : " If you pay after the start time, it starts 2 minutes after your payment is confirmed."}</p>` : "";
+    const pending = S.info.startMs ? `<p class="pk-note"><b>Payment pending.</b> The game does not begin until it is paid for. Starts ${esc(starts)}. You can pay at any time until the player data is auto-deleted${S.info.erasureMs ? ` (${esc(when(S.info.erasureMs))})` : ""}.${S.info.locked ? " It is waiting for your payment now: pay and it starts 2 minutes after your payment is confirmed." : " If you pay after the start time, it starts 2 minutes after your payment is confirmed."}</p>` : "";
     return `${back()}${PK.layout({
       title: "Publish your game", step: S.busy ? 2 : 1,
       lead: `Payment is for Game ID <b class="pk-mono">${esc(eid)}</b>; Amount <b>${known ? esc(TB.money(due, c)) : "to be shown"}</b>;`,
       aside: PK.summary({ game: { id: eid, name: S.info.name || eid, startMs: S.info.startMs, participants: pack }, noPrice: !known, price: { total: due, base: x.base, gst: x.tax, currency: c }, listTotal: applied ? x.total : null, creditUsed: applied || 0, totalLabel: applied ? "To pay now" : "Total to pay" }) + PK.trust(),
       col: `${off ? '<div class="pk-msg info" role="status">' + PK.icons.info + '<span><b>Online payment opens soon.</b> Your game is saved and nothing is lost. Come back to this page when payment is switched on. Until then it stays held at its start time.</span></div>' : ""}
-        <section class="pk-card"><h2>About this payment</h2><p class="pk-sub">Every participant gets their own ticket on their phone. Participants never pay: you give the rewards. A paid game cancelled before it starts stays with you as credit for your next game, valid for 365 days. Unused credit lapses at the end of day 365. The credit belongs to your organizer account.</p>${pending}</section>
+        <section class="pk-card"><h2>About this payment</h2><p class="pk-sub">Every player gets their own board on their phone. Players never pay: you give the rewards. A paid game cancelled before it starts stays with you as credit for your next game, valid for 365 days. Unused credit lapses at the end of day 365. The credit belongs to your organizer account.</p>${pending}</section>
         ${avail ? `<section class="pk-card done"><h2>Use your credit</h2><p class="pk-sub">You have credit of <b>${esc(TB.money(avail, "INR"))}</b>${until ? ` (valid until ${esc(until)})` : ""}. Use it for this game.</p>${S.err && S.creditErr ? `<div class="pk-msg bad" role="alert">${PK.icons.alert}<span>${esc(S.err)}</span></div>` : ""}<button class="pk-btn" id="usecredit" type="button" ${S.busy ? "disabled" : ""}>Use your credit</button></section>` : ""}
         ${PK.countryLine(S)}
         ${TB.proformaBox()}

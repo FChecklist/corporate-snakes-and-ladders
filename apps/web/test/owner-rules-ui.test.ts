@@ -22,7 +22,7 @@ describe("the console under the owner rules", () => {
     const { p } = await consoleFor("UIR-1", { OWNER_RULES: "1.1" });
     await openStep(p, 2, /How many players/);
     const t = p.text();
-    for (const gone of ["What must a person give", "Mobile number and employee ID", "Which Employee or Email ID", "Anyone with the link", "lets people in at once", "Players throw", "What do guests type to join"]) expect([gone, t.includes(gone)]).toEqual([gone, false]);
+    for (const gone of ["What must a person give", "Mobile number and employee ID", "Which Employee or Email ID", "Anyone with the link", "lets people in at once", "Players throw", "What do players type to join"]) expect([gone, t.includes(gone)]).toEqual([gone, false]);
     expect(t).toContain("Invite people with just an ID"); expect(t).toContain("Every throw happens by itself");
     for (const k of ["ver", "pl", "who", "gj", "idk"]) expect([k, !!p.$(`[data-ck="${k}"]`)]).toEqual([k, false]);
   });

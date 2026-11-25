@@ -43,7 +43,7 @@ describe("paid first on a game with the owner's price", () => {
     const s = await skip(pid); expect(s.status, JSON.stringify(s.body)).toBe(200); expect(s.body.invoiceUrl).toMatch(/^\/api\/invoice\//);
     expect(JSON.stringify(s.body)).not.toMatch(SECRET_WORDS);
     const inv = invoiceData(pid);
-    expect(inv.lines).toEqual([{ description: "Corporate Snakes and Ladders: up to 100 participants (one game), price as agreed", quantity: 1, amount: 1999 }]);
+    expect(inv.lines).toEqual([{ description: "Corporate Snakes and Ladders: up to 100 players (one game), price as agreed", quantity: 1, amount: 1999 }]);
     expect(inv.tax.total).toBe(1999);
     const html = await (await call("GET", s.body.invoiceUrl)).text(); expect(html).toContain("price as agreed"); expect(html).not.toMatch(/coupon|discount|2,399|2399/i);
     const orgMail = q("SELECT body, subject FROM outbox WHERE subject NOT LIKE '%Paid order%'").map((m) => m.subject + "\n" + m.body).join("\n");
@@ -60,7 +60,7 @@ describe("paid first on a game with the owner's price", () => {
     expect(q("SELECT 1 FROM invoice WHERE payment_id=?", pid).length).toBe(0); // nothing yet: the payer may still add details
     expect(await issueDueInvoices(W.env, T + INVOICE_AFTER_MS)).toBe(1);
     const inv = invoiceData(pid);
-    expect(inv.lines).toEqual([{ description: "Corporate Snakes and Ladders: up to 100 participants (one game), price as agreed", quantity: 1, amount: 1 }]);
+    expect(inv.lines).toEqual([{ description: "Corporate Snakes and Ladders: up to 100 players (one game), price as agreed", quantity: 1, amount: 1 }]);
   });
 
   test("a price set in rupees is not applied to a payer in another country (US dollars at the list price); a game with no price is untouched", async () => {
@@ -73,6 +73,6 @@ describe("paid first on a game with the owner's price", () => {
     expect(c.body.razorpay.amount).toBe(239900); expect(sentOrders.at(-1).notes.list_minor).toBeUndefined();
     const pid = c.body.paymentId as string; await pay(c.body, "pay_fp2");
     await skip(pid);
-    expect(invoiceData(pid).lines[0].description).toBe("Corporate Snakes and Ladders: up to 100 participants (one game)"); // the ordinary line
+    expect(invoiceData(pid).lines[0].description).toBe("Corporate Snakes and Ladders: up to 100 players (one game)"); // the ordinary line
   });
 });

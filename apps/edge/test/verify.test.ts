@@ -44,7 +44,7 @@ describe("employee ID", () => {
 });
 
 describe("the settings", () => {
-  test("verify and employeesOnly are saved and shown; employees only forces 'only people on a list' and switches guest invites off", async () => {
+  test("verify and employeesOnly are saved and shown; employees only forces 'only people on a list' and switches player invites off", async () => {
     const t = await setup({ verify: "both", invites: { on: true, per: 3, cats: ["family"] } });
     let s = await j(await call("GET", "/api/z/PPL-1/summary", undefined, t.master)); expect(s.verify).toBe("both"); expect(s.employeesOnly).toBe(false); expect(s.invites.on).toBe(true);
     expect((await call("PATCH", "/api/z/PPL-1/settings", { employeesOnly: true }, t.master)).status).toBe(200);
@@ -148,7 +148,7 @@ describe("guessing employee IDs", () => {
 });
 
 describe("everyone, including employees", () => {
-  test("ID: employees give their ID; an outsider gives a mobile number only and comes in at once; an unknown ID waits; guests can still invite", async () => {
+  test("ID: employees give their ID; an outsider gives a mobile number only and comes in at once; an unknown ID waits; players can still invite", async () => {
     const t = await setup({ verify: "id", invites: { on: true, per: 2, cats: ["family"] } });
     await add(t.master, [{ name: "Asha", empId: "E101" }]);
     expect((await joinAs("PPL-1", 5, { phone: undefined, empId: "E101" })).status).toBe(200);
@@ -208,8 +208,8 @@ describe("the owner's three test sign-ins", () => {
   });
 });
 
-describe("the nickname-only way in (this game's common link)", () => {
-  test("by default a nickname is enough; once the organizer asks for an ID, a nickname alone is no way in and the public info says a number or ID is asked", async () => {
+describe("the name-only way in (this game's common link)", () => {
+  test("by default a name is enough; once the organizer asks for an ID, a name alone is no way in and the public info says a number or ID is asked", async () => {
     const t = await setup();
     expect((await join("PPL-1", { name: "Nick", device: dev(21) })).status).toBe(200);
     expect((await j(await call("GET", "/api/z/PPL-1/info"))).joinPhone).toBe(false);
@@ -217,7 +217,7 @@ describe("the nickname-only way in (this game's common link)", () => {
     const r = await join("PPL-1", { name: "Nick2", device: dev(22) }); expect(r.status).toBe(400); expect((await j(r)).error).toMatch(/employee ID/);
     const info = await j(await call("GET", "/api/z/PPL-1/info")); expect(info.joinPhone).toBe(true); expect(info.verify).toBe("id"); expect(info.employeesOnly).toBe(false);
   });
-  test("employees only also turns the nickname way off, and a late name does not lose the ID kept on the list", async () => {
+  test("employees only also turns the name way off, and a late name does not lose the ID kept on the list", async () => {
     const t = await setup({ verify: "id", employeesOnly: true });
     await add(t.master, [{ name: "", empId: "E500" }]);
     expect((await join("PPL-1", { name: "Nick", device: dev(23) })).status).toBe(400);

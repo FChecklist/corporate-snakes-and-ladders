@@ -57,17 +57,17 @@ const complete = async (c: any, id = "pay_1", now = T, status = "captured") => {
   return call("POST", "/api/payments/verify", { paymentId: c.paymentId, razorpay_order_id: c.razorpay.orderId, razorpay_payment_id: id, razorpay_signature: sign(c, id) }, undefined, now);
 };
 const paidGame = async (t: { master: string }) => { const c = await j(await pay(t.master)); expect((await j(await complete(c))).published).toBe(true); return c; };
-const join = (phone: string, name = "Guest") => call("POST", "/api/z/CAN-1/join", { phone, name });
+const join = (phone: string, name = "Player") => call("POST", "/api/z/CAN-1/join", { phone, name });
 const cancelIt = (key: string, now = T, confirmations = 3) => call("POST", "/api/z/CAN-1/cancel", { confirmations }, key, now);
 const paymentRow = () => raw.prepare("SELECT * FROM payment WHERE status='paid'").get() as any;
 
 // Gap closed 2026-10-09: a Host added from inside a game gets a link (and an e-mail) that opens THAT game; a game id of another account is ignored.
-describe("Host link carries the game id", () => {
+describe("Co-organizer link carries the game id", () => {
   test("added from a game: the link and the e-mail open that game", async () => {
     const t = await team();
     const r = await j(await call("POST", "/api/org/host", { label: "Meena", email: "meena@acme.com", e: "CAN-1" }, t.master));
     expect(r.link).toContain("&e=CAN-1"); expect(r.link).toMatch(/zc\.html\?k=cbh_[0-9a-f]{48}&e=CAN-1$/);
-    const m = mailsTo("meena@acme.com").find((x) => x.subject.includes("Host"))!;
+    const m = mailsTo("meena@acme.com").find((x) => x.subject.includes("Co-organizer"))!;
     expect(m.body).toContain("&e=CAN-1");
   });
   test("added with no game, or with a game that is not theirs: no game id in the link", async () => {

@@ -23,7 +23,7 @@ export const freshPause = (): PauseState => ({ clock: newClock(), log: [] });
 
 /** Pause or resume. Organizer always; Host only when the Organizer has registered a Host key (hostKeyOk). Anyone else is refused. Every change is logged with the role. */
 export function applyPause(st: PauseState, action: "pause" | "resume", role: Role, hostKeyOk: boolean, now: number): { ok: true; st: PauseState } | { ok: false; error: string } {
-  if (!canControlClock(role) || (role === "host" && !hostKeyOk)) return { ok: false, error: "Only the Organizer, or a Host the Organizer has set up with a key, can pause or resume the game." };
+  if (!canControlClock(role) || (role === "host" && !hostKeyOk)) return { ok: false, error: "Only the Organizer, or a Co-organizer the Organizer has set up with a key, can pause or resume the game." };
   const clock = action === "pause" ? pause(st.clock, role, now) : resume(st.clock, role, now);
   if (clock === st.clock) return { ok: false, error: action === "pause" ? "The game is not running, so it cannot be paused." : "The game is not paused." };
   return { ok: true, st: { clock, log: logChange(st.log, role, action, now) } };

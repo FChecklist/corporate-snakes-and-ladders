@@ -25,7 +25,7 @@ async function game(o: { h: Record<string, string> }, id: string, startOffset = 
 }
 
 describe("replace the report link (G-07)", () => {
-  test("the organizer makes a new link: the old key stops, the new one works; an AI key, a Co-host and strangers cannot", async () => {
+  test("the organizer makes a new link: the old key stops, the new one works; an AI key, an invite-only co-organizer and strangers cannot", async () => {
     const o = await org(); await game(o, "RPT-1");
     const before = await reportLink(env as any, "RPT-1"); const kOld = before.match(/k=([0-9a-f]{40})/)![1]!;
     const ok = (k: string) => call("GET", `/api/report/RPT-1?k=${k}&part=base`);

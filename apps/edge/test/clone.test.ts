@@ -61,7 +61,7 @@ const complete = async (c: any, id = "pay_" + (Object.keys(payments).length + 1)
 };
 
 describe("who may clone", () => {
-  test("the Organizer and a Host (equal rights); never an AI key, a Co-host, a stranger or another account", async () => {
+  test("the Organizer and a Co-organizer (equal rights); never an AI key, an invite-only co-organizer, a stranger or another account", async () => {
     const t = await world();
     const a = await clone(t.master); expect(a.status).toBe(200);
     const b = await clone(t.host); expect(b.status).toBe(200);
@@ -78,7 +78,7 @@ describe("what the new game is", () => {
     const r = await clone(t.master, { withPeople: false }); const b = await j(r); const newId = b.id as string;
     expect(newId).toMatch(/^OLD-1-[A-Z2-9]{4}$/);
     expect({ ok: b.ok, openUrl: b.openUrl, peopleCopied: b.peopleCopied }).toEqual({ ok: true, openUrl: `https://bingo.test/zc.html?e=${newId}`, peopleCopied: 0 });
-    expect(Array.isArray(b.copied)).toBe(true); expect(b.copied).toContain("Prizes (all of them, with their texts)"); expect(b.copied).toContain("Brand strip"); expect(b.copied).toContain("Guest invites"); expect(b.copied).toContain("Rounds");
+    expect(Array.isArray(b.copied)).toBe(true); expect(b.copied).toContain("Prizes (all of them, with their texts)"); expect(b.copied).toContain("Brand strip"); expect(b.copied).toContain("Player invites"); expect(b.copied).toContain("Rounds");
     const n = row(newId);
     expect(n).toMatchObject({ org: before.org, pack: 0, cap: 300, call_seconds: 10, closed: 1, cohost_limit: 50, cancelled_ms: null, unplayed_ms: null });
     expect(JSON.parse(n.config)).toEqual(JSON.parse(before.config)); // prizes, brand, rounds, invites, brand moments, name: all of it
@@ -87,7 +87,7 @@ describe("what the new game is", () => {
     const s = await j(await call("GET", `/api/z/${newId}/summary`, undefined, t.master));
     expect(s.status).toBe("draft"); expect(s.paid).toBe(false); expect(s.participants).toBe(0); expect(s.name).toBe("Diwali Party");
   });
-  test("it does NOT copy payment, status, guests, waiting requests, Co-hosts or personal links", async () => {
+  test("it does NOT copy payment, status, players, waiting requests, Invite-only co-organizers or personal links", async () => {
     const t = await world();
     const c = await j(await pay(t.master, "OLD-1")); expect((await j(await complete(c))).published).toBe(true); // OLD-1 is paid
     await call("PATCH", "/api/z/OLD-1/settings", { whoCanJoin: "list" }, t.master, T);
@@ -168,7 +168,7 @@ describe("bring my people list", () => {
     expect((await j(await clone(t.master, {}))).peopleCopied).toBe(0);
     await call("POST", "/api/z/OLD-1/erase", {}, t.master);
     const b = await j(await clone(t.master, { withPeople: true }));
-    expect(b.peopleCopied).toBe(0); expect(b.peopleNote).toBe("The old guest list has been auto-deleted, so add your people again.");
+    expect(b.peopleCopied).toBe(0); expect(b.peopleNote).toBe("The old player list has been auto-deleted, so add your people again.");
     expect(count("SELECT COUNT(*) AS c FROM person WHERE eid=?", b.id)).toBe(0);
   });
   test("the copy belongs to the new game and follows ITS clock: the old game's copy is erased on the old clock, the new list survives", async () => {

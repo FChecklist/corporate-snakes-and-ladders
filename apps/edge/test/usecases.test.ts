@@ -330,7 +330,7 @@ describe("C. publish and pay", () => {
 });
 
 /* ============================== D. participants ============================== */
-describe("D. participants", () => {
+describe("D. players", () => {
   async function published(id: string, over: Record<string, unknown> = {}) {
     const o = await organizer(); await call("POST", "/api/z", eng(id, over), o.h); await call("POST", `/api/z/${id}/publish`, contact, o.h); return o;
   }
@@ -340,7 +340,7 @@ describe("D. participants", () => {
     expect((await call("GET", "/api/z/DRAFT-X/info")).status).toBe(403);
     expect((await call("GET", "/api/z/DRAFT-X/control")).status).toBe(404);
   });
-  test("UC-30 the same number written four ways is one participant with one ticket", async () => {
+  test("UC-30 the same number written four ways is one player with one board", async () => {
     await published("SAME-N");
     const ids = new Set<string>();
     for (const p of ["9876543210", "+91 98765 43210", "098765 43210", "91-98765-43210"]) ids.add((await j(await call("POST", "/api/z/SAME-N/join", { phone: p }))).pid);
@@ -484,7 +484,7 @@ describe("F. exceptions: what can go wrong", () => {
     await purgeOld(env as Env, T + 366 * DAY);
     expect((raw.prepare("SELECT COUNT(*) AS c FROM kv WHERE k LIKE '%/ERASE-1'").get() as any).c).toBe(0);
   });
-  test("UC-52 claims for patterns, positions or rounds that do not exist, or from non-participants, are not stored", async () => {
+  test("UC-52 claims for patterns, positions or rounds that do not exist, or from non-players, are not stored", async () => {
     const o = await organizer(); await call("POST", "/api/z", eng("CLAIM-1"), o.h); await call("POST", "/api/z/CLAIM-1/publish", contact, o.h);
     const pid = (await j(await call("POST", "/api/z/CLAIM-1/join", { phone: phone(1) }))).pid;
     const send = (claims: unknown[], p = pid) => call("POST", "/api/z/CLAIM-1/claims", { pid: p, claims });
@@ -561,7 +561,7 @@ describe("H. the free plan: pause profiles by size", () => {
   });
 });
 
-describe("I. announcements, co-hosts and scratch cards", () => {
+describe("I. announcements, invite-only co-organizers and scratch cards", () => {
   const pk = async () => (await import("../../../packages/beacon/src/control")).publicKeyFromSecret("11".repeat(32));
   async function live(id: string, o: Org, cap = 100) { await call("POST", "/api/z", eng(id, { cap }), o.h); await call("PUT", `/api/z/${id}/control/key`, { publicKey: await pk() }, o.h); await call("POST", `/api/z/${id}/publish`, contact, o.h); }
   const ann = async (id: string, who: Record<string, string>, text: string, now = T) => call("POST", `/api/z/${id}/announce`, { text }, who, now);
@@ -592,7 +592,7 @@ describe("I. announcements, co-hosts and scratch cards", () => {
     expect((await ann("ANN-DRAFT", o.h, "hi", T + 60_000)).status).toBe(400);
     const other = await organizer(); expect((await ann("ANN-2", other.h, "hijack", T + 60_000)).status).toBe(403);
   });
-  test("UC-81 a Host through an AI work link can watch and send messages, and nothing else; at most five Hosts; retiring stops it at once", async () => {
+  test("UC-81 a Co-organizer through an AI work link can watch and send messages, and nothing else; at most five Co-organizers; retiring stops it at once", async () => {
     const o = await organizer(); await live("HOST-1", o);
     const hk = (await j(await call("POST", "/api/org/host", { mobile: "9876500009", email: "host@acme.com" }, o.h))).hostKey as string; expect(hk).toMatch(/^cbh_/);
     const h = { "x-organizer": hk, "x-cb-link": "1" }; // an AI work link keeps the narrow rights (in the console a Host may do much more: see roles.test.ts)

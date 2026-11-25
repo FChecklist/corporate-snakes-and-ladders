@@ -241,7 +241,7 @@ describe("lucky draws: sizes and who can win", () => {
       expect(luckyWinners("E1", 30, "cd".repeat(16), pids, want)).not.toEqual(pool > want ? a : ["x"]);
     });
   }
-  test("the organizer, a Host and a Co-host seat are flagged out of the draw on the public seat list; ordinary guests are not", async () => {
+  test("the organizer, a Co-organizer and an invite-only co-organizer seat are flagged out of the draw on the public seat list; ordinary players are not", async () => {
     const g = await paidGame({ cap: 100 });
     const start = roundMs((one("SELECT start_round s FROM engagement WHERE id=?", g.id) as any).s);
     for (let i = 1; i <= 5; i++) expect((await join(g.id, i)).status).toBe(200);

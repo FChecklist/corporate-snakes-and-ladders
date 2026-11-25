@@ -23,7 +23,7 @@ describe("the document pages", () => {
     "dpa.html": ["Companies that help run the service", 'href="/terms.html#processors"'], // only points to the one document
     "subprocessors.html": ["Companies that help run the service", 'href="/terms.html#processors"'],
     "partner-terms.html": ["independent partner", "No spam", "Tax may be deducted at source", "You are responsible for your own taxes", "No payment from the buyer, no commission"],
-    "organizer-guide.html": ["Never ask for a fee", "Players are 18 or older", "₹10,000", "tax deducted at source", "Check your state", "The game does not begin until it is paid for"],
+    "organizer-guide.html": ["Never ask for a fee", "Players are 18 or older", "₹10,000", "tax deducted at source", "Please check the state rules", "The game does not begin until it is paid for"],
   };
   for (const [f, needles] of Object.entries(DOCS)) test(`${f}: brand header and footer, title pattern, the right statements, no draft mark, no tick box, short lines`, () => {
     const h = rd(f);

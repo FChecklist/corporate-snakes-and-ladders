@@ -48,7 +48,7 @@ describe("engagement set-up", () => {
 
 describe("joining", () => {
   beforeEach(async () => { await create(); });
-  test("the same number joining twice, even typed differently, is one participant and one write", async () => {
+  test("the same number joining twice, even typed differently, is one player and one write", async () => {
     const a = await (await call("POST", "/api/z/ENG1/join", { phone: "+91 98765-43210" })).json() as any;
     const b = await (await call("POST", "/api/z/ENG1/join", { phone: "919876543210" })).json() as any;
     expect(a.pid).toBe(b.pid);
@@ -79,7 +79,7 @@ describe("joining", () => {
     expect((await call("POST", "/api/z/ENG1/../x")).status).toBe(404);
     expect((await call("DELETE", "/api/z/ENG1/claims")).status).toBe(404);
   });
-  test("the participant cap is enforced and a full engagement still lets existing people back in", async () => {
+  test("the player cap is enforced and a full engagement still lets existing people back in", async () => {
     await create({ id: "SMALL", cap: 3 });
     for (let i = 0; i < 3; i++) expect((await join(i, "SMALL")).status).toBe(200);
     expect((await join(99, "SMALL")).status).toBe(409);
@@ -100,7 +100,7 @@ describe("claims", () => {
     expect((await claim({ pid: "deadbeefdeadbeef", claims: [{ pattern: "finish", idx: 3 }] })).status).toBe(403);
     expect((await claim({ pid: 5, claims: [] })).status).toBe(400);
   });
-  test("a participant of another engagement cannot claim here", async () => {
+  test("a player of another engagement cannot claim here", async () => {
     await create({ id: "ENG2" });
     const other = ((await (await join(50, "ENG2")).json()) as any).pid;
     expect((await claim({ pid: other, claims: [{ pattern: "climb", idx: 70 }] })).status).toBe(403);
@@ -198,7 +198,7 @@ describe("roster, history, erase and 365-day retention", () => {
     expect(txt.includes("phone_hash")).toBe(false);
     expect(JSON.parse(txt).participants).toHaveLength(1);
   });
-  test("reuse copies the roster into a new engagement and the same phone lands on the new participant", async () => {
+  test("reuse copies the roster into a new engagement and the same phone lands on the new player", async () => {
     for (let i = 0; i < 5; i++) await join(i);
     await create({ id: "ENG2" });
     const r = await (await call("POST", "/api/z/ENG2/reuse", { from: "ENG1" }, org)).json() as any;
@@ -328,7 +328,7 @@ describe("organizers, their AI assistant, and what the AI may not do", () => {
     expect(r.error).toMatch(/AI assistant may not/);
     const mf = await (await call("GET", "/api/z/ai-manifest")).json() as any;
     expect(JSON.stringify(mf.you_cannot)).toMatch(/Choose, publish, change or remove winners/);
-    expect(JSON.stringify(mf)).not.toMatch(/lottery|bogey|player\b|prize\b|admin/i);
+    expect(JSON.stringify(mf)).not.toMatch(/lottery|bogey|admin/i);
   });
   test("a new AI key replaces the old one; revoking stops it at once; the master key is unaffected", async () => {
     const second = ((await (await call("POST", "/api/org/ai", {}, asM())).json()) as any).aiKey;
@@ -360,7 +360,7 @@ describe("organizers, their AI assistant, and what the AI may not do", () => {
     const r = await (await call("POST", "/api/z/MINE1/roster", { people: [{ phone: phone(3) }, { phone: phone(4) }] }, asM())).json() as any;
     expect(r).toMatchObject({ added: 1, skipped: 1 });
   });
-  test("a roster entry joins with the same ticket id they would get joining by themselves", async () => {
+  test("a roster entry joins with the same board id they would get joining by themselves", async () => {
     await call("POST", "/api/z/MINE1/roster", { people: [{ phone: phone(5), name: "Rosa" }] }, asM());
     const pid = (raw.query("SELECT pid FROM participant WHERE eid='MINE1'").get() as any).pid;
     const j = await (await join(5, "MINE1")).json() as any;
@@ -539,7 +539,7 @@ describe("pause file served from a cached static copy", () => {
   });
 });
 
-describe("tickets, reward lines and brand breaks", () => {
+describe("boards, reward lines and brand breaks", () => {
   const FUT = Math.floor((T / 1000 - 1692803367) / 3) + 1 + 4000;
   const mk = (extra: Record<string, unknown> = {}, id = "CFG01") => call("POST", "/api/z", { id, startRound: FUT, callSeconds: 10, cap: 50, ...extra }, org);
   const info = async (id = "CFG01") => (await (await call("GET", `/api/z/${id}/info`)).json()) as any;
@@ -642,7 +642,7 @@ describe("big lists come in pages, and the daily clean-up runs by itself", () =>
   const plat = { "x-organizer": SECRET };
   const D = 86_400_000;
   const old = (id: string) => raw.run("INSERT INTO engagement(id,start_round,call_seconds,cap,created_ms,org,closed,pack,tickets,config) VALUES(?,?,?,?,?,NULL,0,5,1,NULL)".replace(/\?/g, () => "?"), [id, 5, 6, 5, T - 400 * D] as any);
-  test("participants are returned in pages with a total, so one request never has to carry a whole 10,000-person list", async () => {
+  test("players are returned in pages with a total, so one request never has to carry a whole 10,000-person list", async () => {
     await create({ cap: 2000 });
     for (let i = 0; i < 7; i++) await join(i);
     const p1 = await (await call("GET", "/api/z/ENG1/participants?limit=3", undefined, org)).json() as any;
@@ -675,9 +675,9 @@ describe("big lists come in pages, and the daily clean-up runs by itself", () =>
   });
 });
 
-describe("seats and one device per ticket", () => {
+describe("seats and one device per board", () => {
   const joinAs = (phone: string, device: string, eid = "ENG1") => call("POST", `/api/z/${eid}/join`, { phone, device });
-  test("one ticket per phone per engagement: a second number on the same phone is refused; other phones join; an invitation link does not change that", async () => {
+  test("one board per phone per engagement: a second number on the same phone is refused; other phones join; an invitation link does not change that", async () => {
     await create({ cap: 100 });
     expect((await joinAs("9800000001", "d".repeat(32))).status).toBe(200);
     const again = await joinAs("9800000002", "d".repeat(32));
@@ -732,7 +732,7 @@ describe("late joiners and the public seat list", () => {
     expect(JSON.stringify(r)).not.toMatch(/98000001|name/);
     expect(r.seats.every((x: any) => /^\d+x[0-9a-f]{12}$/.test(x[1]) && x[2] === 0)).toBe(true);
   });
-  test("seats flagged as Organizer/Host/Co-host before the game are marked in the public list (so no phone puts them in a lucky draw); flagging is refused once the game began", async () => {
+  test("seats flagged as Organizer/Co-organizer/Invite-only co-organizer before the game are marked in the public list (so no phone puts them in a lucky draw); flagging is refused once the game began", async () => {
     await create({ id: "SEAT-X", startRound: nowround(400), cap: 50 });
     for (let i = 1; i <= 3; i++) await joinAt("98000009" + String(i).padStart(2, "0"), "SEAT-X");
     expect((await call("POST", "/api/z/SEAT-X/mark", { seat: 2, role: "host" }, org, T)).status).toBe(200);
@@ -744,7 +744,7 @@ describe("late joiners and the public seat list", () => {
 });
 const nowround = (delta: number) => Math.floor((T / 1000 - 1692803367) / 3) + 1 + delta;
 
-describe("brand moments: five for each ticket, placed by the software", () => {
+describe("brand moments: five for each board, placed by the software", () => {
   const FUT = Math.floor((T / 1000 - 1692803367) / 3) + 1 + 4000;
   const mk = (extra: Record<string, unknown> = {}, id = "BM01") => call("POST", "/api/z", { id, startRound: FUT, callSeconds: 10, cap: 50, ...extra }, org);
   const info = async (id = "BM01") => (await (await call("GET", `/api/z/${id}/info`)).json()) as any;
@@ -755,7 +755,7 @@ describe("brand moments: five for each ticket, placed by the software", () => {
     const r = (await (await join(1, "BM01")).json()) as any;
     expect(r.opening[0].title).toBe("Hello"); expect(r.closing[0].title).toBe("Bye");
   });
-  test("one ticket allows 1 + 3 + 1; a fourth during-the-game moment, or a second opening, is refused", async () => {
+  test("one board allows 1 + 3 + 1; a fourth during-the-game moment, or a second opening, is refused", async () => {
     expect((await mk({ tickets: 1, breaks: [mid(), mid(), mid(), mid()] })).status).toBe(400);
     expect((await mk({ tickets: 1, opening: [open, open] }, "BM03")).status).toBe(400);
     expect((await mk({ tickets: 1, opening: [open], breaks: [mid(), mid(), mid()], closing: [{ kind: "speech", title: "Bye" }] }, "BM04")).status).toBe(200);
@@ -763,7 +763,7 @@ describe("brand moments: five for each ticket, placed by the software", () => {
   test("the AI manual teaches the new rules and no longer says breaks repeat in every round", async () => {
     const { manualText } = await import("../src/ai-link");
     const t = manualText("https://x.example", "cba_" + "a".repeat(48), "ai", T);
-    expect(t).toContain("5 for each ticket"); expect(t).toContain("ROUND 1 only"); expect(t).toContain("opening"); expect(t).toContain("closing");
+    expect(t).toContain("5 for each board"); expect(t).toContain("ROUND 1 only"); expect(t).toContain("opening"); expect(t).toContain("closing");
     expect(t).not.toContain("breaks repeat in every round");
   });
 });

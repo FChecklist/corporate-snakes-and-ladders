@@ -38,7 +38,7 @@ describe("the e-mailed link lasts 24 hours", () => {
     expect((await at(30 * 24 * H, `/ai/${o.ai}`)).status).toBe(200); // the lasting key never expires
     expect((await call("GET", "/api/whoami", undefined, o.h, T + 30 * 24 * H)).status).toBe(200);
   });
-  test("Get a fresh AI link: a new 24-hour key by mail; the lasting key and earlier links are untouched; AI, co-host, platform and anonymous callers are refused", async () => {
+  test("Get a fresh AI link: a new 24-hour key by mail; the lasting key and earlier links are untouched; AI, invite-only co-organizer, platform and anonymous callers are refused", async () => {
     const o = await organizer(); const first = mailedKey(outbox()[0]!.body);
     const r = await call("POST", "/api/org/ai/fresh", {}, o.h, T + H); const x = await j(r);
     expect(r.status).toBe(200); expect(x.mailed).toBe(true); expect(x.expiresMs).toBe(T + H + 24 * H); expect(x.aiMessage).toBeUndefined();
@@ -50,7 +50,7 @@ describe("the e-mailed link lasts 24 hours", () => {
     for (const hdr of <Record<string, string>[]>[{ "x-organizer": o.ai }, { "x-organizer": hk.hostKey }, { "x-organizer": fresh }, { "x-organizer": "plat" }, {}]) expect((await call("POST", "/api/org/ai/fresh", {}, hdr)).status).toBe(403);
     expect((await call("POST", `/ai/${o.ai}/org/ai/fresh`, {})).status).toBe(403);
   });
-  test("5 live fresh links at most; Replace kills every AI key, the 24-hour ones too; a co-host key made by mail does not use up the co-host places", async () => {
+  test("5 live fresh links at most; Replace kills every AI key, the 24-hour ones too; an invite-only co-organizer key made by mail does not use up the invite-only co-organizer places", async () => {
     const o = await organizer(); const first = mailedKey(outbox()[0]!.body);
     for (let i = 0; i < 4; i++) expect((await call("POST", "/api/org/ai/fresh", {}, o.h)).status).toBe(200);
     expect((await call("POST", "/api/org/ai/fresh", {}, o.h)).status).toBe(429);
@@ -67,7 +67,7 @@ describe("the e-mailed link lasts 24 hours", () => {
 });
 
 describe("Show your AI work link: the signed-in read behind the e-mail's button", () => {
-  test("only the organizer's own sign-in gets the lasting paste; it is never the key in the mail; AI, co-host, platform and anonymous are refused", async () => {
+  test("only the organizer's own sign-in gets the lasting paste; it is never the key in the mail; AI, invite-only co-organizer, platform and anonymous are refused", async () => {
     const o = await organizer(); const mailKey = mailedKey(outbox()[0]!.body);
     const r = await j(await call("GET", "/api/org/ai/link", undefined, o.h));
     expect(r.aiMessage).toContain(`/ai/${o.ai}`); expect(r.aiMessage.split("\n").length).toBe(2); expect(r.aiMessage).not.toContain(mailKey);

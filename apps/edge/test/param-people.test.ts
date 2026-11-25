@@ -8,7 +8,7 @@ afterEach(restore);
 const add = (key: string, id: string, people: unknown[], query = "") => call("POST", `/api/z/${id}/people${query}`, { people }, { "x-organizer": key });
 
 // ---------------------------------------------------------------------------------------------------------- phone formats
-describe("phone number formats on a guest list", () => {
+describe("phone number formats on a player list", () => {
   const VALID: [string, string][] = [
     ["plain ten digits", "9876543210"], ["a space in the middle", "98765 43210"], ["a dash", "98765-43210"], ["+91 and spaces", "+91 98765 43210"], ["a leading zero", "09876543210"],
     ["00 91 prefix", "0091 98765 43210"], ["brackets", "(98765) 43210"], ["91 with no plus", "919876543210"], ["+91 glued", "+919876543210"], ["a dot separator", "98765.43210"],
@@ -64,7 +64,7 @@ describe("phone number formats on a guest list", () => {
 });
 
 // ---------------------------------------------------------------------------------------------------------- list sizes
-describe("guest list sizes", () => {
+describe("player list sizes", () => {
   test("an empty list is refused with a plain 400", async () => {
     const g = await paidGame({ cap: 100 });
     expect((await add(g.key, g.id, [])).status).toBe(400);
@@ -143,12 +143,12 @@ describe("invitation policies: anyone, invite-only, two-level chain", () => {
   test("an open game's info says anyone can join", async () => {
     const g = await paidGame({ cap: 10 }); expect((await j(await call("GET", `/api/z/${g.id}/info`))).whoCanJoin).toBe("anyone");
   });
-  test("settings: invitations with 0 or 11 each, or an unknown kind of guest, are refused", async () => {
+  test("settings: invitations with 0 or 11 each, or an unknown kind of player, are refused", async () => {
     const g = await paidGame({ cap: 10 });
     for (const inv of [{ on: true, per: 0, cats: ["family"] }, { on: true, per: 11, cats: ["family"] }, { on: true, per: 2, cats: ["aliens"] }, { on: true, per: 2, cats: [] }, { on: "yes", per: 2, cats: ["family"] }]) expect((await call("PATCH", `/api/z/${g.id}/settings`, { invites: inv }, g.h)).status).toBe(400);
     expect((await call("PATCH", `/api/z/${g.id}/settings`, { invites: { on: true, per: 2, cats: ["family"] } }, g.h)).status).toBe(200);
   });
-  test("two-level chain: a guest may invite up to their limit; the next one is refused; a guest they invited may play but not invite", async () => {
+  test("two-level chain: a player may invite up to their limit; the next one is refused; a player they invited may play but not invite", async () => {
     const g = await paidGame({ cap: 20 });
     await call("PATCH", `/api/z/${g.id}/settings`, { invites: { on: true, per: 2, cats: ["family", "colleagues"] } }, g.h);
     const a = await j(await join(g.id, 1));
@@ -161,7 +161,7 @@ describe("invitation policies: anyone, invite-only, two-level chain", () => {
     const bTry = await call("POST", `/api/z/${g.id}/people?me=${b.pid}&device=${dev(2)}`, { people: [{ name: "E", phone: mob(5) }] }, {});
     expect(bTry.status).toBe(403);
   });
-  test("a guest cannot invite when the organizer left invitations off", async () => {
+  test("a player cannot invite when the organizer left invitations off", async () => {
     const g = await paidGame({ cap: 20 });
     const a = await j(await join(g.id, 1));
     expect((await call("POST", `/api/z/${g.id}/people?me=${a.pid}&device=${dev(1)}`, { people: [{ name: "B", phone: mob(2) }] }, {})).status).toBe(403);
@@ -176,7 +176,7 @@ describe("invitation policies: anyone, invite-only, two-level chain", () => {
     expect((await call("POST", `/api/z/${g.id}/people`, { people: [{ name: "B", phone: mob(2) }] }, { "x-organizer": g.ai })).status).toBe(403);
     expect((await call("GET", `/api/z/${g.id}/people`, undefined, { "x-organizer": g.ai })).status).toBe(403);
   });
-  test("a Co-host has a list of their own with a limit; the Organizer sees it, the Co-host sees only theirs", async () => {
+  test("an invite-only co-organizer has a list of their own with a limit; the Organizer sees it, the Invite-only co-organizer sees only theirs", async () => {
     const g = await paidGame({ cap: 20 });
     const co = (await j(await call("POST", "/api/org/cohost", { label: "Ravi", phone: "9876500001", e: g.id }, g.h))).cohostKey as string;
     await add(g.key, g.id, [{ name: "OrgGuest", phone: mob(1) }]);
@@ -197,7 +197,7 @@ describe("unicode, long names and hostile strings in every free-text field", () 
     ["a very long name", "N".repeat(500)], ["null bytes and control characters", "A\u0000B\u0007C\u001bD"], ["right-to-left override", "abc‮def"],
   ];
   for (const [label, text] of STRINGS) {
-    test(`a guest named with ${label}: stored sealed, no markup comes back in the list or the winners data, tables survive`, async () => {
+    test(`a player named with ${label}: stored sealed, no markup comes back in the list or the winners data, tables survive`, async () => {
       const g = await paidGame({ cap: 20 });
       const r = await add(g.key, g.id, [{ name: text, phone: mob(1) }]);
       expect(r.status).toBe(200);

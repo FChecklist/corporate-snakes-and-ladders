@@ -142,32 +142,32 @@ async function callerOf(c: Ctx, bodyMe?: unknown, bodyDevice?: unknown): Promise
   if (a.kind) {
     if (!a.plat && (!a.org || a.org !== e.org)) return { res: c.json({ error: "Not allowed." }, 403) };
     if (a.plat || a.kind === "master") return { who: { id: "o", kind: "organizer", all: true, limit: null, label: "Organizer", platform: a.plat } };
-    if (a.kind === "host") return { who: { id: "h:" + c.keyId7, kind: "host", all: true, limit: null, label: "Host" } };
+    if (a.kind === "host") return { who: { id: "h:" + c.keyId7, kind: "host", all: true, limit: null, label: "Co-organizer" } };
     if (a.kind === "cohost") {
-      if (a.eid && a.eid !== e.id) return { res: c.json({ error: "Your Co-host link is for a different game." }, 403) };
-      return { who: { id: "c:" + c.keyId7, kind: "cohost", all: false, limit: e.cohost_limit ?? COHOST_LIMIT_DEFAULT, label: "Co-host" } };
+      if (a.eid && a.eid !== e.id) return { res: c.json({ error: "Your Invite-only co-organizer link is for a different game." }, 403) };
+      return { who: { id: "c:" + c.keyId7, kind: "cohost", all: false, limit: e.cohost_limit ?? COHOST_LIMIT_DEFAULT, label: "Invite-only co-organizer" } };
     }
     return { res: c.json({ error: "Not allowed." }, 403) };
   }
   const pid = c.req.headers.get("x-cb-pid") || c.url.searchParams.get("me") || (typeof bodyMe === "string" ? bodyMe : "");
   if (!pid) return { res: c.json({ error: "Please sign in, or open your game link first." }, 403) };
   const seat = await c.env.DB.prepare("SELECT seq, role, inv, blocked FROM seat WHERE eid=? AND pid=?").bind(c.eid, pid).first<{ seq: number; role: string | null; inv: number | null; blocked: number | null }>();
-  if (!seat) return { res: c.json({ error: "Not a participant of this game." }, 403) };
+  if (!seat) return { res: c.json({ error: "Not a player of this game." }, 403) };
   // the card id is public (the seat list shows it): acting for a card also needs the phone's own device id, like check-in, prizes and leaving do
   if (!(await deviceMatches(c.env, c.eid, pid, c.req.headers.get("x-cb-dev") || c.url.searchParams.get("device") || (typeof bodyDevice === "string" ? bodyDevice : "")))) return { res: c.json({ error: "Open this board on the phone you joined with to invite people.", code: "device" }, 403) };
   if (seat.blocked) return { res: c.json({ error: "You were removed from this game.", code: "removed" }, 403) };
   if (seat.role) return { res: c.json({ error: "Your team seat invites through the console, not through the game page." }, 403) };
-  if (seat.inv !== null) return { res: c.json({ error: "Guests invited by a guest can play but cannot invite more people." }, 403) };
-  if (!c.invites.on) return { res: c.json({ error: "The organizer has not switched on guest invitations for this game." }, 403) };
-  return { who: { id: "s:" + seat.seq, kind: "guest", all: false, limit: c.invites.per, label: "Guest", seat: seat.seq } };
+  if (seat.inv !== null) return { res: c.json({ error: "Players invited by a player can play but cannot invite more people." }, 403) };
+  if (!c.invites.on) return { res: c.json({ error: "The organizer has not switched on player invitations for this game." }, 403) };
+  return { who: { id: "s:" + seat.seq, kind: "guest", all: false, limit: c.invites.per, label: "Player", seat: seat.seq } };
 }
 
 /** The labels the console shows for inviter ids: Organizer, Host <label>, Co-host <label>, Guest (card n). */
 async function labelsOf(c: Ctx): Promise<(id: string | null) => string> {
   const rows = (await c.env.DB.prepare("SELECT substr(hash,1,7) AS h, kind, label FROM organizer_key WHERE org=? AND kind IN ('host','cohost') AND (eid IS NULL OR eid=?)").bind(c.e.org, c.eid).all<{ h: string; kind: string; label: string | null }>()).results ?? [];
   const m = new Map<string, string>();
-  for (const r of rows) m.set((r.kind === "host" ? "h:" : "c:") + r.h, `${r.kind === "host" ? "Host" : "Co-host"}${r.label ? " " + r.label : ""}`);
-  return (id) => (!id ? "" : id === "o" ? "Organizer" : id.startsWith("s:") ? `Guest (player ${id.slice(2)})` : m.get(id) ?? (id.startsWith("h:") ? "Host" : "Co-host"));
+  for (const r of rows) m.set((r.kind === "host" ? "h:" : "c:") + r.h, `${r.kind === "host" ? "Co-organizer" : "Invite-only co-organizer"}${r.label ? " " + r.label : ""}`);
+  return (id) => (!id ? "" : id === "o" ? "Organizer" : id.startsWith("s:") ? `Player (player ${id.slice(2)})` : m.get(id) ?? (id.startsWith("h:") ? "Co-organizer" : "Invite-only co-organizer"));
 }
 
 export interface PersonView { id: string; name: string; maskedPhone: string; status: "invited" | "joined" | "waiting" | "removed"; empId?: string; link: string | null; waLink: string | null; role?: string; inviter?: string; approvedBy?: string }
@@ -325,7 +325,7 @@ async function addPeople(c: Ctx, who: Caller, b: any): Promise<Response> {
   const fresh: typeof todo = [], revive: typeof todo = [];
   for (const t of todo) {
     const p = persons.get(t.ph);
-    if (p) { if (p.status === "removed" && (who.all || (p.inviter === who.id && p.removed_by === who.id))) revive.push(t); /* an Organizer or Host puts anyone back; a Co-host or guest only takes back a person they removed themselves */ else if (p.status === "removed") invalid.push({ raw: `${t.name} ${t.digits ? "+" + phoneDigits(t.digits) : ""}`.trim(), why: "This person was removed. Ask the Organizer or a Host to put them back." }); else { duplicates++; duplicateRows.push({ raw: t.typed, why: "Already on the list." }); } continue; }
+    if (p) { if (p.status === "removed" && (who.all || (p.inviter === who.id && p.removed_by === who.id))) revive.push(t); /* an Organizer or Host puts anyone back; a Co-host or guest only takes back a person they removed themselves */ else if (p.status === "removed") invalid.push({ raw: `${t.name} ${t.digits ? "+" + phoneDigits(t.digits) : ""}`.trim(), why: "This person was removed. Ask the Organizer or a Co-organizer to put them back." }); else { duplicates++; duplicateRows.push({ raw: t.typed, why: "Already on the list." }); } continue; }
     if (seats.has(t.ph)) { duplicates++; duplicateRows.push({ raw: t.typed, why: "Already in the game." }); continue; } // a seat from an older flow (a loaded list): already in the game
     fresh.push(t);
   }
@@ -372,7 +372,7 @@ async function addPeople(c: Ctx, who: Caller, b: any): Promise<Response> {
 }
 
 async function exportPeople(c: Ctx, who: Caller): Promise<Response> {
-  if (!who.all) return c.json({ error: "Only the Organizer and Hosts can download a list." }, 403);
+  if (!who.all) return c.json({ error: "Only the Organizer and co-organizers can download a list." }, 403);
   const whole = c.url.searchParams.get("all") === "1";
   const rows = await (whole
     ? c.env.DB.prepare(`SELECT ${PERSON_COLS} FROM person WHERE eid=? ORDER BY added_ms, id`).bind(c.eid)
@@ -398,7 +398,7 @@ async function removePerson(c: Ctx, who: Caller, id: string, b: any): Promise<Re
   const got = await personFor(c, who, id);
   if ("res" in got) return got.res;
   const row = got.row, db = c.env.DB;
-  if (c.started && !who.all) return c.json({ error: "Once the game has started only the Organizer or a Host can remove people." }, 403);
+  if (c.started && !who.all) return c.json({ error: "Once the game has started only the Organizer or a Co-organizer can remove people." }, 403);
   if (row.role) return c.json({ error: "That is a team member's own seat. Retire the team member instead." }, 409);
   if (row.status === "removed") return c.json({ ok: true, removed: 0 });
   // this person, and (when asked) everyone they invited, and everyone those people invited
@@ -426,7 +426,7 @@ async function removePerson(c: Ctx, who: Caller, id: string, b: any): Promise<Re
   await batched(db, stmts);
   if (c.started) await refreshBlocked(db, c.eid);
   if (who.kind === "host") { // a Host's removal tells the Organizer (the people are not named: the Organizer sees them in the console)
-    try { const to = await c.orgEmail(); if (to) await c.sendMail(to, `A Host removed ${targets.length === 1 ? "someone" : targets.length + " people"} from ${c.gameName}`, `${(await labelsOf(c))(who.id)} removed ${targets.length === 1 ? "one person" : targets.length + " people"} from ${c.gameName} at ${c.istTime(c.now)}.\n\nYou can see who in your console, under Your people.`); } catch { /* a mail is a nudge, never a requirement */ }
+    try { const to = await c.orgEmail(); if (to) await c.sendMail(to, `A Co-organizer removed ${targets.length === 1 ? "someone" : targets.length + " people"} from ${c.gameName}`, `${(await labelsOf(c))(who.id)} removed ${targets.length === 1 ? "one person" : targets.length + " people"} from ${c.gameName} at ${c.istTime(c.now)}.\n\nYou can see who in your console, under Your people.`); } catch { /* a mail is a nudge, never a requirement */ }
   }
   return c.json({ ok: true, removed: targets.length, during: c.started });
 }
@@ -436,7 +436,7 @@ async function resendPerson(c: Ctx, who: Caller, id: string, b: any): Promise<Re
   if ("res" in got) return got.res;
   const row = got.row, db = c.env.DB;
   if (row.status === "removed") return c.json({ error: "That person was removed. Add them again first." }, 409);
-  if (c.started && !who.all) return c.json({ error: "Once the game has started only the Organizer or a Host can send a link again." }, 403);
+  if (c.started && !who.all) return c.json({ error: "Once the game has started only the Organizer or a Co-organizer can send a link again." }, 403);
   let pii = await openPii(c.env, row.pii), ph = row.ph, newPii: string | null = null;
   const hasSeat = !!(await db.prepare("SELECT 1 AS x FROM seat WHERE eid=? AND ph=?").bind(c.eid, row.ph).first());
   if (b?.phone !== undefined && b.phone !== null && String(b.phone).trim() !== "") { // a new number: only for someone who has not joined yet
@@ -598,7 +598,7 @@ async function meRoute(c: Ctx): Promise<Response> {
   const db = c.env.DB, pid = c.url.searchParams.get("pid"), wid = c.url.searchParams.get("wid");
   if (pid) {
     const s = await db.prepare("SELECT seq, role, inv, blocked FROM seat WHERE eid=? AND pid=?").bind(c.eid, pid).first<{ seq: number; role: string | null; inv: number | null; blocked: number | null }>();
-    if (!s) return c.json({ error: "Not a participant of this game." }, 404);
+    if (!s) return c.json({ error: "Not a player of this game." }, 404);
     const p = await db.prepare("SELECT inviter, approved_by FROM person pe JOIN seat se ON se.eid=pe.eid AND se.ph=pe.ph WHERE se.eid=? AND se.pid=?").bind(c.eid, pid).first<{ inviter: string; approved_by: string | null }>().catch(() => null);
     const ownList = s.inv === null && !s.role;
     return c.json({ state: s.blocked ? "removed" : "playing", removed: !!s.blocked, role: s.role ?? null, seat: s.seq, canInvite: !s.blocked && ownList && c.invites.on, per: c.invites.per, used: ownList ? await listCount(db, c.eid, "s:" + s.seq) : 0, whoCanJoin: c.e.closed ? "list" : "anyone", ...(p ? { listed: true } : {}) });
@@ -618,7 +618,7 @@ export async function waitingWho(c: { env: Env; e: any; eid: string }, inviter: 
   if (inviter === "o") return "the organizer";
   if (inviter.startsWith("s:")) return "the person who invited you";
   const r = await c.env.DB.prepare("SELECT label FROM organizer_key WHERE org=? AND substr(hash,1,7)=? AND kind=?").bind(c.e.org, inviter.slice(2), inviter.startsWith("h:") ? "host" : "cohost").first<{ label: string | null }>();
-  return r?.label ? r.label : inviter.startsWith("h:") ? "the host" : "the co-host";
+  return r?.label ? r.label : inviter.startsWith("h:") ? "the co-organizer" : "the invite-only co-organizer";
 }
 
 /** Joins a person's request to wait. Used by the Worker's `join`. Returns the existing request when the number already asked. */

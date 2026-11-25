@@ -71,7 +71,7 @@ describe("mail that is not built by mails.ts gets the same brand when it is sent
     const h = plainToHtml("t", "<script>alert(1)</script>\n\nhttps://x.test/a?b=1&c=2", ORIGIN);
     expect(h).not.toContain("<script>"); expect(h).toContain("&lt;script&gt;"); expect(h).toContain('data-brand="header"');
   });
-  test("every mail a whole unpaid lifecycle sends (sign-up, publish, co-host, reminder, could-not-begin, sign-in, replace, alert) carries the footer, and the name is spelled right", async () => {
+  test("every mail a whole unpaid lifecycle sends (sign-up, publish, invite-only co-organizer, reminder, could-not-begin, sign-in, replace, alert) carries the footer, and the name is spelled right", async () => {
     const o = await j(await call("POST", "/api/start", { email: "boss@acme.com" }, { "cf-connecting-ip": "1.1.1.1" })); const h = { "x-organizer": o.token };
     await call("POST", "/api/z", { id: "BRAND-1", startRound: roundAt(T + 30 * 3_600_000), callSeconds: 10, cap: 500 }, h);
     await call("POST", "/api/z/BRAND-1/publish", { email: "boss@acme.com", phone: "98765 43210" }, h);

@@ -52,14 +52,14 @@ const complete = async (c: any, id = "pay_1", now = T) => {
 const view = async (token: string, now = T) => j(await call("GET", `/api/paylink/${token}`, undefined, undefined, now));
 
 describe("making the link: who may", () => {
-  test("the Organizer, a Host and a Co-host of that game may; the link opens on the site's pay-link page and lasts 7 days", async () => {
+  test("the Organizer, a Co-organizer and an invite-only co-organizer of that game may; the link opens on the site's pay-link page and lasts 7 days", async () => {
     const t = await team();
     for (const key of [t.master, t.host, t.cohost]) {
       const r = await link(key);
       expect(r.status).toBe(200); expect(r.body.url).toMatch(/^https:\/\/bingo\.test\/paylink\.html\?t=[0-9a-f]{48}$/); expect(r.body.expiresMs).toBe(T + 7 * DAY);
     }
   });
-  test("an AI key, a stranger, no key, another Organizer, another game's Co-host and a Host on an AI link are all refused", async () => {
+  test("an AI key, a stranger, no key, another Organizer, another game's Invite-only co-organizer and a Co-organizer on an AI link are all refused", async () => {
     const t = await team();
     expect((await link(t.ai)).status).toBe(403); expect((await link("cbk_" + "a".repeat(48))).status).toBe(403); expect((await link("")).status).toBe(403);
     expect((await link(t.other, "PL-1")).status).toBe(404); expect((await link(t.master, "NOPE-1")).status).toBe(404);

@@ -62,8 +62,8 @@ export function layoutReport(d: ReportData): Uint8Array {
   ], [0.93, 0.96, 1], NAVY);
 
   pdf.box("What is kept, and what is deleted", [
-    `You have been given ALL the data held about the people in this game. Within 24 hours of the game ending, and no later than ${istFull(d.personalDeleteAtMs, d.tz)}, every participant's name, mobile number, join record, board assignment and invite link record is permanently deleted from the systems. After that nobody at Corporate Snakes and Ladders, and nothing in the software or database, holds them.`,
-    "Kept for 365 days, only: (1) the details of the organizer, host and co-hosts (name, e-mail, mobile number); (2) the winners record: which prize, which round, at what time, and the seat number; and (3) the name, mobile number and employee ID (if any) each winner confirmed for the prize hand-over, with the date it was given. The winners record itself holds no names or numbers. No network address, browser or phone details of any winner are kept: they are deleted with everyone else's.",
+    `You have been given ALL the data held about the people in this game. Within 24 hours of the game ending, and no later than ${istFull(d.personalDeleteAtMs, d.tz)}, every player's name, mobile number, join record, board assignment and invite link record is permanently deleted from the systems. After that nobody at Corporate Snakes and Ladders, and nothing in the software or database, holds them.`,
+    "Kept for 365 days, only: (1) the details of the organizer, co-organizer and invite-only co-organizers (name, e-mail, mobile number); (2) the winners record: which prize, which round, at what time, and the seat number; and (3) the name, mobile number and employee ID (if any) each winner confirmed for the prize hand-over, with the date it was given. The winners record itself holds no names or numbers. No network address, browser or phone details of any winner are kept: they are deleted with everyone else's.",
     `Everything about this game, including those two records, is deleted at 00:00 hours (IST) on ${istDate(d.fullDeleteAtMs)}, which is the end of the 365th day. Billing data is kept for audit and tax reasons.`,
     "For your next game you can reuse the people list until it is deleted (the reuse button in your console), or upload your own list again afterwards from this report.",
   ]);
@@ -79,7 +79,7 @@ export function layoutReport(d: ReportData): Uint8Array {
     ["Rounds", String(d.rounds)],
     ["Turn window", `${d.callSeconds} seconds`],
     ["Boards per person", String(d.ticketsPerPerson)],
-    ["Participant limit", `${d.cap}${d.inviteOnly ? "  (invitation only)" : ""}`],
+    ["Player limit", `${d.cap}${d.inviteOnly ? "  (invitation only)" : ""}`],
   ]);
   if (d.wasHeld) pdf.para("Note: this game was not started (for example it was not paid for by its start time), so no turns were played.", { size: 9 });
   if (d.breaks.length) { pdf.h2("Brand breaks"); pdf.table([{ head: "After turn", width: 13, align: "r" }, { head: "Kind", width: 10 }, { head: "Title", width: 60 }], d.breaks.map((b) => [String(b.after), b.kind, b.title])); }
@@ -128,10 +128,10 @@ export function layoutReport(d: ReportData): Uint8Array {
     ["Joined through someone's invite link", String(g.viaInvite)],
     ["People who invited at least one person", String(g.inviters)],
     ["Most invites by one person", g.topInviter ? `${g.topInviter[1]} (seat ${g.topInviter[0]})` : "0"],
-    ["Organizer / host / co-host with a board", String(g.roles)],
+    ["Organizer / co-organizer / invite-only co-organizer with a board", String(g.roles)],
     ["Prize lines won / not won", `${won} / ${total - won}`],
     ["Total prize wins (no prize is shared)", String(d.prizes.reduce((n, p) => n + p.winners.length, 0))],
-    ["Prize wins by organizer / host / co-host", String(d.prizes.reduce((n, p) => n + p.winners.filter((w) => w.role).length, 0))],
+    ["Prize wins by organizer / co-organizer / invite-only co-organizer", String(d.prizes.reduce((n, p) => n + p.winners.filter((w) => w.role).length, 0))],
     ["Average join rate before the start", rate],
   ]);
 
@@ -140,15 +140,15 @@ export function layoutReport(d: ReportData): Uint8Array {
 
   pdf.h1("7. When your data is deleted");
   pdf.table([{ head: "Data", width: 62 }, { head: "Deleted by", width: 48 }], [
-    ["Participants' names and mobile numbers, seats, invite links", istFull(d.personalDeleteAtMs, d.tz)],
-    ["Organizer / host / co-host details, the winners record and the winners' hand-over details", `00:00 hours IST, ${istDate(d.fullDeleteAtMs)}`],
+    ["Players' names and mobile numbers, seats, invite links", istFull(d.personalDeleteAtMs, d.tz)],
+    ["Organizer / co-organizer / invite-only co-organizer details, the winners record and the winners' hand-over details", `00:00 hours IST, ${istDate(d.fullDeleteAtMs)}`],
   ]);
   pdf.para("Everything can be deleted sooner on request: press 'Delete' in your console, ask your AI assistant to request it (you confirm in your console), or e-mail from your registered address.", { size: 9 });
 
   pdf.h1("8. The commitment to your data");
   pdf.box("All of it is deleted. Here is exactly what, and when.", [
     `1. Everything about the people in this game (every name, mobile number, seat, join record and invite record) is permanently deleted from the systems within 24 hours of the game ending, and no later than ${istFull(d.personalDeleteAtMs, d.tz)}. You have all of it in this report; after that none of it is held.`,
-    "2. Only these are kept, for 365 days: the details of the organizer, host and co-hosts (name, e-mail address and mobile number); the winners record (which prize, which round, at what time, which seat number); and the name, mobile number and employee ID (if any) each winner confirmed so the prize can be handed over. Nothing else about a winner is kept: no network address, browser or phone details.",
+    "2. Only these are kept, for 365 days: the details of the organizer, co-organizer and invite-only co-organizers (name, e-mail address and mobile number); the winners record (which prize, which round, at what time, which seat number); and the name, mobile number and employee ID (if any) each winner confirmed so the prize can be handed over. Nothing else about a winner is kept: no network address, browser or phone details.",
     `3. At 00:00 hours IST on ${istDate(d.fullDeleteAtMs)}, the end of the 365th day, everything else is deleted too. Billing data is kept for audit and tax reasons.`,
     "4. Names and mobile numbers are also sealed (AES-256) while they are held, and only your own game's report is ever built from them.",
   ]);
@@ -183,7 +183,7 @@ export function treeLines(people: ReportPerson[]): string[] {
   const lines: string[] = []; const seen = new Set<number>();
   const walk = (k: number | null, depth: number) => { for (const c of kids.get(k) ?? []) { if (lines.length >= 4000) return; if (c.seat !== null) { if (seen.has(c.seat)) continue; seen.add(c.seat); } lines.push(`${"    ".repeat(Math.min(depth, 12))}${depth ? "+- " : ""}${c.name || "(no name)"}  seat ${c.seat ?? "-"}  ${mob(c.phone)}${c.role ? "  [" + c.role + "]" : ""}${c.admittedBy ? "  (admitted by " + c.admittedBy + ")" : ""}${c.removed ? "  (removed)" : ""}${c.invitedBy && !bySeat.has(c.invitedBy) ? `  (invited by seat ${c.invitedBy}, listed in another part)` : ""}`); if (c.seat !== null) walk(c.seat, depth + 1); } };
   // roots are grouped under the list they came from, so the tree reads Organizer -> Host -> Co-host -> guest -> guest's guest
-  const order = ["Organizer", ...[...new Set(people.map((p) => p.via).filter((v): v is string => !!v && v !== "Organizer" && v.startsWith("Host")))].sort(), ...[...new Set(people.map((p) => p.via).filter((v): v is string => !!v && v.startsWith("Co-host")))].sort()];
+  const order = ["Organizer", ...[...new Set(people.map((p) => p.via).filter((v): v is string => !!v && v !== "Organizer" && v.startsWith("Co-organizer")))].sort(), ...[...new Set(people.map((p) => p.via).filter((v): v is string => !!v && v.startsWith("Invite-only co-organizer")))].sort()];
   const roots = kids.get(null) ?? [];
   if (roots.some((p) => p.via)) {
     const rest = new Map<string, ReportPerson[]>(); for (const p of roots) { const k = p.via ?? "Organizer"; (rest.get(k) ?? rest.set(k, []).get(k)!).push(p); }

@@ -100,7 +100,7 @@ describe("plain e-mail words", () => {
     expect(hits).toEqual([]);
   });
 
-  test("no example company address (like name@company.com or host@example.com) in any page, script or server message of this website", () => {
+  test("no example company address (like name@company.com or co-organizer@example.com) in any page, script or server message of this website", () => {
     const EX = /@(company|example|yourcompany|acme|mycompany|domain)\.(com|org|net)/i;
     // the downloadable sample list for the Email ID kind (zc.js) has a sample row person1@example.com: a sample file row, not a sign-in message; listed as a follow-up
     const SAMPLE_ROW = '"person" + n + "@example.com"';

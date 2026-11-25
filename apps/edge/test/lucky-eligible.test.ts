@@ -58,7 +58,7 @@ async function drawGame(players: number, flagged: number[], winners: 1 | 3 | 5 |
 }
 
 describe("G14: the lucky draw picks only eligible people", () => {
-  test("a player flagged as Organizer, Host or Co-host before the start never wins; everybody else who joined can; every phone agrees, and the store holds exactly those winners", async () => {
+  test("a player flagged as Organizer, Co-organizer or Invite-only co-organizer before the start never wins; everybody else who joined can; every phone agrees, and the store holds exactly those winners", async () => {
     const g = await drawGame(8, [0, 3], 10, "lk8"); // 10 winners asked for among 6 eligible players: all 6 win, the 2 flagged people cannot
     expect(g.done).toBe(true);
     const flaggedPids = [0, 3].map((i) => g.phones[i]!.rt.pid!);

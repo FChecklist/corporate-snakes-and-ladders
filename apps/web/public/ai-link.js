@@ -18,8 +18,8 @@
   // Seven ways to hand the paste to an AI: three open the AI with the paste pre-filled (a web address), three copy it and open the site (Ctrl+V, Send), one plain copy.
   const AIOPEN = [["ChatGPT", "https://chatgpt.com/?q="], ["Grok", "https://grok.com/?q="], ["Claude", "https://claude.ai/new?q="]];
   const AICOPY = [["Gemini", "https://gemini.google.com/app?q="], ["DeepSeek", "https://chat.deepseek.com/"], ["z.ai", "https://chat.z.ai/"]];
-  const aiOptions = (paste) => `<div class="zsmall" style="font-weight:700;margin:12px 0 6px">Open your AI with this already filled in</div><div style="display:flex;flex-wrap:wrap;gap:8px">${AIOPEN.map(([n, u]) => `<a class="zbtn s" data-ai="${n}" href="${u}${encodeURIComponent(paste)}" target="_blank" rel="noopener noreferrer" style="text-decoration:none;display:inline-block">${n}</a>`).join("")}</div>
-    <div class="zsmall" style="font-weight:700;margin:12px 0 6px">Copy it, open your AI, press Ctrl+V and Send</div><div style="display:flex;flex-wrap:wrap;gap:8px">${AICOPY.map(([n, u]) => `<button class="zbtn s alt" type="button" data-aicopy="${n}" data-url="${u}${n === "Gemini" ? encodeURIComponent(paste) : ""}">${n}</button>`).join("")}</div><div class="zsmall" id="aicopied" role="status" style="margin-top:6px;font-weight:700;color:#0b6b3a"></div>`;
+  const aiOptions = (paste) => `<div class="zsmall" style="font-weight:700;margin:12px 0 6px">Open an AI with this already filled in</div><div style="display:flex;flex-wrap:wrap;gap:8px">${AIOPEN.map(([n, u]) => `<a class="zbtn s" data-ai="${n}" href="${u}${encodeURIComponent(paste)}" target="_blank" rel="noopener noreferrer" style="text-decoration:none;display:inline-block">${n}</a>`).join("")}</div>
+    <div class="zsmall" style="font-weight:700;margin:12px 0 6px">Copy it, open an AI, press Ctrl+V and Send</div><div style="display:flex;flex-wrap:wrap;gap:8px">${AICOPY.map(([n, u]) => `<button class="zbtn s alt" type="button" data-aicopy="${n}" data-url="${u}${n === "Gemini" ? encodeURIComponent(paste) : ""}">${n}</button>`).join("")}</div><div class="zsmall" id="aicopied" role="status" style="margin-top:6px;font-weight:700;color:#0b6b3a"></div>`;
   const wireAiOptions = (root, paste) => root.querySelectorAll("[data-aicopy]").forEach((b) => (b.onclick = async () => {
     let ok = false; try { await navigator.clipboard.writeText(paste); ok = true; } catch {}
     const m = root.querySelector("#aicopied"); if (m) m.textContent = ok ? "Copied. Press Ctrl+V, then Send" : "Could not copy here: select the box above, copy it, then open " + b.dataset.aicopy + " and paste.";
@@ -62,7 +62,7 @@
     try { r = await api("GET", "/api/org/ai/link"); } catch (e) { token = ""; ss.set("cbz-org", ""); return signIn(e.status === 403 ? "" : e.message, "", false); }
     shell(`${bannerNote()}<div class="zcard" style="border:2px solid #FFC93C;background:#FBFFFE"><div class="zsmall" style="font-weight:700;letter-spacing:.06em;color:#8a6a1a">YOUR AI WORK LINK</div>
       ${r.aiMessage
-        ? `<p style="margin:8px 0">Copy the box. Paste it into any AI chat. It does the work.</p><textarea class="zlink" id="msg" rows="5" readonly style="width:100%;box-sizing:border-box">${esc(r.aiMessage)}</textarea><button class="zbtn" id="cp" style="margin-top:8px">Copy your AI work link</button>${aiOptions(r.aiMessage)}`
+        ? `<p style="margin:8px 0">Copy this link and paste in your AI to work.</p><textarea class="zlink" id="msg" rows="5" readonly style="width:100%;box-sizing:border-box">${esc(r.aiMessage)}</textarea><button class="zbtn" id="cp" style="margin-top:8px">Copy the AI work link</button>${aiOptions(r.aiMessage)}`
         : `<p style="margin:8px 0">You have no AI work link at the moment.</p><button class="zbtn" id="mk">Make your AI work link</button>`}
       <hr style="border:0;border-top:1px solid #D5E3E1;margin:16px 0">
       <p class="zsmall" style="margin:0 0 8px">Fresh link: one that works for 24 hours is e-mailed to you.</p><button class="zbtn s alt" id="fr">Get a fresh AI link</button>
@@ -70,7 +70,7 @@
       <p class="zsmall"><a href="/zc.html">Open your console</a></p>`);
     if (r.aiMessage) wireAiOptions(app, r.aiMessage);
     const on = (id, f) => { const b = document.getElementById(id); if (b) b.onclick = f; };
-    on("cp", () => { try { navigator.clipboard.writeText(r.aiMessage); document.getElementById("cp").textContent = "Copied. Now paste it into your AI chat"; } catch {} });
+    on("cp", () => { try { navigator.clipboard.writeText(r.aiMessage); document.getElementById("cp").textContent = "Copied. Now paste it in the AI chat"; } catch {} });
     on("mk", async () => { try { await api("POST", "/api/org/ai/replace"); note = "Your AI work link is ready. A 24-hour link was also e-mailed to you."; } catch (e) { note = e.message; } show(); });
     on("fr", async () => { try { const x = await api("POST", "/api/org/ai/fresh"); note = x.mailed ? "A fresh 24-hour link is on its way to your e-mail." : "There is no e-mail address to send it to. Use the link shown above."; } catch (e) { note = e.message; } show(); });
     on("rp", async () => { if (!confirm("Replace your AI work link? Every AI link stops working at once, even if an AI is using it right now.")) return; try { await api("POST", "/api/org/ai/replace"); note = "Replaced. The old links have stopped. A new 24-hour link is on its way to your e-mail."; } catch (e) { note = e.message; } show(); });

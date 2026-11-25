@@ -27,7 +27,7 @@
     try { head = await get("base"); } catch (e) { draw(`<div class="zcard"><h2>${e.status === 404 ? "This report is no longer available" : "Could not open the report"}</h2><p class="zsmall">${esc(e.message)}</p></div>`); return; }
     const base = head.base; if (base.brand && base.brand.logo) { const px = await logoPixels(base.brand.logo); if (px) base.logoPix = px; }
     const per = Math.max(1, Math.round(head.partSize / head.chunkSize)), people = [];
-    for (let i = 0; i < head.chunks; i++) { pg(`Reading the participants… ${Math.min(head.totalPeople, (i + 1) * head.chunkSize)} of ${head.totalPeople}`); people.push(...(await get("people", "&i=" + i)).people); }
+    for (let i = 0; i < head.chunks; i++) { pg(`Reading the players… ${Math.min(head.totalPeople, (i + 1) * head.chunkSize)} of ${head.totalPeople}`); people.push(...(await get("people", "&i=" + i)).people); }
     pg("Laying out the PDF on your device…");
     await new Promise((r) => setTimeout(r, 30));
     const parts = Math.max(1, Math.ceil(head.totalPeople / head.partSize));
@@ -38,9 +38,9 @@
       for (let k = 0; k < parts; k++) { pg(`Laying out part ${k + 2} of ${total}…`); await new Promise((r) => setTimeout(r, 10)); save(RPT.layoutPeoplePart(base, people.slice(k * head.partSize, (k + 1) * head.partSize), k + 1, parts), `snakes-report-${EID}-part-${k + 2}-of-${total}-people.pdf`); }
     }
     draw(`<div class="zcard"><h2>Your report is ready</h2>
-      <p class="zsmall">It was made on this device. Save it now: the participants' details are deleted from the systems by ${esc(new Date(base.personalDeleteAtMs).toLocaleString("en-IN", { timeZone: "Asia/Kolkata", day: "numeric", month: "short", hour: "numeric", minute: "2-digit", hour12: true }))} IST, and this report cannot be made after that.</p>
+      <p class="zsmall">It was made on this device. Save it now: the players' details are deleted from the systems by ${esc(new Date(base.personalDeleteAtMs).toLocaleString("en-IN", { timeZone: "Asia/Kolkata", day: "numeric", month: "short", hour: "numeric", minute: "2-digit", hour12: true }))} IST, and this report cannot be made after that.</p>
       ${files.map((f) => `<p><a class="zbtn" style="display:inline-flex;text-decoration:none;align-items:center" href="${f.url}" download="${esc(f.name)}">Save ${esc(f.name)}</a></p>`).join("")}
-      <p class="zsmall">You can share this link with a Host. Anyone who has it can read the report, so share it carefully. Open it again later to include any prize you have since marked as given.</p></div>`);
+      <p class="zsmall">You can share this link with a Co-organizer. Anyone who has it can read the report, so share it carefully. Open it again later to include any prize you have since marked as given.</p></div>`);
   }
   run().catch((e) => draw(`<div class="zcard"><h2>Something went wrong</h2><p class="zsmall">${esc(e && e.message || "Please try again.")}</p></div>`));
 })();

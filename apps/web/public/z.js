@@ -125,7 +125,7 @@
     const phone = (label, hint) => `<label for="ph">${label}</label><input id="ph" inputmode="tel" autocomplete="tel" placeholder="+1 555 010 0100" value="${pv}">${hint ? `<p class="zsmall zflush">${hint}</p>` : ""}`;
     const EM = INFO.idKind === "email", idw = (t) => EM ? t.replace(/employee ID/g, "Email ID") : t;
     const emp = (label, hint) => `<label for="emp">${idw(label)}</label><input id="emp" ${EM ? 'type="text" inputmode="email" autocomplete="email" spellcheck="false" autocapitalize="none" maxlength="254"' : 'autocomplete="off" autocapitalize="characters"'} value="${ev}"><p class="zsmall zflush" id="empread" aria-live="polite"></p>${hint ? `<p class="zsmall zflush">${hint}</p>` : ""}`;
-    if (INFO.ownerRules) return emp("Your employee ID", "Dashes, slashes and spaces do not matter: A-1101, A 1101 and A/1101 are the same ID. If your ID is not on the list, the host decides.");
+    if (INFO.ownerRules) return emp("Your employee ID", "Dashes, slashes and spaces do not matter: A-1101, A 1101 and A/1101 are the same ID. If your ID is not on the list, the co-organizer decides.");
     if (vm === "id") return emp("Your employee ID", eo ? "This game is for employees only." : "") + (eo ? "" : phone("No employee ID? Type your mobile number instead", "Vendors, customers and families use their mobile number."));
     if (vm === "both") return phone("Your mobile number", "") + emp(eo ? "Your employee ID" : "Your employee ID (employees only)", eo ? "This game is for employees only." : "Not an employee? Leave this empty.");
     return phone("Your mobile number", "");
@@ -573,7 +573,7 @@
     if (!CF.loaded) return `<div class="zcard"><h2>Confirm where your prize goes</h2><p class="zsmall">Waiting for your result to be confirmed by the other phones. This takes a moment.</p></div>`;
     if (CF.confirmed && !CF.editing) return `<div class="zcard"><h2>Details confirmed</h2><p class="zgap"><b>${esc(CF.name)}</b> &middot; ${esc(CF.phone)}</p><p class="zsmall">Your organizer has these details. <button class="zsnd" id="cfedit">Change</button></p></div>`;
     return `<div class="zcard zform"><h2>Confirm your prize details</h2>
-      <p class="zsmall zflush zgap">Your organizer will use this name to hand over your prize. Please check them and correct anything that is wrong. If you change them, your organizer and co-host will see both what you joined with and what you changed it to.</p>
+      <p class="zsmall zflush zgap">Your organizer will use this name to hand over your prize. Please check them and correct anything that is wrong. If you change them, your organizer and invite-only co-organizer will see both what you joined with and what you changed it to.</p>
       <label for="cfnm">Your name</label><input id="cfnm" autocomplete="name" maxlength="60" value="${esc(CF.name)}">
       <label for="cfph">Your mobile number (optional)</label><input id="cfph" inputmode="tel" autocomplete="tel" value="${esc(CF.phone)}">
       ${CF.note ? `<div class="zbanner ${CF.note.startsWith("Thank") ? "ok" : "bad"}" role="alert">${esc(CF.note)}</div>` : ""}
@@ -731,7 +731,7 @@
     const started = v.turnsPlayed > 0 || v.phase === "ended"; // a guest can take a name off their list only before the game starts
     const rows = MI.people.map((p) => {
       const wa = waOk(p.waLink), gone = p.status === "removed";
-      return `<div class="zrow zmi"><span>${esc(p.name || "Guest")}<br><small class="zsmall zflush">${esc(p.maskedPhone || "")} &middot; ${gone ? "Removed" : p.status === "joined" ? "Joined" : "Invited"}</small></span>
+      return `<div class="zrow zmi"><span>${esc(p.name || "Player")}<br><small class="zsmall zflush">${esc(p.maskedPhone || "")} &middot; ${gone ? "Removed" : p.status === "joined" ? "Joined" : "Invited"}</small></span>
         <span class="zmia">${!gone && p.status !== "joined" && wa ? `<a class="zbtn s zlinkbtn" target="_blank" rel="noopener" href="${esc(wa)}">Send on WhatsApp</a>` : ""}
         ${!gone && p.status !== "joined" ? `<button class="zbtn s alt" type="button" data-mire="${esc(p.id)}">Send a new link</button>` : ""}
         ${!gone && !started ? (MI.ask === p.id ? `<button class="zbtn s" type="button" data-miyes="${esc(p.id)}">Yes, remove</button><button class="zbtn s alt" type="button" data-mino="1">No</button>` : `<button class="zbtn s alt" type="button" data-mirm="${esc(p.id)}">Remove</button>`) : ""}</span></div>`;
@@ -798,7 +798,7 @@
     return Object.assign({}, list[i], { seconds: 0, secondsLeft: 0, n: i + 1, of: list.length });
   }
   const slotNow = (v) => v.brk || openingNow(v) || closingNow(v);
-  const slotWhat = (b) => (b.kind === "speech" ? "Please listen to the host." : b.kind === "slides" ? "Please look at the screen." : "");
+  const slotWhat = (b) => (b.kind === "speech" ? "Please listen to the speaker." : b.kind === "slides" ? "Please look at the screen." : "");
   function openingCard(v) {
     const b = openingNow(v); if (!b) return "";
     return `<div class="zcard zbreak" role="status"><h2>A message from your organizer</h2><div class="zbigline">${esc(b.title)}</div><div class="zsmall zflush">${slotWhat(b)} The game starts in a moment.</div>${mediaAct(b)}</div>`;
@@ -809,7 +809,7 @@
   }
   function breakCard(b) {
     const act = mediaAct(b);
-    const what = b.kind === "lucky" ? `${b.winners || 3} ${b.winners === 1 ? "person is" : "people are"} picked at random when this break ends. Everyone has an equal chance.` : b.kind === "speech" ? "Please listen to the host." : b.kind === "slides" ? "Please look at the screen." : "";
+    const what = b.kind === "lucky" ? `${b.winners || 3} ${b.winners === 1 ? "person is" : "people are"} picked at random when this break ends. Everyone has an equal chance.` : b.kind === "speech" ? "Please listen to the speaker." : b.kind === "slides" ? "Please look at the screen." : "";
     return `<div class="zcard zbreak" role="status"><h2>A short break</h2><div class="zbigline">${esc(b.title)}</div><div class="zsmall zflush">${what} The game continues in ${b.secondsLeft}s.</div>${act}</div>`;
   }
 
@@ -822,7 +822,7 @@
   function playView(v) {
     const banners = [];
     if (v.error) banners.push(`<div class="zbanner warn" role="alert">${esc(v.error)}</div>`);
-    if (v.locked) banners.push(ME.role === "organizer" || ME.role === "host" ? `<div class="zbanner warn" role="status"><b>Payment pending for this game.</b> The game starts 2 minutes after the payment is confirmed. Open your console to pay. Your place is safe. Keep this page open.</div>` : `<div class="zbanner warn" role="status"><b>Waiting for the Organizer or Host to start the game.</b> Your place is safe. Keep this page open: it begins as soon as they are done.</div>`);
+    if (v.locked) banners.push(ME.role === "organizer" || ME.role === "host" ? `<div class="zbanner warn" role="status"><b>Payment pending for this game.</b> The game starts 2 minutes after the payment is confirmed. Open your console to pay. Your place is safe. Keep this page open.</div>` : `<div class="zbanner warn" role="status"><b>Waiting for the Organizer or co-organizer to start the game.</b> Your place is safe. Keep this page open: it begins as soon as they are done.</div>`);
     else if (v.stopped) banners.push(`<div class="zbanner info">The organizer has ended this game.</div>`);
     else if (v.paused) banners.push(`<div class="zbanner info">Paused by the organizer. It will carry on shortly.</div>`);
     else if (v.mode === "hold" && v.nowRound !== null) banners.push(`<div class="zbanner warn">Checking with the organizer… the game will continue in a moment.</div>`);
@@ -928,7 +928,7 @@
   if (!EID) { $app.innerHTML = `<p class="zmsg">This link is incomplete. Please ask your organizer for the game link.</p>`; return; }
   rt.boot().then(() => { if (rt.phase === "play") clearWait(); else restoreWait(); paint(); if (rt.phase === "play") start(); });
   // Free demo game (demo.ts): every screen says "Demo". The bar is put back at the top of the page whenever the screen is redrawn.
-  function demoBar() { try { if (!(INFO.demo === true)) return; const first = $app.firstElementChild; if (first && first.id === "zdemo-bar") return; const d = document.createElement("div"); d.id = "zdemo-bar"; d.className = "zbanner info zflush"; d.setAttribute("role", "status"); d.innerHTML = "<b>Demo</b> · a free practice game for up to 10 people. Same rules as a real game. Nothing is paid and guest details are auto-deleted after the game."; $app.insertBefore(d, $app.firstChild); } catch { /* a courtesy label: the game name also starts with Demo */ } }
+  function demoBar() { try { if (!(INFO.demo === true)) return; const first = $app.firstElementChild; if (first && first.id === "zdemo-bar") return; const d = document.createElement("div"); d.id = "zdemo-bar"; d.className = "zbanner info zflush"; d.setAttribute("role", "status"); d.innerHTML = "<b>Demo</b> · a free practice game for up to 10 people. Same rules as a real game. Nothing is paid and player details are auto-deleted after the game."; $app.insertBefore(d, $app.firstChild); } catch { /* a courtesy label: the game name also starts with Demo */ } }
   try { new MutationObserver(demoBar).observe($app, { childList: true }); } catch { /* old browser: the name still says Demo */ }
   window.__rt = rt;
 })();

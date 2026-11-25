@@ -229,7 +229,7 @@ describe("K4 join a game: both boxes, before any name", () => {
   });
 });
 
-describe("K5 host acceptance, K6 guest lists, K9", () => {
+describe("K5 co-organizer acceptance, K6 player lists, K9", () => {
   test("K6 an invite list is refused without the tick, accepted with it, and stored for that game", async () => {
     const tok = await organizerWithDraft("CONS-6");
     const people = [{ name: "Asha", phone: "98765 11111" }];
@@ -239,7 +239,7 @@ describe("K5 host acceptance, K6 guest lists, K9", () => {
     expect((await call("POST", "/api/z/CONS-6/roster", { people }, { "x-organizer": tok }, T + 401)).status).toBe(200);
     expect(rows("K6")).toMatchObject([{ ref: "CONS-6", boxes: '["A"]', text_hash: expectedHash("K6"), version: TERMS_VERSION }]);
   });
-  test("K5 a Host's first setup step is refused without the role box, accepted with it, and the acceptance is stored once", async () => {
+  test("K5 a Co-organizer's first setup step is refused without the role box, accepted with it, and the acceptance is stored once", async () => {
     const tok = await organizerWithDraft("CONS-5");
     const add = await j(await call("POST", "/api/org/host", { mobile: "9876500009", label: "Priya", email: "priya@acme.com" }, { "x-organizer": tok }, T + 500));
     const hk = add.hostKey as string; expect(hk).toBeTruthy();
@@ -260,7 +260,7 @@ describe("K5 host acceptance, K6 guest lists, K9", () => {
   });
 });
 
-describe("no code path takes money from a participant", () => {
+describe("no code path takes money from a player", () => {
   test("the join code has no payment in it", () => {
     const worker = readFileSync(new URL("../src/worker.ts", import.meta.url), "utf8");
     const joinBlock = worker.slice(worker.indexOf('if (action === "join" && req.method === "POST")'), worker.indexOf('if (action === "seats" && req.method === "GET")'));
@@ -281,7 +281,7 @@ describe("no code path takes money from a participant", () => {
   });
 });
 
-describe("a Co-host who has not accepted the role cannot pay or use credit (found by the permissions scenario family: the payment routes ran before the K5 gate)", () => {
+describe("an invite-only co-organizer who has not accepted the role cannot pay or use credit (found by the permissions scenario family: the payment routes ran before the K5 gate)", () => {
   test("checkout, proforma and credit are refused with consent-required until the K5 box is ticked", async () => {
     const key = await organizerWithDraft("CON-PAY"); const id = "CON-PAY";
     const co = (await j(await call("POST", "/api/org/cohost", { label: "Ravi", phone: "9876500001", e: id }, { "x-organizer": key }))).cohostKey as string;

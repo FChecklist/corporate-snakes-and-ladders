@@ -105,7 +105,7 @@ describe("showing it: pop-up, in place, take me there, back to where you were", 
   test("when the fix is on another step, a Done? button remembers where the person was and takes them back", async () => {
     const p = await page(); const d = p.win.document; const seen: number[] = [];
     p.win.ctzFocus = (n: number) => seen.push(n);
-    p.win.CTG.go({ step: 2, field: "#f-cap", label: "Number of participants" }, { back: { step: 7, label: "Check and publish" } });
+    p.win.CTG.go({ step: 2, field: "#f-cap", label: "Number of players" }, { back: { step: 7, label: "Check and publish" } });
     expect(seen).toEqual([2]);
     const b = d.getElementById("ctg-back"); expect(b.textContent).toContain("Check and publish");
     b.click(); expect(seen).toEqual([2, 7]); expect(d.getElementById("ctg-back")).toBeNull();
@@ -134,14 +134,14 @@ describe("the right guide for the right message and the right person", () => {
     const p = await page(); const C = p.win.CTG.catalog as any[];
     // three short ones are whole, specific messages: "busy", "busy day", "choose a pack"
     for (const e of C) for (const m of e.m) { const n = String(m).toLowerCase().replace(/\d+/g, "").replace(/\s+/g, " ").trim(); expect(n.length >= 14 || ["busy", "busy day", "choose a pack"].includes(n)).toBe(true); }
-    for (const msg of ["You have been removed from this game by someone.", "You can have a look at the report later.", "Send a postcard to your friend.", "Check the weather before you travel.", "Your ticket is lovely."]) {
+    for (const msg of ["You have been removed from this game by someone.", "You can have a look at the report later.", "Send a postcard to your friend.", "Check the weather before you travel.", "Your board is lovely."]) {
       const f = p.win.CTG.find({ status: -1, message: msg }); expect(f.matched).toBe(false);
     }
     // and the real, similar messages still reach their own guide
     expect(p.win.CTG.find({ status: 403, message: "You were removed from this game." }).entry.t).toContain("not part of this game");
     expect(p.win.CTG.find({ status: 409, message: "You have 3 unpublished drafts. Publish one, or let one lapse: an unpublished draft is forgotten after 30 days" }).entry.t).toContain("drafts");
   });
-  test("a guest on the game page never gets a button into the Organizer's console, and 'game full' is worded for a guest", async () => {
+  test("a player on the game page never gets a button into the Organizer's console, and 'game full' is worded for a player", async () => {
     const p = await page("z.html", "/z.html?e=ABCD1234");
     expect(p.win.CTG.role()).toBe("player");
     const full = p.win.CTG.explain({ status: 409, message: "This engagement is full." });

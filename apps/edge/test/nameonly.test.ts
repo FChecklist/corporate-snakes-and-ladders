@@ -35,7 +35,7 @@ describe("joining with a name only", () => {
     const who = await openPii(env as any, row.pii); expect(who).toEqual({ phone: "", name: "Maya Lopez" });
     expect((raw.query("SELECT COUNT(*) c FROM seat").get() as any).c).toBe(1);
   });
-  test("the same phone again is the same guest; another phone is another seat with another card", async () => {
+  test("the same phone again is the same player; another phone is another seat with another card", async () => {
     await game("NAME-2");
     const a = await j(await call("POST", "/api/z/NAME-2/join", { name: "Maya", device: dev(1) }));
     const again = await j(await call("POST", "/api/z/NAME-2/join", { name: "Maya", device: dev(1) })); expect(again.pid).toBe(a.pid); expect(again.again).toBe(true);
@@ -62,7 +62,7 @@ describe("joining with a name only", () => {
     const ok = await call("POST", "/api/z/NAME-5/join", { name: "Maya", phone: "+1 415 555 0132", device: dev(1) }); expect(ok.status).toBe(200);
     expect((await call("PATCH", "/api/z/NAME-5/settings", { join: "everyone" }, h)).status).toBe(400);
   });
-  test("an invite-only game puts a name-only guest in the waiting room; the organizer sees only the name", async () => {
+  test("an invite-only game puts a name-only player in the waiting room; the organizer sees only the name", async () => {
     const h = await game("NAME-6", { whoCanJoin: "list" });
     const w = await call("POST", "/api/z/NAME-6/join", { name: "Maya", device: dev(1) }); expect(w.status).toBe(403);
     const b = await j(w); expect(b.waiting).toBe(true);

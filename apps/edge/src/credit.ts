@@ -223,7 +223,7 @@ const PAYER_KINDS = new Set(["master", "host", "cohost"]);
 export async function creditRoute(req: Request, env: PayEnv, now: number, spend: (n: number) => Promise<boolean>, a: CreditAuth): Promise<Response | null> {
   const url = new URL(req.url), p = url.pathname, db = env.DB;
   if (req.method === "GET" && p === "/api/org/credit") {
-    if (!a.org || a.viaLink || (a.kind !== "master" && a.kind !== "host")) return json({ error: a.kind === "cohost" ? "Credit is shown to the Organizer and Hosts." : "Not allowed." }, 403);
+    if (!a.org || a.viaLink || (a.kind !== "master" && a.kind !== "host")) return json({ error: a.kind === "cohost" ? "Credit is shown to the Organizer and co-organizers." : "Not allowed." }, 403);
     return json(await listCredits(db, a.org, now));
   }
   const m = p.match(/^\/api\/z\/([A-Za-z0-9_-]{4,40})\/pay-with-credit$/);
@@ -232,12 +232,12 @@ export async function creditRoute(req: Request, env: PayEnv, now: number, spend:
   if (!a.org || a.viaLink || !a.kind || !PAYER_KINDS.has(a.kind)) return json({ error: "Not allowed." }, 403);
   const e = await db.prepare("SELECT * FROM engagement WHERE id=?").bind(m[1]!).first<any>();
   if (!e || e.org !== a.org) return json({ error: "No such engagement." }, 404);
-  if (a.kind === "cohost" && a.eid && a.eid !== e.id) return json({ error: "Your Co-host link is for a different game." }, 403);
+  if (a.kind === "cohost" && a.eid && a.eid !== e.id) return json({ error: "Your Invite-only co-organizer link is for a different game." }, 403);
   if (e.cancelled_ms) return json({ error: "This game was cancelled. It cannot be paid for.", code: "cancelled" }, 409);
   if (e.unplayed_ms) return json({ error: "This game did not start and is closed. It cannot be paid for.", code: "did-not-start" }, 409);
   if (underOwnerRules(e)) return json({ error: "You pay in the console. This page does not take payments.", code: "pay-in-console" }, 410); // owner rules 1.1: a game is paid only by the console's notice, credit included
   const pack = PACKS.find((x) => x[0] >= e.cap)?.[0] ?? null;
-  if (!pack) return json({ error: "That many participants needs a custom arrangement. Please write from the contact page." }, 400);
+  if (!pack) return json({ error: "That many players needs a custom arrangement. Please write from the contact page." }, 400);
   const bodyText = await req.text(); let b: any = {}; try { b = bodyText ? JSON.parse(bodyText) : {}; } catch { b = {}; }
   const cur = b?.currency === "USD" ? "USD" : "INR";
   const total = price(pack, cur).total;

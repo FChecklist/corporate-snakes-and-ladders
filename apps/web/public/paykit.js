@@ -103,7 +103,7 @@
     if (g) {
       const r = [];
       if (g.id) r.push(PK.row("Game ID", esc(g.id), "mono"));
-      if (g.participants) r.push(PK.row("Participants", "Up to " + esc(nf(g.participants))));
+      if (g.participants) r.push(PK.row("Players", "Up to " + esc(nf(g.participants))));
       if (g.startMs) { r.push(PK.row("Game date", esc(PK.istDate(g.startMs)))); r.push(PK.row("Start time", esc(PK.istTime(g.startMs)))); }
       if (g.organizer && g.organizer.name) r.push(PK.row("Organizer", esc(g.organizer.name)));
       if (g.organizer && g.organizer.email) r.push(PK.row("Organizer e-mail", esc(g.organizer.email)));

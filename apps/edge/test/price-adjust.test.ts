@@ -139,7 +139,7 @@ describe("owner price: pending to paid at Rs 1", () => {
     expect(one("SELECT pack FROM engagement WHERE id=?", g.id).pack).toBe(100);
     expect(one("SELECT status, amount FROM payment WHERE id=?", c.body.paymentId)).toMatchObject({ status: "paid", amount: 1 });
     const inv = JSON.parse(one("SELECT data FROM invoice WHERE payment_id=?", c.body.paymentId).data);
-    expect(inv.lines).toEqual([{ description: "Corporate Snakes and Ladders: up to 100 participants (one game), price as agreed", quantity: 1, amount: 1 }]); // one line, only the amount actually charged
+    expect(inv.lines).toEqual([{ description: "Corporate Snakes and Ladders: up to 100 players (one game), price as agreed", quantity: 1, amount: 1 }]); // one line, only the amount actually charged
     expect(inv.tax.total).toBe(1);
     const html = await (await call("GET", res.invoiceUrl)).text(); expect(html).toContain("price as agreed"); expect(html).not.toMatch(/coupon|discount|2,399|2399/i);
     expect(JSON.stringify(res)).not.toMatch(SECRET_WORDS);

@@ -4,6 +4,7 @@
 //  - Worker source (.ts): the same for quoted strings, keeping only strings that read like a sentence (a space and a letter; SQL, paths and codes are skipped).
 // A single lower-case word without a space ("host", "cohost", "ticket") is a code value, not a sentence, and is not read. A single word that starts with a capital ("Host", "Guests") is a label and is read.
 import { readFileSync, readdirSync } from "node:fs";
+import ts from "typescript";
 import { join } from "node:path";
 
 export const ROOT = join(import.meta.dir, "../../..");
@@ -26,29 +27,36 @@ export function htmlText(src: string): Piece[] {
   return out;
 }
 
-/** The words a person reads in a script: the text inside quotes and templates. */
-export function scriptText(src: string, onlySentences = false): Piece[] {
-  const out: Piece[] = [];
-  src.split("\n").forEach((line, i) => {
-    if (/^\s*(\/\/|\*|\/\*)/.test(line)) return;
-    const parts: string[] = [];
-    const re = /"((?:[^"\\\n]|\\.)*)"|'((?:[^'\\\n]|\\.)*)'|`((?:[^`\\]|\\.)*)`/g; let m: RegExpExecArray | null;
-    while ((m = re.exec(line))) {
-      const raw = m[1] ?? m[2] ?? m[3] ?? "";
-      const withAttrs = raw.replace(/\$\{[^}]*\}/g, " ");
-      const t = unent([...attrsOf(withAttrs), stripTags(withAttrs)].join(" ")).replace(/\\n/g, " ").replace(/\\(["'`])/g, "$1").replace(/\s+/g, " ").trim();
-      if (!t || !readable(t)) continue;
-      if (/^(SELECT|INSERT|UPDATE|DELETE|CREATE|ALTER|DROP|PRAGMA|WITH)\b/i.test(t)) continue;
-      if (onlySentences && !/\s/.test(t)) continue;
-      parts.push(t);
+/** The words a person reads in a script: the quoted strings and the pieces of templates, found with the TypeScript parser (so code, comments and regular expressions are never read). */
+export function scriptText(src: string, onlySentences = false, file = "x.js"): Piece[] {
+  const sf = ts.createSourceFile(file, src, ts.ScriptTarget.Latest, true, file.endsWith(".ts") ? ts.ScriptKind.TS : ts.ScriptKind.JS);
+  const K = ts.SyntaxKind, byLine = new Map<number, string[]>();
+  const visit = (n: ts.Node) => {
+    const k = n.kind;
+    if (k === K.StringLiteral || k === K.NoSubstitutionTemplateLiteral || k === K.TemplateHead || k === K.TemplateMiddle || k === K.TemplateTail) {
+      const p = n.parent;
+      const skip = !!p && ((ts.isPropertyAssignment(p) && p.name === n) || (ts.isElementAccessExpression(p) && p.argumentExpression === n) || (ts.isCaseClause(p) && p.expression === n)
+        || (ts.isBinaryExpression(p) && [K.EqualsEqualsEqualsToken, K.ExclamationEqualsEqualsToken, K.EqualsEqualsToken, K.ExclamationEqualsToken].includes(p.operatorToken.kind))
+        || ts.isImportDeclaration(p) || ts.isExportDeclaration(p) || ts.isLiteralTypeNode(p) || ts.isPropertySignature(p) || ts.isEnumMember(p));
+      if (!skip) {
+        const text = n.getText(sf);
+        const raw = text.slice(1, k === K.TemplateHead || k === K.TemplateMiddle ? -2 : -1);
+        const t = unent([...attrsOf(raw), stripTags(raw)].join(" ")).replace(/\\n/g, " ").replace(/\\(["'`])/g, "$1").replace(/\s+/g, " ").trim();
+        if (t && readable(t) && !/^(SELECT|INSERT|UPDATE|DELETE|CREATE|ALTER|DROP|PRAGMA|WITH|CASE)\b/i.test(t) && !/\b(SELECT|INSERT INTO|DELETE FROM|FROM|WHERE|JOIN|VALUES|PRAGMA)\b/.test(t)
+          && !(/^[/#.]/.test(t) && !/\s/.test(t.slice(0, 14))) && !/^[#.][\w-]+(?:[\s>+~][#.\[\w:-][^\s]*)*$/.test(t) && !(onlySentences && !/\s/.test(t))) {
+          const line = sf.getLineAndCharacterOfPosition(n.getStart(sf)).line + 1;
+          (byLine.get(line) ?? byLine.set(line, []).get(line)!).push(t);
+        }
+      }
     }
-    if (parts.length) out.push({ line: i + 1, text: parts.join(" | ") });
-  });
-  return out;
+    ts.forEachChild(n, visit);
+  };
+  visit(sf);
+  return [...byLine.entries()].sort((a, b) => a[0] - b[0]).map(([line, parts]) => ({ line, text: parts.join(" | ") }));
 }
 
-export const textOf = (file: string, src: string): Piece[] => (file.endsWith(".html") ? htmlText(src) : file.endsWith(".txt") || file.endsWith(".md") ? src.split("\n").map((t, i) => ({ line: i + 1, text: t })).filter((p) => p.text.trim()) : scriptText(src, file.endsWith(".ts")));
+export const textOf = (file: string, src: string): Piece[] => (file.endsWith(".html") ? htmlText(src) : file.endsWith(".txt") || file.endsWith(".md") ? src.split("\n").map((t, i) => ({ line: i + 1, text: t })).filter((p) => p.text.trim()) : scriptText(src, file.endsWith(".ts"), file));
 
 export const EXACT_SENTENCE = "Copy this link and paste in your AI to work.";
-export const hitsIn = (file: string, src: string, re: RegExp): string[] =>
-  textOf(file, src).flatMap(({ line, text }) => [...text.replaceAll(EXACT_SENTENCE, " ").matchAll(re)].map((m) => `${file}:${line}: "${m[0]}" in ${text.trim().slice(0, 110)}`));
+export const hitsIn = (file: string, src: string, re: RegExp, clean: (t: string) => string = (t) => t): string[] =>
+  textOf(file, src).flatMap(({ line, text }) => [...clean(text.replaceAll(EXACT_SENTENCE, " ")).matchAll(re)].map((m) => `${file}:${line}: "${m[0]}" in ${text.trim().slice(0, 110)}`));

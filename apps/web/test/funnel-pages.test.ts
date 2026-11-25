@@ -76,7 +76,7 @@ describe("privacy", () => {
   test("Global Privacy Control: the page sends nothing", async () => {
     const w = on(); await load(w, "index.html", "", { globalPrivacyControl: true }); expect(rows(w)).toEqual([]);
   });
-  test("first-party only: funnel.js names no other host, sets no cookie and uses no storage", () => {
+  test("first-party only: funnel.js names no other co-organizer, sets no cookie and uses no storage", () => {
     const js = readFileSync(join(PUB, "funnel.js"), "utf8");
     expect(js).not.toMatch(/https?:\/\//); expect(js).not.toMatch(/document\.cookie|localStorage|sessionStorage|indexedDB/); expect(js).toContain("/api/funnel/e");
   });

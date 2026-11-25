@@ -5,7 +5,7 @@ import { W, call, dev, eng, j, keyH, mob, one, organizer, paidGame, reset, resto
 
 const NOKEY = { "x-runner-key": "" }, WRONG = { "x-runner-key": "x".repeat(40) };
 const signIn = (h: Record<string, string> = {}) => call("POST", "/api/auth/verify", { email: "demo1@xyz.in", code: "123456" }, h);
-const joinH = (id: string, i: number, h: Record<string, string> = {}) => call("POST", `/api/z/${id}/join`, { phone: mob(i), name: "Guest " + i, device: dev(i), ...{} }, h);
+const joinH = (id: string, i: number, h: Record<string, string> = {}) => call("POST", `/api/z/${id}/join`, { phone: mob(i), name: "Player " + i, device: dev(i), ...{} }, h);
 
 describe("RUNNER_KEY: the test sign-in", () => {
   beforeEach(() => reset()); afterEach(restore);

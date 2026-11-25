@@ -44,7 +44,7 @@ describe("WP-15 / SL-22: plain words for players and organizers", () => {
     const msgs = [...w.matchAll(/error: ([`"])((?:\\.|(?!\1).)*?)\1/g)].map((m) => m[2]).filter((t) => /\bengagements?\b/i.test(t));
     expect(msgs).toEqual([]);
   });
-  test("the error guide says 'board', never 'ticket', in what a person reads (title, what happened, what to do)", () => {
+  test("the error guide says 'board', never 'board', in what a person reads (title, what happened, what to do)", () => {
     const g = readFileSync(join(ROOT, "apps/web/public/guide.js"), "utf8");
     const read: string[] = [];
     for (const line of g.split(/\r?\n/)) {

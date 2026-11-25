@@ -78,7 +78,7 @@ describe("row 2: employee ID only, employees only", () => {
 });
 
 describe("row 3, 4, 5, 6: ID and mobile together", () => {
-  test("ID, others by mobile (not employees only): a listed ID and an outsider's mobile both get tickets; an unknown ID waits", async () => {
+  test("ID, others by mobile (not employees only): a listed ID and an outsider's mobile both get boards; an unknown ID waits", async () => {
     const t = await setup({ verify: "id" }); await add(t.master, [{ name: "Asha", empId: "E101" }]);
     await card(await join({ empId: "E101", device: dev(1) }));
     await card(await join({ phone: mob(22), device: dev(2) }));

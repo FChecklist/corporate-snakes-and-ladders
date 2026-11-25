@@ -387,7 +387,7 @@ describe("e-mail through Resend (organizers only)", () => {
     await call("POST", "/api/auth/email", { email: "stranger@nowhere.com" });
     expect(sent).toHaveLength(1); // nobody without an account is ever e-mailed
   });
-  test("only organizers have an e-mail address on file: the store keeps none for participants", async () => {
+  test("only organizers have an e-mail address on file: the store keeps none for players", async () => {
     // participants join with a mobile number; the schema has no e-mail column on them
     const cols = raw.query("PRAGMA table_info(participant)").all().map((c: any) => c.name);
     expect(cols.some((c: string) => /mail/i.test(c))).toBe(false);

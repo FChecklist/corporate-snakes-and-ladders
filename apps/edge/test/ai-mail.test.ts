@@ -57,7 +57,7 @@ describe("the dedicated mail builders", () => {
     expect(m.text).toMatch(/NEW personal AI work link/i); expect(m.text).toMatch(/Every older link stopped at once/);
     expect(m.text).toMatch(/WORKS FOR 24 HOURS ONLY/); expect(m.text).toMatch(/Show your AI work link/i); expect(m.html).toMatch(/WORKS FOR 24 HOURS ONLY/);
   });
-  test("co-host mail: whose engagement, a watch and announce role, own warning top and bottom, plain-text part, no hyperlink", () => {
+  test("invite-only co-organizer mail: whose engagement, a watch and announce role, own warning top and bottom, plain-text part, no hyperlink", () => {
     const k = "cbh_" + "cd".repeat(24), m = coHostLinkMail(ORIGIN, k, "boss@acme.com", T + 86_400_000);
     expect(m.text).toMatch(/WORKS FOR 24 HOURS ONLY/);
     expect(m.subject).toBe(HOST_SUBJECT);
@@ -104,7 +104,7 @@ describe("the AI link is in the dedicated mails and nowhere else", () => {
     expect(pub.body).toContain("/z.html?e=MAIL-1"); expect(pub.body).toContain("/pay.html?e=MAIL-1");
     expect(pub.body).not.toMatch(/AI work link|Option 1|\/ai\//);
   });
-  test("no other source that builds a mail, a PDF, a report or a guest page can carry an AI link", () => {
+  test("no other source that builds a mail, a PDF, a report or a player page can carry an AI link", () => {
     const root = join(import.meta.dir, "..", "..", "..");
     const read = (...p: string[]) => readFileSync(join(root, ...p), "utf8");
     const edge = readdirSync(join(root, "apps/edge/src")).filter((f) => f.endsWith(".ts") && !["ai-link.ts", "ai-facts.ts", "ai-functions.ts", "ai-go.ts", "trust-page.ts", "mails.ts", "worker.ts", "local.ts", "helpdesk.ts"].includes(f));
@@ -139,7 +139,7 @@ describe("Replace your AI link", () => {
     const x = await j(await call("POST", "/api/org/ai", {}, o.h));
     expect((await call("GET", `/ai/${o.ai}`)).status).toBe(404); expect((await call("GET", `/ai/${x.aiKey}`)).status).toBe(200); expect(x.mailed).toBe(true);
   });
-  test("an AI key, a co-host key, the platform key and strangers cannot replace it", async () => {
+  test("an AI key, an invite-only co-organizer key, the platform key and strangers cannot replace it", async () => {
     const o = await organizer();
     const hk = await j(await call("POST", "/api/org/host", { mobile: "9876500009", email: "host@acme.com" }, o.h));
     for (const hdr of <Record<string, string>[]>[{ "x-organizer": o.ai }, { "x-organizer": hk.hostKey }, { "x-organizer": "plat" }, {}, { "x-organizer": "cba_" + "0".repeat(48) }])
@@ -153,7 +153,7 @@ describe("Replace your AI link", () => {
     const x = await j(await call("POST", "/api/org/ai/replace", {}, { "x-organizer": mk.organizerKey }));
     expect(x.ok).toBe(true); expect(x.mailed).toBe(false); expect((await call("GET", `/ai/${x.aiKey}`)).status).toBe(200); expect(outbox().length).toBe(0);
   });
-  test("a co-host key made later is e-mailed to the organizer in its own mail", async () => {
+  test("an invite-only co-organizer key made later is e-mailed to the organizer in its own mail", async () => {
     const o = await organizer();
     const hk = await j(await call("POST", "/api/org/host", { mobile: "9876500009", email: "host@acme.com" }, o.h)); expect(hk.mailed).toBe(true);
     const m = outbox().at(-1)!; expect(m.subject).toBe("[Snakes & Ladders] " + HOST_SUBJECT); expect(m.to_addr).toBe("boss@acme.com"); expect(m.body).not.toContain(hk.hostKey); expect(m.body).toContain("boss@acme.com"); expect(m.body).toMatch(/WORKS FOR 24 HOURS ONLY/);

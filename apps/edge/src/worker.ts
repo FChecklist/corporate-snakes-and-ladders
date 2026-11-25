@@ -364,7 +364,7 @@ async function spend(env: Env, now: number, n = 1): Promise<boolean> {
   return true;
 }
 /** An AI key (or a Host) never receives or sends names and mobile numbers: the organizer loads the list in the console. */
-const CONSOLE_ONLY = () => json({ error: "Names and mobile numbers are handled by the owner in the console, not by the AI. Ask the owner to paste the list in the Participants board. You can set the limit with settings and refer to people by board number." }, 403);
+const CONSOLE_ONLY = () => json({ error: "Names and mobile numbers are handled by the owner in the console, not by the AI. Ask the owner to paste the list in the Players board. You can set the limit with settings and refer to people by board number." }, 403);
 /** One network address may open only so many NEW seats a day: protects the shared daily write budget from a script.
  *  A whole office or hall sits behind ONE address, so the allowance of a PAID game never falls below its pack: one address may seat up to the pack's size in a minute (and three times that in a day).
  *  The base figures (the environment's JOIN_PER_IP_MINUTE / JOIN_PER_IP_DAY, else the defaults below) still apply to an unpaid game and to the waiting room, so a script cannot use a big free game to burn the write budget. */
@@ -479,7 +479,7 @@ async function noteUse(env: Env, org: string, kind: "ai" | "host", keyId: string
     const to = await orgEmail(env, org);
     if (!to) return;
     await env.DB.prepare("INSERT INTO kv(k,v) VALUES(?,?) ON CONFLICT(k) DO UPDATE SET v=excluded.v").bind(`alert/${keyId}`, String(now)).run();
-    const m = newUseAlertMail({ when: istTime(now), country, program: ua.slice(0, 60), kind: kind === "ai" ? "AI" : "Host", origin: (env as PayEnv).PUBLIC_ORIGIN });
+    const m = newUseAlertMail({ when: istTime(now), country, program: ua.slice(0, 60), kind: kind === "ai" ? "AI" : "Co-organizer", origin: (env as PayEnv).PUBLIC_ORIGIN });
     await sendMail(env as PayEnv, env.DB, to, m.subject, m.text, now, { html: m.html });
   } catch { /* an alert must never break the work */ }
 }
@@ -489,7 +489,7 @@ export async function remindUnpaid(env: Env, now: number): Promise<void> {
     const due = await env.DB.prepare("SELECT e.id, e.start_round, (SELECT v FROM kv WHERE k='pub/'||e.id) AS pub FROM engagement e WHERE e.pack=0 AND EXISTS (SELECT 1 FROM kv WHERE k='pub/'||e.id)").all<{ id: string; start_round: number; pub: string }>();
     for (const x of due.results ?? []) {
       const at = roundMs(x.start_round);
-      if (at > now && at - now < 36 * 3_600_000 && now - (Number(x.pub) || 0) >= 2 * 3_600_000) await nudge(env, x.id, "remind", now, `Payment pending for your game ${x.id}: it starts ${istTime(at)}`, `Your game ${x.id} starts ${istTime(at)}. It is not paid yet, and a game that is not paid for does not begin.\n\nYou can pay at any time until the guest data is auto-deleted (20 hours after the game was meant to end). If you pay late, the first turn opens 2 minutes after the payment is confirmed.\n\nPay now (about 2 minutes): ${(env as PayEnv).PUBLIC_ORIGIN ?? ""}/pay.html?e=${x.id}`);
+      if (at > now && at - now < 36 * 3_600_000 && now - (Number(x.pub) || 0) >= 2 * 3_600_000) await nudge(env, x.id, "remind", now, `Payment pending for your game ${x.id}: it starts ${istTime(at)}`, `Your game ${x.id} starts ${istTime(at)}. It is not paid yet, and a game that is not paid for does not begin.\n\nYou can pay at any time until the player data is auto-deleted (20 hours after the game was meant to end). If you pay late, the first turn opens 2 minutes after the payment is confirmed.\n\nPay now (about 2 minutes): ${(env as PayEnv).PUBLIC_ORIGIN ?? ""}/pay.html?e=${x.id}`);
     }
   } catch { /* tried again at the next tick */ }
 }
@@ -562,7 +562,7 @@ export const joinRetry = { tries: 3, baseMs: 250, sleep: (ms: number) => new Pro
 /** What the server may do when the database has a passing hiccup. read: ask again. write: ask again (the route is idempotent: the same request twice changes nothing more than once). once: never ask again, answer "busy" (503) so nothing can be written twice. */
 export const SAFE_WRITE = /^\/api\/z\/[A-Za-z0-9_-]{4,40}\/(?:join|checkin|claims|mark|unbind|erase|discard|reuse|roster|settings|over|prizegiven|confirm|person|forget|who|presence|throw|rxmode|drawset|control|luck\/(?:press|vote|end|tick)|ttt\/(?:result|settle|finish|pause|resume|open|stagelog|end))$/;
 export const retryKind = (method: string, pathname: string): "read" | "write" | "once" => method === "GET" || method === "HEAD" ? "read" : method !== "OPTIONS" && SAFE_WRITE.test(pathname) ? "write" : "once";
-const busyReply = (read = false): Response => new Response(JSON.stringify({ error: read ? "The doors are very busy just now. Please wait a few seconds; nothing is lost, and the page will try again by itself." : "The doors are very busy just now, with many guests arriving at the very same moment. Please wait a few seconds; the seat is still waiting, and the page will try again by itself.", code: "busy", retryAfter: 3 }), { status: 503, headers: { "content-type": "application/json", "cache-control": "no-store", "retry-after": "3" } });
+const busyReply = (read = false): Response => new Response(JSON.stringify({ error: read ? "The doors are very busy just now. Please wait a few seconds; nothing is lost, and the page will try again by itself." : "The doors are very busy just now, with many players arriving at the very same moment. Please wait a few seconds; the seat is still waiting, and the page will try again by itself.", code: "busy", retryAfter: 3 }), { status: 503, headers: { "content-type": "application/json", "cache-control": "no-store", "retry-after": "3" } });
 export async function handle(req: Request, env: Env, now = Date.now(), waitUntil?: (p: Promise<unknown>) => void): Promise<Response> {
   const off = await maintenanceGate(req, env, now).catch(() => null);
   if (off) return off;
@@ -638,7 +638,7 @@ async function aiLink(req: Request, env: Env, now: number, waitUntil?: (p: Promi
     hh.set("content-type", asJson ? "application/json; charset=utf-8" : "text/plain; charset=utf-8");
     const base = `${origin}/ai/${key}`, put = (t: string, j?: unknown) => new Response(req.method === "HEAD" ? null : asJson ? JSON.stringify(j ?? { text: t }) : t, { headers: hh });
     if (rest === "start") return put(frontDoorText(origin, key, role));
-    if (role !== "ai") return linkText("This is for the organizer's AI link. A Host's AI link reads the game and messages guests (see the instructions at the main address).", 403);
+    if (role !== "ai") return linkText("This is for the organizer's AI link. A Co-organizer's AI link reads the game and messages players (see the instructions at the main address).", 403);
     if (rest === "map") return put(mapText(base, origin), mapJson(base, origin));
     if (rest === "facts") return put(factsText(`${origin}/trust.html`), { facts: (await import("./ai-facts")).FACTS });
     const apiAs = async (method: string, path: string, body?: unknown) => {
@@ -682,7 +682,7 @@ async function aiLink(req: Request, env: Env, now: number, waitUntil?: (p: Promi
 /** A fresh Host key (the personal link, or the key for one device of a Host). */
 const newHostKey = (): string => "cbh_" + randHex(24);
 /** The WhatsApp button for a Host who has only a mobile number: opens WhatsApp to that number with the one-time link ready to send (the Organizer presses send). */
-const waLinkFor = (digits: string, name: string, link: string): string => `https://wa.me/${phoneDigits(digits)}?text=${encodeURIComponent(`${name ? "Hello " + name + ", you" : "You"} are a Host of a Corporate Snakes and Ladders game. Open your link to finish your setup (it works once, for 7 days): ${link}`)}`;
+const waLinkFor = (digits: string, name: string, link: string): string => `https://wa.me/${phoneDigits(digits)}?text=${encodeURIComponent(`${name ? "Hello " + name + ", you" : "You"} are a Co-organizer of a Corporate Snakes and Ladders game. Open your link to finish your setup (it works once, for 7 days): ${link}`)}`;
 /** A brand-new organizer account for an e-mail (used by the first-time start and by Google sign-up): the console key, the lasting AI key (shown only in the console), and the 24-hour AI-link mail. */
 /* AI_LINK_MAIL_AT_SIGNUP="0" (a Pages variable, set on the live site): the AI work link is not offered in the organizer console, so the welcome e-mail that carried it is not sent either. A new organizer then gets only the sign-in e-mail (the 6-digit code as option 1, the sign-in link as option 2). Any other value sends it as before. */
 async function createOrganizer(env: Env, req: Request, email: string, now: number, via: "start" | "signin-google" | "host-to-organizer", ticked = false): Promise<{ ok: true; token: string; aiKey: string; aiMessage: string; org: string } | { error: string; status: number }> {
@@ -764,7 +764,7 @@ async function creditFields(env: Env, a: Auth, e: { id: string; org: string | nu
   const c = await activeCreditSummary(env.DB, e.org!, now);
   return { credit: c.activeTotalInr, creditExpiresMs: c.nextExpiryMs, creditApplied: await creditAppliedFor(env.DB, e.id), payable: payablePublic(await adjustAnyCur(env.DB, e.id, packOf(e.cap))) };
 }
-const deny = (a: Auth) => json({ error: a.kind === "ai" ? "Your AI assistant may not do this. It is for the organizer to do themselves in their console: tell them plainly what needs doing and where (your instructions say how)." : a.kind === "host" ? "Only the Organizer can do this. A Host looks after the game, not the account." : a.kind === "cohost" ? "A Co-host can invite people and pay. Ask the Organizer or a Host for anything else." : "Not allowed." }, 403);
+const deny = (a: Auth) => json({ error: a.kind === "ai" ? "Your AI assistant may not do this. It is for the organizer to do themselves in their console: tell them plainly what needs doing and where (your instructions say how)." : a.kind === "host" ? "Only the Organizer can do this. A Co-organizer looks after the game, not the account." : a.kind === "cohost" ? "An invite-only co-organizer can invite people and pay. Ask the Organizer or a Co-organizer for anything else." : "Not allowed." }, 403);
 /** What a Host may touch through an AI work link (x-cb-link): watching, and messages to everyone. Through the console a Host may do everything inside a game. */
 const HOST_ACTIONS = new Set(["participants", "summary", "results", "info", "announce", "prizes", "prizegiven", "override", "reportlink", "life"]);
 const MAX_HOSTS = 5;
@@ -787,7 +787,7 @@ const broughtBy = async (env: Env, org: string, hex7: string | null): Promise<nu
 
 export const AI_MANIFEST = {
   name: "Corporate Snakes and Ladders organizer API",
-  how: "Send your organizer AI key in the x-organizer header (or Authorization: Bearer). Easier for chat AIs: the same key in the address, https://<site>/ai/<key>, returns the full manual with ready-made addresses, and https://<site>/ai/<key>/z/{id}/summary works like /api/z/{id}/summary (GET-only tools add _method=POST|PATCH&_body=<URL-encoded JSON>). Every call is JSON. The numbers are drawn from public randomness on participants' phones; you cannot change them. Every call you make is recorded (time, which key, what was asked, and where it came from) in an audit trail the organizer can read.",
+  how: "Send your organizer AI key in the x-organizer header (or Authorization: Bearer). Easier for chat AIs: the same key in the address, https://<site>/ai/<key>, returns the full manual with ready-made addresses, and https://<site>/ai/<key>/z/{id}/summary works like /api/z/{id}/summary (GET-only tools add _method=POST|PATCH&_body=<URL-encoded JSON>). Every call is JSON. The numbers are drawn from public randomness on players' phones; you cannot change them. Every call you make is recorded (time, which key, what was asked, and where it came from) in an audit trail the organizer can read.",
   your_role: "You are the organizer's event planner. Talk with them in plain, friendly words, never in API terms. Work through the steps in `conversation` IN ORDER, ONE question at a time, offering 2 to 4 clear options with a recommended default, and wait for their answer before moving on. Never invent details for them. They can watch everything you create appear live in their console (the openUrl returned when you create the engagement).",
   conversation: CONVERSATION.map((t) => t.replace(/\{api\}/g, "/api")),
   packs: PACKS.map(([n]) => ({ upTo: n, inr: price(n, "INR").total, usd: price(n, "USD").total })),
@@ -797,23 +797,23 @@ export const AI_MANIFEST = {
     { do: "Read back everything saved for one engagement (start time in the organizer's time, speed, limit, tickets, every reward, every break, rounds, head-count, and whether it is a draft, published or paid). Use it to confirm the details with the organizer after every change", call: "GET /api/z/{id}/summary" },
     { do: "List engagements and head-counts", call: "GET /api/history" },
     { do: "Create an engagement. It is saved as a free draft that participants cannot see yet; nothing is paid at this step", call: "POST /api/z {id, startRound, callSeconds (the turn window in seconds: 15|20|25|30), cap, closed?}  -> {ok, draft, openUrl}" },
-    { do: "When everything is set up, tell the organizer it is ready. Publishing is free but only the organizer can do it (they confirm their e-mail and mobile number), and the game does not begin until it is paid for (pay at any time until the guest data is auto-deleted; a late payment starts the game 2 minutes after it is confirmed). This returns a link: give it to the organizer and help them through every step, but never try to publish or pay yourself", call: "POST /api/z/{id}/publish -> {published:false, needsOrganizer:true, consoleUrl} (the organizer opens consoleUrl, confirms their details and presses Publish; afterwards the same call returns payUrl, the payment page, and shareUrl, the link for guests)" },
-    { do: "Change start time, turn window, cap, invite-only, reward lines and brand moments (5 in all: opening, during the game, closing) before the first turn. Each participant has one pawn (tickets is always 1) and a game has one round (to play again the organizer uses Play again, which makes a new game with the same settings)", call: "PATCH /api/z/{id}/settings {startRound?, callSeconds?, cap?, closed?, mode?, play?, board?, milestones?, turnCap?, endPrizes?, exclusive?, teams?, theme? (see choices), rewards?: [{pattern: <a house id from choices.rewards>, ordinal?: 1 up to the house maximum, text}], breaks?: [{after?: 1 to 149 turns played (leave it out: the software spreads them evenly), seconds?: 15-600 in steps of 3 (default 60), kind: file|youtube|slides|speech|lucky, title, mediaUrl?: https link (not for lucky), winners?: 1|3|5|10 (lucky only, default 3), style?: draw|scratch (lucky only; scratch shows a scratch card on phones, the winners are drawn the same fair way)}], opening?: [{kind: file|youtube|slides|speech, title, mediaUrl?, seconds?: 15-120}], closing?: [{kind: file|youtube|slides|speech, title, mediaUrl?}]}. IMPORTANT: rewards, breaks and every list you send REPLACE what was saved, they are not merged, so always send the complete list (to change one reward, read the summary, change it, send them all). A media link must be https; for kind youtube it must be a YouTube link; for file it must be a direct link the phones can open (a video, audio, image or PDF file), which cannot be checked for you. A reward line is ONE winner of ONE house: for three winners of the Line send three lines with ordinal 1, 2 and 3. Houses, names and how each is won are in the manual. Asking for more winners than a house allows is refused with a plain message. A lucky draw is a break: {after: 60, seconds: 60, kind: lucky, title: Lucky draw, winners: 3}. Worked example: PATCH /api/z/{id}/settings {startRound: 33146812, callSeconds: 20, cap: 250, rewards: [{pattern: milestone, ordinal: 1, text: Gift hamper}, {pattern: finish, ordinal: 1, text: Tablet}, {pattern: finish, ordinal: 2, text: Voucher 50}, {pattern: climb, ordinal: 1, text: Coffee voucher}], breaks: [{after: 30, seconds: 90, kind: youtube, title: Anniversary film, mediaUrl: https://www.youtube.com/watch?v=...}, {after: 60, seconds: 60, kind: lucky, title: Lucky draw, winners: 3}]}" },
-    { do: "Participants: the OWNER loads the invite list in the Participants card of their console. Names and mobile numbers never pass through the AI (a roster call from an AI key answers 403). Set the limit with settings.", call: "(owner, in the console)" },
+    { do: "When everything is set up, tell the organizer it is ready. Publishing is free but only the organizer can do it (they confirm their e-mail and mobile number), and the game does not begin until it is paid for (pay at any time until the player data is auto-deleted; a late payment starts the game 2 minutes after it is confirmed). This returns a link: give it to the organizer and help them through every step, but never try to publish or pay yourself", call: "POST /api/z/{id}/publish -> {published:false, needsOrganizer:true, consoleUrl} (the organizer opens consoleUrl, confirms their details and presses Publish; afterwards the same call returns payUrl, the payment page, and shareUrl, the link for players)" },
+    { do: "Change start time, turn window, cap, invite-only, reward lines and brand moments (5 in all: opening, during the game, closing) before the first turn. Each player has one pawn (tickets is always 1) and a game has one round (to play again the organizer uses Play again, which makes a new game with the same settings)", call: "PATCH /api/z/{id}/settings {startRound?, callSeconds?, cap?, closed?, mode?, play?, board?, milestones?, turnCap?, endPrizes?, exclusive?, teams?, theme? (see choices), rewards?: [{pattern: <a house id from choices.rewards>, ordinal?: 1 up to the house maximum, text}], breaks?: [{after?: 1 to 149 turns played (leave it out: the software spreads them evenly), seconds?: 15-600 in steps of 3 (default 60), kind: file|youtube|slides|speech|lucky, title, mediaUrl?: https link (not for lucky), winners?: 1|3|5|10 (lucky only, default 3), style?: draw|scratch (lucky only; scratch shows a scratch card on phones, the winners are drawn the same fair way)}], opening?: [{kind: file|youtube|slides|speech, title, mediaUrl?, seconds?: 15-120}], closing?: [{kind: file|youtube|slides|speech, title, mediaUrl?}]}. IMPORTANT: rewards, breaks and every list you send REPLACE what was saved, they are not merged, so always send the complete list (to change one reward, read the summary, change it, send them all). A media link must be https; for kind youtube it must be a YouTube link; for file it must be a direct link the phones can open (a video, audio, image or PDF file), which cannot be checked for you. A reward line is ONE winner of ONE house: for three winners of the Line send three lines with ordinal 1, 2 and 3. Houses, names and how each is won are in the manual. Asking for more winners than a house allows is refused with a plain message. A lucky draw is a break: {after: 60, seconds: 60, kind: lucky, title: Lucky draw, winners: 3}. Worked example: PATCH /api/z/{id}/settings {startRound: 33146812, callSeconds: 20, cap: 250, rewards: [{pattern: milestone, ordinal: 1, text: Gift hamper}, {pattern: finish, ordinal: 1, text: Tablet}, {pattern: finish, ordinal: 2, text: Voucher 50}, {pattern: climb, ordinal: 1, text: Coffee voucher}], breaks: [{after: 30, seconds: 90, kind: youtube, title: Anniversary film, mediaUrl: https://www.youtube.com/watch?v=...}, {after: 60, seconds: 60, kind: lucky, title: Lucky draw, winners: 3}]}" },
+    { do: "Players: the OWNER loads the invite list in the Players card of their console. Names and mobile numbers never pass through the AI (a roster call from an AI key answers 403). Set the limit with settings.", call: "(owner, in the console)" },
     { do: "Reuse an earlier engagement's people", call: "POST /api/z/{id}/reuse {from}" },
     { do: "See who joined (names and ids only, never phone numbers)", call: "GET /api/z/{id}/participants" },
     { do: "See claims received", call: "GET /api/z/{id}/claims" },
     { do: "See published results", call: "GET /api/z/{id}/results" },
     { do: "Ask the organizer to pause, resume or stop (they approve in their console)", call: "POST /api/z/{id}/control/request {action: pause|resume|stop, note}" },
-    { do: "Ask for ALL participant names and mobile numbers of this engagement to be deleted (nothing is deleted until the organizer confirms in their console)", call: "POST /api/z/{id}/control/request {action: 'erase', note}" },
+    { do: "Ask for ALL player names and mobile numbers of this engagement to be deleted (nothing is deleted until the organizer confirms in their console)", call: "POST /api/z/{id}/control/request {action: 'erase', note}" },
     { do: "Read the current pause status", call: "GET /api/z/{id}/control" },
-    { do: "Send a message to every guest's phone and the big screen (160 characters; empty text clears it; once published)", call: "POST /api/z/{id}/announce {text}" },
+    { do: "Send a message to every player's phone and the big screen (160 characters; empty text clears it; once published)", call: "POST /api/z/{id}/announce {text}" },
     { do: "See the winners to hand rewards to, by card number (names and numbers stay in the console), and tick a reward as given", call: "GET /api/z/{id}/prizes ; POST /api/z/{id}/prizegiven {round, pattern, ordinal, seat, given}" },
     { do: "Change of phone: let one person move their card to a new phone", call: "POST /api/z/{id}/unbind {seat} (the card number; the console takes a mobile number, an AI never does)" },
-    { do: "Flag a seat as Organizer, Host or Co-host", call: "POST /api/z/{id}/mark {seat, role: organizer|host|co-host|none} (the card number; an AI never names a mobile number)" },
-    { do: "Invitations: settle how many people each guest may invite and which kinds of guests, before the start", call: "PATCH /api/z/{id}/settings {invites: {on, per: 1-4, cats}}" },
-    { do: "Create a Host key (up to 5 Hosts; through an AI link a Host may only watch, announce and tick prizes given)", call: "POST /api/org/host {label, email?, mobile?} (at least one of email or mobile) -> {hostKey, manualUrl, id, label}. The AI cannot call it (403). A Host must have an e-mail address or a mobile number (the owner gives it); their own one-time console link (7 days) is e-mailed to the Host, or sent by the owner on WhatsApp" },
-    { do: "Co-hosts (unlimited; a Co-host has a name and a mobile number, no e-mail, belongs to one game, only invites people with an own link and pays) are added by the Organizer or a Host in the console, never through an AI link", call: "The people on the team: GET /api/org/team (or GET /api/org/team?e={game id}); remove one: POST /api/org/team/retire {id}" },
+    { do: "Flag a seat as Organizer, co-organizer or invite-only co-organizer", call: "POST /api/z/{id}/mark {seat, role: organizer|host|co-host|none} (the card number; an AI never names a mobile number)" },
+    { do: "Invitations: settle how many people each player may invite and which kinds of players, before the start", call: "PATCH /api/z/{id}/settings {invites: {on, per: 1-4, cats}}" },
+    { do: "Create a Host key (up to 5 Hosts; through an AI link a Host may only watch, announce and tick prizes given)", call: "POST /api/org/host {label, email?, mobile?} (at least one of email or mobile) -> {hostKey, manualUrl, id, label}. The AI cannot call it (403). A Co-organizer must have an e-mail address or a mobile number (the owner gives it); their own one-time console link (7 days) is e-mailed to the Co-organizer, or sent by the owner on WhatsApp" },
+    { do: "Invite-only co-organizers (unlimited; an invite-only co-organizer has a name and a mobile number, no e-mail, belongs to one game, only invites people with an own link and pays) are added by the Organizer or a Co-organizer in the console, never through an AI link", call: "The people on the team: GET /api/org/team (or GET /api/org/team?e={game id}); remove one: POST /api/org/team/retire {id}" },
     { do: "Read the audit trail of AI calls, when the game ends, and whether the report is ready (the report address itself goes only to the organizer)", call: "GET /api/org/ai/audit ; GET /api/z/{id}/life ; GET /api/z/{id}/reportlink" },
     { do: "Suggest a feature, improvement or report that should be built (shared with every organizer's AI, and reviewed by IT Services)", call: "POST /api/z/suggestions {kind: feature|improvement|report|bug|other, title, body}" },
     { do: "See everyone's suggestions and what was decided, and add your support to one", call: "GET /api/z/suggestions ; POST /api/z/suggestions/{id}/vote" },
@@ -822,8 +822,8 @@ export const AI_MANIFEST = {
     "Building and publishing are free. Only the organizer publishes (they confirm their e-mail and mobile number), and only the organizer pays; you never do either.",
     "Price is per engagement, by size: the smallest pack that covers the limit (see `packs`, the price in rupees is the whole amount: no GST is added). The limit does not have to match a pack size; people beyond the limit cannot join.",
     "The organizer pays on the payment page, online through Razorpay (the page shows the methods available). It takes about 2 minutes, and an invoice is e-mailed. The payment page names the seller, IT Services by Rajat Agarwal. Credit from an earlier cancelled game can pay for it (the Pay step offers it first).",
-    "No payment, no game. There is no separate payment cut-off: the game can be paid at any time until the guests' data is auto-deleted (20 hours after the game was meant to end). Until it is paid the Organizer and Hosts see \"Payment pending for this game\" and everyone else sees \"Waiting for the Organizer or Host to start the game.\" Nothing is charged and there is no penalty.",
-    "If the organizer pays late, even hours later, the first number comes 2 minutes after the payment is confirmed, for everyone already waiting, and they can also choose a new start time first (at most 30 days ahead). After the guest data is auto-deleted the game is closed (\"This game did not start. The details have been auto-deleted.\"): nobody can join or pay, and the Organizer can create a new game like it.",
+    "No payment, no game. There is no separate payment cut-off: the game can be paid at any time until the players' data is auto-deleted (20 hours after the game was meant to end). Until it is paid the Organizer and co-organizers see \"Payment pending for this game\" and everyone else sees \"Waiting for the Organizer or co-organizer to start the game.\" Nothing is charged and there is no penalty.",
+    "If the organizer pays late, even hours later, the first number comes 2 minutes after the payment is confirmed, for everyone already waiting, and they can also choose a new start time first (at most 30 days ahead). After the player data is auto-deleted the game is closed (\"This game did not start. The details have been auto-deleted.\"): nobody can join or pay, and the Organizer can create a new game like it.",
     "If they never pay, nothing is owed. They can create a new engagement whenever they like. The settings of a game that did not start stay for 30 days, then they are forgotten (as unpublished drafts are).",
     "A paid game cancelled before it starts stays with the organizer as credit for the next game, valid for 365 days. Unused credit lapses at the end of day 365. The credit stays in the organizer's account. Unused places are not credited once the game has started. Rules and privacy are at /legal.html.",
   ],
@@ -831,11 +831,11 @@ export const AI_MANIFEST = {
   you_cannot: [
     "Pay. Payment is always the organizer's own act on the payment page (payUrl in the summary).",
     "Publish: the organizer confirms their own e-mail and mobile number and presses Publish. You prepare everything and hand over consoleUrl.",
-    "Choose, publish, change or remove winners, numbers, tickets or anyone's reward (nobody can, not even the organizer: the software decides, and a result stands only when several different phones report exactly the same winners)",
+    "Choose, publish, change or remove winners, numbers, boards or anyone's reward (nobody can, not even the organizer: the software decides, and a result stands only when several different phones report exactly the same winners)",
     "Delete participant data (you may ASK; the organizer confirms)",
     "Pause, resume or stop a running game (you may ASK; only the organizer's own browser holds that signing key)",
     "Create or retire the organizer's own sign-in keys, change their e-mail or delete the account, or sign in with Google",
-    "Make a pay link that anyone can open (POST /api/z/{id}/paylink answers 403 to an AI key: only the Organizer, a Host or a Co-host makes one)",
+    "Make a pay link that anyone can open (POST /api/z/{id}/paylink answers 403 to an AI key: only the Organizer or a co-organizer makes one)",
     "Write or run code on the platform",
   ],
 };
@@ -844,7 +844,7 @@ export const AI_MANIFEST = {
 async function route(req: Request, env: Env, now: number): Promise<Response> {
   const a = await authOf(req, env, now);
   if (a.kind === "host" && req.headers.get("x-cb-link") === "1") a.viaLink = true; // a Host's AI work link keeps the narrow rights
-  if (a.viaLink && /^\/api\/(payments\/|org\/(team|cohost))/.test(new URL(req.url).pathname)) return json({ error: "A Host's AI assistant cannot pay or manage the team. The Host does this in their own console.", code: "ai-not-allowed" }, 403); // paying and who is on the team are for people
+  if (a.viaLink && /^\/api\/(payments\/|org\/(team|cohost))/.test(new URL(req.url).pathname)) return json({ error: "A Co-organizer's AI assistant cannot pay or manage the team. The Co-organizer does this in their own console.", code: "ai-not-allowed" }, 403); // paying and who is on the team are for people
   const peek = req.method === "GET" || req.method === "HEAD" ? null : req.clone(); // the internal audit log reads the body from this copy; the route reads the original
   const r = await route0(req, env, now, a);
   let kidForLog: string | null = null;
@@ -984,7 +984,7 @@ async function route0(req: Request, env: Env, now: number, a: Auth): Promise<Res
     if (!googleClientId(env)) return json({ error: "Not found" }, 404);
     const b = await body(req, 8192);
     const intent = b?.intent;
-    if (intent !== "signup" && intent !== "signin" && intent !== "host") return json({ error: "Say whether you are signing up, signing in or finishing a Host setup." }, 400);
+    if (intent !== "signup" && intent !== "signin" && intent !== "host") return json({ error: "Say whether you are signing up, signing in or finishing a Co-organizer setup." }, 400);
     const fk = `linkfail/${day(now)}/${(await sha("ip|" + (req.headers.get("cf-connecting-ip") ?? "local"))).slice(0, 16)}`; // the same per-network failure allowance as the sign-in link
     const fails = Number((await env.DB.prepare("SELECT v FROM kv WHERE k=?").bind(fk).first<{ v: string }>())?.v ?? 0);
     if (fails >= 20) return json({ error: "Too many tries from this network. Please use an e-mail code, or try again tomorrow." }, 429);
@@ -1139,7 +1139,7 @@ async function route0(req: Request, env: Env, now: number, a: Auth): Promise<Res
   if (req.method === "POST" && p === "/api/host/become-organizer") { // a Host who also wants to run their own games: the same e-mail gets an Organizer account (Terms box K2), and the person then holds both roles
     if (a.kind !== "host" || a.viaLink || !a.hid || a.hostReady === false) return deny(a);
     const row = await identityRow(env.DB, a.hid), mail = row?.email_sealed ? await openText(env as any, row.email_sealed) : null;
-    if (!mail) return json({ error: "Your e-mail is not confirmed yet. Finish your Host setup first." }, 409);
+    if (!mail) return json({ error: "Your e-mail is not confirmed yet. Finish your Co-organizer setup first." }, 409);
     const email = cleanEmail(mail), eh = await sha("email|" + email);
     if (await env.DB.prepare("SELECT org FROM organizer_email WHERE email_hash=?").bind(eh).first()) return json({ error: "You already have an Organizer account. Sign out and sign in again with your e-mail code to use it.", code: "has-organizer" }, 409);
     const b = await body(req);
@@ -1164,29 +1164,29 @@ async function route0(req: Request, env: Env, now: number, a: Auth): Promise<Res
       if (!a.org || a.viaLink || (a.kind !== "master" && a.kind !== "host" && a.kind !== "cohost")) return deny(a);
       const pe = await env.DB.prepare("SELECT id, org, cap, pack, cancelled_ms, config FROM engagement WHERE id=?").bind(plm[1]!).first<{ id: string; org: string | null; cap: number; pack: number | null; cancelled_ms: number | null; config: string | null }>();
       if (!pe || pe.org !== a.org) return json({ error: "No such game." }, 404);
-      if (a.kind === "cohost" && a.eid && a.eid !== pe.id) return json({ error: "Your Co-host link is for a different game." }, 403);
+      if (a.kind === "cohost" && a.eid && a.eid !== pe.id) return json({ error: "Your Invite-only co-organizer link is for a different game." }, 403);
       if (pe.cancelled_ms) return json({ error: "This game was cancelled. It cannot be paid for." }, 409);
       if (rulesOf(pe)) return json({ error: "You make the payment link in the console, not here.", code: "pay-in-console" }, 410); // owner rules 1.1: this game takes no money
       if (pe.pack !== 0) return json({ error: "This game is already paid for.", code: "already-paid" }, 409);
-      if (!packFor(pe.cap)) return json({ error: "That many participants needs a custom arrangement. Please write from the contact page." }, 400);
+      if (!packFor(pe.cap)) return json({ error: "That many players needs a custom arrangement. Please write from the contact page." }, 400);
       if (!(await spend(env, now, 2))) return BUSY();
       const made = await createPayLink(env.DB, pe.id, a.org, a.kind, now);
       return json({ url: `${(env as PayEnv).PUBLIC_ORIGIN ?? url.origin}/paylink.html?t=${made.token}`, expiresMs: made.expiresMs });
     }
   }
   if (req.method === "POST" && p === "/api/org/host") { // the Organizer (or their AI) adds a Host: up to 5, each with a name and AT LEAST ONE of e-mail or mobile. A Host's own one-time link is e-mailed to the Host (if there is an e-mail) or sent by the Organizer on WhatsApp.
-    if (a.kind === "ai") return json({ error: "A Host needs a mobile number or an e-mail address. Only the owner enters those, in the console (Your team). Tell the organizer to add the Host there." }, 403);
+    if (a.kind === "ai") return json({ error: "A Co-organizer needs a mobile number or an e-mail address. Only the owner enters those, in the console (Your team). Tell the organizer to add the Co-organizer there." }, 403);
     if (a.kind !== "master" || !a.org) return deny(a);
     const hb = await body(req);
     const hEmail = typeof hb?.email === "string" ? cleanEmail(hb.email) : "";
     const rawMob = hb?.mobile ?? hb?.phone, hasMob = rawMob !== undefined && rawMob !== null && String(rawMob).trim() !== "";
     if (typeof hb?.email === "string" && hb.email.trim() !== "" && !hEmail) return json({ error: "That e-mail address does not look right. Please check it." }, 400); // typed but unusable: never make the Host from the mobile alone
-    if (!hEmail && !hasMob) return json({ error: "Please give the Host's e-mail address or mobile number (at least one). Their own link is sent there." }, 400);
+    if (!hEmail && !hasMob) return json({ error: "Please give the Co-organizer's e-mail address or mobile number (at least one). Their own link is sent there." }, 400);
     if (hEmail && !EMAIL_RE.test(hEmail)) return json({ error: "That e-mail address does not look right. Please check it." }, 400);
     const hMob = hasMob ? cleanPhone(rawMob) : null;
-    if (hMob && !hMob.ok) return json({ error: "Please check the Host's mobile number. " + hMob.why }, 400);
+    if (hMob && !hMob.ok) return json({ error: "Please check the Co-organizer's mobile number. " + hMob.why }, 400);
     const n = (await env.DB.prepare("SELECT COUNT(*) AS c FROM organizer_key WHERE org=? AND kind='host' AND revoked=0 AND expires_ms IS NULL AND (host_id IS NULL OR host_id=hash) AND COALESCE(created_by,'')<>'d'").bind(a.org).first<{ c: number }>())?.c ?? 0; // a Help Desk Host (created_by 'd') does not use one of the 5 places
-    if (n >= MAX_HOSTS) return json({ error: `You can have up to ${MAX_HOSTS} Hosts at a time. Retire one first.` }, 409);
+    if (n >= MAX_HOSTS) return json({ error: `You can have up to ${MAX_HOSTS} Co-organizers at a time. Retire one first.` }, 409);
     if (!(await spend(env, now, 4))) return BUSY();
     const key = "cbh_" + randHex(24), label = cleanLabel(hb?.label), kh = await sha("key|" + key);
     const hGame = await ownGameId(env, a.org, hb?.e); // added from inside a game: the Host's link opens that game
@@ -1202,15 +1202,15 @@ async function route0(req: Request, env: Env, now: number, a: Auth): Promise<Res
     return json({ ok: true, hostKey: key, link: hLink, manualUrl: `${hOrigin}/ai/${key}`, mailed: hm.mailed, emailed: hostMailed, id: kh.slice(0, 10), label, ...(hEmail ? { email: hEmail } : {}), ...(hMob && hMob.ok ? { mobileMasked: maskMobile(hMob.digits), waLink: waLinkFor(hMob.digits, label, hLink) } : {}), expiresMs: now + HOST_LINK_TTL_MS });
   }
   if (req.method === "POST" && p === "/api/org/host/link") { // the Organizer sends a Host a NEW first-open link: the old link stops at once. Only for a Host who has not confirmed their e-mail yet (later they sign in with it).
-    if (a.kind === "ai") return json({ error: "Only the owner sends a Host's link, in the console (Your team)." }, 403);
+    if (a.kind === "ai") return json({ error: "Only the owner sends a Co-organizer's link, in the console (Your team)." }, 403);
     if (a.kind !== "master" || !a.org) return deny(a);
     const lb = await body(req);
     const lid = typeof lb?.id === "string" && /^[0-9a-f]{10}$/.test(lb.id) ? lb.id : "";
-    if (!lid) return json({ error: "Pick a Host from the list." }, 400);
+    if (!lid) return json({ error: "Pick a Co-organizer from the list." }, 400);
     const hr = await env.DB.prepare("SELECT hash, label, email_sealed, pii FROM organizer_key WHERE org=? AND substr(hash,1,10)=? AND kind='host' AND revoked=0 AND expires_ms IS NULL AND (host_id IS NULL OR host_id=hash)").bind(a.org, lid).first<{ hash: string; label: string | null; email_sealed: string | null; pii: string | null }>();
     if (!hr) return json({ error: "That person is not on your team." }, 404);
     const hst = await hostStateRow(env.DB, hr.hash);
-    if (hst?.verified_ms) return json({ error: "This Host has already finished setup and signs in with their e-mail. If they cannot get in, retire them and add them again.", code: "host-active" }, 409);
+    if (hst?.verified_ms) return json({ error: "This Co-organizer has already finished setup and signs in with their e-mail. If they cannot get in, retire them and add them again.", code: "host-active" }, 409);
     if (!(await spend(env, now, 4))) return BUSY();
     const nk = "cbh_" + randHex(24), nh = await sha("key|" + nk);
     await env.DB.batch([
@@ -1243,14 +1243,14 @@ async function route0(req: Request, env: Env, now: number, a: Auth): Promise<Res
     return json({ maxHosts: MAX_HOSTS, hosts, cohosts });
   }
   if (req.method === "POST" && p === "/api/org/cohost") { // the Organizer or a Host adds a Co-host for ONE game: a name and a mobile number (no e-mail). The key invites people with an own link and pays, nothing else. No limit.
-    if ((a.kind !== "master" && a.kind !== "host") || !a.org) return a.kind === "ai" ? json({ error: "A Co-host needs a name and a mobile number. Only the owner enters those, in the console." }, 403) : deny(a);
+    if ((a.kind !== "master" && a.kind !== "host") || !a.org) return a.kind === "ai" ? json({ error: "An invite-only co-organizer needs a name and a mobile number. Only the owner enters those, in the console." }, 403) : deny(a);
     const cb = await body(req);
     const cName = cleanLabel(cb?.label), cDigits = String(cb?.phone ?? "").replace(/\D/g, "").replace(/^0+/, "");
-    if (cName.length < 2) return json({ error: "Please give the Co-host's name." }, 400);
-    if (cDigits.length < 10 || cDigits.length > 15) return json({ error: "Please give a valid mobile number for the Co-host." }, 400);
+    if (cName.length < 2) return json({ error: "Please give the Invite-only co-organizer's name." }, 400);
+    if (cDigits.length < 10 || cDigits.length > 15) return json({ error: "Please give a valid mobile number for the Invite-only co-organizer." }, 400);
     const cEid = typeof cb?.e === "string" ? cb.e : typeof cb?.eid === "string" ? cb.eid : "";
     const cg = ID.test(cEid) ? await env.DB.prepare("SELECT id, org, cancelled_ms FROM engagement WHERE id=?").bind(cEid).first<{ id: string; org: string | null; cancelled_ms: number | null }>() : null;
-    if (!cg || cg.org !== a.org) return json({ error: "Choose which game this Co-host is for." }, 400);
+    if (!cg || cg.org !== a.org) return json({ error: "Choose which game this Invite-only co-organizer is for." }, 400);
     if (cg.cancelled_ms) return json({ error: "That game was cancelled." }, 409);
     if (!(await spend(env, now, 2))) return BUSY();
     const key = "cbc_" + randHex(24), kh = await sha("key|" + key);
@@ -1356,7 +1356,7 @@ async function route0(req: Request, env: Env, now: number, a: Auth): Promise<Res
       if (!b || typeof b.publicKey !== "string") return json({ error: "Bad key." }, 400);
       if (!(await spend(env, now))) return BUSY();
       const safety = safetyForCap(ce.cap, b.profile === "fast");
-      if (!safety) return json({ error: `Pause is available for games of up to ${PAUSE_MAX_PARTICIPANTS.toLocaleString("en-IN")} participants. Larger ones run without it, which keeps every phone's traffic off the free plan's daily allowance.` }, 409);
+      if (!safety) return json({ error: `Pause is available for games of up to ${PAUSE_MAX_PARTICIPANTS.toLocaleString("en-IN")} players. Larger ones run without it, which keeps every phone's traffic off the free plan's daily allowance.` }, 409);
       const r = await registerKey(kv, cid!, b.publicKey, safety);
       if (r.ok) await mirrorControl(env, cid!);
       return r.ok ? json({ ok: true }) : json({ error: r.error }, 409);
@@ -1367,7 +1367,7 @@ async function route0(req: Request, env: Env, now: number, a: Auth): Promise<Res
       if (!b || !["pause", "resume", "stop", "erase"].includes(b.action)) return json({ error: "Ask for pause, resume, stop or delete." }, 400);
       if (!(await spend(env, now))) return BUSY();
       if (b.action === "erase") { // the AI may ASK to delete all participant data; only the organizer's own confirmation in their console does it
-        await nudge(env, cid!, `delreq-${day(now)}`, now, `Your AI assistant asked to delete all participant data: engagement ${cid}`, `Your AI assistant asked to delete all participant data for ${cid}. Nothing is deleted yet.\n\nTo confirm, press Confirm in your console: ${(env as PayEnv).PUBLIC_ORIGIN ?? ""}/zc.html?e=${cid}\n\nNot you? Press Dismiss.`);
+        await nudge(env, cid!, `delreq-${day(now)}`, now, `Your AI assistant asked to delete all player data: engagement ${cid}`, `Your AI assistant asked to delete all player data for ${cid}. Nothing is deleted yet.\n\nTo confirm, press Confirm in your console: ${(env as PayEnv).PUBLIC_ORIGIN ?? ""}/zc.html?e=${cid}\n\nNot you? Press Dismiss.`);
         await env.DB.prepare("INSERT INTO cbl_request(eid,action,note,at_ms,open) VALUES(?,?,?,?,1)").bind(cid, "erase", typeof b.note === "string" ? b.note.replace(/[<>`]/g, "").slice(0, 200) : null, now).run();
         return json({ ok: true, message: "Nothing has been deleted yet. The organizer has been asked and must confirm in their console (they were also e-mailed). Tell them to open the console and press Confirm." });
       }
@@ -1510,10 +1510,10 @@ async function route0(req: Request, env: Env, now: number, a: Auth): Promise<Res
       if (pv && pv.x > now && now - pv.t < 300_000) continue; // a code was sent a moment ago: do not send another
       const code = String(100000 + (crypto.getRandomValues(new Uint32Array(1))[0]! % 900000));
       await env.DB.prepare("INSERT INTO kv(k,v) VALUES(?,?) ON CONFLICT(k) DO UPDATE SET v=excluded.v").bind(`delreq/${tok}`, JSON.stringify({ c: await sha(`delcode|${tok}|${code}`), x: now + 1_800_000, t: now })).run();
-      await sendMail(env as PayEnv, env.DB, registered, `Confirm the deletion of participant data: ${tok}`, `A request to delete all participant data was received for ${tok}. Nothing is deleted yet.\n\nTo confirm, reply to the e-mail you sent with this code: ${code}\n\nIt works for 30 minutes. Not you? Ignore this e-mail.`, now);
+      await sendMail(env as PayEnv, env.DB, registered, `Confirm the deletion of player data: ${tok}`, `A request to delete all player data was received for ${tok}. Nothing is deleted yet.\n\nTo confirm, reply to the e-mail you sent with this code: ${code}\n\nIt works for 30 minutes. Not you? Ignore this e-mail.`, now);
       asked.push(tok);
     }
-    if (done.length) await sendMail(env as PayEnv, env.DB, from, `Deleted: participant data of ${done.join(", ")}`, `Done. All participant data was deleted for: ${done.join(", ")}.\n\nThe winners record (seat, prize, round, time) and winners' prize hand-over details (the name, mobile number and employee ID, if any, each winner confirmed; nothing else about them) are kept for up to 365 days, together with your organizer details.`, now);
+    if (done.length) await sendMail(env as PayEnv, env.DB, from, `Deleted: player data of ${done.join(", ")}`, `Done. All player data was deleted for: ${done.join(", ")}.\n\nThe winners record (seat, prize, round, time) and winners' prize hand-over details (the name, mobile number and employee ID, if any, each winner confirmed; nothing else about them) are kept for up to 365 days, together with your organizer details.`, now);
     return json({ ok: true, action: done.length ? "deleted" : asked.length ? "confirm-sent" : "no-match", engagements: done });
   }
   if (req.method === "GET" && p === "/api/notices") { // our public news list: the same for everyone, nothing about the reader is stored or asked
@@ -1622,7 +1622,7 @@ async function route0(req: Request, env: Env, now: number, a: Auth): Promise<Res
   }
   if (action === "cohost" && req.method === "GET") { // the small game header a Co-host sees: no names, no list, no settings
     if (!a.plat && !(a.org && a.org === e.org)) return deny(a);
-    if (a.kind === "cohost" && a.eid && a.eid !== e.id) return json({ error: "Your Co-host link is for a different game." }, 403); // a Co-host belongs to one game
+    if (a.kind === "cohost" && a.eid && a.eid !== e.id) return json({ error: "Your Invite-only co-organizer link is for a different game." }, 403); // a Co-host belongs to one game
     const kid = a.kind === "cohost" ? (await sha("key|" + (req.headers.get("x-organizer") || (req.headers.get("authorization") ?? "").replace(/^Bearer\s+/i, "")))).slice(0, 7) : null;
     const c = cfgOf(e), origin = (env as PayEnv).PUBLIC_ORIGIN ?? new URL(req.url).origin;
     const joined = (await env.DB.prepare("SELECT COUNT(*) AS c FROM participant WHERE eid=?").bind(eid).first<{ c: number }>())?.c ?? 0;
@@ -1846,7 +1846,7 @@ async function route0(req: Request, env: Env, now: number, a: Auth): Promise<Res
     const list = Array.isArray(b?.claims) ? b.claims.slice(0, 7) : null;
     if (!b || typeof b.pid !== "string" || !list) return json({ error: "Bad claim." }, 400);
     const who = await env.DB.prepare("SELECT p.pid AS pid, s.blocked AS blocked FROM participant p LEFT JOIN seat s ON s.eid=p.eid AND s.pid=p.pid WHERE p.eid=? AND p.pid=?").bind(eid, b.pid).first<{ pid: string; blocked: number | null }>();
-    if (!who) return json({ error: "Not a participant of this game." }, 403);
+    if (!who) return json({ error: "Not a player of this game." }, 403);
     if (who.blocked) return json({ error: "You were removed from this game by the organizer.", code: "removed", removed: true }, 403); // the seat stays in the public list, the phone stops
     if (checkinRequired(e)) { const st = seatOfPidText(b.pid); if (!st || (await presentMsOf(env.DB, eid!, st)) === null) return json({ error: "Mark yourself present first: the check-in is on your board page.", code: "not-present" }, 403); } if (checkinRequired(e) && !(await deviceMatches(env, eid!, b.pid, b.device))) return json({ error: "This board belongs to another phone.", code: "other-phone" }, 403); // the participant id is public: only the board's own phone may act for it
     // only a person who checked in can win
@@ -1894,8 +1894,8 @@ async function route0(req: Request, env: Env, now: number, a: Auth): Promise<Res
     const nextSteps = [
       { step: "Name the prizes", who: "the organizer, or the AI if told what each prize is", done: c.rewards.some((r) => r.text.length > 0) },
       { step: "Publish (free): the organizer confirms their e-mail and mobile and taps once", who: "the organizer", done: !isDraft, ...(isDraft ? { link: `${origin}/zc.html?e=${e.id}&do=publish` } : {}) },
-      { step: "Pay (the game does not begin until it is paid)", who: "the organizer, a Host or a Co-host", done: !isDraft && !unpaid, ...(unpaid && !isDraft ? { link: links.pay, startsAt: istTime(roundMs(e.start_round), tzOfRow(e)), canPayUntil: istTime(await erasureOf(env, e), tzOfRow(e)) } : {}) },
-      { step: "Share the guest link and load the guest list", who: "the organizer", done: n > 0 },
+      { step: "Pay (the game does not begin until it is paid)", who: "the organizer, a Co-organizer or an invite-only co-organizer", done: !isDraft && !unpaid, ...(unpaid && !isDraft ? { link: links.pay, startsAt: istTime(roundMs(e.start_round), tzOfRow(e)), canPayUntil: istTime(await erasureOf(env, e), tzOfRow(e)) } : {}) },
+      { step: "Share the player link and load the player list", who: "the organizer", done: n > 0 },
     ];
     const cpv = cancelled ? await cancelPreview(env as PayEnv, e, now) : null; // what a cancelled game left in the account (credit, never a refund)
     const startPending = !!(await env.DB.prepare("SELECT 1 AS x FROM kv WHERE k=?").bind(`startpending/${e.id}`).first());
@@ -1914,8 +1914,8 @@ async function route0(req: Request, env: Env, now: number, a: Auth): Promise<Res
     const origin = (env as PayEnv).PUBLIC_ORIGIN ?? new URL(req.url).origin;
     const payUrl = `${origin}/pay.html?e=${eid}`, shareUrl = `${origin}/z.html?e=${eid}`;
     if (a.kind === "ai" && can(a, e)) return json({ ok: true, published: !isDraft, needsOrganizer: isDraft, ...(isDraft ? { consoleUrl: `${origin}/zc.html?e=${eid}` } : { payUrl, shareUrl }), message: isDraft
-      ? "Everything is ready. Please give this link to the organizer: they open it, confirm their e-mail and mobile number and press Publish. Publishing is free. After that the game does not begin until it is paid for (any time until the guest data is auto-deleted; a late payment starts the game 2 minutes after it is confirmed). The organizer does both themself: the AI never publishes or pays."
-      : unpaid ? "It is published. The game does not begin until it is paid for (any time until the guest data is auto-deleted; a late payment starts it 2 minutes after confirmation). Give the organizer this link to pay: they do it themself." : "Already published and paid." });
+      ? "Everything is ready. Please give this link to the organizer: they open it, confirm their e-mail and mobile number and press Publish. Publishing is free. After that the game does not begin until it is paid for (any time until the player data is auto-deleted; a late payment starts the game 2 minutes after it is confirmed). The organizer does both themself: the AI never publishes or pays."
+      : unpaid ? "It is published. The game does not begin until it is paid for (any time until the player data is auto-deleted; a late payment starts it 2 minutes after confirmation). Give the organizer this link to pay: they do it themself." : "Already published and paid." });
     if (!can(a, e, true)) return deny(a);
     if (!isDraft) { // already published (for example the game was paid for first): the organizer's confirmed e-mail and mobile number are still kept if they have none on file, because the end-of-game report is sent to that e-mail
       const pb0 = await body(req); const ce = typeof pb0?.email === "string" ? pb0.email.trim() : "", cp = String(pb0?.phone ?? "").replace(/\D/g, "");
@@ -1940,7 +1940,7 @@ async function route0(req: Request, env: Env, now: number, a: Auth): Promise<Res
     if (!(await spend(env, now, 4))) return BUSY();
     const paid = !!(ent || free), startMs = roundMs(e.start_round);
     const mailSubject = paid ? `Your engagement ${eid} is published and paid` : `Your engagement ${eid} is published: payment pending (it starts ${istTime(startMs)})`,
-      mailText = `Your engagement ${eid} is live.\n\nShare this link: ${shareUrl}\n\n${paid ? "" : `Payment pending: the game does not begin until it is paid for. You can pay at any time until the guest data is auto-deleted; if you pay late, the first number comes 2 minutes after the payment is confirmed (about 2 minutes to pay): ${payUrl}\n\n`}Big screen for the room: ${origin}/big.html?e=${eid}`;
+      mailText = `Your engagement ${eid} is live.\n\nShare this link: ${shareUrl}\n\n${paid ? "" : `Payment pending: the game does not begin until it is paid for. You can pay at any time until the player data is auto-deleted; if you pay late, the first number comes 2 minutes after the payment is confirmed (about 2 minutes to pay): ${payUrl}\n\n`}Big screen for the room: ${origin}/big.html?e=${eid}`;
     await env.DB.batch([
       env.DB.prepare("INSERT INTO kv(k,v) VALUES(?,?) ON CONFLICT(k) DO UPDATE SET v=excluded.v").bind(`contact/${eid}`, JSON.stringify({ email: cEmail, phone: cPhone.slice(-10) })),
       env.DB.prepare("INSERT OR IGNORE INTO kv(k,v) VALUES(?,?)").bind(`pub/${eid}`, String(now)),
@@ -1990,7 +1990,7 @@ async function route0(req: Request, env: Env, now: number, a: Auth): Promise<Res
   if (action === "invites" && req.method === "GET") { // how many people this participant has invited so far (their own id is the key to ask)
     const pid = url.searchParams.get("pid") ?? "";
     const me = await env.DB.prepare("SELECT seq, role, inv, blocked FROM seat WHERE eid=? AND pid=?").bind(eid, pid).first<{ seq: number; role: string | null; inv: number | null; blocked: number | null }>();
-    if (!me) return json({ error: "Not a participant of this game." }, 403);
+    if (!me) return json({ error: "Not a player of this game." }, 403);
     const c = cfgOf(e).invites;
     const used = Math.max((await env.DB.prepare("SELECT COUNT(*) AS c FROM seat WHERE eid=? AND inv=?").bind(eid, me.seq).first<{ c: number }>())?.c ?? 0, await listCount(env.DB, eid!, "s:" + me.seq)); // people on their list (joined or not) or seats under them
     return json({ on: !!c?.on, per: c?.per ?? 0, used, unlimited: !!me.role, canInvite: !me.blocked && (!!me.role || me.inv === null), seat: me.seq, cats: c?.cats ?? [], removed: !!me.blocked, whoCanJoin: e.closed ? "list" : "anyone" });
@@ -2017,7 +2017,7 @@ async function route0(req: Request, env: Env, now: number, a: Auth): Promise<Res
     const st = await env.DB.prepare("SELECT v FROM kv WHERE k=?").bind(`rpt/${eid}`).first<{ v: string }>();
     const stage = st ? (JSON.parse(st.v).stage as string) : null;
     const ready = stage === "send" || stage === "done";
-    if (a.kind === "ai") return json({ ready, sent: !!life?.report_ms, url: null, note: "The report holds every participant's name and number, so its address goes only to the organizer (it is e-mailed to them). Tell them to open their e-mail or their console." }); // the address is a key to personal data: it never travels through an outside AI
+    if (a.kind === "ai") return json({ ready, sent: !!life?.report_ms, url: null, note: "The report holds every player's name and number, so its address goes only to the organizer (it is e-mailed to them). Tell them to open their e-mail or their console." }); // the address is a key to personal data: it never travels through an outside AI
     return json({ ready, sent: !!life?.report_ms, url: ready ? await reportLink(env as any, eid!) : null });
   }
   if (action === "throw" && req.method === "POST") return acceptThrow(env, e, eid!, await body(req), now, json, spend);
@@ -2031,7 +2031,7 @@ async function route0(req: Request, env: Env, now: number, a: Auth): Promise<Res
   if (action === "prizegiven" && req.method === "POST") { if (!can(a, e)) return deny(a); return markGiven(env, eid!, await body(req), a.kind, now, json, spend); }
   if (action === "erase" && req.method === "POST") { // right to erasure: every name, number, seat and invite of this engagement's people. The winners record and the organizer's own details stay, as the report says.
     if (!can(a, e, true)) return deny(a);
-    if (now >= roundMs(e.start_round) && now < (await endBoundMs(env as any, e)) && !e.cancelled_ms) return json({ error: "The game is being played right now. You can delete the participants' data as soon as it ends.", code: "game-running" }, 409); // erasing mid-game would wipe every board and the Co-host keys under the players' feet
+    if (now >= roundMs(e.start_round) && now < (await endBoundMs(env as any, e)) && !e.cancelled_ms) return json({ error: "The game is being played right now. You can delete the players' data as soon as it ends.", code: "game-running" }, 409); // erasing mid-game would wipe every board and the Co-host keys under the players' feet
     const n = await env.DB.prepare("SELECT COUNT(*) AS c FROM participant WHERE eid=?").bind(eid).first<{ c: number }>();
     if (!(await spend(env, now, (n?.c ?? 0) + 1))) return BUSY();
     await erasePersonal(env, eid!, now, "organizer");
@@ -2091,7 +2091,7 @@ async function route0(req: Request, env: Env, now: number, a: Auth): Promise<Res
     const b = await body(req, BRAND_BODY_MAX);
     if (!b) return json({ error: "Check the details." }, 400);
     if (b.whoCanJoin !== undefined && b.whoCanJoin !== "list" && b.whoCanJoin !== "anyone") return json({ error: "Who can join: choose \"list\" (only people on a list) or \"anyone\" (anyone with the link)." }, 400);
-    if (b.coHostLimit !== undefined && (!Number.isInteger(b.coHostLimit) || b.coHostLimit < COHOST_LIMIT_MIN || b.coHostLimit > COHOST_LIMIT_MAX)) return json({ error: `A Co-host can list ${COHOST_LIMIT_MIN} to ${COHOST_LIMIT_MAX} people.` }, 400);
+    if (b.coHostLimit !== undefined && (!Number.isInteger(b.coHostLimit) || b.coHostLimit < COHOST_LIMIT_MIN || b.coHostLimit > COHOST_LIMIT_MAX)) return json({ error: `An invite-only co-organizer can list ${COHOST_LIMIT_MIN} to ${COHOST_LIMIT_MAX} people.` }, 400);
     const vc = validateCfg({ tickets: b.tickets, rewards: b.rewards, breaks: b.breaks, rounds: b.rounds, invites: b.invites !== undefined ? b.invites : b.guestInvites, opening: b.opening, closing: b.closing, name: b.name, brand: b.brand, mark: b.mark, join: b.join, tz: b.tz, verify: b.verify, employeesOnly: b.employeesOnly, idKind: b.idKind, engine: b.engine, survivors: b.survivors, roundTurns: b.roundTurns, ...gameFields(b) }, cfgOf(e)); // guestInvites is the console's name for invites
     if (!vc.ok) return json({ error: vc.error }, 400);
     const next = { start_round: b.startRound ?? e.start_round, call_seconds: b.callSeconds ?? e.call_seconds, cap: b.cap ?? e.cap, closed: vc.cfg.employeesOnly ? 1 : b.whoCanJoin !== undefined ? (b.whoCanJoin === "list" ? 1 : 0) : b.closed === undefined ? e.closed : b.closed ? 1 : 0, cohost_limit: b.coHostLimit ?? e.cohost_limit ?? null }; // whoCanJoin "list" is the same switch as the older `closed`
@@ -2103,7 +2103,7 @@ async function route0(req: Request, env: Env, now: number, a: Auth): Promise<Res
     if (roundMs(next.start_round) <= now) return json({ error: "Pick a start time in the future." }, 400);
     if (next.start_round !== e.start_round) { const mx = await maxAheadFor(env, e, now); if (roundMs(next.start_round) > now + mx) return json({ error: e.pack ? PAID_TOO_FAR : TOO_FAR, code: "too-far" }, 400); }
     const have = await env.DB.prepare("SELECT COUNT(*) AS c FROM participant WHERE eid=?").bind(eid).first<{ c: number }>();
-    if (!a.plat && e.pack !== 0 && next.cap > (e.pack ?? e.cap)) return json({ error: `Your pack allows up to ${e.pack ?? e.cap} people. For more people, make a new game like this one.` }, 402);
+    if (!a.plat && e.pack !== 0 && next.cap > (e.pack ?? e.cap)) return json({ error: `This game is paid for up to ${e.pack ?? e.cap} people. For more people, make a new game like this one.` }, 402);
     const listed = await env.DB.prepare("SELECT COUNT(*) AS c FROM person WHERE eid=? AND status<>'removed'").bind(eid).first<{ c: number }>().catch(() => null); // people on the lists who have not come in yet count too
     { const cur = verifyOf(e); if (cur.mode !== "mobile" && (cur.idKind !== (vc.cfg.idKind ?? "emp") || cur.mode !== (vc.cfg.verify ?? "mobile")) && (have?.c ?? 0) + (listed?.c ?? 0) > 0) return json({ error: cur.idKind !== (vc.cfg.idKind ?? "emp") ? "You already have people listed. Start a new game to use a different kind of Employee or Email ID." : "You already have people listed. Start a new game to use a different way of asking for Employee IDs.", code: "id-locked" }, 409); } // a person's identity hash comes from the ID kind: changing it would orphan everyone
     if (next.cap < Math.max(have?.c ?? 0, listed?.c ?? 0)) return json({ error: "The limit cannot be lower than the people already on the list." }, 409);

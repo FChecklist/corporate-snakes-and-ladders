@@ -89,7 +89,7 @@ describe("the brand through the API", () => {
     const info = await j(await call("GET", "/api/z/BRAND-1/info"));
     expect(info.brand).toEqual({ name: "Acme Foods", color: BRAND_COLORS[2], logo });
     expect((await j(await call("GET", "/api/z/BRAND-1/summary", undefined, k))).brand.name).toBe("Acme Foods");
-    const joined = await j(await call("POST", "/api/z/BRAND-1/join", { phone: "9123456780", name: "Guest", device: "c".repeat(32) }));
+    const joined = await j(await call("POST", "/api/z/BRAND-1/join", { phone: "9123456780", name: "Player", device: "c".repeat(32) }));
     expect(joined.brand).toEqual({ name: "Acme Foods", color: BRAND_COLORS[2], hasLogo: true }); expect(JSON.stringify(joined)).not.toContain("base64");
     const list = await j(await call("GET", "/api/z/BRAND-1/participants", undefined, k));
     expect(list.brand.hasLogo).toBe(true); expect(JSON.stringify(list)).not.toContain("base64");

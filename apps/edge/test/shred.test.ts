@@ -35,8 +35,8 @@ async function game() {
 }
 const engagementRow = () => raw.prepare("SELECT * FROM engagement WHERE id='EVT1'").get();
 
-describe("participant crypto-shredding", () => {
-  test("a participant's personal part is stored apart, sealed under the engagement's own key, never in audit_log", async () => {
+describe("player crypto-shredding", () => {
+  test("a player's personal part is stored apart, sealed under the engagement's own key, never in audit_log", async () => {
     await game();
     const p = rows("EVT1").filter((x) => x.actor === "participant");
     expect(p.length).toBe(2);
@@ -87,7 +87,7 @@ describe("participant crypto-shredding", () => {
     const w = await verifyChain((env as any).DB, "EVT1"); expect(w.ok).toBe(false); expect(w.reason).toMatch(/without a recorded erasure/);
   });
 
-  test("rows of the organizer, co-host and AI key are NOT shredded; a winner's prize confirmation keeps only the winner's own name and number (the network address and the rest are shredded)", async () => {
+  test("rows of the organizer, invite-only co-organizer and AI key are NOT shredded; a winner's prize confirmation keeps only the winner's own name and number (the network address and the rest are shredded)", async () => {
     await game();
     const base = { eid: "EVT1", org: null, status: 200, now: T, country: "IN", corr: "c" };
     await appendAudit(env as any, { ...base, actor: "participant", event: "prize", target: "confirm", details: { method: "POST", path: "/api/z/EVT1/confirm", status: 200, ip: IP, ua: "UA-X", device_id: "d".repeat(32), changes: { pid: "7x" + "ab".repeat(6), name: "Winner W", phone: "+917012345678" } } });
@@ -104,7 +104,7 @@ describe("participant crypto-shredding", () => {
     expect((await verifyChain((env as any).DB, "EVT1")).ok).toBe(true);
   });
 
-  test("a participant row written after the shredding keeps only its non-personal core and no new key is made", async () => {
+  test("a player row written after the shredding keeps only its non-personal core and no new key is made", async () => {
     await game();
     await shredParticipantAudit(env as any, "EVT1", T + 23 * HOUR);
     await call("POST", "/api/z/EVT1/join", { phone: "9000000001", name: "Late", device: "ef".repeat(16) }, { "cf-connecting-ip": "198.51.100.77", "user-agent": UA }, T + 24 * HOUR);
@@ -123,10 +123,10 @@ describe("participant crypto-shredding", () => {
 });
 
 describe("the 23-hour clock", () => {
-  test("constants: the link closes at 19 hours, participants' data goes at 20 (the job may run 3 hours late and still keep the promised 24)", () => {
+  test("constants: the link closes at 19 hours, players' data goes at 20 (the job may run 3 hours late and still keep the promised 24)", () => {
     expect(REPORT_LINK_MS).toBe(19 * HOUR); expect(PURGE_AFTER_MS).toBe(20 * HOUR);
   });
-  test("the tick deletes participants and shreds their audit part at 20 hours after the end, not at 19", async () => {
+  test("the tick deletes players and shreds their audit part at 20 hours after the end, not at 19", async () => {
     await game();
     const end = await endBoundMs(env as any, engagementRow());
     await lifecycleTick(env as any, end + 5 * 60_000);

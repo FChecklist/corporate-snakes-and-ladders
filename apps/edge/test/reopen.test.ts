@@ -57,7 +57,7 @@ const complete = async (c: any, id = "pay_1", now = T, status = "captured") => {
   return call("POST", "/api/payments/verify", { paymentId: c.paymentId, razorpay_order_id: c.razorpay.orderId, razorpay_payment_id: id, razorpay_signature: sign(c, id) }, undefined, now);
 };
 const paidGame = async (t: { master: string }) => { const c = await j(await pay(t.master)); expect((await j(await complete(c))).published).toBe(true); return c; };
-const join = (phone: string, name = "Guest") => call("POST", "/api/z/CAN-1/join", { phone, name });
+const join = (phone: string, name = "Player") => call("POST", "/api/z/CAN-1/join", { phone, name });
 const cancelIt = (key: string, now = T, confirmations = 3) => call("POST", "/api/z/CAN-1/cancel", { confirmations }, key, now);
 const paymentRow = () => raw.prepare("SELECT * FROM payment WHERE status='paid'").get() as any;
 const DAY = 86_400_000;
@@ -107,7 +107,7 @@ describe("reopen: a cancelled paid game moved to a new date within 365 days", ()
     await cancelIt(t.master);
     const r = await reopen(t.master, T + 5 * DAY); expect(r.status).toBe(409); expect((await j(r)).code).toBe("unpaid"); expect(eng().cancelled_ms).not.toBeNull();
   });
-  test("only the Organizer and a Host may move it: a Co-host, an AI key, a stranger and no key may not", async () => {
+  test("only the Organizer and a Co-organizer may move it: an invite-only co-organizer, an AI key, a stranger and no key may not", async () => {
     const t = await team(); await paidGame(t); await cancelIt(t.master);
     for (const key of [t.cohost, t.ai, "cbk_" + "0".repeat(48), undefined]) { const r = await reopen(key, T + 5 * DAY); expect([401, 403]).toContain(r.status); }
     expect(eng().cancelled_ms).not.toBeNull();
@@ -167,7 +167,7 @@ describe("reopen: a cancelled paid game moved to a new date within 365 days", ()
     expect((await reopen(t.master, T + 6 * DAY)).status).toBe(409);
     expect(eng().start_round).toBe(roundAt(T + 5 * DAY));
   });
-  test("after the 23-hour guest erasure ran, a moved game gets a fresh lifecycle (no stale purged mark) and guests can join again", async () => {
+  test("after the 23-hour player erasure ran, a moved game gets a fresh lifecycle (no stale purged mark) and players can join again", async () => {
     const t = await team(); await paidGame(t); await join("9811100002"); await cancelIt(t.master);
     const later = T + 2 * DAY; await lifecycleTick(env as any, later); // the erasure ran
     expect((raw.prepare("SELECT COUNT(*) AS c FROM participant WHERE eid='CAN-1'").get() as any).c).toBe(0);

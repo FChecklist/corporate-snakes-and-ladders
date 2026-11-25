@@ -267,9 +267,9 @@ async function fulfilInner(env: PayEnv, paymentId: string, now: number, spend: (
   }
   const organizer = { name: meta.paidBy && meta.paidBy !== "organizer" ? contact.name : meta.name ?? contact.name, org: meta.org || undefined, email: contact.email ?? p.email, phone: contact.phone ? String(contact.phone) : meta.phone };
   const cp = meta.priceAdjust && !closed && creditTotal === 0 ? meta.priceAdjust as { listMinor: number; adjustMinor: number; netMinor: number } : null; // the owner set a price for this game: the invoice shows ONE line with the amount actually charged
-  const cpnLines = cp && Math.round(p.amount * 100) === cp.netMinor ? [{ description: `${brand.name}: up to ${p.pack} participants (one game), ${PRICE_LINE}`, quantity: 1, amount: tax.taxable }] : null;
+  const cpnLines = cp && Math.round(p.amount * 100) === cp.netMinor ? [{ description: `${brand.name}: up to ${p.pack} players (one game), ${PRICE_LINE}`, quantity: 1, amount: tax.taxable }] : null;
   const data: InvoiceData = { number, issuedAt: now, brand, company: co, draft: !!test || companyGaps(co).length > 0, buyer: { name: meta.org || meta.name || "", gstin: meta.taxId || undefined, email: p.email, phone: meta.phone || undefined, country: meta.country }, currency: p.currency,
-    lines: cpnLines ?? [{ description: closed ? `${brand.name}: payment received after the game closed (kept as credit)` : `${brand.name}: up to ${p.pack} participants (one game)${creditTotal > 0 ? (p.amount > 0 ? ", balance after credit" : ", paid from credit") : ""}`, quantity: 1, amount: tax.taxable }], tax, paymentRef: p.rzp_payment_id ?? undefined, orderRef: p.id, paidAtMs: pinfo?.createdAtMs ?? now, ...(eidForInvoice ? { game: { id: eidForInvoice, ...(gameName ? { name: gameName } : {}), ...(gameStart ? { startMs: gameStart } : {}) } } : {}), organizer, ...(pinfo ? { pay: pinfo } : {}),
+    lines: cpnLines ?? [{ description: closed ? `${brand.name}: payment received after the game closed (kept as credit)` : `${brand.name}: up to ${p.pack} players (one game)${creditTotal > 0 ? (p.amount > 0 ? ", balance after credit" : ", paid from credit") : ""}`, quantity: 1, amount: tax.taxable }], tax, paymentRef: p.rzp_payment_id ?? undefined, orderRef: p.id, paidAtMs: pinfo?.createdAtMs ?? now, ...(eidForInvoice ? { game: { id: eidForInvoice, ...(gameName ? { name: gameName } : {}), ...(gameStart ? { startMs: gameStart } : {}) } } : {}), organizer, ...(pinfo ? { pay: pinfo } : {}),
     ...(creditTotal > 0 ? { note: `${cuses.map((u) => `Paid from credit of invoice ${u.invoice ?? u.credit_id}: ${rs(u.amount, p.currency)}`).join("; ")}.` } : {}) };
   await db.prepare("INSERT OR IGNORE INTO invoice(token,payment_id,brand,fy,seq,number,issued_ms,data) VALUES(?,?,?,?,?,?,?,?)").bind(token, p.id, brand.id, fy, seq, number, now, JSON.stringify(data)).run();
   const origin = env.PUBLIC_ORIGIN ?? meta.origin ?? "";
@@ -293,7 +293,7 @@ ${renderInvoiceText(data)}
 
 View or print it: ${origin}/api/invoice/${token}
 Download the PDF: ${origin}/api/invoice/${token}.pdf`
-    : `Good news: the game${eidForInvoice ? ` ${eidForInvoice}` : ""} you are a Host of is paid for and ready. The organizer has the invoice. Open your Host link to see the game.`, now);
+    : `Good news: the game${eidForInvoice ? ` ${eidForInvoice}` : ""} you are a Co-organizer of is paid for and ready. The organizer has the invoice. Open your Co-organizer link to see the game.`, now);
   await recordCommission(env, p, tax.taxable, now); // refer & earn: a commission row for a referred, PAID purchase only
   const result = { ok: true, orderId: p.id, pack: p.pack, total: p.amount, tax: p.tax, currency: p.currency, invoiceUrl: `/api/invoice/${token}`, invoiceNumber: number, razorpayPaymentId: p.rzp_payment_id ?? null, organizerKey, newOrganizer: !!organizerKey, published: !!published, eid: published, restartedAtMs: restart ? (1692803367 + (restart - 1) * 3) * 1000 : null, ...(keptCredit ? { creditKept: true, creditId: keptCredit.id, creditExpiresMs: keptCredit.expires_ms } : {}) };
   await db.prepare("UPDATE payment SET status='paid', paid_ms=?, org=?, result=? WHERE id=?").bind(now, org, JSON.stringify(result), p.id).run();
@@ -374,9 +374,9 @@ export async function issueInvoice(env: PayEnv, paymentId: string, now: number, 
   const buyerMail = isPendingEmail(p.email) ? undefined : p.email;
   const organizer = { name: meta.paidBy && meta.paidBy !== "organizer" ? contact.name : meta.name || contact.name, org: meta.org || undefined, email: contact.email ?? buyerMail, phone: contact.phone ? String(contact.phone) : meta.phone };
   const cp = meta.priceAdjust && !closed && creditTotal === 0 ? meta.priceAdjust as { listMinor: number; adjustMinor: number; netMinor: number } : null; // the owner set a price for this game: the invoice shows ONE line with the amount actually charged (twin of fulfilInner)
-  const cpnLines = cp && Math.round(p.amount * 100) === cp.netMinor ? [{ description: `${brand.name}: up to ${p.pack} participants (one game), ${PRICE_LINE}`, quantity: 1, amount: tax.taxable }] : null;
+  const cpnLines = cp && Math.round(p.amount * 100) === cp.netMinor ? [{ description: `${brand.name}: up to ${p.pack} players (one game), ${PRICE_LINE}`, quantity: 1, amount: tax.taxable }] : null;
   const data: InvoiceData = { number, issuedAt: now, brand, company: co, draft: !!test || companyGaps(co).length > 0, buyer: { name: meta.org || meta.name || buyerMail || meta.phone || "Customer", gstin: meta.taxId || undefined, email: buyerMail, phone: meta.phone || undefined, country: meta.country }, currency: p.currency,
-    lines: cpnLines ?? [{ description: closed ? `${brand.name}: payment received after the game closed (kept as credit)` : `${brand.name}: up to ${p.pack} participants (one game)${creditTotal > 0 ? (p.amount > 0 ? ", balance after credit" : ", paid from credit") : ""}`, quantity: 1, amount: tax.taxable }], tax, paymentRef: p.rzp_payment_id ?? undefined, orderRef: p.id, paidAtMs: pinfo?.createdAtMs ?? p.paid_ms ?? now, ...(eidForInvoice ? { game: { id: eidForInvoice, ...(gameName ? { name: gameName } : {}), ...(gameStart ? { startMs: gameStart } : {}) } } : {}), organizer, ...(pinfo ? { pay: pinfo } : {}),
+    lines: cpnLines ?? [{ description: closed ? `${brand.name}: payment received after the game closed (kept as credit)` : `${brand.name}: up to ${p.pack} players (one game)${creditTotal > 0 ? (p.amount > 0 ? ", balance after credit" : ", paid from credit") : ""}`, quantity: 1, amount: tax.taxable }], tax, paymentRef: p.rzp_payment_id ?? undefined, orderRef: p.id, paidAtMs: pinfo?.createdAtMs ?? p.paid_ms ?? now, ...(eidForInvoice ? { game: { id: eidForInvoice, ...(gameName ? { name: gameName } : {}), ...(gameStart ? { startMs: gameStart } : {}) } } : {}), organizer, ...(pinfo ? { pay: pinfo } : {}),
     ...(creditTotal > 0 ? { note: `${cuses.map((u) => `Paid from credit of invoice ${u.invoice ?? u.credit_id}: ${rs(u.amount, p.currency)}`).join("; ")}.` } : {}) };
   const token = "inv_" + randHex(16);
   const ins = await db.prepare("INSERT OR IGNORE INTO invoice(token,payment_id,brand,fy,seq,number,issued_ms,data) VALUES(?,?,?,?,?,?,?,?)").bind(token, p.id, brand.id, fy, seq, number, now, JSON.stringify(data)).run();
@@ -401,7 +401,7 @@ ${renderInvoiceText(data)}
 
 View or print it: ${origin}/api/invoice/${token}
 Download the PDF: ${origin}/api/invoice/${token}.pdf`
-    : `Good news: the game${eidForInvoice ? ` ${eidForInvoice}` : ""} you are a Host of is paid for and ready. The organizer has the invoice. Open your Host link to see the game.`, now);
+    : `Good news: the game${eidForInvoice ? ` ${eidForInvoice}` : ""} you are a Co-organizer of is paid for and ready. The organizer has the invoice. Open your Co-organizer link to see the game.`, now);
   const result = { ...result0, invoicePending: false, invoiceUrl: `/api/invoice/${token}`, invoiceNumber: number };
   await db.prepare("UPDATE payment SET meta=?, result=? WHERE id=?").bind(JSON.stringify(meta), JSON.stringify(result), p.id).run();
   if (meta.eid) { try { await keepLegalParty(db, meta.eid, now); } catch { /* the deletion step copies it again */ } } // the invoice details are now part of the permanent record of who paid
@@ -546,7 +546,7 @@ export async function payRoute(req: Request, env: PayEnv, now: number, spend: (n
       if (!pv) return json({ error: "Not found" }, 404);
       if (pv.status !== "open") return json({ error: pv.status === "paid" ? "This game has already been paid for." : pv.status === "cancelled" ? "This game was cancelled by the organizer. It cannot be paid for." : pv.status === "closed" ? "This game did not start and is closed. It cannot be paid for." : pv.status === "confirming" ? "A payment for this game is being confirmed. Please wait a few minutes." : "This pay link has run out or was replaced. Ask for the newest link.", status: pv.status }, 409);
       boundPack = packFor(pv.e.cap);
-      if (!boundPack) return json({ error: "That many participants needs a custom arrangement. Please write to us." }, 400);
+      if (!boundPack) return json({ error: "That many players needs a custom arrangement. Please write to us." }, 400);
       boundOrg = pv.link.org; boundEid = pv.link.eid; paidBy = "link";
       try { // the same free-plan guard as other public writes: a few attempts per network address per day, and a daily write budget
         const ipk = `plim/${new Date(now).toISOString().slice(0, 10)}/pl${(await sha("ip|" + (req.headers.get("cf-connecting-ip") ?? "local"))).slice(0, 16)}`;
@@ -560,14 +560,14 @@ export async function payRoute(req: Request, env: PayEnv, now: number, spend: (n
       paidBy = PAYER[k.kind]!;
       const eg = await db.prepare("SELECT org, cap, pack, cancelled_ms, unplayed_ms FROM engagement WHERE id=?").bind(b.eid).first<{ org: string | null; cap: number; pack: number | null; cancelled_ms: number | null; unplayed_ms: number | null }>();
       if (!eg || eg.org !== k.org) return json({ error: "No such game." }, 404);
-      if (k.kind === "cohost" && k.eid && k.eid !== b.eid) return json({ error: "Your Co-host link is for a different game." }, 403); // a Co-host belongs to one game
+      if (k.kind === "cohost" && k.eid && k.eid !== b.eid) return json({ error: "Your Invite-only co-organizer link is for a different game." }, 403); // a Co-host belongs to one game
       if (eg.cancelled_ms) return json({ error: "This game was cancelled by the organizer. It cannot be paid for." }, 409);
       if (eg.unplayed_ms) return json({ error: "This game did not start and is closed. It cannot be paid for.", code: "did-not-start" }, 409);
       if (eg.pack !== 0) return json({ error: "This game is already published." }, 409);
       if (await db.prepare("SELECT 1 AS x FROM payment WHERE eid=? AND status<>'paid' AND confirming_ms IS NOT NULL AND confirming_ms>?").bind(b.eid, now - 30 * 60_000).first()) return json({ error: "A payment for this game is being confirmed. Please wait a few minutes.", code: "confirming" }, 409); // a second order while one is being confirmed could charge twice
       if (await db.prepare("SELECT 1 AS x FROM kv WHERE k=?").bind(`startpending/${b.eid}`).first()) return json({ error: "Pick the date and time of this game first.", code: "start-pending" }, 400);
       boundPack = PACKS.find((x) => x[0] >= eg.cap)?.[0] ?? null;
-      if (!boundPack) return json({ error: "That many participants needs a custom arrangement. Please write to us." }, 400);
+      if (!boundPack) return json({ error: "That many players needs a custom arrangement. Please write to us." }, 400);
       boundOrg = k.org; boundEid = b.eid;
     }
     const pack = boundPack ?? Number(b?.pack); const cur = orderCurrency(b); const first = isPayFirst(b); // Razorpay-first (payfirst.ts): the country chosen on the page is the currency; no name, e-mail or company is asked before the payment
@@ -755,7 +755,7 @@ export async function payRoute(req: Request, env: PayEnv, now: number, spend: (n
     if (!eid) return json({ error: "Not found" }, 404);
     const g = await db.prepare("SELECT cap, pack, config, start_round FROM engagement WHERE id=?").bind(eid).first<{ cap: number; pack: number | null; config: string | null; start_round: number }>();
     if (!g || g.pack !== 0) return json({ error: "This game is not waiting for payment." }, 409);
-    const pack = PACKS.find((x) => x[0] >= g.cap)?.[0]; if (!pack) return json({ error: "That many participants needs a custom arrangement. Please write to us." }, 400);
+    const pack = PACKS.find((x) => x[0] >= g.cap)?.[0]; if (!pack) return json({ error: "That many players needs a custom arrangement. Please write to us." }, 400);
     const cur = b.currency === "USD" ? "USD" : "INR", co = company(env), fy = financialYear(new Date(now));
     const credited = Math.round((await creditAppliedFor(db, eid)) * 100) / 100, pcp = credited > 0 ? null : await adjustFor(db, eid, pack, cur), total = Math.max(0, Math.round(((pcp ? pcp.netMinor / 100 : price(pack, cur).total) - credited) * 100) / 100);
     const tax = splitGst(total, cur, co.stateCode, typeof b.taxId === "string" && b.taxId.trim() ? b.taxId.trim().toUpperCase() : undefined);
@@ -763,7 +763,7 @@ export async function payRoute(req: Request, env: PayEnv, now: number, spend: (n
     const s = (x: unknown, n: number) => (typeof x === "string" ? x.trim().slice(0, n) : "");
     const data: InvoiceData = { kind: "proforma", number: `PF-${fy}-${eid}`.slice(0, 60), issuedAt: now, brand, company: co, draft: false, currency: cur,
       buyer: { name: s(b.org, 120) || s(b.name, 120) || "(your name)", gstin: s(b.taxId, 20) || undefined, email: s(b.email, 120) || undefined, phone: s(b.phone, 20) || undefined, country: s(b.country, 2) || undefined },
-      lines: [{ description: `${brand.name}: up to ${pack} participants (one game)${pcp ? `, ${PRICE_LINE}` : credited > 0 ? ", balance after credit" : ""}`, quantity: 1, amount: tax.taxable }], tax, orderRef: eid,
+      lines: [{ description: `${brand.name}: up to ${pack} players (one game)${pcp ? `, ${PRICE_LINE}` : credited > 0 ? ", balance after credit" : ""}`, quantity: 1, amount: tax.taxable }], tax, orderRef: eid,
       game: { id: eid, name: gameName, startMs: (1692803367 + (g.start_round - 1) * 3) * 1000 }, organizer: { name: s(b.name, 120) || undefined, org: s(b.org, 120) || undefined, email: s(b.email, 120) || undefined },
       note: "This is a proforma invoice. It is NOT PAID and is not a tax invoice. Pay now to receive your invoice, and the same invoice is e-mailed to you and to the organizer." };
     const full = renderInvoiceHtml(data), style = full.match(/<style>[\s\S]*?<\/style>/)?.[0] ?? "";

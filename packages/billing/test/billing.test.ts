@@ -46,7 +46,7 @@ describe("invoice numbers", () => {
 const invoice = (draft: boolean, company = DEFAULT_COMPANY, gstOn = true): InvoiceData => ({
   number: "CB/2026-27/000001", issuedAt: Date.UTC(2026, 9, 1), brand: BRANDS.corporate_snakes_and_ladders, company, draft,
   buyer: { name: "Acme <script>alert(1)</script> Industries", gstin: "27ABCDE1234F1Z5", email: "hr@acme.com" }, currency: "INR",
-  lines: [{ description: "Corporate Snakes and Ladders, up to 250 participants", quantity: 1, amount: 847.46 }], tax: splitGst(1000, "INR", "27", "27ABCDE1234F1Z5", gstOn), paymentRef: "pay_123",
+  lines: [{ description: "Corporate Snakes and Ladders, up to 250 players", quantity: 1, amount: 847.46 }], tax: splitGst(1000, "INR", "27", "27ABCDE1234F1Z5", gstOn), paymentRef: "pay_123",
 });
 
 describe("invoice rendering", () => {
@@ -134,7 +134,7 @@ describe("Orders API client (against a local stand-in for api.razorpay.com)", ()
 
 describe("invoice details (2026-10-10 owner list)", () => {
   const raw = { id: "pay_ABC", order_id: "order_XYZ", status: "captured", method: "upi", vpa: "rajat.agarwal@okhdfc", amount: 129900, currency: "INR", created_at: 1791642727, email: "a@b.co", contact: "+919650397480", acquirer_data: { rrn: "628812345678", upi_transaction_id: "UTX1" } };
-  const base = (): InvoiceData => ({ number: "CB/2026-27/000007", issuedAt: 1791642730000, brand: BRANDS.corporate_snakes_and_ladders!, company: DEFAULT_COMPANY, draft: false, buyer: { name: "Asha Rao", email: "asha@acme.in", phone: "+919800000000", country: "IN" }, currency: "INR", lines: [{ description: "Corporate Snakes and Ladders: up to 250 participants", quantity: 1, amount: 1299 }], tax: splitGst(1299, "INR", "", undefined, false), paymentRef: "pay_ABC", orderRef: "pay_1", paidAtMs: 1791642727000, game: { id: "eng_1", name: "Diwali Dhamaka", startMs: 1791700000000 }, organizer: { name: "Asha Rao", email: "host@acme.in", phone: "+919811111111", org: "Acme" }, pay: paymentInfo(raw) });
+  const base = (): InvoiceData => ({ number: "CB/2026-27/000007", issuedAt: 1791642730000, brand: BRANDS.corporate_snakes_and_ladders!, company: DEFAULT_COMPANY, draft: false, buyer: { name: "Asha Rao", email: "asha@acme.in", phone: "+919800000000", country: "IN" }, currency: "INR", lines: [{ description: "Corporate Snakes and Ladders: up to 250 players", quantity: 1, amount: 1299 }], tax: splitGst(1299, "INR", "", undefined, false), paymentRef: "pay_ABC", orderRef: "pay_1", paidAtMs: 1791642727000, game: { id: "eng_1", name: "Diwali Dhamaka", startMs: 1791700000000 }, organizer: { name: "Asha Rao", email: "host@acme.in", phone: "+919811111111", org: "Acme" }, pay: paymentInfo(raw) });
   test("IST stamp is IST, with date, time and zone", () => { expect(istStamp(Date.UTC(2026, 9, 10, 20, 0, 0))).toBe("11 Oct 2026, 01:30:00 IST"); });
   test("paymentInfo masks the UPI id and keeps method, bank reference and times", () => {
     const p = paymentInfo(raw);

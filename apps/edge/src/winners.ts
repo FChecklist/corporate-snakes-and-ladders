@@ -38,7 +38,7 @@ export async function acceptVotes(env: Env & PiiEnv, e: any, eid: string, b: any
   const seat = typeof b?.pid === "string" ? seatOfPid(b.pid) : null;
   if (!b || seat === null || !Array.isArray(b.results) || b.results.length < 1 || b.results.length > 3) return json({ error: "Bad report." }, 400);
   const who = await env.DB.prepare("SELECT 1 AS x FROM participant WHERE eid=? AND pid=?").bind(eid, b.pid).first();
-  if (!who) return json({ error: "Not a participant of this engagement." }, 403);
+  if (!who) return json({ error: "Not a player of this engagement." }, 403);
   if (!(await deviceMatches(env, eid, b.pid, b.device))) return json({ error: "This board belongs to another phone.", code: "other-phone" }, 403); // the participant id is public: a report counts only from the phone that holds the board, so strangers cannot invent a result
   const cfg = cfgOfRow(e), valid = new Set<string>(keysInPlay(cfg.rewards)), luckyCount = cfg.breaks.filter((x) => x.kind === "lucky").length;
   const people = (await env.DB.prepare("SELECT COUNT(*) AS c FROM participant WHERE eid=?").bind(eid).first<{ c: number }>())?.c ?? 1;

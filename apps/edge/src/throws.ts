@@ -14,7 +14,7 @@ const key = (eid: string, turn: number, seat: number) => `thr/${eid}/${String(tu
 export async function acceptThrow(env: Env, e: any, eid: string, b: any, now: number, json: Json, spend: Spend): Promise<Response> {
   const seat = typeof b?.pid === "string" ? seatOfPid(b.pid) : null;
   if (!b || seat === null || !Number.isInteger(b.turn) || b.turn < 0 || b.turn > 1000) return json({ error: "Bad request." }, 400);
-  if (!(await env.DB.prepare("SELECT 1 AS x FROM participant WHERE eid=? AND pid=?").bind(eid, b.pid).first())) return json({ error: "Not a participant of this game." }, 403);
+  if (!(await env.DB.prepare("SELECT 1 AS x FROM participant WHERE eid=? AND pid=?").bind(eid, b.pid).first())) return json({ error: "Not a player of this game." }, 403);
   if (!(await deviceMatches(env, eid, b.pid, b.device))) return json({ error: "This board belongs to another phone.", code: "other-phone" }, 403);
   if (cfgOfRow(e).play !== "presence") return json({ error: "In this game every throw happens by itself. There is nothing to send.", code: "automatic" }, 409);
   const w = await turnWindowMs(env, e, b.turn);

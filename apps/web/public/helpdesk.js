@@ -15,7 +15,7 @@
   };
   const S = { me: null, err: "", note: "" };
   const STATE = { invited: "Waiting for the Organizer to allow", active: "Active", stopped: "Stopped" };
-  const HOST = { none: "You become a Host when the Organizer publishes a game.", "waiting-for-setup": "Your Host link was e-mailed to you. Open it to finish your setup.", ready: "You are a Host.", ended: "" };
+  const HOST = { none: "You become a Co-organizer when the Organizer publishes a game.", "waiting-for-setup": "Your Co-organizer link was e-mailed to you. Open it to finish your setup.", ready: "You are a Co-organizer.", ended: "" };
 
   const signInView = () => `<div class="zcard zform"><h2>Become a Help Desk person</h2>
     <p class="zsmall" style="margin-top:0">Help Desk is a switch on your Refer &amp; earn account.</p>

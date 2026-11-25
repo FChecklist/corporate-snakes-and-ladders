@@ -56,14 +56,14 @@ describe("build first, pay to publish", () => {
     const hist = await (await call("GET", "/api/history", undefined, h)).json() as any;
     expect(hist.engagements[0].id).toBe("DRAFT-1"); expect(!!hist.engagements[0].draft).toBe(true);
   });
-  test("participants cannot see or join a draft; the organizer can read it", async () => {
+  test("players cannot see or join a draft; the organizer can read it", async () => {
     const { h } = await organizer();
     await call("POST", "/api/z", eng("DRAFT-2"), h);
     expect((await call("POST", "/api/z/DRAFT-2/join", { phone: "9876543210" })).status).toBe(403);
     expect((await call("GET", "/api/z/DRAFT-2/info")).status).toBe(403);
     expect((await call("GET", "/api/z/DRAFT-2/info", undefined, h)).status).toBe(200);
   });
-  test("publishing is free: the link opens to participants at once, unpaid, and the organizer is e-mailed what is due", async () => {
+  test("publishing is free: the link opens to players at once, unpaid, and the organizer is e-mailed what is due", async () => {
     const { h, ai } = await organizer();
     await call("POST", "/api/z", eng("PUB-1", 500), h);
     const r = await call("POST", "/api/z/PUB-1/publish", ok, h);

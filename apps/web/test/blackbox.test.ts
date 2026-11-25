@@ -90,7 +90,7 @@ describe("the recorder on the device", () => {
   });
   test("the scrubber alone: what it keeps and what it removes", () => {
     expect(scrub("see /api/paylink/0123456789abcdef0123?t=secret&me=pid123 now")).not.toMatch(/secret|pid123/);
-    expect(scrub("a normal sentence about a ticket")).toBe("a normal sentence about a ticket");
+    expect(scrub("a normal sentence about a board")).toBe("a normal sentence about a board");
     expect(scrubText("mail a@b.co or call 9812345678")).toBe("mail [email] or call [number]");
     expect(routeLabel("http://x/api/paylink/0123456789abcdef0123456789?t=abc")).toBe("/api/paylink/[id]");
     expect(routeLabel("https://x/j/SOMETOKEN123?me=pid")).toBe("/j/[id]");

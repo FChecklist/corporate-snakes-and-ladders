@@ -29,7 +29,7 @@ beforeEach(async () => {
 });
 
 describe("joining", () => {
-  test("a join returns what a phone needs to play: its seat id, the schedule, the prizes and the default game settings; no card, no ticket", async () => {
+  test("a join returns what a phone needs to play: its seat id, the schedule, the prizes and the default game settings; no card, no board", async () => {
     await game();
     const r = await j(await join(1));
     expect(r.pid).toMatch(/^1x[0-9a-f]{12}$/);

@@ -84,7 +84,7 @@ describe("join gaps", () => {
     expect((await vote({ device: dev(1) })).status).toBe(200);
     expect((await over({ device: dev(1) })).status).toBe(200);
   });
-  test("the organizer has the final say: /prizes offers the claimants, /override gives the prize to one of them or to nobody, with a record; strangers, Co-hosts and non-claimants cannot", async () => {
+  test("the organizer has the final say: /prizes offers the claimants, /override gives the prize to one of them or to nobody, with a record; strangers, Invite-only co-organizers and non-claimants cannot", async () => {
     const g = await paidGame({ cap: 20 });
     const a = (await j(await join(g.id, 1))).pid as string, b = (await j(await join(g.id, 2))).pid as string, c = (await j(await join(g.id, 3))).pid as string;
     const seatOf = (p: string) => Number(p.split("x")[0]);
@@ -103,7 +103,7 @@ describe("join gaps", () => {
     expect((W.raw.prepare("SELECT COUNT(*) AS n FROM prize WHERE eid=?").get(g.id) as any).n).toBe(0);
     expect((await ov({ round: 1, pattern: "early5", ordinal: 1, seat: null })).status).toBe(404); // nothing left to change
   });
-  test("erasing all participants' data is refused while the game is being played (409 game-running) and allowed before and after", async () => {
+  test("erasing all players' data is refused while the game is being played (409 game-running) and allowed before and after", async () => {
     const g = await paidGame({ cap: 20 });
     expect((await join(g.id, 1)).status).toBe(200);
     const mid = roundMs(startIn(2 * HOUR)) + 60_000; // one minute after the first round of the game
@@ -123,7 +123,7 @@ describe("join gaps", () => {
     const row = W.raw.prepare("SELECT pack, cap FROM engagement WHERE id=?").get(id) as any;
     expect(row.pack).toBe(100); expect(row.cap).toBeLessThanOrEqual(100);
   });
-  test("a Host's narrow AI work link cannot register keys or file pause / stop / erase requests (permissions family)", async () => {
+  test("a Co-organizer's narrow AI work link cannot register keys or file pause / stop / erase requests (permissions family)", async () => {
     const g = await paidGame({ cap: 20 });
     const hostKey = (await j(await call("POST", "/api/org/host", { label: "Priya", email: "priya@acme.com", mobile: "9876500001" }, keyH(g.key)))).hostKey as string;
     const link = { "x-organizer": hostKey, "x-cb-link": "1" };

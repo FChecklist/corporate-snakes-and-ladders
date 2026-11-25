@@ -38,7 +38,7 @@ describe("no AI-readable route returns a name or a mobile number", () => {
     const names = JSON.stringify(await j(await call("GET", "/api/z/PLANT-1/names?pids=" + (await j(await call("GET", "/api/z/PLANT-1/participants", undefined, o.h))).participants.map((p: any) => p.pid).join(","), undefined, o.h)));
     expect(names).toContain("Plantina"); expect(JSON.stringify(await j(await call("GET", "/api/z/PLANT-1/prizes", undefined, o.h)))).toContain("Winnerella");
   });
-  for (const role of ["ai", "host"] as const) test(`${role === "ai" ? "organizer's AI link" : "co-host's AI link"}: every readable address in its own manual, plus the manifest, the manual and the audit trail, is free of the planted names and numbers`, async () => {
+  for (const role of ["ai", "host"] as const) test(`${role === "ai" ? "organizer's AI link" : "invite-only co-organizer's AI link"}: every readable address in its own manual, plus the manifest, the manual and the audit trail, is free of the planted names and numbers`, async () => {
     const o = await setup(); const key = role === "ai" ? o.ai : o.host;
     const man = manualJson(ORIGIN, key, role, T); const bodies: string[] = [JSON.stringify(man), manualText(ORIGIN, key, role, T)];
     for (const e of man.endpoints.filter((x) => x.method === "GET")) {
@@ -69,7 +69,7 @@ describe("no AI-readable route returns a name or a mobile number", () => {
 });
 
 describe("a player asks to see or delete their own data (console only)", () => {
-  test("the organizer sees what is held and deletes that one person; the prize record loses its identity; nothing else changes; an AI or co-host cannot", async () => {
+  test("the organizer sees what is held and deletes that one person; the prize record loses its identity; nothing else changes; an AI or invite-only co-organizer cannot", async () => {
     const o = await setup();
     const prize = () => raw.prepare("SELECT pii, orig FROM prize WHERE eid='PLANT-1'").get() as any;
     raw.prepare("UPDATE prize SET seat=(SELECT seq FROM seat WHERE eid='PLANT-1' AND ph IS NOT NULL ORDER BY seq LIMIT 1) WHERE eid='PLANT-1'").run();

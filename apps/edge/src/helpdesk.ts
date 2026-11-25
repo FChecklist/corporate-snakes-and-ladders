@@ -39,7 +39,7 @@ export const HD1_VERSION = "HD1";
 export const HD1_TEMPLATE = [
   "{helper} may prepare games in your account: create a game and change its settings and prizes. This is what your own AI link can do.",
   "They cannot publish a game, pay, see your sign-in keys, change your e-mail or close your account. Only you publish, with one tap.",
-  "After you publish a game they prepared, they become a Host of that game and can change it like any Host. They see what a Host sees, such as the guest list. They do not use one of your 5 Host places.",
+  "After you publish a game they prepared, they become a Co-organizer of that game and can change it like any Co-organizer. They see what a Co-organizer sees, such as the player list. They do not use one of your 5 Co-organizer places.",
   "When a game they prepared is paid, they earn Refer & earn commission from IT Services by Rajat Agarwal. You pay nothing extra.",
   "You can stop this at any time. It ends all their access at once. Games already published stay as they are.",
 ];
@@ -50,7 +50,7 @@ export const HELPER_MANUAL_NOTE = [
   "YOU ARE A HELP DESK HELPER.",
   "You prepare games for the Organizer who allowed you. You create the game and set it up with your normal functions. You never publish and never pay: only the Organizer publishes, with one tap, and pays.",
   "When the game is ready, ask the Organizer to publish: call POST /api/helpdesk/request-publish with {\"eid\": \"<the game id>\"} (or tell the helper to tap Ask the Organizer to publish). The Organizer gets an e-mail with a short summary and a button. Do not give out any link yourself.",
-  "After the Organizer publishes, the helper becomes a Host of that game and gets a Host link by e-mail.",
+  "After the Organizer publishes, the helper becomes a Co-organizer of that game and gets a Co-organizer link by e-mail.",
 ].join("\n");
 
 const json = (o: unknown, status = 200) => new Response(JSON.stringify(o), { status, headers: { "content-type": "application/json", "cache-control": "no-store" } });

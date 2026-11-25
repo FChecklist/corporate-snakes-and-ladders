@@ -48,8 +48,8 @@
     };
   }
   function published(pub) {
-    shell(`<div class="zcard"><h2>Published</h2><p>Your game is live. ${esc(info.helperName)} is now a Host of it and can change it like any Host.</p>
-      ${pub && pub.shareUrl ? `<p class="zsmall">Share link for guests:</p><div class="zlink">${esc(pub.shareUrl)}</div>` : ""}
+    shell(`<div class="zcard"><h2>Published</h2><p>Your game is live. ${esc(info.helperName)} is now a Co-organizer of it and can change it like any Co-organizer.</p>
+      ${pub && pub.shareUrl ? `<p class="zsmall">Share link for players:</p><div class="zlink">${esc(pub.shareUrl)}</div>` : ""}
       ${pub && pub.payUrl && pub.paid === false ? `<p class="zsmall">The game begins once it is paid for. <a class="hdl" href="${esc(pub.payUrl)}">Pay now</a></p>` : ""}
       <p class="zsmall"><a class="hdl" href="/zc.html">Open my console</a></p></div>`);
   }

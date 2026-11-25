@@ -12,7 +12,7 @@ describe("the console", () => {
     expect(zc).toContain('bchip("emp", "Only your employees (nobody can invite anyone)")');
     expect(zc).toContain('[["mobile", "Mobile number"], ["id", "Employee ID"], ["both", "Mobile number and employee ID"]]');
     expect(zc).toMatch(/\(f\.emp \? "" : `<span class="zc-lbl zc-sec zc-sub">Who can join<\/span>`/);
-    expect(zc).toMatch(/\(f\.emp \|\| rulesNow\(\) \? "" : `<span class="zc-lbl zc-sec zc-sub">Guests bringing their own people/);
+    expect(zc).toMatch(/\(f\.emp \|\| rulesNow\(\) \? "" : `<span class="zc-lbl zc-sec zc-sub">Players bringing their own people/);
     expect(zc).toContain("verify: f.ver === \"id\" || f.ver === \"both\" ? f.ver : \"mobile\", employeesOnly: !!f.emp");
   });
   test("every group and every tick box has a small hint line, and the open section is tinted in its own colour", () => {
@@ -20,7 +20,7 @@ describe("the console", () => {
     for (const k of ["emp", "ver", "who", "inv", "ex", "gm", "pl"]) expect(zc).toMatch(new RegExp(`\\b${k}: "`));
     expect(zc).toMatch(/class="zc-secb" id="secb\$\{n\}" style="border-left:5px solid var\(--text-tint-\$\{c\}\);background-color:var\(--bg-tint-\$\{c\}\)"/);
   });
-  test("the AI work link and AI prompt boxes are not shown to the organizer or the host", () => {
+  test("the AI work link and AI prompt boxes are not shown to the organizer or the co-organizer", () => {
     expect(zc).toMatch(/function aiStrip\(\) \{\s*return "";/); expect(zc).toMatch(/function aiBlock\(\) \{\s*return "";/);
   });
   test("the people list: an Employee ID column in the sheet, the ID in the rows and in the waiting list, a PDF upload with a preview before anyone is added", () => {

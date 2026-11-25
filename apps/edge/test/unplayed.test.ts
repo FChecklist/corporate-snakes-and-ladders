@@ -54,7 +54,7 @@ const team = async (publish = true) => {
 const row = (id = "UNP-1") => raw.prepare("SELECT * FROM engagement WHERE id=?").get(id) as any;
 const endOf = (id = "UNP-1") => endBoundMs(env as any, row(id));
 const eraseAt = async (id = "UNP-1") => personalDeleteAt(await endOf(id));
-const join = (phone: string, name = "Guest", eid = "UNP-1", now = T) => call("POST", `/api/z/${eid}/join`, { phone, name }, undefined, now);
+const join = (phone: string, name = "Player", eid = "UNP-1", now = T) => call("POST", `/api/z/${eid}/join`, { phone, name }, undefined, now);
 const people = (key: string, list: { name: string; phone: string }[], eid = "UNP-1") => call("POST", `/api/z/${eid}/people`, { people: list }, key);
 const pay = (key: string, eid = "UNP-1", now = T) => call("POST", "/api/checkout", { eid, org: "Acme Ltd", name: "Boss", email: "payer@acme.com", country: "IN", taxId: "", currency: "INR" }, key, now);
 const sign = (c: any, id: string) => createHmac("sha256", "sek").update(`${c.razorpay.orderId}|${id}`).digest("hex");
@@ -75,8 +75,8 @@ const withPersonalData = async (t: { master: string }) => {
   const p = personal(); expect(p.participants).toBe(1); expect(p.people).toBeGreaterThanOrEqual(2); expect(p.waiting).toBe(1); expect(p.cohosts).toBe(1);
 };
 
-describe("a game that did not start: guest data is erased at the scheduled end + 23 hours", () => {
-  test("nothing is erased before end + 23 h; at end + 23 h guests, lists, waiting requests, links and Co-host details are all gone, and the game is closed", async () => {
+describe("a game that did not start: player data is erased at the scheduled end + 23 hours", () => {
+  test("nothing is erased before end + 23 h; at end + 23 h players, lists, waiting requests, links and Invite-only co-organizer details are all gone, and the game is closed", async () => {
     const t = await team(); await withPersonalData(t);
     const at = await eraseAt();
     expect(at).toBe((await endOf()) + PURGE_AFTER_MS);
@@ -86,7 +86,7 @@ describe("a game that did not start: guest data is erased at the scheduled end +
     expect(personal()).toEqual({ participants: 0, seats: 0, people: 0, waiting: 0, cohosts: 0 });
     expect(row().unplayed_ms).toBe(at);
   });
-  test("Organizer and Host data, payment and invoice records, and the game's settings stay (only personal data goes)", async () => {
+  test("Organizer and co-organizer data, payment and invoice records, and the game's settings stay (only personal data goes)", async () => {
     const t = await team(); await withPersonalData(t);
     const keys = count("SELECT COUNT(*) AS c FROM organizer_key WHERE org=? AND kind IN ('master','host') AND revoked=0", row().org);
     const kv = count("SELECT COUNT(*) AS c FROM kv WHERE k LIKE 'contact/%' OR k LIKE 'orgmail/%'");
@@ -186,7 +186,7 @@ describe("the clock follows the newest time", () => {
 });
 
 describe("no separate payment cut-off: pay any time until the data is erased", () => {
-  test("a late payment just before the erasure starts the game 2 minutes after confirmation; the guest list is kept", async () => {
+  test("a late payment just before the erasure starts the game 2 minutes after confirmation; the player list is kept", async () => {
     const t = await team(); await join("9876543210", "Asha");
     const at = await eraseAt(); const late = at - 5 * 60_000;
     const c = await j(await pay(t.master, "UNP-1", late));
@@ -208,7 +208,7 @@ describe("no separate payment cut-off: pay any time until the data is erased", (
 });
 
 describe("what each person sees while the game is unpaid, and after it closes", () => {
-  test("info: before the start time nothing is held; at the start time waitingFor is 'organizer'; the Organizer/Host get unpaid:true, a guest does not", async () => {
+  test("info: before the start time nothing is held; at the start time waitingFor is 'organizer'; the Organizer/Co-organizer get unpaid:true, a player does not", async () => {
     const t = await team();
     const before = await j(await call("GET", "/api/z/UNP-1/info", undefined, undefined, T));
     expect(before).toMatchObject({ waitingFor: null, didNotStart: false, locked: false }); expect(before.erasureMs).toBe(await eraseAt());
@@ -224,7 +224,7 @@ describe("what each person sees while the game is unpaid, and after it closes", 
     const closeAt = await eraseAt(); await lifecycleTick(env as any, closeAt);
     const ctl = await j(await call("GET", "/api/z/UNP-1/control", undefined, undefined, closeAt + 1000)); expect(ctl.didNotStart).toBe(true); expect(ctl.locked).toBeUndefined();
   });
-  test("after the erasure: guests and everyone see 'This game did not start. The details have been auto-deleted.'; nobody can join; the Organizer sees it as closed", async () => {
+  test("after the erasure: players and everyone see 'This game did not start. The details have been auto-deleted.'; nobody can join; the Organizer sees it as closed", async () => {
     const t = await team(); const closeAt = await eraseAt(); await lifecycleTick(env as any, closeAt);
     const info = await j(await call("GET", "/api/z/UNP-1/info", undefined, undefined, closeAt + 1000));
     expect(info).toMatchObject({ didNotStart: true, message: "This game did not start. The details have been auto-deleted.", waitingFor: null });
@@ -238,8 +238,8 @@ describe("what each person sees while the game is unpaid, and after it closes", 
   });
 });
 
-describe("e-mails: a heads-up 6 hours before and a note after, to the Organizer and the Hosts only, once each", () => {
-  test("heads-up inside the last 6 hours, not before; the after-erasure mail says it did not start; the Co-host (no e-mail) and guests get nothing", async () => {
+describe("e-mails: a heads-up 6 hours before and a note after, to the Organizer and the Co-organizers only, once each", () => {
+  test("heads-up inside the last 6 hours, not before; the after-erasure mail says it did not start; the Invite-only co-organizer (no e-mail) and players get nothing", async () => {
     const t = await team(); await withPersonalData(t);
     const at = await eraseAt();
     await lifecycleTick(env as any, at - UNPLAYED_WARN_MS - 60_000);
@@ -247,10 +247,10 @@ describe("e-mails: a heads-up 6 hours before and a note after, to the Organizer 
     await lifecycleTick(env as any, at - UNPLAYED_WARN_MS + 60_000); await lifecycleTick(env as any, at - 3 * H);
     for (const a of ["boss@acme.com", "priya@acme.com"]) {
       const m = mailsLike(a, /time has passed/); expect(m).toHaveLength(1);
-      expect(m[0]!.body).toContain("Your game time has passed. Guest data will be auto-deleted at"); expect(m[0]!.body).toContain("IST"); expect(m[0]!.body).toContain("Tap to reschedule and keep it."); expect(m[0]!.body).toContain("https://bingo.test/zc.html?e=UNP-1");
+      expect(m[0]!.body).toContain("Your game time has passed. Player data will be auto-deleted at"); expect(m[0]!.body).toContain("IST"); expect(m[0]!.body).toContain("Tap to reschedule and keep it."); expect(m[0]!.body).toContain("https://bingo.test/zc.html?e=UNP-1");
     }
     await lifecycleTick(env as any, at + 5000);
-    for (const a of ["boss@acme.com", "priya@acme.com"]) { const m = mailsLike(a, /did not start/); expect(m).toHaveLength(1); expect(m[0]!.body).toContain("Your game did not start. The guest list was auto-deleted at"); }
+    for (const a of ["boss@acme.com", "priya@acme.com"]) { const m = mailsLike(a, /did not start/); expect(m).toHaveLength(1); expect(m[0]!.body).toContain("Your game did not start. The player list was auto-deleted at"); }
     const all = raw.prepare("SELECT to_addr FROM outbox WHERE subject LIKE '%time has passed%' OR subject LIKE '%did not start%'").all() as any[];
     expect(all.every((r) => ["boss@acme.com", "priya@acme.com"].includes(r.to_addr))).toBe(true);
     expect(raw.prepare("SELECT COUNT(*) AS c FROM outbox WHERE to_addr LIKE '%9876%'").get()).toEqual({ c: 0 });

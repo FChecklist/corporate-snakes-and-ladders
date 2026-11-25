@@ -57,7 +57,7 @@ describe("the deletion promise: 24 hours, with a tick that may run up to 3 hours
     await tick(T + 20 * HOUR - MIN); expect(left(g.id).participant).toBe(2);
     await tick(T + 20 * HOUR + MIN); expect(left(g.id).participant).toBe(0);
   });
-  test("a game that never started (nobody paid) loses its guests 20 hours after it was meant to end", async () => {
+  test("a game that never started (nobody paid) loses its players 20 hours after it was meant to end", async () => {
     const o = await organizer(); const id = uid(); await create(o.key, id, { cap: 100, startRound: startIn(2 * HOUR) }); await publish(o.key, id);
     await join(id, 1); const end = await endBoundMs(W.env as any, one("SELECT * FROM engagement WHERE id=?", id));
     await tick(end + 20 * HOUR - 5 * MIN); expect(left(id).participant).toBe(1);
@@ -104,7 +104,7 @@ describe("retention timestamps the organizer can read", () => {
     const l = await j(await call("GET", `/api/z/${g.id}/life`, undefined, g.h));
     expect(l.personalDeleteAtMs - l.endMs).toBe(PURGE_AFTER_MS); expect(l.fullDeleteAtMs).toBe(fullDeleteAt(l.endMs));
   });
-  test("the public info answer carries the erasure time for guests, equal to end + 20 hours", async () => {
+  test("the public info answer carries the erasure time for players, equal to end + 20 hours", async () => {
     const g = await paidGame({ cap: 100 }); const info = await j(await call("GET", `/api/z/${g.id}/info`));
     const end = await endBoundMs(W.env as any, one("SELECT * FROM engagement WHERE id=?", g.id)); expect(info.erasureMs).toBe(end + PURGE_AFTER_MS);
   });
@@ -217,7 +217,7 @@ describe("a player's own requests (access, correction, erasure, nomination) and 
     expect(one("SELECT COUNT(*) c FROM seat WHERE eid=?", s.g.id).c).toBe(0);
   });
   test("leaving with someone else's device id is refused", async () => { const s = await seat(); expect((await call("POST", `/api/z/${s.g.id}/leave`, { pid: s.pid, device: dev(44) })).status).toBeGreaterThanOrEqual(400); });
-  test("request rows go with the other participant data at the deletion time", async () => {
+  test("request rows go with the other player data at the deletion time", async () => {
     const s = await seat(); await ask(s.g.id, s.pid, s.device, "access");
     const end = await endBoundMs(W.env as any, one("SELECT * FROM engagement WHERE id=?", s.g.id)); await tick(end + 5 * MIN); await tick(end + 20 * HOUR + MIN);
     expect(one("SELECT COUNT(*) c FROM data_request WHERE eid=?", s.g.id).c).toBe(0);
@@ -269,21 +269,21 @@ describe("rate limits and the daily spend limit", () => {
   });
   test("an office behind ONE address can seat a whole PAID game: the default per-address allowance grows with the pack (300 people, one address, one minute: all in)", async () => {
     const g = await paidGame({ cap: 500 }); const hdr = { "cf-connecting-ip": "9.9.9.9" }; const codes: number[] = [];
-    for (let i = 1; i <= 300; i++) codes.push((await call("POST", `/api/z/${g.id}/join`, { phone: mob(i), name: "Guest " + i, device: dev(i) }, hdr)).status);
+    for (let i = 1; i <= 300; i++) codes.push((await call("POST", `/api/z/${g.id}/join`, { phone: mob(i), name: "Player " + i, device: dev(i) }, hdr)).status);
     expect(codes.filter((s) => s === 200).length).toBe(300);
   });
   test("an UNPAID game keeps the base figures (200 new seats a minute from one address), so a script cannot use a big free game to burn the write budget", async () => {
     reset(); const o = await organizer(); const id = uid(); expect((await create(o.key, id, { cap: 500 })).status).toBe(200); expect((await publish(o.key, id)).status).toBe(200);
     const hdr = { "cf-connecting-ip": "9.9.9.8" }; const codes: number[] = [];
-    for (let i = 1; i <= 230; i++) codes.push((await call("POST", `/api/z/${id}/join`, { phone: mob(i), name: "Guest " + i, device: dev(i) }, hdr)).status);
+    for (let i = 1; i <= 230; i++) codes.push((await call("POST", `/api/z/${id}/join`, { phone: mob(i), name: "Player " + i, device: dev(i) }, hdr)).status);
     expect(codes.slice(0, 200).every((s) => s === 200)).toBe(true); expect(codes.slice(200).every((s) => s === 429)).toBe(true);
   });
   test("a limit set in the environment is the BASE: it is exact for an unpaid game, and a paid game still gets at least its pack (the deployed site sets 600 a minute; 700 people behind one address all get into a paid 1000)", async () => {
     reset({ JOIN_PER_IP_MINUTE: "600", JOIN_PER_IP_DAY: "20000" } as any); const g = await paidGame({ cap: 1000 }); const hdr = { "cf-connecting-ip": "9.9.9.7" }; const codes: number[] = [];
-    for (let i = 1; i <= 700; i++) codes.push((await call("POST", `/api/z/${g.id}/join`, { phone: mob(i), name: "Guest " + i, device: dev(i) }, hdr)).status);
+    for (let i = 1; i <= 700; i++) codes.push((await call("POST", `/api/z/${g.id}/join`, { phone: mob(i), name: "Player " + i, device: dev(i) }, hdr)).status);
     expect(codes.filter((s) => s === 200).length).toBe(700);
     reset({ JOIN_PER_IP_MINUTE: "5" } as any); const o = await organizer(); const id = uid(); expect((await create(o.key, id, { cap: 500 })).status).toBe(200); expect((await publish(o.key, id)).status).toBe(200);
-    const c2: number[] = []; for (let i = 1; i <= 8; i++) c2.push((await call("POST", `/api/z/${id}/join`, { phone: mob(i), name: "Guest " + i, device: dev(i) }, { "cf-connecting-ip": "9.9.9.6" })).status);
+    const c2: number[] = []; for (let i = 1; i <= 8; i++) c2.push((await call("POST", `/api/z/${id}/join`, { phone: mob(i), name: "Player " + i, device: dev(i) }, { "cf-connecting-ip": "9.9.9.6" })).status);
     expect(c2.slice(0, 5).every((s) => s === 200)).toBe(true); expect(c2.slice(5).every((s) => s === 429)).toBe(true); // unpaid: the environment's figure is exact
   });
   test("a body bigger than the limit is refused, never a 500", async () => {
@@ -354,7 +354,7 @@ describe("Help Desk with several parameter sets", () => {
       expect((await hcall("POST", "/api/helpdesk/approve/start", { t: at })).status).toBeGreaterThanOrEqual(400); // single use
     });
   }
-  test("the helper's AI key cannot publish a game, pay, or add a Host", async () => {
+  test("the helper's AI key cannot publish a game, pay, or add a Co-organizer", async () => {
     const pk = await enroll("asha@partner.example", "98111 22233", "Asha"); await hcall("POST", "/api/helpdesk/join", { email: "asha@partner.example" }, { "x-partner": pk });
     const org = await organizer("boss@acme.com"); const inv = await j(await hcall("POST", "/api/helpdesk/invite", { email: "boss@acme.com" }, { "x-partner": pk }));
     await hcall("POST", "/api/helpdesk/accept", { t: tokenOf(lastMail("boss@acme.com", /asks to prepare/), "helpdesk-accept"), consent: true }, org.h);

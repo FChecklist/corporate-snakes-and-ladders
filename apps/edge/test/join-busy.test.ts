@@ -22,7 +22,7 @@ const flaky = (fail: (sql: string) => void) => {
   const real = W.env.DB as any;
   (W.env as any).DB = { prepare: (sql: string) => wrapStmt(real.prepare(sql), fail, sql), batch: async (xs: any[]) => { fail("BATCH"); return real.batch(xs.map((x) => x.__raw ?? x)); } };
 };
-const join = (id: string, i: number) => call("POST", `/api/z/${id}/join`, { phone: mob(i), name: "Guest " + i, device: dev(i) });
+const join = (id: string, i: number) => call("POST", `/api/z/${id}/join`, { phone: mob(i), name: "Player " + i, device: dev(i) });
 const seated = (id: string) => one("SELECT COUNT(*) c FROM participant WHERE eid=?", id).c as number;
 const oldTries = joinRetry.tries, oldBase = joinRetry.baseMs;
 
@@ -38,7 +38,7 @@ describe("a join through a passing database overload", () => {
     expect(transientDb(new Error("D1_ERROR: UNIQUE constraint failed: seat.pid"))).toBe(false);
   });
 
-  test("one overload on the way in: the guest still gets in, once", async () => {
+  test("one overload on the way in: the player still gets in, once", async () => {
     const id = uid("BZ"); await paidGame({ id });
     let n = 1; flaky((sql) => { if (n > 0 && sql.startsWith("SELECT * FROM engagement")) { n--; throw new Error(OVERLOAD); } });
     const r = await join(id, 1); expect(r.status).toBe(200); expect((await j(r)).pid).toBeTruthy();
@@ -73,7 +73,7 @@ describe("a join through a passing database overload", () => {
     const r = await join(id, 1); expect(r.status).toBe(500); expect(calls).toBe(1);
   });
 
-  test("250 guests join at the same moment while the database keeps refusing every second try: all 250 are seated once", async () => {
+  test("250 players join at the same moment while the database keeps refusing every second try: all 250 are seated once", async () => {
     const id = uid("BZ"); await paidGame({ id, cap: 250 });
     joinRetry.tries = 10;
     let c = 0, refused = 0; flaky((sql) => { if (sql.startsWith("SELECT * FROM engagement WHERE")) { c++; if (c % 2 === 1) { refused++; throw new Error(OVERLOAD); } } });

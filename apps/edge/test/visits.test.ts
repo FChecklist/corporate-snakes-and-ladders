@@ -63,7 +63,7 @@ describe("sources, bots, paths", () => {
     expect(botName("curl/8.4.0")).toBe("curl"); expect(botName("")).toBe("unknown");
     expect(botName(UA)).toBeNull(); expect(botName("Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Safari/604.1")).toBeNull();
   });
-  test("only the public pages are tracked: the live game and participant pages never are", () => {
+  test("only the public pages are tracked: the live game and player pages never are", () => {
     for (const p of ["/", "/index.html", "/legal.html", "/pricing", "/terms", "/partner.html", "/signin.html", "/pay.html?e=XYZ"]) if (p !== "/pricing") expect(normPath(p)).not.toBeNull();
     for (const p of ["/z.html", "/z", "/play.html", "/big.html", "/zc.html", "/screen.html", "/report.html", "/api/x", "/ai/key", "/owner-visits.html", "", null, 5]) expect(normPath(p as any)).toBeNull();
     expect(normPath("/index.html")).toBe("/"); expect(normPath("/Legal.HTML#privacy")).toBe("/legal");
@@ -74,7 +74,7 @@ describe("sources, bots, paths", () => {
 describe("the beacon: validation and limits", () => {
   test("parseBeacon trims, drops what it does not know, and caps at 20 events", () => {
     const evs = [{ k: "pv", p: "/z.html" }, { k: "act", p: "/", n: "drop_table" }, { k: "sec", p: "/", n: "Bad Name" }, { k: "act", p: "/", n: "pack", z: 1000, v: "INR 5999 <script>" }, { k: "x", p: "/" }, ...Array.from({ length: 30 }, () => pv())];
-    const r = parseBeacon(JSON.stringify(msg(evs, { d: "not-hex", r: "Evil Host!", l: "xx_yy_zz" })));
+    const r = parseBeacon(JSON.stringify(msg(evs, { d: "not-hex", r: "Evil Co-organizer!", l: "xx_yy_zz" })));
     expect(r.ok).toBe(true); if (!r.ok) return;
     expect(r.b.evs.length).toBe(16); expect(r.b.evs[0]).toMatchObject({ k: "act", n: "pack", num: 1000 }); expect(r.b.evs[0]!.v).not.toMatch(/[<>]/);
     expect(r.b.vid).toBe(""); expect(r.b.ref).toBe(""); expect(r.b.lang).toBe("");

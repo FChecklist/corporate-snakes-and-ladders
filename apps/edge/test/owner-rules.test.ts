@@ -117,7 +117,7 @@ describe("invite by ID only", () => {
     expect([me?.status, me?.name, me?.maskedPhone]).toEqual(["joined", "", ""]); // the name and the number that were sent along were never kept
     const again = await joinId(t.id, "A/1101", 2); expect(again.status).not.toBe(200);
   });
-  test("an ID that is not on the list waits for the host's yes or no; yes lets them in, no keeps them out", async () => {
+  test("an ID that is not on the list waits for the co-organizer's yes or no; yes lets them in, no keeps them out", async () => {
     const t = await setup(); await addIds(t.master, [{ empId: "A-1101" }]);
     const w = await joinId(t.id, "Z-9", 5); expect(w.status).toBe(403); expect((await j(w)).code).toBe("waiting");
     const list = (await j(await call("GET", `/api/z/${t.id}/waiting`, undefined, t.master))).waiting as any[]; expect(list.length).toBe(1); expect(list[0].empId).toBe("Z9");
@@ -133,7 +133,7 @@ describe("invite by ID only", () => {
     const r = await call("POST", `/api/z/${t.id}/join`, { name: "Asha", device: dev(9), consent: TICKS }); expect(r.status).toBe(400); expect((await j(r)).code).toBe("need-id");
     const r2 = await call("POST", `/api/z/${t.id}/join`, { phone: "9876543210", device: dev(10), consent: TICKS }); expect(r2.status).toBe(400);
   });
-  test("every ID is deleted with the other participant data, within 24 hours of the end", async () => {
+  test("every ID is deleted with the other player data, within 24 hours of the end", async () => {
     const t = await setup(); await addIds(t.master, [{ empId: "A-1101" }, { empId: "B-2" }]); await joinId(t.id, "A1101", 1); await joinId(t.id, "Q-5", 2);
     expect(PURGE_AFTER_MS).toBeLessThanOrEqual(24 * 3_600_000);
     expect(rowsOf("SELECT 1 FROM person WHERE eid=?", t.id).length + rowsOf("SELECT 1 FROM waiting WHERE eid=?", t.id).length + rowsOf("SELECT 1 FROM participant WHERE eid=?", t.id).length).toBeGreaterThan(0);
@@ -266,7 +266,7 @@ describe("guessing employee IDs: wrong IDs are limited for each network, a right
     expect((await joinFrom(u, "9.9.9.9", "Z-1", 1)).status).toBe(403);
     expect((await joinFrom(t, "9.9.9.9", "Z-1", 1, T + 11 * 60_000)).status).toBe(403);
   });
-  test("the wrong-ID counters hold a hash of the network only, and go with the game's participant data and the daily clean-up", async () => {
+  test("the wrong-ID counters hold a hash of the network only, and go with the game's player data and the daily clean-up", async () => {
     const t = await setup();
     await guess(t, () => "9.9.9.9", 3);
     const rows = rowsOf("SELECT k FROM kv WHERE k LIKE 'idmiss/%'"); expect(rows.length).toBe(1); expect(rows[0].k).not.toContain("9.9.9.9");
@@ -352,7 +352,7 @@ describe("1.5.2: the paid notice finishes after a failure", () => {
   const WIN_NAME = "Asha Rao", WIN_PHONE = "+917012345678", WIN_IP = "203.0.113.77";
 });
 
-describe("1.5.4 (audit M1, M2, L4): a winner's name and mobile number are kept 365 days on purpose; the network address, phone details and every other guest's details are not", () => {
+describe("1.5.4 (audit M1, M2, L4): a winner's name and mobile number are kept 365 days on purpose; the network address, phone details and every other player's details are not", () => {
   const WIN_NAME = "Asha Rao", WIN_PHONE = "+917012345678", WIN_IP = "203.0.113.77";
   /** The winner's own phone confirming its name and number, from a known network address and browser. */
   const confirm = (id: string, pid: string, name: string, phone: string, now = T) => handle(new Request(`http://x/api/z/${id}/confirm`, { method: "POST", headers: { "content-type": "application/json", "cf-connecting-ip": WIN_IP, "user-agent": "Mozilla/5.0 (Linux; Android 14) Chrome/124.0 Mobile Safari/537.36", "x-request-id": "Asha-typed-this-free-text" }, body: JSON.stringify({ pid, device: dev(1), name, phone }) }), env as Env, now);
@@ -387,7 +387,7 @@ describe("1.5.4 (audit M1, M2, L4): a winner's name and mobile number are kept 3
     expect(rowsOf("SELECT COUNT(*) AS c FROM participant WHERE eid=?", t.id)[0].c).toBe(0); // everyone else's details are gone
     expect(rowsOf("SELECT COUNT(*) AS c FROM seat WHERE eid=?", t.id)[0].c).toBe(0);
   });
-  test("audit M1: after the deletion the audit log still holds the winner's name and mobile number (and the seat), and NOT the network address, the browser, the phone id or the participant id; the chain verifies", async () => {
+  test("audit M1: after the deletion the audit log still holds the winner's name and mobile number (and the seat), and NOT the network address, the browser, the phone id or the player id; the chain verifies", async () => {
     const { t, pid, seat } = await winner();
     const live = await leftOf(t, [WIN_NAME, "7012345678", WIN_IP, dev(1), pid, "Chrome"]);
     expect(live.foundInLog).toEqual(expect.arrayContaining([WIN_NAME, "7012345678", WIN_IP, dev(1), pid, "Chrome"])); // the probe sees all of it while the game is live

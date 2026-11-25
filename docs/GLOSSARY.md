@@ -1,5 +1,7 @@
 # Glossary — words matter (owner directive 2026-10-01)
 
+> **Superseded on 25 Nov 2026.** The owner now says **game** and **player** (not engagement and participant), **co-organizer** (not host) and no tickets. The table below is kept as history. Current words, the tests that keep them true and what is still to sweep: [WORDING_2026-11-25.md](WORDING_2026-11-25.md).
+
 "Game" and "player" make this sound like an online/gambling product. We describe what it is: an **engagement** with **participants**.
 
 | Old word (in handout / rules v1.4 / prototype) | Use now | Notes |

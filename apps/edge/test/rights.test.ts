@@ -164,7 +164,7 @@ describe("U6 / D7: what do you hold about me, correct it, delete me", () => {
 });
 
 describe("the request rows do not outlive the game", () => {
-  test("they are deleted with the game's other participant data (23 hours after the end), and with the game itself", async () => {
+  test("they are deleted with the game's other player data (23 hours after the end), and with the game itself", async () => {
     await game("RQ-9"); const a = await joinAs("RQ-9", 1);
     await ask("RQ-9", a, dev(1), "access");
     expect(count("SELECT COUNT(*) c FROM data_request")).toBe(1);

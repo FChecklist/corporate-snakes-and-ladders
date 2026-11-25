@@ -67,7 +67,7 @@ describe("the paste text and the manual", () => {
     expect(m.endpoints.every((e: any) => e.url.startsWith(`${ORIGIN}/ai/${o.ai}/`))).toBe(true);
     expect(m.conversation.length).toBe(12); expect(m.you_cannot.length).toBeGreaterThan(5);
   });
-  test("a co-host key gets a narrower manual shaped for that role", async () => {
+  test("an invite-only co-organizer key gets a narrower manual shaped for that role", async () => {
     const o = await organizer();
     const hk = await j(await call("POST", "/api/org/host", { mobile: "9876500009", email: "host@acme.com" }, o.h)); expect(hk.hostKey).toMatch(/^cbh_/); expect(hk.manualUrl).toBe(`${ORIGIN}/ai/${hk.hostKey}`);
     const t = await (await linkGet(hk.hostKey)).text();
@@ -116,7 +116,7 @@ describe("key in the address behaves exactly like the header", () => {
     const trail = await j(await call("GET", `/ai/${o.ai}/org/ai/audit`)); expect(trail.trail.length).toBeGreaterThanOrEqual(4); // the AI may read its own trail
     expect(JSON.stringify(trail)).not.toContain(o.ai);
   });
-  test("a co-host's link calls are audited as well", async () => {
+  test("an invite-only co-organizer's link calls are audited as well", async () => {
     const o = await organizer(); const hk = await j(await call("POST", "/api/org/host", { email: "host@acme.com", mobile: "9876500009" }, o.h));
     await linkGet(hk.hostKey); await call("GET", `/ai/${hk.hostKey}/whoami`);
     expect(auditRows().slice(-2).map((r) => r.path)).toEqual(["/ai/manual", "/api/whoami"]);
@@ -134,7 +134,7 @@ describe("GET-only fallback (_method and _body)", () => {
   });
   test("a _body that is not JSON gets a plain 400 that explains encoding, and the summary shows the invitation policy", async () => {
     const o = await organizer(); await call("POST", `/ai/${o.ai}/z`, eng("GET-5"));
-    const bad = await call("GET", `/ai/${o.ai}/z/GET-5/settings?_method=PATCH&_body=${encodeURIComponent("{tickets: 2")}`);
+    const bad = await call("GET", `/ai/${o.ai}/z/GET-5/settings?_method=PATCH&_body=${encodeURIComponent("{boards: 2")}`);
     expect(bad.status).toBe(400); expect(await bad.text()).toMatch(/URL-encode/);
     await call("GET", `/ai/${o.ai}/z/GET-5/settings?_method=PATCH&_body=${q({ invites: { on: true, per: 2, cats: ["dealers"] } })}`);
     expect((await j(await call("GET", `/ai/${o.ai}/z/GET-5/summary`))).invites).toEqual({ on: true, per: 2, cats: ["dealers"] });
@@ -189,14 +189,14 @@ describe("what the organizer's AI may and may not do now", () => {
     await call("POST", `/api/z/${id}/publish`, contact, o.h);
     return o;
   }
-  test("it may announce to guests (once published), and the draft rule still holds", async () => {
+  test("it may announce to players (once published), and the draft rule still holds", async () => {
     const o = await liveEngagement("CAP-1");
     expect((await call("POST", `/ai/${o.ai}/z/CAP-1/announce`, { text: "Welcome everyone" })).status).toBe(200);
     const ann = raw.prepare("SELECT v FROM kv WHERE k='ann/CAP-1'").get() as { v: string }; expect(JSON.parse(ann.v).text).toBe("Welcome everyone");
     await call("POST", "/api/z", eng("CAP-D"), o.h);
     expect((await call("POST", `/ai/${o.ai}/z/CAP-D/announce`, { text: "hi" })).status).toBe(400);
   });
-  test("it may mark a seat, and move a ticket to a new phone (change of phone)", async () => {
+  test("it may mark a seat, and move a board to a new phone (change of phone)", async () => {
     const o = await liveEngagement("CAP-3");
     await call("POST", "/api/z/CAP-3/join", { phone: "9876543210", name: "Asha" });
     expect((await call("POST", `/ai/${o.ai}/z/CAP-3/mark`, { seat: 1, role: "co-host" })).status).toBe(200);
@@ -211,7 +211,7 @@ describe("what the organizer's AI may and may not do now", () => {
     expect((await j(await call("GET", `/ai/${o.ai}/z/CAP-4/summary`))).status).toMatch(/published/);
     for (const p of ["results", "life", "claims", "participants", "info", "control", "control/request"]) expect((await call("GET", `/ai/${o.ai}/z/CAP-4/${p}`)).status).not.toBe(403);
   });
-  test("it may create a co-host key and gets its own link for them, but the report address never reaches it", async () => {
+  test("it may create an invite-only co-organizer key and gets its own link for them, but the report address never reaches it", async () => {
     const o = await liveEngagement("CAP-5");
     const hk = await j(await call("POST", "/api/org/host", { email: "host@acme.com", mobile: "9876500009" }, o.h)); expect(hk.manualUrl).toContain("/ai/cbh_");
     const rep = await j(await call("GET", `/ai/${o.ai}/z/CAP-5/reportlink`)); expect(rep.url).toBeNull(); expect(rep.note).toMatch(/e-mailed to them/);
@@ -232,7 +232,7 @@ describe("what the organizer's AI may and may not do now", () => {
     const r = await j(await call("POST", `/ai/${o.ai}/z/CAP-7/publish`, contact)); expect(r.needsOrganizer).toBe(true); expect(r.consoleUrl).toContain("/zc.html?e=CAP-7");
     expect((raw.prepare("SELECT COUNT(*) AS c FROM kv WHERE k='pub/CAP-7'").get() as any).c).toBe(0);
   });
-  test("a co-host key keeps its narrow rights through the link", async () => {
+  test("an invite-only co-organizer key keeps its narrow rights through the link", async () => {
     const o = await liveEngagement("CAP-8"); const hk = await j(await call("POST", "/api/org/host", { mobile: "9876500009", email: "host@acme.com" }, o.h));
     expect((await call("POST", `/ai/${hk.hostKey}/z/CAP-8/announce`, { text: "Hello" })).status).toBe(200);
     expect((await call("GET", `/ai/${hk.hostKey}/z/CAP-8/summary`)).status).toBe(200);

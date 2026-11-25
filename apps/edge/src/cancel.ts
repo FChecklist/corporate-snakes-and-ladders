@@ -124,8 +124,8 @@ export async function reopenGame(env: PayEnv, e: any, startRound: unknown, now: 
   await db.prepare("DELETE FROM kv WHERE k=?").bind(`startpending/${e.id}`).run();
   await db.prepare("INSERT OR REPLACE INTO kv(k,v) VALUES(?,?)").bind(`reopened/${e.id}/${now}`, JSON.stringify({ by, ms: now, wasCancelledMs: e.cancelled_ms, startRound })).run(); // the trail: who moved it, and when
   let name = e.id; try { name = JSON.parse(e.config ?? "{}").name || e.id; } catch { /* the id */ }
-  const who = by === "host" ? "a Host" : by === "master" ? "the Organizer" : "the platform owner";
-  await mailTeam(env, e.org, e.id, `Your game is back on: ${name}`, [`The game "${name}" (${e.id}) was moved to a new date by ${who}. It now starts on ${istStamp(startMs, tzOfRow(e))}.`, "Your payment stays with this game, so nothing more is due. The credit that the cancel made is taken back out of your account.", "Guests who had joined must join again: their names and numbers were auto-deleted after the cancel. Send them the link once more."].join("\n\n"), now);
+  const who = by === "host" ? "a Co-organizer" : by === "master" ? "the Organizer" : "the platform owner";
+  await mailTeam(env, e.org, e.id, `Your game is back on: ${name}`, [`The game "${name}" (${e.id}) was moved to a new date by ${who}. It now starts on ${istStamp(startMs, tzOfRow(e))}.`, "Your payment stays with this game, so nothing more is due. The credit that the cancel made is taken back out of your account.", "Players who had joined must join again: their names and numbers were auto-deleted after the cancel. Send them the link once more."].join("\n\n"), now);
   return { status: 200, body: { ok: true, reopened: true, startRound, startMs } };
 }
 
@@ -153,11 +153,11 @@ export async function cancelGame(env: PayEnv, e: any, now: number, by: string): 
   credit = await creditOfCancelled(db, e.id);
   // one "game cancelled" mail to the Organizer and each Host (the Organizer is always told, also when a Host cancelled)
   let name = e.id; try { name = JSON.parse(e.config ?? "{}").name || e.id; } catch { /* the id */ }
-  const who = by === "host" ? "a Host" : by === "master" ? "the Organizer" : "the platform owner";
+  const who = by === "host" ? "a Co-organizer" : by === "master" ? "the Organizer" : "the platform owner";
   const test = made.some((c) => c.is_test);
   const lines = [
     `The game "${name}" (${e.id}) was cancelled by ${who} on ${istStamp(now, tzOfRow(e))}. It was due to start on ${istStamp(roundMs(e.start_round), tzOfRow(e))}.`,
-    "Guests who open the link are told: This game was cancelled by the organizer. Their names and mobile numbers are deleted within 24 hours.",
+    "Players who open the link are told: This game was cancelled by the organizer. Their names and mobile numbers are deleted within 24 hours.",
     credit && e.pack !== 0
       ? `Your game is cancelled. ${credit.expiresMs <= now ? `The credit from your payment of ${rs(credit.amountInr)} lapsed on ${creditLastDay(credit.expiresMs)}, 365 days after the payment, so there is nothing left to use.` : `Your payment of ${rs(credit.amountInr)} stays as credit until ${creditLastDay(credit.expiresMs)}. Use it for your next game.`}${test ? " (This is a TEST game: nothing was really paid.)" : ""}\n\n${NO_REFUND_LINE}${credit.expiresMs <= now ? "" : `\n\nYou can also move this game to a new date until ${istStamp(rescheduleUntilMs(now))}: open it in your console and choose a new date. Your payment then stays with this game. If you use the credit for another game first, this game can no longer be moved.`}`
       : e.pack !== 0 ? "Nothing was paid for this game through this service, so there is no credit." : "The game had not been paid for, so no money is involved.",
@@ -176,11 +176,11 @@ export async function mailDataDeleted(env: PayEnv, e: { id: string; org: string 
   try {
     let name = e.id; try { name = JSON.parse(e.config ?? "{}").name || e.id; } catch { /* the id */ }
     if (opts.didNotStart) {
-      await mailTeam(env, e.org, e.id, `Your game did not start: ${name}`, [`Your game did not start. The guest list was auto-deleted at ${istStamp(now, tzOfRow(e))}.`, `For the game "${name}" (${e.id}), every guest's name and mobile number was permanently deleted, as promised. The game is now closed: nobody can join or pay for it.`, "Your own details and your settings stay. Open the game and tap Create a new game like this one to start again with the same settings."].join("\n\n"), now);
+      await mailTeam(env, e.org, e.id, `Your game did not start: ${name}`, [`Your game did not start. The player list was auto-deleted at ${istStamp(now, tzOfRow(e))}.`, `For the game "${name}" (${e.id}), every player's name and mobile number was permanently deleted, as promised. The game is now closed: nobody can join or pay for it.`, "Your own details and your settings stay. Open the game and tap Create a new game like this one to start again with the same settings."].join("\n\n"), now);
       return;
     }
-    const text = [`Your guests' personal data has been deleted.`, `For the game "${name}" (${e.id}), every guest's name and mobile number was permanently deleted on ${istStamp(now, tzOfRow(e))}, as promised.`, "Nothing more is needed from you. The winners record (board number, prize, time) stays for your records, as explained in your Terms."].join("\n\n");
-    await mailTeam(env, e.org, e.id, `Your guests' personal data has been deleted: ${name}`, text, now);
+    const text = [`Your players' personal data has been deleted.`, `For the game "${name}" (${e.id}), every player's name and mobile number was permanently deleted on ${istStamp(now, tzOfRow(e))}, as promised.`, "Nothing more is needed from you. The winners record (board number, prize, time) stays for your records, as explained in your Terms."].join("\n\n");
+    await mailTeam(env, e.org, e.id, `Your players' personal data has been deleted: ${name}`, text, now);
   } catch { /* the deletion already happened; a mail is a courtesy */ }
 }
 
@@ -189,7 +189,7 @@ export async function mailErasureHeadsUp(env: PayEnv, e: { id: string; org: stri
   try {
     let name = e.id; try { name = JSON.parse(e.config ?? "{}").name || e.id; } catch { /* the id */ }
     const origin = env.PUBLIC_ORIGIN ?? "";
-    await mailTeam(env, e.org, e.id, `Your game time has passed: ${name}`, [`Your game time has passed. Guest data will be auto-deleted at ${istStamp(erasureMs, tzOfRow(e))}. Tap to reschedule and keep it.`, `${origin}/zc.html?e=${e.id}`, "If the game is not paid for and not moved, it closes then: nobody can join or pay, and the guest list is auto-deleted. Your settings stay for 30 days so you can create a new game like this one."].join("\n\n"), now);
+    await mailTeam(env, e.org, e.id, `Your game time has passed: ${name}`, [`Your game time has passed. Player data will be auto-deleted at ${istStamp(erasureMs, tzOfRow(e))}. Tap to reschedule and keep it.`, `${origin}/zc.html?e=${e.id}`, "If the game is not paid for and not moved, it closes then: nobody can join or pay, and the player list is auto-deleted. Your settings stay for 30 days so you can create a new game like this one."].join("\n\n"), now);
   } catch { /* a heads-up is a courtesy */ }
 }
 

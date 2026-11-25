@@ -31,7 +31,7 @@
     if (!r.ok) { const err = Object.assign(new Error(j.error || "http " + r.status), { code: j.code, status: r.status, needPack: j.needPack, payments: j.payments, consent: j.consent }); guided(err, method, path, body); throw err; }
     return j;
   };
-  const STEP_NAMES = ["Date and time", "Number of participants", "Set Prizes", "Set Brand Moments", "Make hosts and co-hosts", "Invite and share links", "Check and publish", "Pay", "Game day", "After the game"];
+  const STEP_NAMES = ["Date and time", "Number of players", "Set Prizes", "Set Brand Moments", "Add co-organizers", "Invite and share links", "Check and publish", "Pay", "Game day", "After the game"];
   /** the guide (guide.js): a failed action explains itself, says what to do, and takes the person to the exact step and box; "Done?" brings them back here */
   function guided(err, method, path, body) {
     if (!window.CTG) return; const where = path.split("?")[0].replace(/\/[A-Za-z0-9_-]{6,}(?=\/|$)/g, "/..."); CTG.wrap(err, { what: method + " " + where });
@@ -105,14 +105,14 @@
   // [number, title, colour, short hint (shown when the step is open or has nothing to summarise), what the console says when you open it]
   const FULL = [
     [1, "Date and time of the game", "blue", "Pick the occasion, day and time.", "Hello. Time to start with the basics."],
-    [2, "Number of participants", "aqua", "How many players, and how the game runs.", "Good. Now, how many players, and how should it run?"],
+    [2, "Number of players", "aqua", "How many players, and how the game runs.", "Good. Now, how many players, and how should it run?"],
     [3, "Set Prizes", "violet", "Tick the prizes. Pick what each one is.", "Now the fun part: prizes."],
     [4, "Set Brand Moments", "magenta", "Add your message or video. Test it first.", "Want your brand in the breaks?"],
-    [5, "Make hosts and co-hosts", "green", "Add Hosts and Co-hosts. Send each link to one person.", "Who is helping you?"],
+    [5, "Add co-organizers", "green", "Add co-organizers. Send each link to one person.", "Who is helping you?"],
     [6, "Invite and Share links", "yellow", "Share the link. Add your people.", "Time to bring people in."],
     [7, "Check and publish", "orange", "Check everything. Then publish, free.", "Almost there. One last look."],
     [8, "Pay", "lime", "Pay once, before the start time.", "Last thing: payment."],
-    [9, "Game day", "violet", "Run the game. Message your guests.", "It is game day."],
+    [9, "Game day", "violet", "Run the game. Message your players.", "It is game day."],
     [10, "After the game", "red", "Get your report. Delete data if you want.", "That was fun. Here is what is left."],
   ];
   const COH = [
@@ -142,7 +142,7 @@
   }
   const payLabel = (p) => (p.paid ? "Paid" : p.confirming ? "Confirming your payment..." : S.draft ? "Draft · not published yet" : "Payment pending for this game");
   const isCancelled = () => !!(S.cancelDone || (S.sum && (S.sum.cancelled || S.sum.status === "cancelled")) || (S.coh && S.coh.cancelled) || (S.info && S.info.cancelled));
-  const WHO = { organizer: "Organizer", host: "Host", "co-host": "Co-host", cohost: "Co-host" };
+  const WHO = { organizer: "Organizer", host: "Co-organizer", "co-host": "Invite-only co-organizer", cohost: "Invite-only co-organizer" };
 
   // ---------- the choices (the form state: it lives here, so a refresh never loses what you are typing) ----------
   const OCC = ["Team event", "Holiday party", "All-hands opener", "New-hire welcome", "Customer event", "Friday team break", "Family day", "Diwali party", "Other"];
@@ -154,7 +154,7 @@
   const houseOk = (f, k) => (k === "team" ? f.gm === "team" : k === "nevermissed" ? f.pl === "presence" : true);
   const DEFAULT_PRIZE_HOUSE = HOUSES.some((h) => h.id === "finish") ? "finish" : (HOUSES[0] || { id: "finish" }).id;
   // [key, label, currency prefix, what to ask]. "Decide later" saves an empty prize; "No prize" saves the words No prize, so the board shows them.
-  const PT = [["voucher", "Gift card", "", "Amount, for example $25 or ₹1000"], ["hamper", "Gift hamper", "", "What is in it? (optional)"], ["phone", "Smartphone", "", "Which one? (optional)"], ["watch", "Smart watch", "", "Which one? (optional)"], ["earbuds", "Earbuds or headphones", "", "Which one? (optional)"], ["tablet", "Tablet or laptop", "", "Which one? (optional)"], ["holiday", "Holiday or weekend stay", "", "Where?"], ["dinner", "Restaurant gift card", "", "Amount, for example $50"], ["movie", "Movie tickets", "", "How many tickets?"], ["dayoff", "Extra day off", "", ""], ["other", "Something else", "", "Type the prize"], ["later", "Decide later", "", ""], ["none", "No prize", "", ""]];
+  const PT = [["voucher", "Gift card", "", "Amount, for example $25 or ₹1000"], ["hamper", "Gift hamper", "", "What is in it? (optional)"], ["phone", "Smartphone", "", "Which one? (optional)"], ["watch", "Smart watch", "", "Which one? (optional)"], ["earbuds", "Earbuds or headphones", "", "Which one? (optional)"], ["tablet", "Tablet or laptop", "", "Which one? (optional)"], ["holiday", "Holiday or weekend stay", "", "Where?"], ["dinner", "Restaurant gift card", "", "Amount, for example $50"], ["movie", "Movie boards", "", "How many boards?"], ["dayoff", "Extra day off", "", ""], ["other", "Something else", "", "Type the prize"], ["later", "Decide later", "", ""], ["none", "No prize", "", ""]];
   const KINDS = [["msg", "Type a message"], ["yt", "YouTube link"], ["vid", "Paste video file link"], ["aud", "Paste audio file link"]];
   const SERVER_KIND = { msg: "speech", yt: "youtube", vid: "file", aud: "file", slides: "slides" };
   const DEFAULT_TITLE = "A message from your organizer";
@@ -238,14 +238,14 @@
   const gid = (path) => "gl-" + path.replace(/\./g, "-");
   // one small line under every group of tick boxes and under every single tick box: what it is for
   const HINTS = {
-    occ: "The kind of event. It becomes the name of your game.", day: "The day guests should be ready.", time: "The time guests should be ready. The first turn opens 2 minutes later.",
+    occ: "The kind of event. It becomes the name of your game.", day: "The day players should be ready.", time: "The time players should be ready. The first turn opens 2 minutes later.",
     gm: "Race: everyone has a board of their own. Team race: players are dealt into teams. Table: a few players share one board.", tm: "Players are dealt into teams by chance.",
     pl: "Automatic: nobody has to do anything. Players throw: a player who does not throw in the window misses the turn.", bs: "A bigger board makes a longer game.",
     sn: "More snakes make the game harder.", ld: "More ladders make the game easier.", fin: "Exact: a player must throw the number that lands on the last square. Reach or pass: any big enough throw finishes.",
     ep: "The game ends when this many players are home, or at the turn limit, whichever comes first. A team game ends when the first whole team is home.", ex: "When it is on, nobody wins two prizes.", th: "Only the look changes. The rules stay the same.", spd: "Every turn lasts this long.",
     who: "List: only people you add come straight in. Anyone: whoever has the link comes in.", gj: "A name is the simplest. A mobile number lets you match the list and send personal links.",
     ver: "What a person must type to get in.", idk: "One kind of Employee or Email ID for the whole game: your list decides who is in.", emp: "Tick this for a staff-only game: only people on your list can play and nobody can invite anyone.",
-    inv: "Each guest can bring a few people. They can play, but cannot invite anyone else.", per: "The most people one guest can invite.", cats: "The kinds of guests they may invite.",
+    inv: "Each player can bring a few people. They can play, but cannot invite anyone else.", per: "The most people one player can invite.", cats: "The kinds of players they may invite.",
     diff: "Give each winner a prize of their own.", bundle: "A ready-made set of prizes to start from.", cap: "The most people who can play.",
   };
   const hintOf = (path) => (HINTS[path] ? `<span class="zc-hint2">${HINTS[path]}</span>` : "");
@@ -268,7 +268,7 @@
     let h = `<div class="zc-chips" role="group" aria-label="What is the prize?">${PT.map((x) => chip(ptPath, x[0], x[1])).join("")}</div>`;
     if (p && p[3]) h += `<div class="zc-inline">${p[2] ? `<span>${p[2]}</span>` : ""}<label class="zc-sr" for="${fid(pdPath)}">${esc(p[3])}</label>${inp(pdPath, { ph: p[3], max: 70 })}</div>`;
     if (pt === "later") h += small("Fine. A reminder will be shown before you publish.");
-    if (pt === "none") h += small("Guests see \"No prize\". The winner is still announced.");
+    if (pt === "none") h += small("Players see \"No prize\". The winner is still announced.");
     return h;
   }
 
@@ -283,7 +283,7 @@
       + (f.day === "other" ? `<div class="zc-gap">${lbl("f-dayo", "Pick the date")}${inp("dayo", { type: "date", attrs: `min="${min}" max="${max}"` })}</div>` : "")
       + grp("time", "What time does it start?", TIMES)
       + (f.time === "other" ? `<div class="zc-gap">${lbl("f-timeo", "Pick the time")}${inp("timeo", { type: "time", attrs: 'step="300"' })}</div>` : "")
-      + small("The game starts by itself at this time. You do nothing. Guests can join before. The first turn opens 2 minutes after the start.") + save(1);
+      + small("The game starts by itself at this time. You do nothing. Players can join before. The first turn opens 2 minutes after the start.") + save(1);
   }
 
   // ---------- step 2: how it plays ----------
@@ -336,7 +336,7 @@
     const f = S.f, cats = ZG.INVITE_CATEGORIES || [];
     const caps = capOptions().map((p) => `<button type="button" class="zc-chip${String(f.cap) === String(p.n) ? " on" : ""}" data-ck="cap" data-v="${p.n}" aria-pressed="${String(f.cap) === String(p.n)}"><span>Up to ${p.n} people</span></button>`).join("");
     const own = `<div class="zc-gap">${lbl("f-cap", "Or type your own number of players")}${inp("cap", { type: "number", ph: "For example 180", attrs: 'inputmode="numeric" min="1" max="10000" step="1"' })}</div>`;
-    return `<span class="zc-lbl zc-sec zc-sub">How many players</span><span class="zc-lbl" id="gl-cap">How many people at most?</span><div class="zc-chips" role="group" aria-labelledby="gl-cap">${caps}</div>` + own + small("Invited guests count too. The price is shown when you pay.")
+    return `<span class="zc-lbl zc-sec zc-sub">How many players</span><span class="zc-lbl" id="gl-cap">How many people at most?</span><div class="zc-chips" role="group" aria-labelledby="gl-cap">${caps}</div>` + own + small("Invited players count too. The price is shown when you pay.")
       + `<span class="zc-lbl zc-sec zc-sub">How the game runs</span>` + grp("spd", "Length of each turn", spdOpts(f.spd))
       + small(rulesNow() ? "Every turn lasts this long. The throw happens by itself when the window closes." : "Every turn lasts this long. In \"Players throw\" play, a player must throw inside the window. In automatic play the throw happens by itself when the window closes.")
       + small(durationLine(f))
@@ -344,18 +344,18 @@
       + (rulesNow() ? `<span class="zc-lbl zc-sec zc-sub">Invite people with just an ID</span>` + small("No names or personal details are needed. You paste or upload the IDs in step 6. Your invitee opens the game link and enters their ID. If it is not on your list, you get a request to approve or decline. An ID is matched to your list, it is not proven: anyone who types an ID on your list takes that person's place, so send the game link only to the people you invite. Wrong IDs are limited for each network, but a right ID is never counted.") : "")
       + (rulesNow() ? "" : (""
       + `<span class="zc-lbl zc-sec zc-sub">Who is this game for?</span><div class="zc-chips">${bchip("emp", "Only your employees (nobody can invite anyone)")}</div>`
-      + small(f.emp ? "Only the employees on your list can play. Guests cannot invite anyone. Anyone else who opens your link waits for you to say yes." : "Employees, vendors, customers, families: everyone can play. Put the people you know on your list; others can still come in with the link.")
+      + small(f.emp ? "Only the employees on your list can play. Players cannot invite anyone. Anyone else who opens your link waits for you to say yes." : "Employees, vendors, customers, families: everyone can play. Put the people you know on your list; others can still come in with the link.")
       + grp("ver", "What must a person give to get in?", [["mobile", "Mobile number"], ["id", "Employee ID"], ["both", "Mobile number and employee ID"]])
       + small(f.ver === "mobile" ? "Each person types their mobile number. This is the simplest." : f.emp ? "Each employee types " + (f.ver === "id" ? "their employee ID" : "their mobile number and their employee ID") + ". Add the employees to your list with their " + (f.ver === "id" ? "employee ID (a mobile number is optional)." : "mobile number and employee ID.") : "Your employees type " + (f.ver === "id" ? "their employee ID" : "their mobile number and employee ID") + ". Vendors, customers and families have no employee ID, so they type their mobile number only.")
       + (f.ver === "mobile" ? "" : grp("idk", "Which Employee or Email ID?", [["emp", "Employee ID"], ["email", "Email ID"]]) + small(f.idk === "email" ? "Your list has an Email ID for each person. Capital letters do not matter." : "Your list has an employee ID for each person." + (S.info && S.info.idClean ? " Dashes and spaces are ignored." : "") + ""))
       + (f.emp ? "" : `<span class="zc-lbl zc-sec zc-sub">Who can join</span>` + grp("who", "Who can join?", [["list", "Only people on a list"], ["anyone", "Anyone with the link"]])
-      + small(f.who === "list" ? "Only people you have added can join straight away. Anyone else who clicks your link has to wait until you or a Host says yes." : "Anyone who clicks your link joins straight away. You can change this until the game starts."))
-      + (f.emp || f.ver !== "mobile" ? "" : grp("gj", "What do guests type to join?", [["name", "Just their name (best for teams)"], ["phone", "Name and mobile number"]])
+      + small(f.who === "list" ? "Only people you have added can join straight away. Anyone else who clicks your link has to wait until you or a Co-organizer says yes." : "Anyone who clicks your link joins straight away. You can change this until the game starts."))
+      + (f.emp || f.ver !== "mobile" ? "" : grp("gj", "What do players type to join?", [["name", "Just their name (best for teams)"], ["phone", "Name and mobile number"]])
       + small(f.gj === "phone" ? "Players also give a mobile number. Use this when you load a list of mobile numbers and send personal links." : "Players type only a name. The common link works in Slack, Teams or Zoom chat. Personal links from a list still work."))
       ))
-      + (f.emp || rulesNow() ? "" : `<span class="zc-lbl zc-sec zc-sub">Guests bringing their own people</span><span class="zc-lbl">Can guests bring their own people?</span><div class="zc-chips">${bchip("inv", "Yes, each guest can invite a few of their own family or colleagues")}</div>`
-      + (f.inv && !rulesNow() ? `<div class="zc-box">${grp("per", "How many people can each guest invite?", [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => [String(n), String(n)]))}${grp("cats", "Who can they invite?", cats.map((k) => [k.id, k.label]), true)}
-          <ul class="zc-levels"><li><b>You, Hosts and Co-hosts:</b> invite as many as you like.</li><li><b>A guest:</b> up to ${esc(f.per)} people.</li><li><b>A person a guest invited:</b> can play, cannot invite.</li></ul></div>` : ""))
+      + (f.emp || rulesNow() ? "" : `<span class="zc-lbl zc-sec zc-sub">Players bringing their own people</span><span class="zc-lbl">Can players bring their own people?</span><div class="zc-chips">${bchip("inv", "Yes, each player can invite a few of their own family or colleagues")}</div>`
+      + (f.inv && !rulesNow() ? `<div class="zc-box">${grp("per", "How many people can each player invite?", [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => [String(n), String(n)]))}${grp("cats", "Who can they invite?", cats.map((k) => [k.id, k.label]), true)}
+          <ul class="zc-levels"><li><b>You, Co-organizers and invite-only co-organizers:</b> invite as many as you like.</li><li><b>A player:</b> up to ${esc(f.per)} people.</li><li><b>A person a player invited:</b> can play, cannot invite.</li></ul></div>` : ""))
       + save(2);
   }
 
@@ -386,10 +386,10 @@
   // ---------- brand strip on the guest's board (Phase 3): company name, accent colour, a small logo ----------
   const BRAND_COLORS = [["#0B3D91", "Navy"], ["#1B7F5C", "Green"], ["#B3261E", "Red"], ["#6A1B9A", "Purple"], ["#C26A00", "Saffron"], ["#00798C", "Teal"], ["#37474F", "Charcoal"], ["#AD1457", "Pink"]]; // the eight colours the server accepts
   const previewUrl = () => "/preview.html#w=card&e=" + encodeURIComponent(eid);
-  const previewButton = () => (canRun() && eid ? `<div class="zc-chips zc-gap"><a class="zc-chip" id="seeguests" href="${esc(previewUrl())}" target="_blank" rel="noopener">See what guests see</a></div>${small("A sample board, marked PREVIEW. Nothing is sent to anyone.")}` : "");
+  const previewButton = () => (canRun() && eid ? `<div class="zc-chips zc-gap"><a class="zc-chip" id="seeguests" href="${esc(previewUrl())}" target="_blank" rel="noopener">See what players see</a></div>${small("A sample board, marked PREVIEW. Nothing is sent to anyone.")}` : "");
   function brandBox() {
     const b = S.f.brand;
-    return `<div class="zc-block" id="brandbox"><h3>Your brand on the board</h3>${small("Shown at the top of every guest's board. All of it is optional.")}${lbl("f-brand-name", "Company name")}${inp("brand.name", { max: 40, ph: "Company name" })}
+    return `<div class="zc-block" id="brandbox"><h3>Your brand on the board</h3>${small("Shown at the top of every player's board. All of it is optional.")}${lbl("f-brand-name", "Company name")}${inp("brand.name", { max: 40, ph: "Company name" })}
       <span class="zc-lbl" id="gl-brandcolor">Accent colour</span><div class="zc-chips" role="group" aria-labelledby="gl-brandcolor">${BRAND_COLORS.map(([v, l]) => `<button type="button" class="zc-chip${b.color === v ? " on" : ""}" data-ck="brand.color" data-v="${v}" aria-pressed="${b.color === v}"><span class="zc-sw" style="background:${v}" aria-hidden="true"></span>${l}</button>`).join("")}</div>
       ${lbl("brandlogo", "Small logo (optional)")}<input id="brandlogo" class="zc-in" type="file" accept="image/png,image/jpeg,image/webp">${small(LOGO_RULES)}${b.logo ? `<div class="zc-logo"><img src="${esc(b.logo)}" alt="Your logo" width="48" height="48"><button type="button" class="zc-mini zc-danger" id="logorm">Remove logo</button></div>` : ""}${S.logoNote ? `<p class="zc-small zc-warnt" id="logonote" role="status">${esc(S.logoNote)}</p>` : small("It is made small for you, under 30 KB.")}
       ${previewButton()}</div>`;
@@ -428,7 +428,7 @@
     if (ytC(u)) return { ok: true, text: "YouTube link: plays inside the game. If its owner has switched off showing it elsewhere, it will not play, so press Test it." };
     if (/\.(mp4|webm|m4v|mov|ogv)([?#]|$)/i.test(u)) return { ok: true, text: "Video file: plays inside the game." };
     if (/\.(mp3|m4a|aac|wav|ogg|oga)([?#]|$)/i.test(u)) return { ok: true, text: "Audio file: plays inside the game." };
-    return { ok: false, text: "This link opens a new tab and takes guests out of the game. Use a YouTube link or a direct link to a video (.mp4) or audio (.mp3) file." };
+    return { ok: false, text: "This link opens a new tab and takes players out of the game. Use a YouTube link or a direct link to a video (.mp4) or audio (.mp3) file." };
   }
   const noteHtml = (path) => { const m = getP(path); if (!m || m.k === "msg") return ""; const r = linkInfo((m.v || "").trim()); return r.text ? `<span class="${r.ok ? "zc-okt" : "zc-badt"}">${esc(r.text)}</span>` : ""; };
   /** One brand moment: what it is (four kinds), the message or link, a title, and a Test it button that shows it exactly as a guest sees it. */
@@ -438,7 +438,7 @@
     const inputs = m.k === "msg"
       ? `<div class="zc-inline">${`<label class="zc-sr" for="${fid(p + ".t")}">Your message (up to 80 characters)</label>`}${inp(p + ".t", { ph: "Type your message (up to 80 characters)", max: 80 })}</div>`
       : `<div class="zc-inline"><label class="zc-sr" for="${fid(p + ".v")}">${m.k === "yt" ? "The YouTube link" : m.k === "aud" ? "The audio file link" : m.k === "slides" ? "The slides link" : "The video file link"}</label>${inp(p + ".v", { ph: m.k === "yt" ? "Paste the YouTube link" : m.k === "aud" ? "Paste the audio file link" : "Paste the video file link", max: 300 })}<button type="button" class="zc-mini" data-test="${p}">Test it</button></div>
-         <p class="zc-small" data-lk="${p}">${noteHtml(p)}</p>${lbl(fid(p + ".t"), "Title guests see")}${inp(p + ".t", { ph: "Title", max: 80 })}`;
+         <p class="zc-small" data-lk="${p}">${noteHtml(p)}</p>${lbl(fid(p + ".t"), "Title players see")}${inp(p + ".t", { ph: "Title", max: 80 })}`;
     const secs = g === "cl" ? "" : `${lbl(fid(p + ".s"), "How long (seconds, optional)")}${inp(p + ".s", { type: "number", attrs: `min="15" max="${g === "op" ? 120 : 600}" step="3"`, ph: "60" })}`;
     return `<div class="zc-box"><b class="zc-bt">${esc(title)}</b>${grp(p + ".k", "What is it?", kinds)}${inputs}${secs}${m.after ? small("Set earlier to play after turn " + m.after + ".") : ""}</div>`;
   }
@@ -450,7 +450,7 @@
     const N = (k) => Math.min(Number(f[k]) || 0, lim[{ opN: "op", midN: "mid", clN: "cl" }[k]]);
     let h = brandBox() + `<p class="zc-small">You can use 5 brand moments. Used: <b id="bmcount">${u} of ${5 * t}</b>.</p>`;
     if (u > 5 * t) h += `<p class="zc-small zc-badt">That is more than the allowance. Switch some off.</p>`;
-    h += `<span class="zc-lbl zc-sec">Before the game starts</span>` + small("Plays while guests wait for the first turn.") + countChips("opN", lim.op);
+    h += `<span class="zc-lbl zc-sec">Before the game starts</span>` + small("Plays while players wait for the first turn.") + countChips("opN", lim.op);
     for (let i = 0; i < N("opN"); i++) h += momentBox("op", i, "Moment " + (i + 1));
     h += `<span class="zc-lbl zc-sec">During the game (placed evenly)</span>` + small("The turns pause while it is shown.") + countChips("midN", lim.mid);
     for (let i = 0; i < N("midN"); i++) h += momentBox("mid", i, "Moment " + (i + 1));
@@ -481,33 +481,33 @@
   function roleCards(only) {
     const li = (ok, t) => `<li class="${ok ? "zc-yes" : "zc-no"}"><span aria-hidden="true">${ok ? "&#10003;" : "&#10007;"}</span> <span class="zc-sr">${ok ? "Can: " : "Cannot: "}</span>${t}</li>`;
     const card = (c, name, items) => `<div class="zc-role" style="background:var(--bg-tint-${c});color:var(--text-tint-${c})"><b>${name}</b><ul>${items.join("")}</ul></div>`;
-    const all = { organizer: card("blue", "Organizer", [li(1, "Everything in the game"), li(1, "Sign-in keys, e-mail, AI link, close account"), li(1, "Add Hosts and Co-hosts"), li(1, "Pay")]),
-      host: card("aqua", "Host", [li(1, "Change the game, prizes and brand moments"), li(1, "Publish and run the game day"), li(1, "See the guest list"), li(1, "Add Co-hosts"), li(1, "Pay"), li(0, "The account: keys, e-mail, AI link, close account"), li(0, "Add Hosts")]),
-      cohost: card("green", "Co-host", [li(1, "Invite people with their own link"), li(1, "See how many they brought"), li(1, "Pay"), li(0, "Change the game"), li(0, "See the guest list or any names"), li(0, "Add anyone")])};
+    const all = { organizer: card("blue", "Organizer", [li(1, "Everything in the game"), li(1, "Sign-in keys, e-mail, AI link, close account"), li(1, "Add co-organizers"), li(1, "Pay")]),
+      host: card("aqua", "Co-organizer", [li(1, "Change the game, prizes and brand moments"), li(1, "Publish and run the game day"), li(1, "See the player list"), li(1, "Add Invite-only co-organizers"), li(1, "Pay"), li(0, "The account: keys, e-mail, AI link, close account"), li(0, "Add Co-organizers")]),
+      cohost: card("green", "Invite-only co-organizer", [li(1, "Invite people with their own link"), li(1, "See how many they brought"), li(1, "Pay"), li(0, "Change the game"), li(0, "See the player list or any names"), li(0, "Add anyone")])};
     return `<div class="zc-roles">${only ? all[only] : all.organizer + all.host + all.cohost}</div>`;
   }
   const coLimit = () => Number((S.sum && S.sum.coHostLimit) || 100);
-  const EMAIL_RULE = "Guests and Co-hosts need only a name and a mobile number. No e-mail is needed. Only the Organizer and Hosts have an e-mail.";
+  const EMAIL_RULE = "Players and Invite-only co-organizers need only a name and a mobile number. No e-mail is needed. Only the Organizer and co-organizers have an e-mail.";
   const maskPhone = (v) => { const t = String(v || ""); if (/[^0-9\s+\-]/.test(t)) return t; const d = t.replace(/\D/g, ""); return d.length > 4 ? "XXXXXX" + d.slice(-4) : t; };
   function teamRow(p, kind) {
     const link = S.teamLinks[p.id], canRetire = kind === "host" ? isOrg() : canRun();
     const SETUP = { ready: "Ready", "needs-mobile": "Still to add a mobile number", "waiting-for-host": "Waiting for them to open the link", "link-expired": "Their link has expired" };
     const setupLine = kind === "host" && p.setup && SETUP[p.setup] ? `<div class="zc-small zc-nomargin" data-setup="${esc(p.setup)}">${SETUP[p.setup]}</div>` : "";
     const newLink = kind === "host" && isOrg() && p.emailConfirmed === false && (p.setup === "waiting-for-host" || p.setup === "link-expired") ? `<div class="zc-chips zc-gap"><button type="button" class="zc-mini" data-newlink="${esc(p.id)}" data-label="${esc(p.label || "")}">Send a new link</button></div>` : "";
-    return `<div class="zc-person"><div class="zc-split"><span><b>${esc(p.label || (kind === "host" ? "Host" : "Co-host"))}</b>${kind === "cohost" && p.brought !== undefined ? ` <span class="zc-small zc-nomargin">brought ${Number(p.brought) || 0}</span>` : ""}${kind === "host" && p.email ? ` <span class="zc-small zc-nomargin">${esc(p.email)}</span>` : ""}${kind === "host" && (p.phoneMasked || p.phone_masked || p.phone || p.mobile) ? ` <span class="zc-small zc-nomargin">mobile ${esc(maskPhone(p.phoneMasked || p.phone_masked || p.phone || p.mobile))}</span>` : ""}${kind === "cohost" && (p.phoneMasked || p.phone_masked || p.phone || p.mobile) ? ` <span class="zc-small zc-nomargin">mobile ${esc(maskPhone(p.phoneMasked || p.phone_masked || p.phone || p.mobile))}</span>` : ""}</span>${canRetire ? `<button type="button" class="zc-mini zc-danger" data-retire="${esc(p.id)}" data-kind="${kind}" aria-label="Remove ${esc(p.label || kind)}">Remove</button>` : ""}</div>
-      ${setupLine}${newLink}${link ? `<div class="zc-linkrow"><span class="zlink">${esc(link)}</span><button type="button" class="zc-mini" data-copyteam="${esc(p.id)}">Copy link</button>${S.teamWa[p.id] ? `<a class="zc-mini" data-hostwa="${esc(p.id)}" href="${esc("https://wa.me/" + S.teamWa[p.id].d + "?text=" + encodeURIComponent("Hi " + S.teamWa[p.id].name + ", you are a Host for Corporate Snakes and Ladders" + (S.cfg && S.cfg.name ? ": " + S.cfg.name : "") + ". Your personal link: " + link))}" target="_blank" rel="noopener noreferrer">Send on WhatsApp</a>` : ""}</div>` : small("The personal link is shown only when the person is added. Remove and add again to get a new one.")}</div>`;
+    return `<div class="zc-person"><div class="zc-split"><span><b>${esc(p.label || (kind === "host" ? "Co-organizer" : "Invite-only co-organizer"))}</b>${kind === "cohost" && p.brought !== undefined ? ` <span class="zc-small zc-nomargin">brought ${Number(p.brought) || 0}</span>` : ""}${kind === "host" && p.email ? ` <span class="zc-small zc-nomargin">${esc(p.email)}</span>` : ""}${kind === "host" && (p.phoneMasked || p.phone_masked || p.phone || p.mobile) ? ` <span class="zc-small zc-nomargin">mobile ${esc(maskPhone(p.phoneMasked || p.phone_masked || p.phone || p.mobile))}</span>` : ""}${kind === "cohost" && (p.phoneMasked || p.phone_masked || p.phone || p.mobile) ? ` <span class="zc-small zc-nomargin">mobile ${esc(maskPhone(p.phoneMasked || p.phone_masked || p.phone || p.mobile))}</span>` : ""}</span>${canRetire ? `<button type="button" class="zc-mini zc-danger" data-retire="${esc(p.id)}" data-kind="${kind}" aria-label="Remove ${esc(p.label || kind)}">Remove</button>` : ""}</div>
+      ${setupLine}${newLink}${link ? `<div class="zc-linkrow"><span class="zlink">${esc(link)}</span><button type="button" class="zc-mini" data-copyteam="${esc(p.id)}">Copy link</button>${S.teamWa[p.id] ? `<a class="zc-mini" data-hostwa="${esc(p.id)}" href="${esc("https://wa.me/" + S.teamWa[p.id].d + "?text=" + encodeURIComponent("Hi " + S.teamWa[p.id].name + ", you are a Co-organizer for Corporate Snakes and Ladders" + (S.cfg && S.cfg.name ? ": " + S.cfg.name : "") + ". Your personal link: " + link))}" target="_blank" rel="noopener noreferrer">Send on WhatsApp</a>` : ""}</div>` : small("The personal link is shown only when the person is added. Remove and add again to get a new one.")}</div>`;
   }
   function stepTeam() {
     const T = S.team, max = (T && T.maxHosts) || 5, hosts = (T && T.hosts) || [], co = (T && T.cohosts) || [];
     let h = roleCards() + (S.teamNote ? `<div class="zc-toast" role="status">${esc(S.teamNote)}</div>` : "");
     if (S.passMsg) h += `<div class="zc-toast" role="status" id="passmsg">${esc(S.passMsg)}</div>`; // from a demo pass link
     if (!T && S.teamErr) h += `<p class="zc-small zc-warnt" role="status">${esc(S.teamErr)}</p>`;
-    h += `<span class="zc-lbl zc-sec">Your Hosts: ${hosts.length} of ${max}</span>` + hosts.map((p) => teamRow(p, "host")).join("");
-    if (isOrg()) h += `<div class="zc-inline"><label class="zc-sr" for="hostlabel">Name of the new Host</label><input id="hostlabel" value="${esc((S.tv || {}).hostlabel || "")}" class="zc-in" maxlength="40" placeholder="Name" autocomplete="off" required><label class="zc-sr" for="hostphone">Mobile number of the new Host</label><input id="hostphone" value="${esc((S.tv || {}).hostphone || "")}" class="zc-in" inputmode="tel" placeholder="Mobile number, 415 555 0132" autocomplete="off"><label class="zc-sr" for="hostemail">E-mail of the new Host</label><input id="hostemail" value="${esc((S.tv || {}).hostemail || "")}" class="zc-in" type="email" maxlength="120" placeholder="E-mail (their link is sent here)" autocomplete="off"><button type="button" class="zc-btn zc-btn-s" id="hostadd"${hosts.length >= max ? " disabled" : ""}>Add a Host</button></div>${hosts.length >= max ? small(`You have the most Hosts allowed (${max}). Remove one to add another.`) : small("A Host needs a name and a mobile number or an e-mail, or both. With an e-mail, their personal link is sent there. With only a mobile number, you send it on WhatsApp.")}`;
-    else h += small("Only the Organizer adds Hosts.");
-    h += `<span class="zc-lbl zc-sec">Your Co-hosts: ${co.length} (no limit)</span>` + co.map((p) => teamRow(p, "cohost")).join("");
-    h += `<div class="zc-inline"><label class="zc-sr" for="cohostlabel">Name of the new Co-host</label><input id="cohostlabel" value="${esc((S.tv || {}).cohostlabel || "")}" class="zc-in" maxlength="40" placeholder="Name" autocomplete="off" required><label class="zc-sr" for="cohostphone">Mobile number of the new Co-host</label><input id="cohostphone" value="${esc((S.tv || {}).cohostphone || "")}" class="zc-in" inputmode="tel" placeholder="Mobile number, 415 555 0132" autocomplete="off" required><button type="button" class="zc-btn zc-btn-s" id="cohostadd">Add a Co-host</button></div>`;
-    if (isOrg()) h += `<span class="zc-lbl" id="gl-cohl">Each Co-host can add up to</span><div class="zc-chips" role="group" aria-labelledby="gl-cohl">${[10, 50, 100, 250, 500, 1000].map((n) => `<button type="button" class="zc-chip${coLimit() === n ? " on" : ""}" data-cohl="${n}" aria-pressed="${coLimit() === n}">${n} people</button>`).join("")}</div>${small("This is for each Co-host. You can change it any time.")}`;
+    h += `<span class="zc-lbl zc-sec">Your Co-organizers: ${hosts.length} of ${max}</span>` + hosts.map((p) => teamRow(p, "host")).join("");
+    if (isOrg()) h += `<div class="zc-inline"><label class="zc-sr" for="hostlabel">Name of the new Co-organizer</label><input id="hostlabel" value="${esc((S.tv || {}).hostlabel || "")}" class="zc-in" maxlength="40" placeholder="Name" autocomplete="off" required><label class="zc-sr" for="hostphone">Mobile number of the new Co-organizer</label><input id="hostphone" value="${esc((S.tv || {}).hostphone || "")}" class="zc-in" inputmode="tel" placeholder="Mobile number, 415 555 0132" autocomplete="off"><label class="zc-sr" for="hostemail">E-mail of the new Co-organizer</label><input id="hostemail" value="${esc((S.tv || {}).hostemail || "")}" class="zc-in" type="email" maxlength="120" placeholder="E-mail (their link is sent here)" autocomplete="off"><button type="button" class="zc-btn zc-btn-s" id="hostadd"${hosts.length >= max ? " disabled" : ""}>Add a Co-organizer</button></div>${hosts.length >= max ? small(`You have the most Co-organizers allowed (${max}). Remove one to add another.`) : small("A Co-organizer needs a name and a mobile number or an e-mail, or both. With an e-mail, their personal link is sent there. With only a mobile number, you send it on WhatsApp.")}`;
+    else h += small("Only the Organizer adds Co-organizers.");
+    h += `<span class="zc-lbl zc-sec">Your Invite-only co-organizers: ${co.length} (no limit)</span>` + co.map((p) => teamRow(p, "cohost")).join("");
+    h += `<div class="zc-inline"><label class="zc-sr" for="cohostlabel">Name of the new Invite-only co-organizer</label><input id="cohostlabel" value="${esc((S.tv || {}).cohostlabel || "")}" class="zc-in" maxlength="40" placeholder="Name" autocomplete="off" required><label class="zc-sr" for="cohostphone">Mobile number of the new Invite-only co-organizer</label><input id="cohostphone" value="${esc((S.tv || {}).cohostphone || "")}" class="zc-in" inputmode="tel" placeholder="Mobile number, 415 555 0132" autocomplete="off" required><button type="button" class="zc-btn zc-btn-s" id="cohostadd">Add an invite-only co-organizer</button></div>`;
+    if (isOrg()) h += `<span class="zc-lbl" id="gl-cohl">Each Invite-only co-organizer can add up to</span><div class="zc-chips" role="group" aria-labelledby="gl-cohl">${[10, 50, 100, 250, 500, 1000].map((n) => `<button type="button" class="zc-chip${coLimit() === n ? " on" : ""}" data-cohl="${n}" aria-pressed="${coLimit() === n}">${n} people</button>`).join("")}</div>${small("This is for each Invite-only co-organizer. You can change it any time.")}`;
     h += `<p class="zc-small" id="emailrule">${EMAIL_RULE}</p>`;
     return h + small("Send it to that one person only.") + cont(5);
   }
@@ -669,12 +669,12 @@
       : `${lbl("gfile", vm === "mobile" ? "Choose a CSV file: name, then mobile number" : "Choose a CSV file: name, mobile number, " + idLow())}<input id="gfile" class="zc-in" type="file" accept=".csv,.txt,.tsv,text/csv,text/plain"${off}>${small("In Excel, choose Save as CSV first.")}`;
     const k6 = consHtml("K6", "#gcontacts, #gadd, #rosterGo, #gfile, [data-fix]");
     const ccRow = `<span class="zc-lbl">Numbers typed without a country code are from</span><div class="zc-chips" role="group" aria-label="Country of numbers typed without a country code">${[["91", "India (+91)"], ["1", "United States (+1)"]].map(([v, l]) => `<button type="button" class="zc-chip${CC.v === v ? " on" : ""}" data-cc="${v}" aria-pressed="${CC.v === v}">${l}</button>`).join("")}</div>`;
-    return `<div class="zc-chips" role="group" aria-label="How to add people">${chips}</div>${ccRow}${k6}${form}${small("Invite only people who would like to play. Guests who join the common link with just a name do not need to be listed.")}`;
+    return `<div class="zc-chips" role="group" aria-label="How to add people">${chips}</div>${ccRow}${k6}${form}${small("Invite only people who would like to play. Players who join the common link with just a name do not need to be listed.")}`;
   }
-  const guestTools = () => (!canRun() ? "" : `<h4>A guest's own data</h4>${small("A player asks to see or delete their data? Enter their mobile number, or their player number if they joined with a name. Only you can do this.")}<div class="zc-inline"><label class="zc-sr" for="pdph">Their mobile number or player number</label><input id="pdph" class="zc-in" inputmode="tel" autocomplete="off" placeholder="415 555 0132"><button type="button" class="zc-mini" id="pdsee">Show what is held</button><button type="button" class="zc-mini zc-danger" id="pddel">Delete their data</button></div>
+  const guestTools = () => (!canRun() ? "" : `<h4>A player's own data</h4>${small("A player asks to see or delete their data? Enter their mobile number, or their player number if they joined with a name. Only you can do this.")}<div class="zc-inline"><label class="zc-sr" for="pdph">Their mobile number or player number</label><input id="pdph" class="zc-in" inputmode="tel" autocomplete="off" placeholder="415 555 0132"><button type="button" class="zc-mini" id="pdsee">Show what is held</button><button type="button" class="zc-mini zc-danger" id="pddel">Delete their data</button></div>
       <h4>Change of phone</h4>${small("A pawn plays on one phone only. If someone lost or changed their phone, enter their mobile number (or their player number): the next phone they join with keeps their pawn.")}<div class="zc-inline"><label class="zc-sr" for="ubph">Their mobile number or player number</label><input id="ubph" class="zc-in" inputmode="tel" autocomplete="off" placeholder="415 555 0132"><button type="button" class="zc-mini" id="unbind">Let them move to a new phone</button></div>`);
   function peopleBlock() {
-    if (S.shield) return `<div class="zc-block" id="shieldnote"><h3>Guest names and numbers are hidden</h3>${small("AI helper mode is on, so this page does not show or take any guest's name or mobile number: the people list, looking up a guest, moving a pawn to a new phone and the report. Switch off \"Your AI works in your web browser\" (in the AI Assistant box) to use them yourself.")}</div>`;
+    if (S.shield) return `<div class="zc-block" id="shieldnote"><h3>Player names and numbers are hidden</h3>${small("AI helper mode is on, so this page does not show or take any player's name or mobile number: the people list, looking up a player, moving a pawn to a new phone and the report. Switch off \"Your AI works in your web browser\" (in the AI Assistant box) to use them yourself.")}</div>`;
     const P = S.pp, list = P.list;
     let h = `<div class="zc-block" id="mypeople"><h3>Your people</h3>`;
     if (list === null) return h + (P.err ? `<p class="zc-small zc-warnt" id="ppnote" role="status">${esc(P.err)}</p>` : small("Loading…")) + `<p class="zc-small" id="emailrule2">${EMAIL_RULE}</p>${guestTools()}</div>`;
@@ -704,8 +704,8 @@
   }
   function stepShare() {
     const link = guestLink();
-    return `<div class="zc-block"><h3>Guest link</h3><div class="zc-linkrow"><span class="zlink">${esc(link)}</span><button type="button" class="zc-mini" id="copy">Copy link</button></div>
-        <div class="zc-chips zc-gap"><a class="zc-chip" href="${esc(waUrl(""))}" target="_blank" rel="noopener noreferrer">Share on WhatsApp</a></div>${S.draft ? small("Guests can join once you publish.") : ""}</div>
+    return `<div class="zc-block"><h3>Player link</h3><div class="zc-linkrow"><span class="zlink">${esc(link)}</span><button type="button" class="zc-mini" id="copy">Copy link</button></div>
+        <div class="zc-chips zc-gap"><a class="zc-chip" href="${esc(waUrl(""))}" target="_blank" rel="noopener noreferrer">Share on WhatsApp</a></div>${S.draft ? small("Players can join once you publish.") : ""}</div>
       <div class="zc-block"><h3>Big screen</h3><div class="zc-linkrow"><span class="zlink" id="biglink">${esc(bigLink())}</span><button type="button" class="zc-mini" id="copybig">Copy the link</button></div>
         <a class="zc-chip zc-gap" href="${esc(bigLink())}" target="_blank" rel="noopener">Open the big screen</a>${small("Open it on a laptop or phone connected to the big screen. It shows numbers and winners only.")}</div>
       ${peopleBlock()}${playBlock()}
@@ -721,7 +721,7 @@
     const waiting = S.people.length;
     const fmtLeft = (s) => (s >= 86400 ? Math.floor(s / 86400) + " d " + Math.floor((s % 86400) / 3600) + " h" : s >= 3600 ? Math.floor(s / 3600) + " h " + Math.floor((s % 3600) / 60) + " min" : Math.max(0, Math.floor(s / 60)) + " min");
     const people = waiting ? `<b>${waiting} ${waiting === 1 ? "person has" : "people have"} already joined your link.</b> ` : "Your link is live. ";
-    if (S.locked || left <= 0) return `<div class="zc-alert zc-alert-bad"><h3>Your game could not begin: payment is due</h3><p>${people}They are waiting, and nothing will start until it is paid. <b>Pay now and the game starts 2 minutes after your payment, for everyone already waiting.</b> One payment is enough, from the Organizer, a Host or a Co-host.</p><a class="zc-btn zc-btn-bad" href="/pay.html?e=${encodeURIComponent(eid)}">Pay now and start</a></div>`;
+    if (S.locked || left <= 0) return `<div class="zc-alert zc-alert-bad"><h3>Your game could not begin: payment is due</h3><p>${people}They are waiting, and nothing will start until it is paid. <b>Pay now and the game starts 2 minutes after your payment, for everyone already waiting.</b> One payment is enough, from the Organizer or a co-organizer.</p><a class="zc-btn zc-btn-bad" href="/pay.html?e=${encodeURIComponent(eid)}">Pay now and start</a></div>`;
     return `<div class="zc-alert"><h3>Last step: pay before the start</h3><p>${people}Your game starts <b>${esc(whenS)}</b> (in ${fmtLeft(left)}).</p><p><b>If payment is not made before then, the game will not begin</b> and everyone you invited will be left waiting. It takes about 2 minutes.</p><a class="zc-btn" href="/pay.html?e=${encodeURIComponent(eid)}">Pay now</a></div>`;
   }
   const paidRow = () => { const p = payState(); return `<div class="zc-rowl zc-paid"><span><b>Paid</b><br><span class="zc-small zc-nomargin">${p.paidBy ? "Paid by the " + esc(WHO[p.paidBy] || p.paidBy) : "Paid"}${p.paidMs ? " on " + esc(dmy(p.paidMs)) : ""}. The game is on.</span></span><span aria-hidden="true">&#10003;</span></div>`; };
@@ -734,7 +734,7 @@
   function moveBlock() {
     const I = Object.assign({}, S.info, S.sum), M = S.move || {};
     if (!I.rescheduleUntilMs) return "";
-    if (M.done) return `<p class="zc-small" id="movedone" role="status"><b>Your game is moved.</b> Send your guests the link again: they need to join again.</p>`;
+    if (M.done) return `<p class="zc-small" id="movedone" role="status"><b>Your game is moved.</b> Send your players the link again: they need to join again.</p>`;
     const until = esc(dayIst(I.rescheduleUntilMs));
     if (I.canReschedule === false) return `<p class="zc-small" id="movecant">This game can no longer be moved. Your payment stays as credit for a new game.</p>`;
     return `<div id="moveblock"><p class="zc-small"><b>You can move this game to a new date until ${until}.</b> Your payment then stays with this game and nothing more is due. If you use the credit for another game first, this game can no longer be moved.</p><div class="zc-chips"><input type="datetime-local" id="movedt" aria-label="New date and time"> <button type="button" class="zc-btn zc-btn-s" id="movego"${M.busy ? " disabled" : ""}>Move your game to this date</button></div>${M.err ? `<p class="zc-small zc-warnt" role="status" id="moveerr">${esc(M.err)}</p>` : ""}</div>`;
@@ -742,9 +742,9 @@
   function cancelBlock() {
     if (!canRun() || !S.info || S.draft) return "";
     const C = S.cancel || { stage: 0 }, name = (S.cfg && S.cfg.name) || (S.info && S.info.name) || "this game";
-    if (isCancelled()) return `<div class="zc-block" id="cancelled"><h3>This game was cancelled</h3>${small("Guests see that the game was cancelled. Nothing more is needed from you.")}${C.credit ? `<p class="zc-small" id="creditnote"><b>Your payment of ${esc(money(C.credit.amountInr))} stays as credit until ${esc(dayIst(C.credit.expiresMs))}.</b> Use it for your next game.</p>` : small("If you had paid, your payment stays as credit for your next game. You can see it in Your account.")}${moveBlock()}${cloneButton()}</div>`;
+    if (isCancelled()) return `<div class="zc-block" id="cancelled"><h3>This game was cancelled</h3>${small("Players see that the game was cancelled. Nothing more is needed from you.")}${C.credit ? `<p class="zc-small" id="creditnote"><b>Your payment of ${esc(money(C.credit.amountInr))} stays as credit until ${esc(dayIst(C.credit.expiresMs))}.</b> Use it for your next game.</p>` : small("If you had paid, your payment stays as credit for your next game. You can see it in Your account.")}${moveBlock()}${cloneButton()}</div>`;
     let b = "";
-    if (C.stage === 0) b = small("You can cancel before the game starts. Guests will be told.") + `<div class="zc-chips"><button type="button" class="zc-btn zc-btn-s zc-btn-bad" id="cancelopen">Cancel this game</button></div>`;
+    if (C.stage === 0) b = small("You can cancel before the game starts. Players will be told.") + `<div class="zc-chips"><button type="button" class="zc-btn zc-btn-s zc-btn-bad" id="cancelopen">Cancel this game</button></div>`;
     else if (C.err) b = `<p class="zc-small zc-warnt" role="status">${esc(C.err)}</p><div class="zc-chips"><button type="button" class="zc-btn zc-btn-s zc-btn-alt" id="cancelback">Close</button></div>`;
     else if (C.stage === 1 && !C.preview) b = small("One moment...");
     else if (C.stage === 1 && !C.preview.canCancel) b = `<p class="zc-small zc-warnt" id="cancelreason" role="status">${esc(C.preview.reason || CANCEL_NO)}</p><div class="zc-chips"><button type="button" class="zc-btn zc-btn-s zc-btn-alt" id="cancelback">Close</button></div>`;
@@ -754,7 +754,7 @@
       const warn = `<p class="zc-cw-warn"><b>You are cancelling the game.</b> You need to confirm 3 times before the game is cancelled.</p>`;
       let inner;
       if (n === 1) inner = `<p><b>Do you want to cancel ${esc(name)}?</b></p>${C.preview && C.preview.paid ? `<p class="zc-small" id="norefund">There is no refund. Your payment stays as credit for your next game, for 365 days.</p>` : ""}<div class="zc-chips"><button type="button" class="zc-btn zc-btn-s zc-btn-alt" id="cancelback">No, keep your game</button><button type="button" class="zc-btn zc-btn-s zc-btn-alt" id="cancelresched">Change the date instead</button><button type="button" class="zc-btn zc-btn-s zc-btn-bad" id="cancel1">Yes, go to the 2nd confirmation</button></div>`;
-      else if (n === 2) inner = `<p><b>This is what happens.</b></p><p class="zc-small" id="cancelwhat">${C.preview && C.preview.credit ? esc(creditText(C.preview.credit)) + " " : ""}Guests will be told. Their names and numbers will be auto-deleted. You cannot undo this.</p><label class="zc-check" for="cancelagree"><input type="checkbox" id="cancelagree"${C.agree ? " checked" : ""}> You understand that cancelling cannot be undone</label><div class="zc-chips zc-gap"><button type="button" class="zc-btn zc-btn-s zc-btn-alt" id="cancelprev">Go back</button><button type="button" class="zc-btn zc-btn-s zc-btn-bad" id="cancel2"${C.agree ? "" : " disabled"}>Submit</button></div>`;
+      else if (n === 2) inner = `<p><b>This is what happens.</b></p><p class="zc-small" id="cancelwhat">${C.preview && C.preview.credit ? esc(creditText(C.preview.credit)) + " " : ""}Players will be told. Their names and numbers will be auto-deleted. You cannot undo this.</p><label class="zc-check" for="cancelagree"><input type="checkbox" id="cancelagree"${C.agree ? " checked" : ""}> You understand that cancelling cannot be undone</label><div class="zc-chips zc-gap"><button type="button" class="zc-btn zc-btn-s zc-btn-alt" id="cancelprev">Go back</button><button type="button" class="zc-btn zc-btn-s zc-btn-bad" id="cancel2"${C.agree ? "" : " disabled"}>Submit</button></div>`;
       else inner = `<p><b>This will cancel ${esc(name)} for good.</b></p><div class="zc-chips"><button type="button" class="zc-btn zc-btn-s zc-btn-alt" id="cancelback">No, keep your game</button><button type="button" class="zc-btn zc-btn-s zc-btn-bad" id="cancel3"${C.busy ? " disabled" : ""}>Yes, ${esc(name)} is cancelled</button></div>`;
       b = `<div class="zc-cwarn" id="cancelpanel" role="alertdialog" aria-labelledby="cancelhead" aria-describedby="cancelwarn"><div class="zc-small zc-nomargin" id="cancelprog">Step ${n} of 3</div><h4 id="cancelhead">${head}</h4><div id="cancelwarn">${warn}</div>${inner}</div>`;
     }
@@ -764,7 +764,7 @@
     if (!S.f) return small("Loading…");
     let h = `<span class="zc-lbl">Check your game</span>` + readBack();
     if (S.draft) {
-      h += `<div class="zc-block"><h3>Publish (free)</h3>${small("Set it up first (by hand or with your AI). Participants cannot see or join a draft. Publishing is free: you confirm your details, get your link and send it to everyone. You pay before the start time, and it begins the moment you have.")}`
+      h += `<div class="zc-block"><h3>Publish (free)</h3>${small("Set it up first (by hand or with your AI). Players cannot see or join a draft. Publishing is free: you confirm your details, get your link and send it to everyone. You pay before the start time, and it begins the moment you have.")}`
         + (whoNow() === "list" && !(S.people && S.people.length) ? `<p class="zc-small zc-warnt" id="pub-emptylist"><b>Your game is set to 'Only people on a list', and your list is empty.</b> Everyone who opens your link will have to wait for you to say yes. To let them in at once, open step 2 and choose 'Anyone with the link'.</p>` : "")
         + (S.pubOpen ? `${lbl("pubEmail", "Your e-mail (for the invoice)")}<input id="pubEmail" data-need="1" class="zc-in" type="email" value="${S.shield ? "" : esc(S.contact.email)}" autocomplete="email">${lbl("pubPhone", "Your mobile number")}<input id="pubPhone" data-need="1" class="zc-in" type="tel" value="${S.shield ? "" : esc(S.contact.phone)}" autocomplete="tel" placeholder="415 555 0132">${consHtml("K1", "#pubgo")}<div class="zc-foot"><button class="zc-btn" type="button" id="pubgo"${consOff("K1")}>Confirm and publish</button> <button class="zc-btn zc-btn-alt" type="button" id="pubcancel">Back</button></div>`
           : `<div class="zc-foot"><button class="zc-btn" type="button" id="publishopen">Publish your game, free</button></div>`)
@@ -797,12 +797,12 @@
   // ---------- games that wait for a payment, or did not start ----------
   const didNotStart = () => !!((S.info && S.info.didNotStart) || (S.sum && S.sum.didNotStart) || (S.coh && S.coh.didNotStart));
   const erasureMsOf = () => Number((S.sum && S.sum.erasureMs) || (S.info && S.info.erasureMs) || (S.coh && S.coh.erasureMs) || 0);
-  const erasureLine = () => { const m = erasureMsOf(); return m && !didNotStart() && !payState().paid && !isCancelled() ? `<p class="zc-small" id="erasureline">Guest data will be auto-deleted on ${esc(dmy(m))} if the game does not start.</p>` : ""; };
-  const didNotStartBlock = () => `<div class="zc-alert" id="didnotstart" role="status"><h3>This game did not start.</h3><p>Guest details have been auto-deleted.</p>${cloneButton()}</div>`;
+  const erasureLine = () => { const m = erasureMsOf(); return m && !didNotStart() && !payState().paid && !isCancelled() ? `<p class="zc-small" id="erasureline">Player data will be auto-deleted on ${esc(dmy(m))} if the game does not start.</p>` : ""; };
+  const didNotStartBlock = () => `<div class="zc-alert" id="didnotstart" role="status"><h3>This game did not start.</h3><p>Player details have been auto-deleted.</p>${cloneButton()}</div>`;
   /** "Create a new game like this one": the panel (one place at the top) and what it does. */
   function clonePanel() {
     const K = S.clone; if (!K) return "";
-    return `<div class="zc-alert" id="clonepanel" role="group" aria-label="Create a new game like this one"><h3>Create a new game like this one</h3>${small("The settings, prizes and brand are copied. The date, the payment, the guests and the Co-hosts are not.")}${K.hasPeople ? `<label class="zc-check" for="clonepeople"><input type="checkbox" id="clonepeople"${K.withPeople ? " checked" : ""}> Also bring your people list from the old game</label>${K.withPeople ? consHtml("K6", "#clonego") : ""}` : small("The old guest list has been auto-deleted, so add your people again.")}${K.err ? `<p class="zc-small zc-warnt" role="status">${esc(K.err)}</p>` : ""}<div class="zc-chips zc-gap"><button type="button" class="zc-btn zc-btn-s" id="clonego"${K.busy || (K.hasPeople && K.withPeople && !consReady("K6")) ? " disabled" : ""}>Create the new game</button><button type="button" class="zc-btn zc-btn-s zc-btn-alt" id="cloneno">Not now</button></div></div>`;
+    return `<div class="zc-alert" id="clonepanel" role="group" aria-label="Create a new game like this one"><h3>Create a new game like this one</h3>${small("The settings, prizes and brand are copied. The date, the payment, the players and the Invite-only co-organizers are not.")}${K.hasPeople ? `<label class="zc-check" for="clonepeople"><input type="checkbox" id="clonepeople"${K.withPeople ? " checked" : ""}> Also bring your people list from the old game</label>${K.withPeople ? consHtml("K6", "#clonego") : ""}` : small("The old player list has been auto-deleted, so add your people again.")}${K.err ? `<p class="zc-small zc-warnt" role="status">${esc(K.err)}</p>` : ""}<div class="zc-chips zc-gap"><button type="button" class="zc-btn zc-btn-s" id="clonego"${K.busy || (K.hasPeople && K.withPeople && !consReady("K6")) ? " disabled" : ""}>Create the new game</button><button type="button" class="zc-btn zc-btn-s zc-btn-alt" id="cloneno">Not now</button></div></div>`;
   }
   const hasOldPeople = () => !(S.life && S.life.purged) && (((S.people || []).length > 0) || ((S.pp.list || []).length > 0));
   /** Step 8: the only place a price is shown (and the Co-host's own Payment step, and the pay pages). */
@@ -833,15 +833,15 @@
   function prizeBlock() {
     const P = S.prizes || [];
     if (!S.started || S.draft) return "";
-    const rows = P.map((p, i) => `<div class="zc-rowl zc-top"><span><b>${S.shield ? "Player " + esc(String(p.seat)) : esc(p.name || "Participant")}</b>${S.shield ? "" : " &middot; " + esc(p.phone || "")}<br><small class="zc-small zc-nomargin">${esc(prizeName(p))}${p.confirmed ? " · confirmed by the winner " + esc(dmy(p.confirmedMs)) : " · not confirmed by the winner yet"}</small>${p.changed && !S.shield ? `<br><small class="zc-badt"><b>Changed after the game.</b> Joined as ${esc(p.joinedWithName || "?")} · ${esc(p.joinedWithPhone || "?")}${(p.trail || []).map((t) => "; on " + esc(dmy(t.at)) + " changed to " + esc(t.name) + " · " + esc(t.phone)).join("")}</small>` : ""}</span>
+    const rows = P.map((p, i) => `<div class="zc-rowl zc-top"><span><b>${S.shield ? "Player " + esc(String(p.seat)) : esc(p.name || "Player")}</b>${S.shield ? "" : " &middot; " + esc(p.phone || "")}<br><small class="zc-small zc-nomargin">${esc(prizeName(p))}${p.confirmed ? " · confirmed by the winner " + esc(dmy(p.confirmedMs)) : " · not confirmed by the winner yet"}</small>${p.changed && !S.shield ? `<br><small class="zc-badt"><b>Changed after the game.</b> Joined as ${esc(p.joinedWithName || "?")} · ${esc(p.joinedWithPhone || "?")}${(p.trail || []).map((t) => "; on " + esc(dmy(t.at)) + " changed to " + esc(t.name) + " · " + esc(t.phone)).join("")}</small>` : ""}</span>
       <label class="zc-check"><input type="checkbox" data-given="${i}" ${p.given ? "checked" : ""}> Prize given${p.given ? " " + esc(dmy(p.givenMs)) + (p.givenBy ? " by " + esc(p.givenBy) : "") : ""}</label></div>`).join("");
     const rankHtml = (() => { // the confirmed prizes in prize order (there are no ties: the next measure, then fate, always decides)
       const sett = (S.settledPreview || []).filter((x) => x.pids && x.pids.length);
       if (!sett.length || !S.cfg) return "";
-      const who = (r) => { const w = P.find((q) => q.pattern === r.pattern && q.ordinal === r.ordinal && (q.round || 1) === 1); return w ? (S.shield ? "Player " + esc(String(w.seat)) : esc(w.name || "Participant")) : "A player"; };
+      const who = (r) => { const w = P.find((q) => q.pattern === r.pattern && q.ordinal === r.ordinal && (q.round || 1) === 1); return w ? (S.shield ? "Player " + esc(String(w.seat)) : esc(w.name || "Player")) : "A player"; };
       return `<h4>Winners so far</h4><ol class="zc-rank" id="rankList">${sett.map((r) => `<li><b>${esc(lineLabel(r))}</b>: ${who(r)}</li>`).join("")}</ol>`;
     })();
-    return `<div class="zc-block"><h3>Prizes handed over</h3>${rankHtml}${rows || small("No winner is confirmed yet.")}${small("After the game each winner confirms their name and mobile number on their own phone. Anything they change is shown here together with what they joined with. Tick \"Prize given\" when you hand the prize over: the date is kept. The winners record and your details as Organizer and Host are kept for 365 days. Co-host details are auto-deleted with the guests.")}</div>`;
+    return `<div class="zc-block"><h3>Prizes handed over</h3>${rankHtml}${rows || small("No winner is confirmed yet.")}${small("After the game each winner confirms their name and mobile number on their own phone. Anything they change is shown here together with what they joined with. Tick \"Prize given\" when you hand the prize over: the date is kept. The winners record and your details as Organizer and co-organizer are kept for 365 days. Invite-only co-organizer details are auto-deleted with the players.")}</div>`;
   }
   function statsBlock() {
     if (!S.started || S.draft) return "";
@@ -850,7 +850,7 @@
     const label = (id) => ((ZG.INVITE_CATEGORIES || []).find((k) => k.id === id) || { label: id }).label;
     const cats = Object.entries(byCat).sort((a, b) => b[1] - a[1]).map(([k, n]) => `<div class="zc-rowl"><span>${esc(label(k))}</span><b>${n}</b></div>`).join("");
     return `<div class="zc-block"><h3>The game has begun</h3><div class="zc-stats"><div><div class="zc-stat">${ps.length}</div><div class="zc-small zc-nomargin">people in the game</div></div><div><div class="zc-stat">${late}</div><div class="zc-small zc-nomargin">joined after the first turn</div></div><div><div class="zc-stat">${viaInv}</div><div class="zc-small zc-nomargin">came through an invitation</div></div><div><div class="zc-stat">${S.settledPreview.length}</div><div class="zc-small zc-nomargin">prizes won so far</div></div></div>
-      ${cats ? `<h4>Invitations by kind of guest</h4>${cats}` : ""}${roles ? small(roles + " Organizer / Host / Co-host " + (roles === 1 ? "seat" : "seats") + " playing along.") : ""}
+      ${cats ? `<h4>Invitations by kind of player</h4>${cats}` : ""}${roles ? small(roles + " Organizer / co-organizer / invite-only co-organizer " + (roles === 1 ? "seat" : "seats") + " playing along.") : ""}
       ${small("When the game ends the complete report is e-mailed to you as a PDF: when it started, how many players at each stage, every prize and winner, who invited whom, all statistics, and every name and mobile number.")}</div>`;
   }
   function luckyBlock() {
@@ -867,7 +867,7 @@
       <button type="button" class="zc-mini" id="csv"${S.settledPreview.length && !S.shield ? "" : " disabled"}>Download report</button></div>`;
   }
   function stepDay() {
-    if (S.draft) return small("This opens when your game is published. Then you run the game from here: pause, resume, end, message your guests and hand over prizes.") + cont(9);
+    if (S.draft) return small("This opens when your game is published. Then you run the game from here: pause, resume, end, message your players and hand over prizes.") + cont(9);
     const paused = S.control && S.control.pausedNow;
     const ctl = `<div class="zc-block"><h3>Controls</h3><div class="zc-chips"><button type="button" class="zc-btn zc-btn-s" data-ctl="pause"${paused ? " disabled" : ""}>Pause</button><button type="button" class="zc-btn zc-btn-s zc-btn-alt" data-ctl="resume"${paused ? "" : " disabled"}>Resume</button><button type="button" class="zc-btn zc-btn-s zc-btn-bad" data-ctl="stop">End the game</button></div>
       ${small((S.cf ? `A pause reaches every phone about ${Math.max(10, Math.round(S.cf.leadRounds * 3 / 5) * 5)} seconds after you press it: phones check in on a timer, and larger games check less often so they stay within the free plan.` : (S.info && S.info.cap > 2000 ? "Pause is available for games of up to 2,000 people. This one is larger, so it runs without it." : "Pause becomes available once this game is set up.")) + (paused ? " <b>Paused now.</b>" : "") + (S.ctlNote ? " " + esc(S.ctlNote) : ""))}</div>`;
@@ -878,12 +878,12 @@
   const afterClone = () => (didNotStart() || isCancelled() || startedNow() || (S.life && (S.life.purged || S.life.reportSent)) ? cloneButton() : ""); // SL-29: a new game like this one can be made as soon as the game has started, not only after the report
   function stepAfter() {
     const l = S.life;
-    const when2 = l ? `${rowl("Names, mobile numbers, seats and invitations of participants and Co-hosts", `<b>deleted by ${esc(ist(l.personalDeleteAtMs))}${l.purged ? " (done)" : ""}</b>`)}
+    const when2 = l ? `${rowl("Names, mobile numbers, seats and invitations of players and Invite-only co-organizers", `<b>deleted by ${esc(ist(l.personalDeleteAtMs))}${l.purged ? " (done)" : ""}</b>`)}
       ${rowl("Complete report: a link is e-mailed to you, and the PDF is built on your own device", `<b>${l.reportSent ? "link sent" : l.purged ? "not sent" : "after the game ends"}</b>`)}
-      ${rowl("Your details as Organizer and Host, and the winners record", `<b>kept until ${esc(dayIst(l.fullDeleteAtMs))}</b>`)}` : "";
+      ${rowl("Your details as Organizer and co-organizer, and the winners record", `<b>kept until ${esc(dayIst(l.fullDeleteAtMs))}</b>`)}` : "";
     const rpt = !S.shield && S.life && S.life.reportSent && !S.life.purged ? `<div class="zc-chips zc-gap"><button type="button" class="zc-btn zc-btn-s" id="rptopen">Open the report now</button><button type="button" class="zc-btn zc-btn-s zc-btn-alt" id="rptnew">New report link</button></div>` : "";
-    return small("Within 24 hours of the game ending the report is sent to you, then every participant's name and number is auto-deleted. Your details as Organizer and Host, and the winners record, are kept for 365 days. Co-host details are auto-deleted with the guests.") + when2 + rpt
-      + `<div class="zc-chips zc-gap"><button type="button" class="zc-btn zc-btn-s zc-btn-bad" id="erase">Delete all participant data now</button></div>`
+    return small("Within 24 hours of the game ending the report is sent to you, then every player's name and number is auto-deleted. Your details as Organizer and co-organizer, and the winners record, are kept for 365 days. Invite-only co-organizer details are auto-deleted with the players.") + when2 + rpt
+      + `<div class="zc-chips zc-gap"><button type="button" class="zc-btn zc-btn-s zc-btn-bad" id="erase">Delete all player data now</button></div>`
       + small("You tap once to confirm. The request can also be e-mailed from your registered address, or ask your AI assistant to request the deletion and then confirm it here. The report is e-mailed first when the game has already ended.")
       + afterClone() + cont(10, "All done");
   }
@@ -898,7 +898,7 @@
       <div class="zc-chips zc-gap"><a class="zc-chip" href="${esc("https://wa.me/?text=" + encodeURIComponent("You are invited to play Corporate Snakes and Ladders. Join here: " + cohInvite()))}" target="_blank" rel="noopener noreferrer">Share on WhatsApp</a></div>` : small("Your link appears once the game is published."))
       + `
       ${rowl("People you brought", `<b>${Number(c.brought) || 0}</b>`)}${small("You can invite as many people as you like.")}
-      ${peopleBlock()}${small("Want your guests to invite their own friends? Ask the Organizer or a Host to switch it on. You cannot switch it on yourself.")}${cont(2)}`;
+      ${peopleBlock()}${small("Want your players to invite their own friends? Ask the Organizer or a Co-organizer to switch it on. You cannot switch it on yourself.")}${cont(2)}`;
     const p = payState();
     return `<p class="zc-small">Status: <b>${payLabel(p)}</b></p>` + (p.paid ? paidRow() : p.confirming ? rowl(`<b>Confirming your payment...</b><br><span class="zc-small zc-nomargin">The game starts only after the bank says yes.</span>`, "") : rowl(`<b>Pay</b>${c.startMs ? " before " + esc(when(c.startMs)) : ""}<br><span class="zc-small zc-nomargin">${c.price ? esc(typeof c.price === "number" ? money(c.price) : String(c.price)) + ". " : ""}Pay once, from any one of you.</span>`, `<a class="zc-btn zc-btn-s" href="/pay.html?e=${encodeURIComponent(eid)}">Pay</a>`)) + payLinkBlock() + cont(3, "All done");
   }
@@ -907,31 +907,31 @@
   const HELP = [
     ["How do you start?", "Open step 1 and tap your choices. Your game saves as you go."],
     ["Can the AI do this for you?", "Yes. Copy your AI link at the top and paste it in any AI chat."],
-    ["Who pays?", "Any one of the Organizer, a Host or a Co-host. Only one payment is needed. Guests pay nothing."],
+    ["Who pays?", "Any one of the Organizer or a co-organizer. Only one payment is needed. Players pay nothing."],
     ["What if nobody pays?", "The game does not begin. Nothing is charged. Once one payment is made, the game is on."],
     ["Can you change things later?", "Yes, until the game starts. Open the step and change it."],
-    ["How do you add a video?", "Open Brand moments and paste the link. Tap Test it to see what guests see."],
-    ["What do guests see?", "A board on their phone. No app to install."],
-    ["Is your guests' data safe?", "It is encrypted. Names and numbers are auto-deleted within 24 hours after the game."],
+    ["How do you add a video?", "Open Brand moments and paste the link. Tap Test it to see what players see."],
+    ["What do players see?", "A board on their phone. No app to install."],
+    ["Is your players' data safe?", "It is encrypted. Names and numbers are auto-deleted within 24 hours after the game."],
     ["What is a lucky draw?", "A draw during the game. The software picks the winners from everyone playing."],
-    ["How do you stop the game?", "Open Game day and tap Pause or End. Organizer and Hosts can do this."],
-    ["Who can do what?", "The Organizer can do everything, including the account (keys, e-mail, AI link). A Host can do everything in the game except the account and adding Hosts. A Co-host invites people and can pay. Open step 5 to see it."],
-    ["What is the big screen link?", "A page for a projector or TV. It shows the board and winners only, never a guest's name or number. Copy it in step 6 and open it on the laptop connected to the screen."],
+    ["How do you stop the game?", "Open Game day and tap Pause or End. Organizer and co-organizers can do this."],
+    ["Who can do what?", "The Organizer can do everything, including the account (keys, e-mail, AI link). A Co-organizer can do everything in the game except the account and adding Co-organizers. An invite-only co-organizer invites people and can pay. Open step 5 to see it."],
+    ["What is the big screen link?", "A page for a projector or TV. It shows the board and winners only, never a player's name or number. Copy it in step 6 and open it on the laptop connected to the screen."],
     ["Can you get a refund?", "A paid game cancelled before it starts stays with the organizer as credit for the next game, valid for 365 days. Unused credit lapses at the end of day 365."],
     ["Who do you contact?", "Write to the Grievance Officer. A reply is sent within 30 days."],
   ];
-  const ROLE_LABEL = { organizer: "Organizer", host: "Host", cohost: "Co-host", partner: "Partner" };
+  const ROLE_LABEL = { organizer: "Organizer", host: "Co-organizer", cohost: "Invite-only co-organizer", partner: "Partner" };
   function rolePill() {
     const r = role();
     if (r === "partner") return /^refer/.test(S.kind) ? "Refer and Earn Partner" : /^sales/.test(S.kind) ? "Sales Partner" : "Partner";
-    if (r === "host" && S.hostN) return `Signed in as Host ${S.hostN} of ${(S.team && S.team.maxHosts) || 5}`;
+    if (r === "host" && S.hostN) return `Signed in as Co-organizer ${S.hostN} of ${(S.team && S.team.maxHosts) || 5}`;
     return `Signed in as ${ROLE_LABEL[r]}${r === "organizer" && S.email ? " (" + S.email + ")" : ""}`; // SL-34: say WHICH e-mail is signed in
   }
   /** A person who is both an Organizer and a Host holds two keys (the sign-in gave both): the one in use is `secret`, the other waits here. */
   const altRole = () => { try { const a = JSON.parse(ss.get("cbz-alt") || "null"); return a && typeof a.token === "string" && (a.kind === "host" || a.kind === "organizer") ? a : null; } catch { return null; } };
   const roleBtns = () => {
     const a = altRole(), r = role();
-    return (a && (r === "organizer" || r === "host") ? `<button type="button" class="zc-mini zc-switch" id="switchrole" title="You are both. Switch your view.">Switch to ${a.kind === "host" ? "Host" : "Organizer"} view</button>` : "")
+    return (a && (r === "organizer" || r === "host") ? `<button type="button" class="zc-mini zc-switch" id="switchrole" title="You are both. Switch your view.">Switch to ${a.kind === "host" ? "Co-organizer" : "Organizer"} view</button>` : "")
       + (r === "host" && eid ? `<button type="button" class="zc-mini" id="hostall">All your games</button>` : "")
       + (r !== "partner" && secret ? `<button type="button" class="zc-mini zc-signout" id="signout" title="Sign out of this phone or laptop">Sign out</button>` : "");
   }
@@ -950,7 +950,7 @@
   function payNote() {
     if (!inGame() || role() === "partner" || payState().paid || isCancelled() || didNotStart() || S.draft) return ""; // a draft has nothing to pay yet: publishing (step 7) comes first
     if (payState().confirming) return `<div class="zc-paynote" id="paynote" role="note"><b>Confirming your payment...</b> This takes a moment. The game starts only after the bank says yes. Nothing more to do.</div>`;
-    return `<div class="zc-paynote" id="paynote" role="note"><b>A payment is pending for this game.</b> Just one of you needs to make it: the Organizer, a Host or a Co-host. Guests pay nothing. It is for this one game only, with no commitment and no repeat charges.${erasureMsOf() && role() !== "cohost" ? ` <span id="erasurestrip">Guest data will be auto-deleted on ${esc(dmy(erasureMsOf()))} if the game does not start.</span>` : ""}</div>`;
+    return `<div class="zc-paynote" id="paynote" role="note"><b>A payment is pending for this game.</b> Just one of you needs to make it: the Organizer or a co-organizer. Players pay nothing. It is for this one game only, with no commitment and no repeat charges.${erasureMsOf() && role() !== "cohost" ? ` <span id="erasurestrip">Player data will be auto-deleted on ${esc(dmy(erasureMsOf()))} if the game does not start.</span>` : ""}</div>`;
   }
   function aiStrip() {
     return ""; // the AI work link is not offered to the organizer or the host: the screens themselves do the work
@@ -968,20 +968,20 @@
     const c = S.cfg, inf = S.info; if (!c || !inf) return "";
     const t = 1, used = (c.opening || []).length + (c.breaks || []).length + (c.closing || []).length, T = S.team;
     return [`${c.name || "Your game"}, ${when(inf.startMs)}`, `Up to ${inf.cap}, ${c.mode === "team" ? "team race" : c.mode === "table" ? "table game" : "race"}, ${inf.callSeconds} seconds a turn`, `${(c.rewards || []).length} prizes`, `${used} of ${5 * t} moments`,
-      T ? `${pl((T.hosts || []).length, "Host", "Hosts")}, ${pl((T.cohosts || []).length, "Co-host", "Co-hosts")}` : "", S.draft ? "Guest link ready after publishing" : "Guest link ready", S.draft ? "Not published yet" : "Published", S.draft ? "Publish first" : isCancelled() ? "Cancelled" : payState().paid ? "Paid. The game is on" : payState().confirming ? "Confirming your payment..." : "Payment pending", S.started ? (gameEnded() ? "The game is over" : "The game is on") : "Opens when the game starts", S.life && S.life.purged ? "Report sent, data auto-deleted" : S.life && S.life.reportSent ? "Report sent. Data is auto-deleted within 24 hours of the end" : "Your report, then erasing data"][n - 1] || "";
+      T ? `${pl((T.hosts || []).length, "Co-organizer", "Co-organizers")}, ${pl((T.cohosts || []).length, "Invite-only co-organizer", "Invite-only co-organizers")}` : "", S.draft ? "Player link ready after publishing" : "Player link ready", S.draft ? "Not published yet" : "Published", S.draft ? "Publish first" : isCancelled() ? "Cancelled" : payState().paid ? "Paid. The game is on" : payState().confirming ? "Confirming your payment..." : "Payment pending", S.started ? (gameEnded() ? "The game is over" : "The game is on") : "Opens when the game starts", S.life && S.life.purged ? "Report sent, data auto-deleted" : S.life && S.life.reportSent ? "Report sent. Data is auto-deleted within 24 hours of the end" : "Your report, then erasing data"][n - 1] || "";
   }
   // "About this step": a short, always-visible write-up under each talking line (docs/ROLES_AND_CONSOLE_SPEC_4.md, A). At most 5 short lines each.
   const ABOUT = {
-    1: ["This is the basics. Pick the occasion, the day and the time.", "Times are in your own time zone, as your device shows it.", "Guests can join before the start. The first turn opens 2 minutes after the start.", "You can change all this until the game starts."],
+    1: ["This is the basics. Pick the occasion, the day and the time.", "Times are in your own time zone, as your device shows it.", "Players can join before the start. The first turn opens 2 minutes after the start.", "You can change all this until the game starts."],
     get 2() { return rulesNow() ? ["Pick the biggest crowd you expect. Or type your own number. You see the price when you pay.", "People come in by employee ID only. You paste or upload the IDs in step 6. Anyone whose ID is not on your list waits for your yes or no.", "Game type: a race (everyone has their own board), a team race, or a table (2 to 20 players share one board). The turn window and the board can stay as they are. The game starts by itself and every throw happens by itself."] : ["Pick the biggest crowd you expect. Or type your own number. You see the price when you pay.", "Who can join: \"Only people on a list\" keeps it to the people you add, and people not on a list wait for you to let them in.", "\"Anyone with the link\" lets people in at once.", "Game type: a race (everyone has their own board), a team race, or a table (2 to 20 players share one board). The turn window and the board can stay as they are. Players type just a name to join.", "Each player can invite family or colleagues if you switch it on."]; },
-    3: ["Tick the prizes you will give: Milestone, Reach the end, Biggest climb and more. Pick what each one is.", "\"Decide later\" is fine. You can still publish and choose before the game starts.", "\"No prize\" shows to guests as \"No prize\".", "You give the prizes. The software is provided by IT Services by Rajat Agarwal.", "The software picks the winners. Nobody can change them, not even IT Services."],
-    4: ["Show your message, video or audio in the game.", "You get 5 moments: before the game, during it and at the end. A lucky draw is also a moment.", "Press \"Test it\" before you publish.", "Use a YouTube link, or a direct link to a video or audio file.", "Add your company name, a colour and a small logo for the top of the board. Press \"See what guests see\" to check it."],
-    5: ["A Host runs the game with you. A Host needs a name, a mobile number and an e-mail.", "A Co-host invites people and can pay. A Co-host needs a name and a mobile number only.", "Guests need a name only (a mobile number too if you chose that).", "Send each personal link to one person only.", "Each Co-host can add up to 100 people unless you change it below."],
+    3: ["Tick the prizes you will give: Milestone, Reach the end, Biggest climb and more. Pick what each one is.", "\"Decide later\" is fine. You can still publish and choose before the game starts.", "\"No prize\" shows to players as \"No prize\".", "You give the prizes. The software is provided by IT Services by Rajat Agarwal.", "The software picks the winners. Nobody can change them, not even IT Services."],
+    4: ["Show your message, video or audio in the game.", "You get 5 moments: before the game, during it and at the end. A lucky draw is also a moment.", "Press \"Test it\" before you publish.", "Use a YouTube link, or a direct link to a video or audio file.", "Add your company name, a colour and a small logo for the top of the board. Press \"See what players see\" to check it."],
+    5: ["A Co-organizer runs the game with you. A Co-organizer needs a name, a mobile number and an e-mail.", "An invite-only co-organizer invites people and can pay. An invite-only co-organizer needs a name and a mobile number only.", "Players need a name only (a mobile number too if you chose that).", "Send each personal link to one person only.", "Each Invite-only co-organizer can add up to 100 people unless you change it below."],
     6: ["Add your people here, one by one, from your phone contacts (where your phone allows it), by pasting from Excel or by uploading a CSV.", "Each person gets their own link to send by WhatsApp or e-mail. Or share the one common link in Slack, Teams, Zoom chat or any group.", "With \"Only people on a list\", people who are not on your list wait under \"Waiting to come in\". You can let them in one by one or press \"Approve all\".", "The big screen link is for the laptop connected to the room screen or shared in your video call. It shows the board and winners only."],
-    7: ["Look through your game and change what you need.", "Publishing is free. Guests can join after you publish.", "You can cancel before the start time. A paid game becomes credit for your next game, valid for 365 days. Or change the date instead.", "Press \"See what guests see\" to look at a sample board."],
-    8: ["Pay once, before the start time. You see the price here.", "The Organizer, a Host or a Co-host can pay.", "Paid late? The game starts 2 minutes after your payment is confirmed.", "A paid game cannot be cancelled after the start time. Before it, your payment stays as credit for 365 days.", "\"Copy payment link\" makes a link anyone can open to pay for this game."],
-    9: ["Run the game from here. Pause, resume or end it.", "Send a message to every phone.", "Tick a prize when you hand it over.", "Only the Organizer and Host can remove a person during the game."],
-    10: ["A few minutes after the game, a report link is e-mailed to the Organizer.", "Guest names and numbers are auto-deleted within 24 hours.", "The winners and the Organizer's and Hosts' details are kept for 365 days.", "You can delete guest data earlier."],
+    7: ["Look through your game and change what you need.", "Publishing is free. Players can join after you publish.", "You can cancel before the start time. A paid game becomes credit for your next game, valid for 365 days. Or change the date instead.", "Press \"See what players see\" to look at a sample board."],
+    8: ["Pay once, before the start time. You see the price here.", "The Organizer or a co-organizer can pay.", "Paid late? The game starts 2 minutes after your payment is confirmed.", "A paid game cannot be cancelled after the start time. Before it, your payment stays as credit for 365 days.", "\"Copy payment link\" makes a link anyone can open to pay for this game."],
+    9: ["Run the game from here. Pause, resume or end it.", "Send a message to every phone.", "Tick a prize when you hand it over.", "Only the Organizer and co-organizer can remove a person during the game."],
+    10: ["A few minutes after the game, a report link is e-mailed to the Organizer.", "Player names and numbers are auto-deleted within 24 hours.", "The winners and the Organizer's and Co-organizers' details are kept for 365 days.", "You can delete player data earlier."],
   };
   const ABOUT_COH = { 1: ["You can see the game and what you may do."], 2: ["Add your people. Each gets their own WhatsApp link. You can bring up to your limit."], 3: ["One payment is enough. If someone has paid, you will see Paid.", "\"Copy payment link\" makes a link anyone can open to pay for this game."] };
   const aboutBox = (n) => { const L = (role() === "cohost" ? ABOUT_COH : ABOUT)[n]; return L ? `<div class="zc-about" id="about${n}"><b>About this step</b>${L.map((x) => `<span>${esc(x)}</span>`).join("")}</div>` : ""; };
@@ -1025,14 +1025,14 @@
       ? `<textarea class="zc-in zc-ta zlink" id="aimsg" rows="4" readonly aria-label="Your AI work link">${esc(S.aiMsg)}</textarea><div class="zc-chips zc-gap"><button type="button" class="zc-btn zc-btn-s" id="aicopy">Copy your AI work link</button></div>${aiOptions(S.aiMsg)}<div class="zc-chips zc-gap"><button type="button" class="zc-mini" id="aifresh">Get a fresh AI link</button><button type="button" class="zc-mini" id="aireplace">Replace your AI link</button><button type="button" class="zc-mini zc-danger" id="airevoke">Stop this link</button></div><p class="zc-small"><b>Fresh link</b>: e-mailed, works 24 hours. <b>Replace</b>: stops every old link.</p>`
       : `<button type="button" class="zc-btn zc-btn-s" id="aimake">Get your AI work link</button>`;
     return `<div class="zc-block"><h3>Let your free AI assistant do the work</h3><p class="zc-small">Copy your AI work link and paste it into <b>ChatGPT, Gemini, Grok, Claude, DeepSeek, Z.ai</b> or any AI chat. It sets everything up. You keep four things: payment, Publish, erasing data, pause or stop.</p>${ai}
-      <h4>An AI in your web browser, or do it yourself</h4>${small("Use an AI that works in your web browser (Claude in Chrome, Gemini in Chrome, ChatGPT Atlas, Perplexity Comet): tick <b>Your AI works in your web browser</b> in the AI Assistant box, so it never sees a guest's name or number, then ask it to open this page and set up your game with the Quick setup form. It stops at Publish, delete, pause and stop, and it never pays.")}
+      <h4>An AI in your web browser, or do it yourself</h4>${small("Use an AI that works in your web browser (Claude in Chrome, Gemini in Chrome, ChatGPT Atlas, Perplexity Comet): tick <b>Your AI works in your web browser</b> in the AI Assistant box, so it never sees a player's name or number, then ask it to open this page and set up your game with the Quick setup form. It stops at Publish, delete, pause and stop, and it never pays.")}
       <div class="zc-chips"><a class="zc-chip" href="/zc.html?quick=1">Quick setup form (date and time pickers)</a><a class="zc-chip" href="/demo.html" target="_blank" rel="noopener">Try the free 70-second demo</a></div></div>`;
   }
   function acctHtml() {
     if (!isOrg()) return "";
     const open = S.acctOpen === null ? !eid : S.acctOpen;
     const credits = creditsBlock();
-    const keys = (S.keys || []).length ? `<div class="zc-block"><h3>Your sign-in keys</h3>${S.keys.map((k) => `<div class="zc-rowl"><span>${k.kind === "ai" ? "AI assistant link" : k.kind === "host" ? "Host key" : k.kind === "cohost" ? "Co-host key" : "Organizer key"} · made ${new Date(k.created_ms).toLocaleDateString()}${k.thisOne ? " · in use now" : ""}</span>${k.revoked ? `<i>retired</i>` : k.thisOne ? `<i>active</i>` : `<button type="button" class="zc-mini" data-retirekey="${esc(k.id)}">Retire</button>`}</div>`).join("")}${small("If you ever lose a key or think someone has it, sign in with another one and retire it here.")}</div>` : "";
+    const keys = (S.keys || []).length ? `<div class="zc-block"><h3>Your sign-in keys</h3>${S.keys.map((k) => `<div class="zc-rowl"><span>${k.kind === "ai" ? "AI assistant link" : k.kind === "host" ? "Co-organizer key" : k.kind === "cohost" ? "Invite-only co-organizer key" : "Organizer key"} · made ${new Date(k.created_ms).toLocaleDateString()}${k.thisOne ? " · in use now" : ""}</span>${k.revoked ? `<i>retired</i>` : k.thisOne ? `<i>active</i>` : `<button type="button" class="zc-mini" data-retirekey="${esc(k.id)}">Retire</button>`}</div>`).join("")}${small("If you ever lose a key or think someone has it, sign in with another one and retire it here.")}</div>` : "";
     const sugs = (S.sugs || []).length ? `<div class="zc-block"><h3>Ideas to improve Corporate Snakes and Ladders</h3>${small("Suggested by organizers' AI assistants. They are all reviewed.")}${S.sugs.map((x) => rowl(esc(x.title) + (x.yours ? " · yours" : ""), `<i>${x.votes} · ${esc(x.status.replace("_", " "))}</i>`)).join("")}</div>` : "";
     const T = S.aiTrail;
     const audit = `<div class="zc-block"><h3>What your AI assistant did</h3>${T ? (T.length ? T.slice(0, 40).map((t) => `<div class="zc-rowl"><span>${esc(dmy(t.at_ms))}<br><small class="zc-small zc-nomargin">${esc(t.method)} ${esc(t.path)} → ${esc(String(t.status))} · from ${esc(t.ip || "?")} ${esc(t.country || "")} · ${esc((t.ua || "").slice(0, 60))} · key ${esc(t.key_id || "")}</small></span></div>`).join("") : small("Your AI assistant has not made any call yet.")) : `<button type="button" class="zc-mini" id="aiaudit">Show the AI activity log</button>`}${small("Every call your AI assistant makes is recorded with the time, the key used and where it came from. It is kept for 365 days.")}</div>`;
@@ -1040,20 +1040,20 @@
     return `<section class="zc-card zc-acct" id="acct"><button type="button" class="zc-sech" data-acct="1" aria-expanded="${open}" style="background:var(--surface-1)"><span class="zc-num zc-num-dark">A</span><span class="zc-syntx"><b>Your account</b><br><span class="zc-hint">These are for the Organizer only: your AI link, sign-in keys and records. Closing your account deletes your games.</span></span><span class="zc-st">${open ? "&#9650;" : "&#9660;"}</span></button>${open ? `<div class="zc-secb">${aiBlock()}${credits}${keys}${sugs}${audit}${close}</div>` : ""}</section>`;
   }
   // ---------- notes above the steps ----------
-  const ACTTEXT = { publish: "Publishing is free. Check your e-mail and mobile number, then press \"Confirm and publish\" yourself.", erase: "Press \"Delete all participant data now\" only if you want every guest's name and number erased. It cannot be undone.", pause: "Press \"Pause\" to pause the running game for everyone.", stop: "Press \"End the game\" only if the game should end for everyone. It cannot be undone." };
+  const ACTTEXT = { publish: "Publishing is free. Check your e-mail and mobile number, then press \"Confirm and publish\" yourself.", erase: "Press \"Delete all player data now\" only if you want every player's name and number erased. It cannot be undone.", pause: "Press \"Pause\" to pause the running game for everyone.", stop: "Press \"End the game\" only if the game should end for everyone. It cannot be undone." };
   const actBanner = () => (ACT && ACTTEXT[ACT] && eid && canRun() ? `<div class="zc-toast" role="status" id="actbanner"><b>Your AI assistant brought you here.</b> ${ACTTEXT[ACT]} Nobody but you can press it.</div>` : "");
   const ACTSTEP = { publish: 7, erase: 10, pause: 9, stop: 9 };
   /** The AI helper switch: one small line inside the AI Assistant box (Organizer only). Off by default. The shield behaviour itself is unchanged. */
-  const shieldSwitch = () => `<div class="zc-shield"><label class="zc-check" for="shield"><input type="checkbox" id="shield" ${S.shield ? "checked" : ""}> Your AI works in your web browser: hide guest names and numbers</label>${S.shield ? `<div class="zc-small zc-nomargin">On. This page shows no guest name or mobile number. Switch it off to load your guest list or look up a guest.</div>` : ""}</div>`;
+  const shieldSwitch = () => `<div class="zc-shield"><label class="zc-check" for="shield"><input type="checkbox" id="shield" ${S.shield ? "checked" : ""}> Your AI works in your web browser: hide player names and numbers</label>${S.shield ? `<div class="zc-small zc-nomargin">On. This page shows no player name or mobile number. Switch it off to load your player list or look up a player.</div>` : ""}</div>`;
   function alertZone() {
     let h = actBanner() + clonePanel();
     if (S.cloneNew === eid && S.draft && canRun()) h += `<div class="zc-toast" role="status" id="newgamenote">This is a new game. Nothing is paid or published yet.</div>`;
     if (didNotStart() && inGame() && canRun()) h += didNotStartBlock();
-    if (isCancelled() && inGame()) h += `<div class="zc-toast" role="status" id="cancelnote">This game was cancelled. Guests can see this. Nothing more is needed.</div>`;
+    if (isCancelled() && inGame()) h += `<div class="zc-toast" role="status" id="cancelnote">This game was cancelled. Players can see this. Nothing more is needed.</div>`;
     if (S.note) h += `<div class="zc-toast" role="status" id="zcnote">${esc(S.note)}</div>`;
     if (canRun()) {
       if (S.locked && !S.draft) h += payDueCard();
-      if ((S.reqs || []).length) h += `<div class="zc-alert"><h3>Your AI assistant is asking</h3>${S.reqs.map((r) => rowl(esc(r.action) + (r.note ? " · " + esc(r.note) : ""))).join("")}<div class="zc-chips"><button type="button" class="zc-btn zc-btn-s${S.reqs[0].action === "erase" ? " zc-btn-bad" : ""}" id="reqok">${S.reqs[0].action === "erase" ? "Confirm: delete all participant data" : "Approve (" + esc(S.reqs[0].action) + ")"}</button><button type="button" class="zc-btn zc-btn-s zc-btn-alt" id="reqno">Dismiss</button></div></div>`;
+      if ((S.reqs || []).length) h += `<div class="zc-alert"><h3>Your AI assistant is asking</h3>${S.reqs.map((r) => rowl(esc(r.action) + (r.note ? " · " + esc(r.note) : ""))).join("")}<div class="zc-chips"><button type="button" class="zc-btn zc-btn-s${S.reqs[0].action === "erase" ? " zc-btn-bad" : ""}" id="reqok">${S.reqs[0].action === "erase" ? "Confirm: delete all player data" : "Approve (" + esc(S.reqs[0].action) + ")"}</button><button type="button" class="zc-btn zc-btn-s zc-btn-alt" id="reqno">Dismiss</button></div></div>`;
       if (!S.draft && S.cfg) h += `<div class="zc-live" id="zclive"><b>${S.people.length}</b> ${S.people.length === 1 ? "person" : "people"} · turns played <b>${S.turns || 0} / ${S.cfg.turnCap || 60}</b></div>`;
     }
     return h;
@@ -1079,20 +1079,20 @@
     return frame(`<div class="zc-body">${side}<div class="zc-main">${mainHtml()}</div></div>`, true);
   }
   // K5: a Co-host ticks the role box once, before anything else; the server refuses everything else from this key until they have (the box is never ticked in advance)
-  const roleAcceptView = () => frame(`<div class="zc-body"><div class="zc-main"><div class="zc-block" id="roleaccept"><h3>Before you start</h3>${small("Press the button to take the Co-host role. You can then invite people and pay.")}${consHtml("K5", "#roleacceptgo")}${S.roleErr ? `<p class="zc-small zc-warnt" role="alert">${esc(S.roleErr)}</p>` : ""}<div class="zc-foot"><button class="zc-btn" type="button" id="roleacceptgo"${consOff("K5")}>Accept the Co-host role</button></div></div></div></div>`, false);
+  const roleAcceptView = () => frame(`<div class="zc-body"><div class="zc-main"><div class="zc-block" id="roleaccept"><h3>Before you start</h3>${small("Press the button to take the Invite-only co-organizer role. You can then invite people and pay.")}${consHtml("K5", "#roleacceptgo")}${S.roleErr ? `<p class="zc-small zc-warnt" role="alert">${esc(S.roleErr)}</p>` : ""}<div class="zc-foot"><button class="zc-btn" type="button" id="roleacceptgo"${consOff("K5")}>Accept the Invite-only co-organizer role</button></div></div></div></div>`, false);
   function cohostView() {
     if (S.coh && S.coh.roleAccepted === false) return roleAcceptView();
-    const side = `<aside class="zc-side"><div class="zc-me"><span class="zc-num zc-num-dark">C</span><span><span class="zc-muted">You are</span><br><b>Co-host</b></span></div><div class="zc-small zc-nomargin">Your game at a glance</div>${synHtml()}</aside>`;
-    return frame(`<div class="zc-body">${side}<div class="zc-main"><div id="zc-top"></div>${S.note ? `<div class="zc-toast" role="status">${esc(S.note)}</div>` : ""}${S.cohErr && !S.coh ? `<div class="zc-toast" role="status">${esc(S.cohErr)}</div>` : ""}<div class="zc-small zc-rolenote">${esc(ROLE_NOTE.cohost)}</div>${S.coh && S.coh.waitingFor && !didNotStart() ? `<div class="zc-toast" role="status" id="cohwaiting">Waiting for the Organizer or Host to start the game.</div>` : ""}${S.coh && didNotStart() ? `<div class="zc-alert" id="didnotstart" role="status"><h3>This game did not start.</h3><p>Guest details have been auto-deleted.</p></div>` : ""}${nextHtml()}${steps().map(secHtml).join("")}${helpHtml()}</div></div>`, true);
+    const side = `<aside class="zc-side"><div class="zc-me"><span class="zc-num zc-num-dark">C</span><span><span class="zc-muted">You are</span><br><b>Invite-only co-organizer</b></span></div><div class="zc-small zc-nomargin">Your game at a glance</div>${synHtml()}</aside>`;
+    return frame(`<div class="zc-body">${side}<div class="zc-main"><div id="zc-top"></div>${S.note ? `<div class="zc-toast" role="status">${esc(S.note)}</div>` : ""}${S.cohErr && !S.coh ? `<div class="zc-toast" role="status">${esc(S.cohErr)}</div>` : ""}<div class="zc-small zc-rolenote">${esc(ROLE_NOTE.cohost)}</div>${S.coh && S.coh.waitingFor && !didNotStart() ? `<div class="zc-toast" role="status" id="cohwaiting">Waiting for the Organizer or co-organizer to start the game.</div>` : ""}${S.coh && didNotStart() ? `<div class="zc-alert" id="didnotstart" role="status"><h3>This game did not start.</h3><p>Player details have been auto-deleted.</p></div>` : ""}${nextHtml()}${steps().map(secHtml).join("")}${helpHtml()}</div></div>`, true);
   }
   const loadingView = () => frame(`<div class="zc-body"><div class="zc-main"><div class="zc-toast" role="status">${esc(S.note || "Loading…")}</div>${eid && isOrg() ? "" : ""}</div></div>`, false);
   /** "Your games": every game of this person (Organizer: the games they made; Host: the games they help with), always on the screen, newest first. */
   const gameRow = (e) => `<div class="zc-rowl"><span><b>${esc(e.id)}</b> · ${esc(e.startsAtIST || fmtDay(e.created_ms))} · ${e.participants} ${e.participants === 1 ? "person" : "people"} · ${e.draft ? "draft" : "published"}</span><span><button type="button" class="zc-mini" data-open-game="${esc(e.id)}">Open</button> <button type="button" class="zc-mini" data-clonebtn="1" data-from="${esc(e.id)}" data-people="${e.participants > 0 && !e.erased ? 1 : 0}">Create a new game like this one</button></span></div>`;
-  const gamesBlock = (h, who) => { const gs = (h && h.engagements) || []; return `<div class="zc-block" id="yourgames"><h3>Your games${gs.length ? ` (${gs.length})` : ""}</h3>${gs.length ? small(who === "host" ? "The games you help to run as a Host. Pick one to open it." : "Every game you made. Open any of them, or start a new one.") + gs.map(gameRow).join("") : small(who === "host" ? "No game is open to you yet." : "You have no game yet. Start your first one below.")}</div>`; };
+  const gamesBlock = (h, who) => { const gs = (h && h.engagements) || []; return `<div class="zc-block" id="yourgames"><h3>Your games${gs.length ? ` (${gs.length})` : ""}</h3>${gs.length ? small(who === "host" ? "The games you help to run as a Co-organizer. Pick one to open it." : "Every game you made. Open any of them, or start a new one.") + gs.map(gameRow).join("") : small(who === "host" ? "No game is open to you yet." : "You have no game yet. Start your first one below.")}</div>`; };
   /** A Host who also wants to run their own games: same e-mail, Organizer account, the Terms box, and then they hold both roles. */
-  const hostNewBlock = () => { const a = altRole(); return `<div class="zc-block" id="hostnew"><h3>Start a new game as an Organizer</h3>${small("You help to run games as a Host. You can also make your own games as an Organizer, with the same e-mail. Your own games are separate from the games you host.")}${a && a.kind === "organizer" ? `<div class="zc-foot"><button type="button" class="zc-btn zc-btn-s" id="hostswitchorg">Open your Organizer view</button></div>` : `${CBConsent.html("K2")}${S.becomeErr ? `<p class="zc-small zc-warnt" role="alert">${esc(S.becomeErr)}</p>` : ""}<div class="zc-foot"><button type="button" class="zc-btn zc-btn-s" id="hostbecome">Create your Organizer account and start a new game</button></div>`}</div>`; };
+  const hostNewBlock = () => { const a = altRole(); return `<div class="zc-block" id="hostnew"><h3>Start a new game as an Organizer</h3>${small("You help to run games as a Co-organizer. You can also make your own games as an Organizer, with the same e-mail. Your own games are separate from the games you co-organizer.")}${a && a.kind === "organizer" ? `<div class="zc-foot"><button type="button" class="zc-btn zc-btn-s" id="hostswitchorg">Open your Organizer view</button></div>` : `${CBConsent.html("K2")}${S.becomeErr ? `<p class="zc-small zc-warnt" role="alert">${esc(S.becomeErr)}</p>` : ""}<div class="zc-foot"><button type="button" class="zc-btn zc-btn-s" id="hostbecome">Create your Organizer account and start a new game</button></div>`}</div>`; };
   const waitLinkView = () => { if (role() === "host" && S.history && S.history.engagements) return frame(`<div class="zc-body"><div class="zc-main">${gamesBlock(S.history, "host")}${hostNewBlock()}</div></div>`, false); return waitLinkView0(); };
-  const waitLinkView0 = () => frame(`<div class="zc-body"><div class="zc-main"><div class="zc-block"><p style="margin:0">Open the link your ${role() === "cohost" ? "Organizer or Host" : "Organizer"} sent you. It opens the game directly.</p></div>${S.note ? `<div class="zc-toast" role="status">${esc(S.note)}</div>` : ""}</div></div>`, false);
+  const waitLinkView0 = () => frame(`<div class="zc-body"><div class="zc-main"><div class="zc-block"><p style="margin:0">Open the link your ${role() === "cohost" ? "Organizer or co-organizer" : "Organizer"} sent you. It opens the game directly.</p></div>${S.note ? `<div class="zc-toast" role="status">${esc(S.note)}</div>` : ""}</div></div>`, false);
   const partnerView = () => frame(`<div class="zc-body"><div class="zc-main"><div class="zc-block"><h3>Your partner area</h3><p>Your partner screens are on their own page.</p><a class="zc-btn zc-btn-s" href="/partner.html">Open your partner area</a></div></div></div>`, false);
   function loginView(msg) {
     return `<div class="zc-frame zc-login"><header class="zc-bar"><span class="zc-brand"><img src="/icon-192.png" alt="" width="22" height="22"> <b>Corporate Snakes and Ladders</b></span></header><div class="zc-main">
@@ -1110,7 +1110,7 @@
   // ---------- home (no game open yet) ----------
   function homeView() {
     const h = S.history, last = h && h.engagements[0];
-    const bar = last ? `<div class="zc-lastbar"><span>Your last game was on <b>${fmtDay(last.created_ms)}</b> · ${last.participants} participants</span><span><button type="button" class="zc-mini" data-reuse="${esc(last.id)}"${consOff("K6")}>Reuse the data</button> <button type="button" class="zc-mini" data-hist="1">History</button></span></div>${consHtml("K6", "[data-reuse]")}` : ""; // K6: reusing an earlier guest list needs the box ticked
+    const bar = last ? `<div class="zc-lastbar"><span>Your last game was on <b>${fmtDay(last.created_ms)}</b> · ${last.participants} players</span><span><button type="button" class="zc-mini" data-reuse="${esc(last.id)}"${consOff("K6")}>Reuse the data</button> <button type="button" class="zc-mini" data-hist="1">History</button></span></div>${consHtml("K6", "[data-reuse]")}` : ""; // K6: reusing an earlier guest list needs the box ticked
     const main0 = clonePanel();
     const hist = S.showHist && h ? `<div class="zc-block"><h3>History · kept ${h.retentionDays} days</h3>${h.engagements.map((e) => `<div class="zc-rowl"><span>${esc(e.id)} · ${fmtDay(e.created_ms)} · ${e.participants} people${e.draft ? " · draft" : ""}</span><span><button type="button" class="zc-mini" data-open-game="${esc(e.id)}">Open</button> <button type="button" class="zc-mini" data-reuse="${esc(e.id)}"${consOff("K6")}>Reuse</button> <button type="button" class="zc-mini" data-clonebtn="1" data-from="${esc(e.id)}" data-people="${e.participants > 0 && !e.erased ? 1 : 0}">Create a new game like this one</button></span></div>`).join("")}</div>` : "";
     const main = `${S.note ? `<div class="zc-toast" role="status">${esc(S.note)}</div>` : ""}${main0}<div class="zc-small zc-rolenote">${esc(ROLE_NOTE.organizer)}</div>
@@ -1132,8 +1132,8 @@
     const houses = HS.filter(([k]) => houseOk(f, k)).map(([k, n, how, mx]) => `<div class="zc-box"><label class="zc-check" for="qk-h-${k}"><input type="checkbox" id="qk-h-${k}" data-hc="${k}" ${f.hs[k].on ? "checked" : ""}> ${n}</label><p class="zc-small zc-how">${esc(how || "")}</p>${mx > 1 ? grp(`hs.${k}.n`, "Winners", Array.from({ length: mx }, (_, i) => [String(i + 1), String(i + 1)])) : ""}${lbl("qk-t-" + k, "What is the prize? (up to 80 characters; you can fill this in later)")}<input id="qk-t-${k}" class="zc-in" data-qkprize="${k}" maxlength="80" value="${esc(f.hs[k].pt === "later" ? "" : prizeText(f.hs[k].pt, f.hs[k].pd))}"></div>`).join("");
     const main = `<div class="zc-block"><h3>1. Which game?</h3>${lbl("qk-name", "Name of the game (optional)")}<input id="qk-name" class="zc-in" data-fi="oname" maxlength="60" placeholder="Team event" value="${esc(f.oname)}">
         ${grp("occ", "Occasion", OCC.map((o) => [o, o]))}${lbl("qk-date", `Day (your time, ${tzName()})`)}<input id="qk-date" class="zc-in" type="date" data-fi="dayo" value="${esc(f.dayo)}" min="${istDateStr(istNow())}">${lbl("qk-time", `Start time (your time, ${tzName()})`)}<input id="qk-time" class="zc-in" type="time" data-fi="timeo" step="300" value="${esc(f.timeo)}">
-        ${small("Guests can join before. The first turn opens 2 minutes after the start time. Choose a time at least 2 hours ahead.")}</div>
-      <div class="zc-block"><h3>2. How will it play?</h3><span class="zc-lbl" id="gl-cap">How many people at most? (people invited by your guests count too)</span><div role="group" aria-labelledby="gl-cap">${caps}</div>${grp("spd", "Length of each turn", spdOpts(f.spd))}${gameBlock()}${grp("join", "Who can join?", [["list", "Only people on a list"], ["anyone", "Anyone with the link"]])}<div class="zc-chips zc-gap">${bchip("inv", "Let each guest invite up to 4 family or colleagues")}</div></div>
+        ${small("Players can join before. The first turn opens 2 minutes after the start time. Choose a time at least 2 hours ahead.")}</div>
+      <div class="zc-block"><h3>2. How will it play?</h3><span class="zc-lbl" id="gl-cap">How many people at most? (people invited by your players count too)</span><div role="group" aria-labelledby="gl-cap">${caps}</div>${grp("spd", "Length of each turn", spdOpts(f.spd))}${gameBlock()}${grp("join", "Who can join?", [["list", "Only people on a list"], ["anyone", "Anyone with the link"]])}<div class="zc-chips zc-gap">${bchip("inv", "Let each player invite up to 4 family or colleagues")}</div></div>
       <div class="zc-block"><h3>3. Prizes</h3>${grp("bundle", "Start from", ["Classic", "Simple", "Rich"].map((b) => [b, b]))}${houses}${small("You give the prizes; the software is only provided by IT Services by Rajat Agarwal. Videos, messages and a lucky draw are added on the next page.")}</div>
       <div class="zc-block"><h3>4. Check and save</h3><div id="qk-summary" class="zc-small" aria-live="polite"></div><div id="qk-err" class="zc-toast zc-badt" role="alert" style="display:none"></div><div class="zc-foot"><button class="zc-btn" id="qk-save" type="button">Yes, save your draft</button></div>${small("Nothing is charged. Nobody else can see a draft. Next you publish it (free) and pay before the start time.")}</div>`;
     return frame(`<div class="zc-body"><div class="zc-main">${main}</div></div>`, false);
@@ -1177,7 +1177,7 @@
     const mobile = T.needMobile ? `<h4>${++num}. Your mobile number</h4>${small("Typed once. No code is sent to it.")}${lbl("setupmobile", "Your mobile number")}<input id="setupmobile" class="zc-in" inputmode="tel" autocomplete="tel" placeholder="415 555 0132"><div class="zc-foot"><button type="button" class="zc-btn zc-btn-s" id="setupmobilego">Save your number</button></div>` : "";
     // K5: the Host accepts the Terms once, on first open. Until then the Host is not ready, the same as with a missing e-mail or mobile number.
     const accept = T.needAccept ? `<h4>${++num}. The Terms</h4>${consHtml("K5", "#setupacceptgo")}<div class="zc-foot"><button type="button" class="zc-btn zc-btn-s" id="setupacceptgo"${consOff("K5")}>Accept and continue</button></div>` : "";
-    return `<div class="zc-frame zc-login"><header class="zc-bar"><span class="zc-brand"><img src="/icon-192.png" alt="" width="22" height="22"> <b>Corporate Snakes and Ladders</b></span><span class="zc-pill zc-pill-role">Host</span></header><div class="zc-main"><div class="zc-block" id="finishsetup"><h3>Finish setup</h3>${small(num > 1 ? "A few quick things, then your game opens. This link works once." : "One quick thing, then your game opens. This link works once.")}${m ? `<div class="zc-toast" role="status">${esc(m)}</div>` : ""}${email}${mobile}${accept}</div></div></div>`;
+    return `<div class="zc-frame zc-login"><header class="zc-bar"><span class="zc-brand"><img src="/icon-192.png" alt="" width="22" height="22"> <b>Corporate Snakes and Ladders</b></span><span class="zc-pill zc-pill-role">Co-organizer</span></header><div class="zc-main"><div class="zc-block" id="finishsetup"><h3>Finish setup</h3>${small(num > 1 ? "A few quick things, then your game opens. This link works once." : "One quick thing, then your game opens. This link works once.")}${m ? `<div class="zc-toast" role="status">${esc(m)}</div>` : ""}${email}${mobile}${accept}</div></div></div>`;
   }
   async function setupStep(path, body, okSent) {
     try { const r = await call("POST", path, body); if (r && r.token) { secret = r.token; ss.set("cbz-org", secret); } /* the e-mail is confirmed: this device gets its own key */ S.setupMsg = ""; if (okSent) S.setupSent = true; if (path.indexOf("/email/verify") > 0) delete (S.sv || {}).setupcode; S.setup = await call("GET", "/api/host/setup"); if (S.setup && S.setup.ready !== false && !S.setup.needAccept) { S.setup = null; S.setupSent = false; return bootstrap(); } }
@@ -1284,7 +1284,7 @@
       const nm = S.nameCache || (S.nameCache = new Map()); // names are sealed on our side: the console asks for the few it shows (winners), 50 at a time
       const settled = (S.published || []).filter((x) => x.pattern !== "lucky").map((x) => ({ pattern: x.pattern, ordinal: x.ordinal, round: x.round || 1, idx: x.idx, pids: Array.isArray(x.winners) ? x.winners : [] }));
       await namesFor([...new Set(settled.filter((x) => x.pids.length <= 3).flatMap((x) => x.pids))]);
-      S.settledPreview = settled.map((x) => ({ ...x, names: x.pids.length <= 3 && !S.shield ? x.pids.map((p) => nm.get(p) || "Participant").join(", ") : "" }));
+      S.settledPreview = settled.map((x) => ({ ...x, names: x.pids.length <= 3 && !S.shield ? x.pids.map((p) => nm.get(p) || "Player").join(", ") : "" }));
       S.lucky = await computeLucky(now);
       try { S.life = await call("GET", `/api/z/${eid}/life`); } catch { S.life = null; }
       if (S.started && !S.draft) { try { S.prizes = (await call("GET", `/api/z/${eid}/prizes`)).prizes || []; } catch { S.prizes = S.prizes || []; } try { S.published = (await fetch(BASE + `/api/z/${eid}/results`).then((r) => r.json())).results || []; } catch { /* shown next time */ } } // the software decides the winners; this page only watches
@@ -1361,7 +1361,7 @@
       const f = S.f;
       if (role() === "cohost") { markDone(n); return advance(n); }
       if (n === 1) { const name = f.occ === "Other" ? (f.oname || "").trim() : f.occ, ms = startOf(f); if (!(ms > Date.now())) throw new Error(MSG_PAST); if (ms > Date.now() + 30 * 86400000) throw new Error("A game can start at most 30 days from today. Please pick a closer date."); await call("PATCH", `/api/z/${eid}/settings`, { name, startRound: ZG.roundAt(ms), tz: TZ }); }
-      else if (n === 2) { { const c = Number(f.cap); if (!Number.isInteger(c) || c < 1) throw new Error("Please give the number of players, for example 180."); if (c > 2000) throw new Error("The number of people must be a whole number from 1 to 2,000. Please check it."); } if (f.inv && !f.cats.length) throw new Error("Pick at least one kind of guest."); const game = gameOutOf(f), saved = (S.cfg && S.cfg.rewards) || [];
+      else if (n === 2) { { const c = Number(f.cap); if (!Number.isInteger(c) || c < 1) throw new Error("Please give the number of players, for example 180."); if (c > 2000) throw new Error("The number of people must be a whole number from 1 to 2,000. Please check it."); } if (f.inv && !f.cats.length) throw new Error("Pick at least one kind of player."); const game = gameOutOf(f), saved = (S.cfg && S.cfg.rewards) || [];
         // a saved prize that no longer fits the new game (a team prize in a race, a never-missed prize in automatic play, a milestone prize without its square) is dropped with it
         const stale = saved.some((l) => (l.pattern === "team" && game.mode !== "team") || (l.pattern === "nevermissed" && game.play !== "presence") || (l.pattern === "milestone" && l.ordinal > game.milestones.length));
         await call("PATCH", `/api/z/${eid}/settings`, rulesNow() ? { cap: Number(f.cap), callSeconds: Number(f.spd), join: "phone", whoCanJoin: "list", verify: "id", employeesOnly: true, ...game, ...(stale ? { rewards: rewardsOut(f, game) } : {}) } : { cap: Number(f.cap), callSeconds: Number(f.spd), idKind: f.idk === "email" ? "email" : "emp", join: f.gj === "phone" || f.emp || f.ver !== "mobile" ? "phone" : "name", whoCanJoin: f.emp || f.who !== "anyone" ? "list" : "anyone", verify: f.ver === "id" || f.ver === "both" ? f.ver : "mobile", employeesOnly: !!f.emp, invites: { on: !f.emp && !!f.inv, per: Number(f.per) || 4, cats: f.cats }, ...game, ...(stale ? { rewards: rewardsOut(f, game) } : {}) }); }
@@ -1464,7 +1464,7 @@
     const leaveGame = () => { eid = ""; S.cfg = null; S.info = null; S.f = null; S.fFor = ""; S.openInit = ""; S.note = ""; S.sum = null; S.store = null; S.history = null; S.team = null; S.hostN = 0; S.becomeErr = ""; history.replaceState(null, "", location.pathname + (BASE ? "?api=" + encodeURIComponent(BASE) : "")); };
     const takeKey = (key, mark) => { const me = { kind: isOrg() ? "organizer" : "host", token: secret }; ss.set("cbz-alt", JSON.stringify(me)); secret = key; ss.set("cbz-org", secret); S.kind = ""; leaveGame(); if (mark) S.note = mark; bootstrap(); };
     if ($("signout")) $("signout").onclick = () => { if (window.CTK) window.CTK.signOut(); else { ss.set("cbz-org", ""); ss.set("cbz-alt", ""); } location.href = "/zc.html" + (BASE ? "?api=" + encodeURIComponent(BASE) : ""); }; // signing in again is the same two e-mail ways: nothing to remember
-    if ($("switchrole")) $("switchrole").onclick = () => { const a = altRole(); if (a) takeKey(a.token, a.kind === "host" ? "You are now in your Host view." : "You are now in your Organizer view."); };
+    if ($("switchrole")) $("switchrole").onclick = () => { const a = altRole(); if (a) takeKey(a.token, a.kind === "host" ? "You are now in your Co-organizer view." : "You are now in your Organizer view."); };
     if ($("hostall")) $("hostall").onclick = () => { leaveGame(); bootstrap(); };
     if ($("hostswitchorg")) $("hostswitchorg").onclick = () => { const a = altRole(); if (a) takeKey(a.token, "You are now in your Organizer view."); };
     if ($("hostbecome")) $("hostbecome").onclick = async () => {
@@ -1510,7 +1510,7 @@
     if ($("pubgo")) $("pubgo").onclick = async () => {
       const consent = consPayload("K1"); if (!consent) { S.pubNote = "Please tick both boxes first."; return redraw(); } // never sent without both ticks
       $("pubgo").disabled = true;
-      try { const pr = await call("POST", `/api/z/${eid}/publish`, { email: S.contact.email.trim(), phone: S.contact.phone, consent }); ss.set("cbz-email", S.contact.email.trim()); ss.set("cbz-phone", S.contact.phone); S.pubOpen = false; S.pubNote = ""; S.note = pr && pr.needsOrganizer ? "Not published. Only the Organizer publishes, with one tap. If you are a Help Desk helper, ask the Organizer from the Help Desk page." : "Published. Send the link in step 6 to your participants. Then pay in step 8 before the start time, or the game will not begin."; }
+      try { const pr = await call("POST", `/api/z/${eid}/publish`, { email: S.contact.email.trim(), phone: S.contact.phone, consent }); ss.set("cbz-email", S.contact.email.trim()); ss.set("cbz-phone", S.contact.phone); S.pubOpen = false; S.pubNote = ""; S.note = pr && pr.needsOrganizer ? "Not published. Only the Organizer publishes, with one tap. If you are a Help Desk helper, ask the Organizer from the Help Desk page." : "Published. Send the link in step 6 to your players. Then pay in step 8 before the start time, or the game will not begin."; }
       catch (e) { ss.set("cbz-email", S.contact.email.trim()); ss.set("cbz-phone", S.contact.phone); S.pubNote = consFail("K1", e) ? "Please press the button once more." : e.message + (e.needPack ? " (a pack for up to " + e.needPack + " participants)" : ""); }
       refreshEng();
     };
@@ -1547,26 +1547,26 @@
       let body;
       if (kind === "host") {
         const email = val("hostemail"), hp = val("hostphone");
-        if (!name) { S.teamNote = "Please type the Host's name."; return redraw(); }
-        if (!email && !hp) { S.teamNote = "Please type the Host's mobile number or e-mail."; return redraw(); }
-        if (hp && hp.replace(/\D/g, "").length < 10) { S.teamNote = "Please check the Host's mobile number."; return redraw(); }
-        if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { S.teamNote = "Please check the Host's e-mail."; return redraw(); }
+        if (!name) { S.teamNote = "Please type the Co-organizer's name."; return redraw(); }
+        if (!email && !hp) { S.teamNote = "Please type the Co-organizer's mobile number or e-mail."; return redraw(); }
+        if (hp && hp.replace(/\D/g, "").length < 10) { S.teamNote = "Please check the Co-organizer's mobile number."; return redraw(); }
+        if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { S.teamNote = "Please check the Co-organizer's e-mail."; return redraw(); }
         body = { label: name, ...(eid ? { e: eid } : {}), ...(hp ? { mobile: hp } : {}), ...(email ? { email } : {}) }; S.lastHostWa = !email && hp ? cleanPhone(hp) : null;
       }
-      else { const phone = val("cohostphone"); if (!name) { S.teamNote = "Please type the Co-host's name."; return redraw(); } if (phone.replace(/\D/g, "").length < 10) { S.teamNote = "Please type the Co-host's mobile number."; return redraw(); } body = { label: name, phone, eid, e: eid }; }
+      else { const phone = val("cohostphone"); if (!name) { S.teamNote = "Please type the Invite-only co-organizer's name."; return redraw(); } if (phone.replace(/\D/g, "").length < 10) { S.teamNote = "Please type the Invite-only co-organizer's mobile number."; return redraw(); } body = { label: name, phone, eid, e: eid }; }
       const path = kind === "host" ? "/api/org/host" : "/api/org/cohost";
       try {
         const r = await call("POST", path, body);
         const key = r.hostKey || r.cohostKey || "", id = r.id || (key ? key.slice(0, 10) : ""), hash = kind === "host" ? "host" : "cohost";
         S.teamLinks[id] = key ? `${location.origin}/zc.html?e=${encodeURIComponent(eid)}#${hash}=${key}` : r.link || ""; if (kind === "host" && S.lastHostWa) S.teamWa[id] = { d: S.lastHostWa, name: name };
-        S.teamNote = kind === "host" ? (S.lastHostWa ? "Host added. Send their link on WhatsApp, to that one person only." : "Host added. Their link was sent to their e-mail.") : "Co-host added. Send the link to that one person only."; S.tv = {}; await refreshTeam();
+        S.teamNote = kind === "host" ? (S.lastHostWa ? "Co-organizer added. Send their link on WhatsApp, to that one person only." : "Co-organizer added. Their link was sent to their e-mail.") : "Invite-only co-organizer added. Send the link to that one person only."; S.tv = {}; await refreshTeam();
       } catch (e) { S.teamNote = friendly(e); redraw(); }
     };
     if ($("hostadd")) $("hostadd").onclick = () => person("host");
     if ($("cohostadd")) $("cohostadd").onclick = () => person("cohost");
     all("[data-cohl]", (b) => (b.onclick = async () => { try { await call("PATCH", `/api/z/${eid}/settings`, { coHostLimit: Number(b.dataset.cohl) }); S.teamNote = "Saved."; S.sum = Object.assign({}, S.sum, { coHostLimit: Number(b.dataset.cohl) }); } catch (e) { S.teamNote = friendly(e); } redraw(); }));
     all("[data-retire]", (b) => (b.onclick = async () => {
-      if (!confirm("Remove this " + (b.dataset.kind === "host" ? "Host" : "Co-host") + "? Their link stops working at once.")) return;
+      if (!confirm("Remove this " + (b.dataset.kind === "host" ? "Co-organizer" : "Invite-only co-organizer") + "? Their link stops working at once.")) return;
       try { await call("POST", "/api/org/team/retire", { id: b.dataset.retire }); delete S.teamLinks[b.dataset.retire]; S.teamNote = "Removed. Their link has stopped."; await refreshTeam(); } catch (e) { S.teamNote = friendly(e); redraw(); }
     }));
     all("[data-newlink]", (b) => (b.onclick = async () => {
@@ -1576,7 +1576,7 @@
         const m = String(r.waLink || "").match(/wa\.me\/(\d{8,15})/); if (m) S.teamWa[nid] = { d: m[1], name: r.label || b.dataset.label || "" }; else delete S.teamWa[nid];
         S.teamNote = r.emailed ? "A new link is on its way to their e-mail. The old one has stopped." : "A new link is ready. The old one has stopped. Send it to that one person only.";
         await refreshTeam();
-      } catch (e) { S.teamNote = e.code === "host-active" ? "This Host has already finished setup, so they sign in with their e-mail now. " + (e.message || "") : friendly(e); redraw(); }
+      } catch (e) { S.teamNote = e.code === "host-active" ? "This Co-organizer has already finished setup, so they sign in with their e-mail now. " + (e.message || "") : friendly(e); redraw(); }
     }));
     all("[data-copyteam]", (b) => (b.onclick = async () => { const ok = await copyText(S.teamLinks[b.dataset.copyteam] || ""); b.textContent = ok ? "Copied" : "Select and copy it"; }));
     // sharing and the guest list
@@ -1689,12 +1689,12 @@
     // after the game
     if ($("rptnew")) $("rptnew").onclick = async () => { if (!confirm("Make a new report link? The old link, including the one in your e-mail, stops working at once.")) return; try { const r = await call("POST", `/api/z/${eid}/reportlink`, {}); if (r.url) window.open(r.url, "_blank", "noopener"); S.note = "New report link made. The old one has stopped."; } catch (e) { S.note = e.message; } refreshEng(); };
     if ($("rptopen")) $("rptopen").onclick = async () => { try { const r = await call("GET", `/api/z/${eid}/reportlink`); if (r.url) window.open(r.url, "_blank", "noopener"); else S.note = "The report is not ready yet."; } catch (e) { S.note = e.message; } redraw(); };
-    if ($("erase")) $("erase").onclick = async () => { if (!confirm("Delete every participant's name and mobile number now? This cannot be undone. The winners record stays.")) return; try { const r = await call("POST", `/api/z/${eid}/erase`, {}); S.note = r.erased + " participants erased."; } catch (e) { S.note = e.message; } refreshEng(); };
+    if ($("erase")) $("erase").onclick = async () => { if (!confirm("Delete every participant's name and mobile number now? This cannot be undone. The winners record stays.")) return; try { const r = await call("POST", `/api/z/${eid}/erase`, {}); S.note = r.erased + " players erased."; } catch (e) { S.note = e.message; } refreshEng(); };
     if ($("reqok")) $("reqok").onclick = async () => {
       const r = S.reqs[0];
       if (r.action === "erase") { // your confirmation is what deletes, not the AI's request
         if (!confirm("Delete every participant's name and mobile number now? This cannot be undone. The winners record stays.")) return;
-        try { const x = await call("POST", `/api/z/${eid}/erase`, {}); S.note = x.erased + " participants erased."; await call("POST", `/api/z/${eid}/control/request/clear`, {}); } catch (e) { S.note = e.message; }
+        try { const x = await call("POST", `/api/z/${eid}/erase`, {}); S.note = x.erased + " players erased."; await call("POST", `/api/z/${eid}/control/request/clear`, {}); } catch (e) { S.note = e.message; }
         return refreshEng();
       }
       try { const x = await TBControl.publish(eid, { token: secret, base: BASE, prefix: "/api/z" }, r.action, r.action === "pause" ? { pauseForRounds: 600 } : {}); S.ctlNote = x.status === 200 ? r.action + " sent." : (x.data && x.data.error) || "Not accepted."; await call("POST", `/api/z/${eid}/control/request/clear`, {}); } catch (e) { S.ctlNote = e.message; }
@@ -1734,7 +1734,7 @@
         const r = await call("POST", `/api/z/${id}/reuse`, { from: b.dataset.reuse, consent });
         await TBControl.ensureKey(id, { token: secret, base: BASE, prefix: "/api/z" });
         eid = id; history.replaceState(null, "", "?e=" + id); S.store = null; S.f = null; S.fFor = ""; S.openInit = ""; S.cfg = null; S.info = null; S.screen = "eng";
-        S.note = `Created with ${r.copied} participants from the earlier game. It starts in 20 minutes; participants use the new link.`; refreshEng();
+        S.note = `Created with ${r.copied} players from the earlier game. It starts in 20 minutes; players use the new link.`; refreshEng();
       } catch (e) { noteAndDraw(consFail("K6", e) ? "Please press Reuse once more." : e.message); }
     }));
     all("[data-retirekey]", (b) => (b.onclick = async () => { if (!confirm("Retire this key? It will stop working at once.")) return; try { await call("POST", "/api/org/keys/revoke", { id: b.dataset.retirekey }); S.note = "Key retired."; } catch (e) { S.note = e.message; } eid ? loadAccount() : refreshHome(); }));
@@ -1796,7 +1796,7 @@
   (async () => { if (!secret && bc) { bc.postMessage({ ask: true }); await new Promise((r) => setTimeout(r, 350)); } if (!inited) bootstrap(); })();
   setInterval(() => { const a = document.activeElement; if (a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) return; /* never wipe what the organizer is typing */ if (!secret || document.hidden) return; if (role() === "host" && S.setup && S.setup.ready === false) return; if (eid) refreshEng(); else if (QUICK || S.screen === "quick") return; else if (isOrg()) refreshHome(); }, 5000);
   // Free demo game (demo.ts): every screen says "Demo". The bar is put back at the top of the page whenever the screen is redrawn.
-  function demoBar() { try { if (!(S.info && S.info.demo === true)) return; const first = $app.firstElementChild; if (first && first.id === "zdemo-bar") return; const d = document.createElement("div"); d.id = "zdemo-bar"; d.className = "zbanner info zflush"; d.setAttribute("role", "status"); d.innerHTML = "<b>Demo</b> · a free practice game for up to 10 people. Same rules as a real game. Nothing is paid and guest details are auto-deleted after the game."; $app.insertBefore(d, $app.firstChild); } catch { /* a courtesy label: the game name also starts with Demo */ } }
+  function demoBar() { try { if (!(S.info && S.info.demo === true)) return; const first = $app.firstElementChild; if (first && first.id === "zdemo-bar") return; const d = document.createElement("div"); d.id = "zdemo-bar"; d.className = "zbanner info zflush"; d.setAttribute("role", "status"); d.innerHTML = "<b>Demo</b> · a free practice game for up to 10 people. Same rules as a real game. Nothing is paid and player details are auto-deleted after the game."; $app.insertBefore(d, $app.firstChild); } catch { /* a courtesy label: the game name also starts with Demo */ } }
   try { new MutationObserver(demoBar).observe($app, { childList: true }); } catch { /* old browser: the name still says Demo */ }
   window.__zc = S;
 })();

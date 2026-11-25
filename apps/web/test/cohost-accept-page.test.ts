@@ -38,8 +38,8 @@ async function consolePage(accepted = false) {
 }
 const text = (d: any) => String(d.body.textContent).replace(/\s+/g, " ").trim();
 
-describe("the Co-host role step on the console", () => {
-  test("a Co-host who has not accepted sees the role step with the one agreement line (three links), nothing to tick, and a button that is ready; nothing of the game page is shown", async () => {
+describe("the Invite-only co-organizer role step on the console", () => {
+  test("an invite-only co-organizer who has not accepted sees the role step with the one agreement line (three links), nothing to tick, and a button that is ready; nothing of the game page is shown", async () => {
     const { d } = await consolePage(false);
     expect(text(d)).toMatch(/Before you start/); expect(d.getElementById("roleaccept")).toBeTruthy();
     expect(d.querySelectorAll('#roleaccept input[type="checkbox"]').length).toBe(0); // no tick-boxes
@@ -49,7 +49,7 @@ describe("the Co-host role step on the console", () => {
     const btn = d.getElementById("roleacceptgo") as any; expect(btn.disabled).toBe(false); expect(btn.getAttribute("aria-disabled")).toBe("false");
     expect(text(d)).not.toMatch(/Your game at a glance/);
   });
-  test("pressing the button sends the agreement with the Terms version (no tick needed), and the Co-host's own page opens", async () => {
+  test("pressing the button sends the agreement with the Terms version (no tick needed), and the Invite-only co-organizer's own page opens", async () => {
     const { d, sent, w } = await consolePage(false);
     const btn = d.getElementById("roleacceptgo") as any; expect(btn.disabled).toBe(false);
     btn.dispatchEvent(new w.MouseEvent("click", { bubbles: true })); await tick(120);
@@ -57,7 +57,7 @@ describe("the Co-host role step on the console", () => {
     expect(post.body.consent).toEqual({ v: VER, boxes: ["A"], notice: true });
     expect(d.getElementById("roleaccept")).toBeNull(); expect(text(d)).toMatch(/Your game at a glance|Diwali game/);
   });
-  test("a Co-host who accepted before goes straight to the page; a Host or the Organizer never sees this step", async () => {
+  test("an invite-only co-organizer who accepted before goes straight to the page; a Co-organizer or the Organizer never sees this step", async () => {
     const { d } = await consolePage(true);
     expect(d.getElementById("roleaccept")).toBeNull(); expect(text(d)).toMatch(/Diwali game|Your game at a glance/);
   });
