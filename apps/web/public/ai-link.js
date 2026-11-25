@@ -19,7 +19,7 @@
   const AIOPEN = [["ChatGPT", "https://chatgpt.com/?q="], ["Grok", "https://grok.com/?q="], ["Claude", "https://claude.ai/new?q="]];
   const AICOPY = [["Gemini", "https://gemini.google.com/app?q="], ["DeepSeek", "https://chat.deepseek.com/"], ["z.ai", "https://chat.z.ai/"]];
   const aiOptions = (paste) => `<div class="zsmall" style="font-weight:700;margin:12px 0 6px">Open your AI with this already filled in</div><div style="display:flex;flex-wrap:wrap;gap:8px">${AIOPEN.map(([n, u]) => `<a class="zbtn s" data-ai="${n}" href="${u}${encodeURIComponent(paste)}" target="_blank" rel="noopener noreferrer" style="text-decoration:none;display:inline-block">${n}</a>`).join("")}</div>
-    <div class="zsmall" style="font-weight:700;margin:12px 0 6px">Copy it, open your AI, press Ctrl+V and Send</div><div style="display:flex;flex-wrap:wrap;gap:8px">${AICOPY.map(([n, u]) => `<button class="zbtn s alt" type="button" data-aicopy="${n}" data-url="${u}${n === "Gemini" ? encodeURIComponent(paste) : ""}">${n}</button>`).join("")}</div><div class="zsmall" id="aicopied" role="status" style="margin-top:6px;font-weight:700;color:#0b6b3a"></div>`;
+    <div class="zsmall" style="font-weight:700;margin:12px 0 6px">Copy it, open your AI, press Ctrl+V and Send</div><div style="display:flex;flex-wrap:wrap;gap:8px">${AICOPY.map(([n, u]) => `<button class="zbtn s alt" type="button" data-aicopy="${n}" data-url="${u}${n === "Gemini" ? encodeURIComponent(paste) : ""}">${n}</button>`).join("")}</div><div class="zsmall" id="aicopied" role="status" style="margin-top:6px;font-weight:700;color:var(--snk-ok)"></div>`;
   const wireAiOptions = (root, paste) => root.querySelectorAll("[data-aicopy]").forEach((b) => (b.onclick = async () => {
     let ok = false; try { await navigator.clipboard.writeText(paste); ok = true; } catch {}
     const m = root.querySelector("#aicopied"); if (m) m.textContent = ok ? "Copied. Press Ctrl+V, then Send" : "Could not copy here: select the box above, copy it, then open " + b.dataset.aicopy + " and paste.";
@@ -60,11 +60,11 @@
   async function show() {
     let r;
     try { r = await api("GET", "/api/org/ai/link"); } catch (e) { token = ""; ss.set("cbz-org", ""); return signIn(e.status === 403 ? "" : e.message, "", false); }
-    shell(`${bannerNote()}<div class="zcard" style="border:2px solid #FFC93C;background:#FBFFFE"><div class="zsmall" style="font-weight:700;letter-spacing:.06em;color:#8a6a1a">YOUR AI WORK LINK</div>
+    shell(`${bannerNote()}<div class="zcard" style="border:2px solid var(--snk-accent);background:var(--snk-paper)"><div class="zsmall" style="font-weight:700;letter-spacing:.06em;color:var(--snk-accent-ink)">YOUR AI WORK LINK</div>
       ${r.aiMessage
         ? `<p style="margin:8px 0">Copy the box. Paste it into any AI chat. It does the work.</p><textarea class="zlink" id="msg" rows="5" readonly style="width:100%;box-sizing:border-box">${esc(r.aiMessage)}</textarea><button class="zbtn" id="cp" style="margin-top:8px">Copy your AI work link</button>${aiOptions(r.aiMessage)}`
         : `<p style="margin:8px 0">You have no AI work link at the moment.</p><button class="zbtn" id="mk">Make your AI work link</button>`}
-      <hr style="border:0;border-top:1px solid #D5E3E1;margin:16px 0">
+      <hr style="border:0;border-top:1px solid var(--snk-line);margin:16px 0">
       <p class="zsmall" style="margin:0 0 8px">Fresh link: one that works for 24 hours is e-mailed to you.</p><button class="zbtn s alt" id="fr">Get a fresh AI link</button>
       <p class="zsmall" style="margin:14px 0 8px">Lost it? Replace stops every AI link at once.</p><button class="zbtn s alt" id="rp">Replace your AI link</button></div>
       <p class="zsmall"><a href="/zc.html">Open your console</a></p>`);

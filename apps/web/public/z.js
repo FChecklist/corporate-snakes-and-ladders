@@ -27,7 +27,7 @@
     if (!b || typeof b !== "object") return null;
     const name = String(b.name == null ? "" : b.name).replace(/\s+/g, " ").trim().slice(0, 60);
     let color = String(b.color || ""); if (/^#[0-9a-f]{3}$/i.test(color)) color = "#" + color.slice(1).split("").map((c) => c + c).join("");
-    if (!/^#[0-9a-f]{6}$/i.test(color)) color = "#0B5D5B";
+    if (!/^#[0-9a-f]{6}$/i.test(color)) color = "#9C3D1E";
     const logo = typeof b.logo === "string" && b.logo.length < 90000 && /^data:image\/(png|jpeg|webp|gif);base64,[A-Za-z0-9+/=]+$/.test(b.logo) ? b.logo : ""; // only a small picture that travels inside the settings: never an outside address
     if (!name && !logo) return null;
     const lin = (h) => { const c = parseInt(h, 16) / 255; return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); };
@@ -81,7 +81,7 @@
 
   // ---------- the company strip at the top of the page (colour and name set by the organizer; the small picture travels inside the settings) ----------
   const brandStrip = (sndBtn) => {
-    const b = INFO.brand; if (!b) return `<div class="zbar"><div class="zbrand zdef" data-bg="#0B5D5B" data-fg="#ffffff"><b><a class="zlogo" href="/" aria-label="Corporate Snakes and Ladders home"><img src="/logo-mark.svg" alt="Corporate Snakes and Ladders logo" width="18" height="18"></a>CORPORATE SNAKES AND LADDERS</b></div>${sndBtn || ""}</div>`; // no company brand set: the page carries our own name in writing
+    const b = INFO.brand; if (!b) return `<div class="zbar"><div class="zbrand zdef" data-bg="#9C3D1E" data-fg="#ffffff"><b><a class="zlogo" href="/" aria-label="Corporate Snakes and Ladders home"><img src="/logo-mark.svg" alt="Corporate Snakes and Ladders logo" width="18" height="18"></a>CORPORATE SNAKES AND LADDERS</b></div>${sndBtn || ""}</div>`; // no company brand set: the page carries our own name in writing
     return `<div class="zbar"><div class="zbrand" data-bg="${esc(b.color)}" data-fg="${esc(b.fg)}">${b.logo ? `<img class="zblogo" alt="" src="${esc(b.logo)}">` : ""}${b.name ? `<b>${esc(b.name)}</b>` : ""}</div>${sndBtn || ""}</div><div class="zpow"><a class="zlogo" href="/" aria-label="Corporate Snakes and Ladders home"><img src="/logo-mark.svg" alt="Corporate Snakes and Ladders logo" width="12" height="12"></a>Powered by Corporate Snakes and Ladders</div>`;
   };
   const paintBrand = () => document.querySelectorAll(".zbrand").forEach((el) => { if (!el.classList.contains("zdef")) el.style.background = el.dataset.bg; el.style.color = el.dataset.fg; }); // our own default strip gets its colours from the stylesheet // set from the script, so a strict style policy never blocks the colour
@@ -522,7 +522,7 @@
   }
   function confetti(canvas) {
     const ctx = canvas.getContext("2d"); if (!ctx) return;
-    const W = (canvas.width = innerWidth), H = (canvas.height = innerHeight), cols = ["#FFC93C", "#1D7CF2", "#E4572E", "#2E9E6B", "#E63977", "#7B3FE4"];
+    const W = (canvas.width = innerWidth), H = (canvas.height = innerHeight), cols = ["#FF9650", "#9C3D1E", "#F6D27A", "#587018", "#C0391B", "#EFAE8C"];
     const ps = Array.from({ length: 140 }, () => ({ x: Math.random() * W, y: -20 - Math.random() * H * 0.6, r: 4 + Math.random() * 6, c: cols[(Math.random() * cols.length) | 0], vy: 2 + Math.random() * 3.5, vx: -1.5 + Math.random() * 3, a: Math.random() * 6.28, va: -0.2 + Math.random() * 0.4 }));
     const t0 = performance.now();
     (function f(t) {
@@ -636,7 +636,7 @@
   };
   function soundButton(onTap) {
     const b = document.createElement("button"); b.type = "button"; b.textContent = "Tap for sound";
-    b.style.cssText = "position:absolute;right:8px;bottom:8px;z-index:2;background:#FFC93C;color:#1b1b1b;border:0;border-radius:8px;padding:6px 12px;font:700 13px system-ui,sans-serif";
+    b.style.cssText = "position:absolute;right:8px;bottom:8px;z-index:2;background:var(--snk-accent);color:var(--snk-deep);border:0;border-radius:8px;padding:6px 12px;font:700 13px system-ui,sans-serif";
     b.onclick = () => { try { onTap(); } catch {} b.remove(); };
     mediaHost.appendChild(b);
   }
@@ -654,7 +654,7 @@
     const el = document.createElement(kind === "video" ? "video" : "audio");
     el.src = b.mediaUrl; el.controls = true; el.autoplay = true; el.setAttribute("playsinline", ""); el.preload = "auto";
     el.style.cssText = kind === "video" ? "width:100%;height:100%;background:#000" : "position:absolute;left:8px;right:8px;top:50%;transform:translateY(-50%);width:calc(100% - 16px)";
-    if (kind === "audio") { mediaHost.style.background = "#0B5D5B"; const t = document.createElement("div"); t.textContent = b.title; t.style.cssText = "position:absolute;left:0;right:0;top:18%;text-align:center;color:#fff;font:700 18px system-ui,sans-serif;padding:0 12px"; mediaHost.appendChild(t); } else mediaHost.style.background = "#000";
+    if (kind === "audio") { mediaHost.style.background = "var(--snk-primary)"; const t = document.createElement("div"); t.textContent = b.title; t.style.cssText = "position:absolute;left:0;right:0;top:18%;text-align:center;color:#fff;font:700 18px system-ui,sans-serif;padding:0 12px"; mediaHost.appendChild(t); } else mediaHost.style.background = "#000";
     el.addEventListener("loadedmetadata", () => { try { if (elapsed && el.duration > elapsed + 1) el.currentTime = elapsed; } catch {} });
     mediaHost.appendChild(el);
     const p = typeof el.play === "function" ? el.play() : null; if (p && p.catch) p.catch(() => { el.muted = true; const q = el.play(); if (q && q.catch) q.catch(() => {}); soundButton(() => { el.muted = false; }); });
