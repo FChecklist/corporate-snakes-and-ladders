@@ -155,7 +155,7 @@ export function layoutReport(d: ReportData): Uint8Array {
   pdf.box("The laws that are followed", [
     "Corporate Snakes and Ladders is built to follow India's Digital Personal Data Protection Act, 2023 (DPDP Act), the European Union's General Data Protection Regulation (GDPR) and the United Kingdom's equivalent, and the privacy laws of the United States, including state laws such as the California Consumer Privacy Act (CCPA / CPRA).",
     "In practice this means: only the data needed to run the game is collected; it is used only for that purpose; it is protected with encryption; it is kept for the shortest time possible, and exactly how long is stated; it is never sold or used for advertising; and the people who took part, and you, can ask to see, correct or delete their data at any time.",
-    "You are the organizer of the game and decide who takes part; the data is processed on the behalf by IT Services by Rajat Agarwal. To exercise any right, or to ask anything, reply to the e-mail this report came with.",
+    "You are the organizer of the game and decide who takes part; the data is processed on behalf of the organizer by IT Services by Rajat Agarwal. To exercise any right, or to ask anything, reply to the e-mail this report came with.",
   ], [0.93, 0.96, 1], NAVY);
   pdf.para(`Sent on ${istFull(d.sentAtMs, d.tz)} to ${d.organizerEmail}.`, { size: 8.5, color: [0.4, 0.43, 0.48] });
   pdf.para(`${BRAND.name}  |  Questions? Write to ${BRAND.support}  |  Rules, privacy and disclaimer: ${BRAND.defaultOrigin}${BRAND.legalPath}`, { size: 8.5, color: [0.4, 0.43, 0.48] });

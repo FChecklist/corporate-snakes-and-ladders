@@ -52,6 +52,10 @@ describe("rules 2, 3 and 5: the words people read", () => {
     expect(hitsIn("x.html", `<p>Copy this link and paste in your AI.</p>`, RULES.pronoun!.re).length).toBe(1);
     expect(hitsIn("x.html", `<p>${ok} Open your game.</p>`, RULES.pronoun!.re).length).toBe(1);
   });
+  test("a phrase that a word swap left broken is caught (the own, on the behalf, the doing, for the interest)", () => {
+    for (const bad of ["Or write the own", "processed on the behalf by us", "This is not the doing.", "Thank you for the interest."]) expect([bad, hitsIn("x.html", `<p>${bad}</p>`, RULES.broken!.re).length]).toEqual([bad, 1]);
+    expect(hitsIn("x.html", "<p>You did nothing wrong. Processed on behalf of the organizer. Thank you for joining.</p>", RULES.broken!.re)).toEqual([]);
+  });
   test("the scan sees what a person reads and ignores code (an id or a kind value is not a sentence)", () => {
     expect(hitsIn("x.js", `const k = "host"; if (a.kind === "host") go("cohost"); const s = "Add a Host";`, RULES.host!.re).length).toBe(1);
     expect(hitsIn("x.html", `<div class="host" id="hostadd">Hosting is fine</div><p>Ask the Host</p>`, RULES.host!.re).length).toBe(1);

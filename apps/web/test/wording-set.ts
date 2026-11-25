@@ -22,6 +22,7 @@ export const RULES: Record<string, { re: RegExp; files: string[]; what: string }
   guest: { re: /\bguests?\b/gi, files: USER_FILES, what: "guest (say player)" },
   participant: { re: /\bparticipants?\b/gi, files: USER_FILES, what: "participant (say player)" },
   pay: { re: /\b(?:buy now|buy (?:a |the )?(?:bigger |smaller )?(?:pack|credits?)|check-?out|purchase[sd]?|top[- ]?up|recharge)\b/gi, files: USER_FILES, what: "a payment word outside the set Pay now and credits" },
+  broken: { re: /\b(?:the own|on the behalf|the doing|for the interest|with the own|the self)\b/gi, files: USER_FILES, what: "a phrase left broken by a word swap (such as \"the own\" or \"on the behalf\")" },
   pronoun: { re: /\b(?:[Mm]y|[Mm]ine|[Yy]our|[Yy]ours|MINE|YOURS?)\b/g, files: USER_FILES, what: "my, mine, your or yours" },
 };
 export const countIn = (rule: string, file: string): { n: number; hits: string[] } => {

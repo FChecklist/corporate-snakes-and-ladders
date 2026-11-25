@@ -50,7 +50,7 @@
     if (S.wait) return waitCard();
     const pack = packFor(S.info.cap);
     if (!S.info.draft && !S.info.unpaid) return `${back()}${head("This game is already paid and published")}<section class="pk-card pk-single"><a class="pk-btn" href="/zc.html?e=${encodeURIComponent(eid)}">Open the game</a></section>`;
-    if (!pack) return `${back()}${head("A custom arrangement is needed", "An game for more than 10,000 players is arranged with us directly. Please write to us from the contact page.")}`;
+    if (!pack) return `${back()}${head("A custom arrangement is needed", "A game for more than 10,000 players is arranged with us directly. Please write to us from the contact page.")}`;
     const c = cur(), known = !!PK.cur(S), x = TB.price(pack, c);
     const applied = c === "INR" ? Math.max(Number(S.credited) || 0, Number(S.info.creditApplied) || 0) : 0; // credit already put on this game (by you, or by a Host); it comes off what you pay
     const toPay = Math.max(0, Math.round((x.total - applied) * 100) / 100);

@@ -229,7 +229,7 @@ export async function helpdeskRoute(req: Request, env: PayEnv, now: number, spen
     const b = await body(req); const email = validEmail(b?.email);
     if (!email) return json({ error: "Enter the Organizer's e-mail address." }, 400);
     const mine = await openText(env as any, h.email_sealed);
-    if (email === mine) return json({ error: "Enter the Organizer's e-mail address, not the own." }, 400);
+    if (email === mine) return json({ error: "Enter the Organizer's e-mail address, not the helper's own." }, 400);
     const eh = await sha("email|" + email);
     const counts = (await db.prepare("SELECT COUNT(*) AS c FROM helpdesk_link WHERE partner_code=? AND state IN ('invited','active')").bind(h.code).first<{ c: number }>())?.c ?? 0;
     if (counts >= MAX_CLIENTS) return json({ error: `You can have up to ${MAX_CLIENTS} clients at a time.` }, 409);

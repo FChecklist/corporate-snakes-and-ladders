@@ -12,6 +12,7 @@ Branch `cloud/snakes-gaps-2026-11-25`, opened as a draft pull request whose base
 - **AI help (gap 4).** `/ai-manual` (a full public page for an AI assistant, with the payee read from the payee record, never typed in), a new `llms.txt`, the three message fields in both manuals, and one plain refusal: an AI key (`cba_`, prefix kept) cannot pay on any payment route.
 - **Winner and closing messages (gap 5).** Settings `preGameMessage`, `winnerMessage` and `closingMessage` (plain text, up to 300 characters); a winner is told what they won, then the organizer's winner message; everyone sees the closing message at the end.
 - **Rules in one short line each (gap 7).** The milestone tie-break, the exact finish and what happens on a tie are in `packages/shared/src/lines.ts`, on the player page ("Rules, one line each") and on the home page, and `packages/beacon/test/rules-lines.test.ts` proves each by playing the engine.
+- **The AI manual can be found.** The home footer and the page where the organizer gets the AI link both link to `/ai-manual`.
 - **Wording tests (gaps 1 and 6).** `apps/web/test/wording-rules.test.ts` fails if the old word for a name appears anywhere, and for host, guest, participant, ticket, payment words and "your" or "my" every scanned file holds zero (`wording-baseline.json` is empty and can only stay that way); no new tick box, no new "I agree" line and no Hindi text can be added; `docs/WORDING_2026-11-25.md` lists the rules.
 
 ### Changed
@@ -22,6 +23,9 @@ Branch `cloud/snakes-gaps-2026-11-25`, opened as a draft pull request whose base
 ### Fixed
 - PR #15's own tests made their game with a 20-second window, which the live line refuses (400); they use 10 seconds now (merged base: 4 failing tests before, 0 after).
 - An AI key could start an anonymous checkout before; every payment route now answers it first with the plain refusal.
+- Two of the ten AI facts were not true for this game: fact 3 allowed a second board (the game refuses it) and said every player has their own board (a table game shares one); fact 8 now names the three messages and says who pays.
+- The error guide and the AI guide pointed to a "Players card" that is not on the screen; they now say The people (step 6), as the screen and the server message do.
+- Phrases a word swap left broken ("the own", "on the behalf", "not the doing", "Thank you for the interest", "An game") are written properly again, and a wording rule blocks them.
 
 ### Not done on purpose
 - Text the wording tests do not read: the legal documents, the invoice terms, the recorded consent sentences (see below), the older release notes, the static `site/` copy and the documents under `docs/`. A person should also read the console and the error guide once for flow: the "your" and "my" sentences were rewritten with a parser-based tool, not by hand (see docs/WORDING_2026-11-25.md).

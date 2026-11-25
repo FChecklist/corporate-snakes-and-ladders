@@ -88,7 +88,7 @@ describe("showing it: pop-up, in place, take me there, back to where you were", 
     const p = await page(); const d = p.win.document; let again = 0;
     p.win.CTG.dialog({ status: 500, message: "boom for asha@example.com" }, { retry: () => again++ });
     const t = d.getElementById("ctg-dialog").textContent;
-    expect(t).toContain("not the doing"); expect(t).toContain("Reference:"); expect(t).not.toContain("asha@example.com");
+    expect(t).toContain("did nothing wrong"); expect(t).toContain("Reference:"); expect(t).not.toContain("asha@example.com");
     expect(d.querySelector('#ctg-dialog a[href^="https://wa.me/919650397480?text="]')).toBeTruthy();
     d.querySelector('#ctg-dialog [data-ctg="retry"]').click(); expect(again).toBe(1); expect(d.getElementById("ctg-dialog")).toBeNull();
   });
