@@ -64,12 +64,11 @@ describe("the key manual describes this game, with the three messages and the ru
     for (const [name, text] of [["manual", ai()], ["co-organizer manual", host()], ["manifest", JSON.stringify(AI_MANIFEST)], ["map", mapText(`${ORIGIN}/ai/${KEY}`, ORIGIN)]] as const) expect([name, withoutFacts(text).match(LEFTOVERS)?.[0] ?? null]).toEqual([name, null]);
   });
   test("the words around the API names are the owner's: no guest, ticket, host, participant, engagement, nickname, my, mine, your, yours, event, card, house", () => {
-    const m = JSON.stringify(AI_MANIFEST).replace(/\\"/g, '"').replace(/\\n/g, " ");
+    const m = JSON.stringify(AI_MANIFEST).replace(/\\"/g, '"').replace(/\\n/g, " ").replace(/scratch card/g, "scratch"); // a lucky draw can be shown as a scratch card: that word is the product's, not the old card
     for (const [name, text] of [["manual", ai()], ["co-organizer manual", host()], ["manifest", m], ["map", mapText(`${ORIGIN}/ai/${KEY}`, ORIGIN)]] as const) {
       const hits = [...withoutApiNames(withoutFacts(text)).matchAll(new RegExp(BANNED.source, "gi"))].map((x) => x[0]);
-      expect([name, hits.filter((h) => !/^scratch card$/i.test(h))]).toEqual([name, name === "manifest" ? hits.filter((h) => /^cards?$/i.test(h)) : []]); // the manifest names the scratch card of a lucky draw
+      expect([name, hits]).toEqual([name, []]);
     }
-    for (const [name, text] of [["manifest", m]]) expect([name, withoutApiNames(text).replace(/scratch card/g, "").match(BANNED)?.[0] ?? null]).toEqual([name, null]);
   });
   test("the numbered conversation is the same list as the public page: twelve steps, the same plain words, in the manual, the JSON and the manifest", () => {
     expect(STEPS.length).toBe(12);

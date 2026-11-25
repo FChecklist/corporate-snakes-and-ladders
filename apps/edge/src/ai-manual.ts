@@ -57,7 +57,7 @@ export function aiManualHtml(i: ManualInput): string {
         ["Game helper", "`cbc_`", "A helper for one game. It has no AI link."],
       ]),
       p(`An AI is given an AI link. It looks like \`${link}\`, and the key inside starts with \`cba_\`. An organizer key (\`cbk_\`) is never accepted in an AI link: that address answers Not found.`),
-      p("An AI link works until the organizer replaces or stops it. If it answers Not found, it has been stopped. Tell the organizer, and do not look for another way in."),
+      p("The AI link in the console works until the organizer replaces or stops it. A link that came by e-mail works for 24 hours. If a link answers Not found, it has been stopped or has run out. Tell the organizer, and do not look for another way in."),
     ].join("")),
     section("start", "Getting started", [
       p(`**For the organizer.** The AI link is in the console. ${COPY_LINK_SENTENCE}`),
