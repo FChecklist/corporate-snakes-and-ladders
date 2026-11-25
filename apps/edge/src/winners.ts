@@ -14,7 +14,7 @@ import { openPii, openText, sealPii, sealText, type PiiEnv } from "./pii";
 import { cfgOfRow, recordWinners } from "./lifecycle";
 import { transientDb } from "./transient";
 import { checkinRequired, deviceMatches } from "./checkin";
-import { checkClaim } from "./verifywin";
+import { checkClaim, orderProblem } from "./verifywin";
 import type { D1, Env } from "./worker";
 import { cleanPhone, keptFromClean, keptPhone } from "./phonekit";
 
@@ -68,6 +68,8 @@ export async function acceptVotes(env: Env & PiiEnv, e: any, eid: string, b: any
     }
     const n = (await env.DB.prepare("SELECT COUNT(*) AS c FROM rvote WHERE eid=? AND round=? AND pattern=? AND ordinal=? AND digest=?").bind(eid, x.round, x.pattern, x.ordinal, digest).first<{ c: number }>())?.c ?? 0;
     if (n < need) continue;
+    // The places agree with each other is asked again NOW, against what is settled at this moment: a report that passed once is remembered, so without this two reports that both passed before either settled could both settle (audit L2 of 1.5.4)
+    { const bad = await orderProblem(env, eid, { pattern: x.pattern, ordinal: x.ordinal, round: x.round, idx: x.idx, pids }); if (bad) { refused.push(label); continue; } }
     // The winner record and the prize rows are written BEFORE the prize is marked settled (both are safe to write twice): a passing database hiccup in between leaves the prize unsettled, so the next report repairs it, not settled with no winner record (5 Nov 2026 audit).
     await recordWinners(env, e, eid, [{ pattern: x.pattern, ordinal: x.ordinal, round: x.round, idx: x.idx, pids }], now, "phones", true);
     await makePrizeRows(env, eid, x.round, x.pattern, x.ordinal, pids.slice(0, 100), true);

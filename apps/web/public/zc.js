@@ -863,7 +863,7 @@
     const presence = S.cfg && S.cfg.play === "presence";
     return `<div class="zc-block"><h3>Prizes won, from the public throws</h3>${S.settledPreview.length ? S.settledPreview.map((s) => rowl(`${esc(lineLabel(s))} · turn ${Number(s.idx) + 1}`, `<b>${s.pids.length} player${s.pids.length === 1 ? "" : "s"}${s.names ? " · " + esc(s.names) : ""}</b>`)).join("") : small("No prize has been won yet.")}
       ${presence ? small(`Throws received: ${S.claims.length}. A throw counts only if it reached the software from the right phone inside its turn window.`) : ""}
-      ${small(`Every throw comes from a public random beacon. Winners are confirmed when several phones agree. Neither you nor IT Services can choose or change them in the software. Confirmed so far: ${(S.published || []).filter((r) => r.pattern !== "lucky").length}.`)}
+      ${small(`Every throw comes from a public random beacon. Winners are confirmed when several phones agree. Nobody can choose them. A correction, if one is ever needed, is made from the console and is kept with who made it and when. Confirmed so far: ${(S.published || []).filter((r) => r.pattern !== "lucky").length}.`)}
       <button type="button" class="zc-mini" id="csv"${S.settledPreview.length && !S.shield ? "" : " disabled"}>Download report</button></div>`;
   }
   function stepDay() {
@@ -1068,7 +1068,7 @@
   }
   /** The two fixed sentences (owner rules 1.1): fairness and privacy. The words are the same on every page; apps/web/test/owner-rules-lines.test.ts checks them against packages/shared/src/lines.ts. */
   const FAIRNESS_LINE = "No one knows the next roll: not the organizer, not the host, not even the software.";
-  const PRIVACY_LINE = "Designed to follow US privacy laws, EU GDPR and India's DPDP. All participant information, including IDs, is deleted within 24 hours after the game ends.";
+  const PRIVACY_LINE = "Designed to follow US privacy laws, EU GDPR and India's DPDP. All participant information, including IDs, is deleted within 24 hours after the game ends. Only a winner's name, mobile number and employee ID, which the winner confirms so the prize can be handed over, are kept for 365 days.";
   const LINES_HTML = `<p class="zc-small" id="fairline">${esc(FAIRNESS_LINE)}</p><p class="zc-small" id="privline">${esc(PRIVACY_LINE)}</p>`;
   function frame(inner, withNav) {
     return `<div class="zc-frame">${barHtml()}${withNav ? payNote() : ""}${aiStrip()}${withNav ? progHtml() : ""}${withNav && S.sheet ? `<div class="zc-sheet"><div class="zc-small zc-nomargin">Your game at a glance</div>${synHtml()}</div>` : ""}${inner}${withNav ? tabsHtml() : ""}${LINES_HTML}</div>`;

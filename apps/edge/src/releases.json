@@ -1,5 +1,18 @@
 [
   {
+    "version": "1.5.5",
+    "date": "2026-11-25",
+    "commit": "",
+    "title": "Fix after the second audit of 1.5.4",
+    "changes": [
+      "The prizes for biggest climb, biggest comeback, never missed a turn and the winning team are now settled only from the true answer: the server plays every seat of the game from the public numbers and counts a report only when it matches. A few phones can no longer pick a seat that climbed a little or a team that did not win",
+      "Older games, which cannot be played again on the server, hand these four prizes out from the console",
+      "The privacy line now says that a winner's name, mobile number and employee ID are kept for 365 days so the prize can be handed over",
+      "The wording about winners is put right: a winner is worked out by the software, and a correction is possible only from the console and is kept with who made it and when",
+      "Order checks are no longer skipped for the second and later winners of a line"
+    ]
+  },
+  {
     "version": "1.5.4",
     "date": "2026-11-23",
     "commit": "",

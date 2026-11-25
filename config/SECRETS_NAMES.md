@@ -47,6 +47,7 @@ Where things are set:
 | `CONSOLE_PAID_SECRET` | Signs the console's "paid" notice (`POST /api/console/paid`, HMAC-SHA-256 of `timestamp.body`); with no value that address answers 404 and no game can be marked paid that way | Pages secret | secret |
 | `PARTNER_COMMISSION_RATE` | Partner commission rate | Optional Pages variable | setting |
 | `DAILY_WRITE_BUDGET` | Most database writes the Worker allows itself per day | wrangler var | setting |
+| `REPLAY_SEATS_PER_CALL` | Optional: how many seats the server plays in one call when it works out the whole game for the climb, comeback, never-missed and team prizes (1 to 500, default 100; a name and a number, never a secret) | Optional Pages variable | setting |
 | `STRICT_KEYS` | "1" on the live site: the Worker refuses every request unless the required secrets are set | Pages variable | setting |
 | `JOIN_PER_IP_DAY` | Joins one network address may make per day (default in code) | wrangler var | setting |
 | `JOIN_PER_IP_MINUTE` | Joins one network address may make per minute (default in code) | wrangler var | setting |

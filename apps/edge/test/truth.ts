@@ -10,7 +10,7 @@ import { settleByPhones } from "./settle";
 import { installBeacon, randomnessOf } from "./beacon";
 export * from "./beacon";
 
-export interface TrueGame { settled: Settled[]; pids: string[]; endMs: number; turnMs: (t: number) => number; players: number; turns: number; ended: boolean }
+export interface TrueGame { settled: Settled[]; pids: string[]; endMs: number; turnMs: (t: number) => number; players: number; turns: number; ended: boolean; runs: any[] }
 /** The true game: the seats that joined, the stand-in beacon's numbers, played to the end the way a phone plays it. */
 export function trueGame(raw: any, eid: string, upTo = Infinity): TrueGame {
   const e = raw.prepare("SELECT * FROM engagement WHERE id=?").get(eid), cfg = cfgOfRow(e);
@@ -21,7 +21,7 @@ export function trueGame(raw: any, eid: string, upTo = Infinity): TrueGame {
   const g = playGame(eid, cfg, seats.length, { b0: randomnessOf(e.start_round + 1), betas });
   const settled = settleGame(g, cfg, seats.map((s) => s.pid), 1);
   const st = g.st as any;
-  return { settled, pids: seats.map((s) => s.pid), endMs: roundMs(betaRound(cap - 1)) + 120_000, turnMs: (t) => roundMs(betaRound(t)), players: seats.length, turns: st.turnsPlayed ?? st.throws ?? 0, ended: !!st.ended };
+  return { settled, pids: seats.map((s) => s.pid), endMs: roundMs(betaRound(cap - 1)) + 120_000, turnMs: (t) => roundMs(betaRound(t)), players: seats.length, turns: st.turnsPlayed ?? st.throws ?? 0, ended: !!st.ended, runs: st.runs ?? [] };
 }
 type CallFn = Parameters<typeof settleByPhones>[0];
 /** What a game's phones would all report once it is over. */

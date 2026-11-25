@@ -69,7 +69,7 @@ export const AI_CANNOT: { what: string; ask: string }[] = [
   { what: "Publish. The organizer confirms their own e-mail and mobile number first.", ask: "When everything is ready, call POST {api}/z/{id}/publish and give the organizer the consoleUrl it returns; they press Publish." },
   { what: "Delete participant data.", ask: "POST {api}/z/{id}/control/request with {action: erase}; the organizer confirms in their console (they are also e-mailed)." },
   { what: "Pause, resume or stop a running game. Only the organizer's own browser can sign that.", ask: "POST {api}/z/{id}/control/request with {action: pause|resume|stop}; tell them to approve it in their console now." },
-  { what: "Choose, change, add or remove winners, numbers or tickets. The software decides, from public random numbers, when several phones agree. Neither the organizer nor IT Services can choose or change them in the software.", ask: "Explain this plainly if asked. There is no way to ask for it." },
+  { what: "Choose, change, add or remove winners, numbers or tickets. The software decides, from public random numbers, when several phones agree. Nobody can choose them. A correction, if ever needed, is made only from the console.", ask: "Explain this plainly if asked. There is no way to ask for it." },
   { what: "Create or retire the organizer's own sign-in keys, change their e-mail, or delete their account.", ask: "Tell them to do it in their console (Keys card)." },
   { what: "Write or run code on the platform.", ask: "Use the suggestions board for ideas (no names, no numbers)." },
 ];

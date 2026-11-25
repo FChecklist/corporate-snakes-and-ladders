@@ -2,6 +2,27 @@
 
 Reconstructed on 20 Nov 2026 from git history, tags and the live `/version.json` (https://snakes.corporatetambola.com/version.json). Before this file there was no changelog and no version policy; entries below the live one are approximate (dates from tags and commits). Unknown values are written "unknown", not guessed. From now on follow the standard: marketing-ledger plans/VERSION-AND-KNOWLEDGE-STANDARD-2026-11-20.md section 2.2 (newest first; Added/Changed/Fixed; what, where, PR, two audit PASS ids, rollback id).
 
+## 1.5.5 (25 Nov 2026): fix after the second audit of 1.5.4 (angle 2, Medium M1)
+
+Same branch line `p1/owner-rules-v1-1` (this PR is based on it).
+
+### Fixed
+- **Audit M1 (Medium): a few seats could still pick the winner of "biggest climb", "biggest comeback" and the team prize.** The 1.5.4 check accepted a report when the named seat had climbed at all (or came back at all) and accepted any whole team. Now `apps/edge/src/replay.ts` plays every seat of the game on the server from the public beacon numbers and the seat list, in parts of `REPLAY_SEATS_PER_CALL` seats (default 100, stored as seat numbers and squares only in `kv tru/<game>/<end turn>/<part>`), and `verifywin.ts` accepts one of these four prizes (climb, comeback, never missed, team) only when it equals what `settleRace` (the same function the phones use) gives for the whole game. A report for a turn the game did not end on is refused. Table games are settled with `playTable`/`settleTable`. Games of the older presence kind have no stored throws and cannot be replayed, so they refuse these four prizes and the organizer gives them in the console.
+- **Wording put right.** The page for trust, the AI assistant's facts, the winner e-mail and the notes in the console said nobody can choose or change a winner. A correction from the console (a prize given to another card that claimed it, kept with who made it and when) is real, so the text now says exactly that. The legal terms (`terms.html`) were not edited; see the owner question below.
+- **Audit L1:** the privacy line (`packages/shared/src/lines.ts`, the home page, the host and organizer pages) now says that a winner's name, mobile number and employee ID are kept for 365 days so the prize can be handed over.
+- **Audit L2:** the order checks (a home place, a milestone line) were skipped after the first winner of a line was accepted; `orderProblem` now runs for every pass.
+
+### Plan fact
+- `pages/wrangler.toml` states the paid Workers plan (owner, 2026-10-27). The replay depends on it: the old "a free Worker, about 10 ms" limit written in 1.5.4 does not apply to the live setup. `apps/edge/wrangler.toml` is the unused free-plan design. The replay is cut into parts so that no single call is long even for a large game.
+
+### Still open (honest limits)
+- Milestone and finish prizes prove that the named seat really got there on that turn, not that nobody got there first (an exclusive-mode milestone likewise).
+- The legal terms (`apps/web/public/terms.html`, `site/terms.html`, section 9.1) say that neither the organizer nor IT Services can add, remove or change a winner in the software; the console correction exists, so the owner should decide the wording of a versioned legal text.
+- Audit L3, L5, L6 and L7 and the old `GET` prizes call (L4) were left as they are in this version.
+
+### Added
+- Tests: `apps/edge/test/verify-end-prizes.test.ts` (10 tests; 9 of them fail against the 1.5.4 source and all 10 pass now: the audit's probe for the biggest climb and the biggest comeback, a seat that never climbed or the wrong turn, one prize per person, a whole team that did not win, the replay in parts, what is kept and its 24-hour deletion, two games kept apart, the presence-game refusal, and the order check at settling).
+
 ## 1.5.4 (23 Nov 2026): fix after the security audit of 1.5.3
 
 Same branch `p1/owner-rules-v1-1`, same live line (version 1.4.1, commit 042b4d6; checked 23 Nov: it is an ancestor of the branch, 18 ahead and 0 behind with this version, the base `rc/snakes-runner-2026-11-05` is that line, nothing to merge in). Not deployed, no money flag or secret touched (`pages/wrangler.toml` and `config/` are unchanged). Audit of 1.5.3 (head 11841d0c): correctness PASS; security FAIL with one High (H1) and two Mediums (M1, M2). This version fixes all three and the Lows that could be fixed safely, each with a test that fails on the 1.5.3 source. Audit PASS ids: pending (two independent audits on the exact SHA are asked for in the PR). Rollback id (previous deploy): unknown, nothing of this branch is live.
