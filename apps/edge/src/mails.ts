@@ -77,7 +77,7 @@ export function coHostLinkMail(origin: string, key: string, owner: string, expir
     expiry: `THIS HOST LINK WORKS FOR 24 HOURS ONLY (until ${istStamp(expiresMs)}).`,
     button: { label: "Open your console", url: `${origin}/zc.html`, note: "Your lasting Host link is in your console." },
     pasteLabel: "YOUR HOST PASTES THIS INTO AN AI CHAT",
-    paste: aiPaste(origin, key).replace("MY OWN Corporate Snakes and Ladders account. I am the owner,", `the Corporate Snakes and Ladders account of ${owner}. I am their Host,`),
+    paste: aiPaste(origin, key).replace("the Corporate Snakes and Ladders account that I own. I am the owner,", `the Corporate Snakes and Ladders account of ${owner}. I am their co-organizer,`),
     steps: ["Copy the box. Give it only to your Host.", "They paste it into any AI chat.", "They ask how the game is going, or to message the guests."],
     can: HOST_CAN, stays: HOST_STAYS,
     replace: "Retire the Host key in your console and make a new one. The old link stops at once.",

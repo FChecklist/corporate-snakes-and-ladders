@@ -500,7 +500,7 @@ describe("G. the organizer's AI", () => {
     const m = await j(await call("GET", "/api/z/ai-manifest"));
     expect(m.conversation.length).toBe(12); expect(m.packs.length).toBeGreaterThan(5);
     const text = JSON.stringify(m);
-    expect(text).toMatch(/lucky/); expect(text).toMatch(/winners\?: 1\|3\|5\|10/); expect(text).toMatch(/ONE winner of ONE house/); expect(text).toMatch(/GET \/api\/z\/\{id\}\/summary/);
+    expect(text).toMatch(/lucky/); expect(text).toMatch(/winners\?: 1\|3\|5\|10/); expect(text).toMatch(/ONE winner of ONE gift/); expect(text).toMatch(/GET \/api\/z\/\{id\}\/summary/);
     expect(m.payment_faq.join(" ")).toMatch(/late/i); expect(m.payment_faq.join(" ")).toMatch(/nothing is owed|no penalty/i); expect(m.payment_faq.join(" ")).toMatch(/limit does not have to match/i);
   });
   test("UC-63 an unknown route tells the AI where the list of routes is", async () => {
@@ -528,7 +528,7 @@ describe("G2. the organizer's AI: round 2 findings", () => {
   });
   test("UC-67 the manifest says: no writes before the yes, rewards replace the list, what skipped/invalid mean, and does not ask for the speed in the schedule call", async () => {
     const t = JSON.stringify(await j(await call("GET", "/api/z/ai-manifest")));
-    expect(t).toMatch(/DO NOT call POST \/api\/z or any other write/); expect(t).toMatch(/REPLACE what was saved/); expect(t).toMatch(/OWNER loads the invite list/); expect(t).not.toMatch(/schedule\?at=[^"]*callSeconds/);
+    expect(t).toMatch(/DO NOT call POST \/api\/z or any other write/); expect(t).toMatch(/REPLACE what was saved/); expect(t).toMatch(/OWNER loads the list of employee IDs/); expect(t).not.toMatch(/schedule\?at=[^"]*callSeconds/);
   });
 });
 

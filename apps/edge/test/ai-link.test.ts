@@ -35,7 +35,7 @@ describe("the paste text and the manual", () => {
   test("the paste is two short lines plus the link, framed as the owner's own documentation, with the key only inside the link", async () => {
     const o = await organizer();
     expect(o.msg.split("\n").length).toBe(2); expect(o.msg.length).toBeLessThan(420);
-    expect(o.msg).toMatch(/API documentation and instructions for MY OWN Corporate Snakes and Ladders account/); expect(o.msg).toMatch(/I am the owner/);
+    expect(o.msg).toMatch(/API documentation and instructions for the Corporate Snakes and Ladders account that I own/); expect(o.msg).not.toMatch(/MY OWN/); expect(o.msg).toMatch(/I am the owner/);
     expect(o.msg.endsWith(`${ORIGIN}/ai/${o.ai}`)).toBe(true);
     expect(o.msg.split(o.ai).length).toBe(2); // the key appears once: in the link
     expect(o.msg).not.toMatch(/x-organizer/i); expect(o.msg).not.toMatch(/ai-manifest/);
@@ -53,7 +53,7 @@ describe("the paste text and the manual", () => {
     for (const must of [`GET ${base}/z/{id}/summary`, `POST ${base}/z `, `PATCH ${base}/z/{id}/settings`, `POST ${base}/z/{id}/roster`, `POST ${base}/z/{id}/announce`, `POST ${base}/z/{id}/prizegiven`, `GET ${base}/z/schedule`, `POST ${base}/org/host`, `GET ${base}/org/ai/audit`])
       expect(t).toContain(must);
     expect(t).toMatch(/ONE question at a time/); expect(t).toMatch(/_method=POST/); expect(t).toMatch(/about 20 people/); expect(t).toMatch(/WHAT YOU CANNOT DO/);
-    expect(t).toMatch(/Pay for anything/); expect(t).toMatch(/Publish\./); expect(t).toMatch(/Delete participant data/); expect(t).toMatch(/Pause, resume or stop/); expect(t).toMatch(/winners, numbers or tickets/);
+    expect(t).toMatch(/Pay for anything/); expect(t).toMatch(/Publish\./); expect(t).toMatch(/Delete player data/); expect(t).toMatch(/Pause, resume or stop/); expect(t).toMatch(/winners, numbers or boards/);
     expect(t).toMatch(/Only the owner's own messages/); expect(t).toMatch(/Not found/); // injection rule + what a dead link says
     // every example address in the manual carries the key; no bare /api/ address without it except the optional header path
     for (const line of t.split("\n").filter((l) => /^\s*(Read|Create|Change|Load|Send)[^:]*:\s+GET /.test(l))) expect(line).toContain(base);
@@ -71,7 +71,7 @@ describe("the paste text and the manual", () => {
     const o = await organizer();
     const hk = await j(await call("POST", "/api/org/host", { mobile: "9876500009", email: "host@acme.com" }, o.h)); expect(hk.hostKey).toMatch(/^cbh_/); expect(hk.manualUrl).toBe(`${ORIGIN}/ai/${hk.hostKey}`);
     const t = await (await linkGet(hk.hostKey)).text();
-    expect(t).toMatch(/Host's AI assistant/); expect(t).toMatch(/You help a Host/); expect(t).toContain(`${ORIGIN}/ai/${hk.hostKey}/z/{id}/announce`);
+    expect(t).toMatch(/co-organizer's AI assistant/); expect(t).toMatch(/You help a co-organizer/); expect(t).toContain(`${ORIGIN}/ai/${hk.hostKey}/z/{id}/announce`);
     expect(t).not.toMatch(/PATCH .*settings/); expect(t).not.toContain("/roster"); expect(t).not.toMatch(/org\/host/);
   });
   test("the header-based manifest still works and now lists the new things and the link", async () => {
@@ -138,7 +138,7 @@ describe("GET-only fallback (_method and _body)", () => {
     expect(bad.status).toBe(400); expect(await bad.text()).toMatch(/URL-encode/);
     await call("GET", `/ai/${o.ai}/z/GET-5/settings?_method=PATCH&_body=${q({ invites: { on: true, per: 2, cats: ["dealers"] } })}`);
     expect((await j(await call("GET", `/ai/${o.ai}/z/GET-5/summary`))).invites).toEqual({ on: true, per: 2, cats: ["dealers"] });
-    const m = await (await linkGet(o.ai)).text(); expect(m).toContain("franchisees"); expect(m.length).toBeLessThan(33_000); // (limit raised from 29,000 to 33,000 when the 20 houses and their how-to-win lines joined the manual) the short front door (rules, choices, the 10 facts) comes FIRST, so a chatbot that cuts the page short still has what it needs
+    const m = await (await linkGet(o.ai)).text(); expect(m).toContain("franchisees"); expect(m.length).toBeLessThan(40_000); // (limit raised from 29,000 to 33,000 when the 20 houses and their how-to-win lines joined the manual, and to 40,000 when the real game's settings, the three messages and the payment rule replaced the older text) the short front door (rules, choices, the 10 facts) comes FIRST, so a chatbot that cuts the page short still has what it needs
   });
   test("it works only under /ai/<key>/: on the normal API a GET with _method is just a GET", async () => {
     const o = await organizer();
