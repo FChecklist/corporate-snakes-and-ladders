@@ -39,10 +39,10 @@ describe("console voice: the organizer and host screens say you, never I, my, me
   });
   test("the texts the server sends to the organizer (the AI guide) name the buttons as the screens do, and say you", () => {
     for (const f of ["apps/edge/src/ai-functions.ts"]) {
-      const src = rd(f); expect([f, /My people/.test(src)]).toEqual([f, false]); expect(src).toContain("the Players card");
+      const src = rd(f); expect([f, /My people/.test(src)]).toEqual([f, false]); expect(src).toContain("The people"); expect(src).not.toContain("Players card");
       expect(firstPersonIn(f, src).filter((h) => !h.includes("I do not know that") && !h.includes("Answer questions about the software"))).toEqual([]); // the one allowed exception is the AI's own quoted reply "I do not know that"
     }
-    expect(rd("apps/web/public/zc.js")).not.toMatch(/"My people"|>My people</); // the screen is the Players card
+    expect(rd("apps/web/public/zc.js")).not.toMatch(/"My people"|>My people</); // the block on the screen is named The people
   });
   test("the console says what an ID check is: matched, not proven; wrong IDs are limited for each network, a right ID is never counted", () => {
     const z = rd("apps/web/public/zc.js"); expect(z).toContain("it is not proven"); expect(z).toContain("a right ID is never counted");

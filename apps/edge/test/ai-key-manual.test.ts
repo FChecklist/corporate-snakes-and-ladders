@@ -26,7 +26,7 @@ const withoutFacts = (t: string) => t.replace(/THE 10 FACTS[\s\S]*?- Trust page:
 const withoutApiNames = (t: string) => t
   .replace(/`?tickets`?(?: is always 1|\?: 1|\) is always 1)/g, " ").replace(/\/participants/g, " ").replace(/org\/host/g, " ").replace(/role: organizer\|host\|co-host\|none/g, " ").replace(/\{kind: host\}/g, " ")
   .replace(/host \(a co-organizer\)/g, " ").replace(/co-host \(a game helper\)/g, " ").replace(/host = a co-organizer/g, " ").replace(/co-host = a game helper/g, " ").replace(/host is a co-organizer and co-host is a game helper/g, " ")
-  .replace(/neighbours, guests\./g, " ").replace(/\bhost@example\.com/g, " ").replace(/Your people/g, " "); // "Your people" is the name of the console button, kept by an older test
+  .replace(/neighbours, guests\./g, " ").replace(/\bhost@example\.com/g, " ");
 const BANNED = /guest|ticket|\bhosts?\b|co-host|participant|engagement|nickname|\b(my|mine|your|yours)\b|\bevents?\b|razorpay|checkout|payment link|\bcards?\b|\bhouses?\b/i;
 const LEFTOVERS = /B I N G O|5 x 5|FREE centre|Calling speed|call speed|6\|9\|12\|15|15\|20\|25\|30|Two-Ticket|Full House|Four Corners|Blackout|cards? per person|for each ticket|1 to 5 games|1-5 rounds|rounds?: 1-5|event planner|Participants card/i;
 
