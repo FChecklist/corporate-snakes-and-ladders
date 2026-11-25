@@ -31,7 +31,7 @@ const GOOGLECSP = PLAINCSP.replace("script-src 'self' https://static.cloudflarei
 const hdr = (csp, extra = "") => `\n  Content-Security-Policy: ${csp}\n  X-Content-Type-Options: nosniff\n  Referrer-Policy: no-referrer\n  X-Frame-Options: DENY\n  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=()${extra || PRIVATE_ROBOTS_HEADER}\n`;
 const NOINDEX = "\n  X-Robots-Tag: noindex, noai, noimageai";
 const PAGES = [ // [clean path, csp, noindex]
-  ["/pay", PAYCSP, true], ["/paytest", PAYCSP, true], ["/paylink", PAYCSP, true], ["/z", GAMECSP, true], ["/preview", GAMECSP, true], ["/demo", GAMECSP, true], ["/trust", PLAINCSP, false], ["/zc", GOOGLECSP, true], ["/big", PLAINCSP, true], ["/report", PLAINCSP, true], ["/signin", GOOGLECSP, true], ["/owner-visits", PLAINCSP, true], ["/owner-funnel", PLAINCSP, true], ["/owner-versions", PLAINCSP, true], ["/ai-link", PLAINCSP, true],
+  ["/pay", PAYCSP, true], ["/paytest", PAYCSP, true], ["/paylink", PAYCSP, true], ["/z", GAMECSP, true], ["/preview", GAMECSP, true], ["/demo", GAMECSP, true], ["/trust", PLAINCSP, false], ["/ai-manual", PLAINCSP, false], ["/zc", GOOGLECSP, true], ["/big", PLAINCSP, true], ["/report", PLAINCSP, true], ["/signin", GOOGLECSP, true], ["/owner-visits", PLAINCSP, true], ["/owner-funnel", PLAINCSP, true], ["/owner-versions", PLAINCSP, true], ["/ai-link", PLAINCSP, true],
   ["/partner", PLAINCSP, true], ["/helpdesk", PLAINCSP, false], ["/helpdesk-accept", PLAINCSP, true], ["/helpdesk-approve", PLAINCSP, true], ["/legal", PLAINCSP, false], ["/terms", PLAINCSP, false], ["/privacy", PLAINCSP, false], ["/legal-position", PLAINCSP, false], ["/about", PLAINCSP, false], ["/contact", PLAINCSP, false], ["/pricing", PLAINCSP, false], ["/refund-policy", PLAINCSP, false], ["/dpa", PLAINCSP, false], ["/subprocessors", PLAINCSP, false], ["/partner-terms", PLAINCSP, false], ["/organizer-guide", PLAINCSP, false], ["/brochure", PLAINCSP, false], ["/404", PLAINCSP, true], ["/index", GOOGLECSP, false],
 ];
 let rules = "";
@@ -47,5 +47,6 @@ writeFileSync(join(OUT, "_headers"), rules);
 writeFileSync(join(OUT, "version.json"), JSON.stringify(STAMP) + "\n"); // what is live (P12): served at /version.json
 // The functions also run for the page addresses (and only those, never for images, scripts or styles), so the old pages.dev address can answer 301 (functions/_middleware.ts).
 const PAGE_PATHS = FILES.filter((f) => f.endsWith(".html")).flatMap((f) => { const n = f.slice(0, -5); return n === "index" ? ["/", "/index", "/index.html"] : ["/" + n + ".html", "/" + n]; });
-writeFileSync(join(OUT, "_routes.json"), JSON.stringify({ version: 1, include: ["/api/*", "/ai/*", "/j/*", ...PAGE_PATHS], exclude: [] }));
+// /ai-manual (the public AI manual page) is not a file: the Worker builds it, because it names the payee from the payee record (functions/ai-manual.ts and ai-manual.html.ts).
+writeFileSync(join(OUT, "_routes.json"), JSON.stringify({ version: 1, include: ["/api/*", "/ai/*", "/j/*", "/ai-manual", "/ai-manual.html", ...PAGE_PATHS], exclude: [] }));
 console.log("pages/public ready");

@@ -35,7 +35,7 @@ import { ADJUST_SCHEMA, adjustAnyCur, adjustRoute, packOf, payablePublic } from 
 import { CREDIT_SCHEMA, activeCreditSummary, creditAppliedFor, creditRoute } from "./credit";
 import { cloneGame } from "./clone";
 import { acceptOver, acceptWon, endBoundMs, eraseEverything, erasePersonal, erasureOf, fullDeleteAt, lifecycleTick, MAX_AHEAD_MS, personalDeleteAt, SETTINGS_KEEP_MS, recordWinners, reportApi, reportLink } from "./lifecycle";
-import { PAY_SCHEMA, issueDueInvoices, payRoute, retryOutbox, sendMail, freeLaunch, payMode, FREE_CAP, MAX_DRAFTS, type PayEnv } from "./pay";
+import { PAY_SCHEMA, issueDueInvoices, payRoute, retryOutbox, sendMail, freeLaunch, payMode, FREE_CAP, MAX_DRAFTS, company, type PayEnv } from "./pay";
 import { PACKS, price } from "../../../packages/shared/src/pricing";
 import { turnRounds } from "../../../packages/beacon/src/schedule";
 import { DEFAULT_TURN_CAP } from "../../../packages/beacon/src/race";
@@ -53,6 +53,7 @@ import { factsText } from "./ai-facts";
 import { mapJson, mapText } from "./ai-functions";
 import { goScreen, screenJson, screenText } from "./ai-go";
 import { AI_CANNOT_DO, aiCannotPay, isAiCaller } from "./ai-pay";
+import { aiManualHtml } from "./ai-manual";
 import { AUDIT_SCHEMA, auditRequest, analyzeChain, loadRows, logAccess, setHold, toCsv, verifyChain, closeAuditFor, sweepAudit, type AuditEnv } from "./audit";
 import { DEMO_CAP, demoAllowed, demoName, demoOn, demoRecord, isDemo } from "./demo";
 import { FUNNEL_ENDPOINT, funnelCsv, funnelRange, funnelReport, funnelRoute, recordFunnel } from "./funnel";
@@ -591,10 +592,18 @@ async function handleCore(req: Request, env: Env, now = Date.now(), waitUntil?: 
   if (keysMissing(env)) return new Response(JSON.stringify({ error: "The service is not configured. Please try again later." }), { status: 503, headers: { "content-type": "application/json", "cache-control": "no-store" } });
   const pn = new URL(req.url).pathname;
   if (pn === "/ai" || pn.startsWith("/ai/")) return aiLink(req, env, now, waitUntil);
+  if (pn === "/ai-manual" || pn === "/ai-manual.html") return aiManualPage(req, env); // the public AI manual page (ai-manual.ts): no sign-in, no key
   if (req.method === "GET" && pn.startsWith("/j/")) return joinLinkPage(env, decodeURIComponent(pn.slice(3)).replace(/\/$/, ""), (env as PayEnv).PUBLIC_ORIGIN ?? new URL(req.url).origin, (e) => cfgOf(e).name || e.id); // the short personal link (people.ts)
   return handle0(req, env, now, waitUntil);
 }
 
+/** The public AI manual page (ai-manual.ts). The same for everyone; the payee name and the contact address are read from the payee record each time it is shown (company in pay.ts, set by COMPANY_JSON). No scripts; listed by no search engine, readable by any AI that is given the address. */
+function aiManualPage(req: Request, env: Env): Response {
+  const h = { "content-type": "text/html; charset=utf-8", "cache-control": "public, max-age=600", "x-robots-tag": "noindex, nofollow", "referrer-policy": "no-referrer", "x-content-type-options": "nosniff", "x-frame-options": "DENY", "content-security-policy": "default-src 'none'; style-src 'unsafe-inline'; img-src 'self' data:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'" };
+  if (req.method !== "GET" && req.method !== "HEAD") return new Response("This page is read with GET.", { status: 405, headers: { allow: "GET, HEAD", "content-type": "text/plain; charset=utf-8" } });
+  const co = company(env as PayEnv), origin = (env as PayEnv).PUBLIC_ORIGIN ?? new URL(req.url).origin;
+  return new Response(req.method === "HEAD" ? null : aiManualHtml({ origin, payee: co.legalName, contact: co.email }), { headers: h });
+}
 const LINK_HEADERS = { "x-robots-tag": "noindex, nofollow", "referrer-policy": "no-referrer", "cache-control": "no-store", "x-content-type-options": "nosniff" };
 const linkText = (s: string, status = 200) => new Response(s, { status, headers: { "content-type": "text/plain; charset=utf-8", ...LINK_HEADERS } });
 /** Same answer for a mistyped, unknown, revoked or wrong-kind key: nothing to learn from it. */

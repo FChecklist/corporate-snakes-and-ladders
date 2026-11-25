@@ -43,6 +43,7 @@ User-agent: MistralAI-User
 Disallow: /
 Allow: /trust.html
 Allow: /llms.txt
+Allow: /ai-manual
 Allow: /legal.html
 Allow: /terms.html
 Allow: /privacy.html
