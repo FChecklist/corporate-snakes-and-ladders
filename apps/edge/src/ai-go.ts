@@ -3,7 +3,7 @@
 // until the organizer says yes at the read-back (so the 10 free drafts are never wasted). State travels in the link itself (short keys), so there is nothing to store.
 //
 //   z time zone (in | et | ct | mt | pt | uk | utc)  d day (YYYY-MM-DD, in that zone)  t time (HHMM)  o occasion  c people limit  k cards (1|2)  s speed  r rounds  j join (o open | c invite-only)  v invitations per guest (0 = off)
-//   p prize bundle (c classic | s simple | r rich)  x extras (n none | l one lucky draw)  id game code  m message number
+//   p gift bundle (c milestone and the first five home | s milestone and the first home | r with biggest climb and comeback)  b board size (100 | 144 | 225)  x extras (n none | l one lucky draw)  id game code  m message number
 //
 // The renderer is pure except for `ctx.api`, which calls our own API as the organizer's AI key (so every rule and every audit row is the same as a direct call).
 
@@ -24,16 +24,16 @@ const zoneKey = (q: URLSearchParams) => (q.get("z") && ZONES[q.get("z")!] ? q.ge
 const zoneOf = (q: URLSearchParams) => (zoneKey(q) ? ZONES[zoneKey(q)]!.tz : DEFAULT_TZ);
 const zoneLabel = (q: URLSearchParams) => (zoneKey(q) ? ZONES[zoneKey(q)]!.label : ZONES.in!.label);
 export const OCCASIONS: Record<string, { label: string; code: string }> = {
-  team: { label: "Team event", code: "TEAM-EVENT" }, holiday: { label: "Holiday party", code: "HOLIDAY-PARTY" }, allhands: { label: "All-hands opener", code: "ALL-HANDS" },
-  newhire: { label: "New-hire welcome", code: "NEW-HIRE" }, customer: { label: "Customer event", code: "CUSTOMER-EVENT" }, friday: { label: "Friday team break", code: "TEAM-BREAK" },
-  family: { label: "Family day", code: "FAMILY-DAY" }, diwali: { label: "Diwali party", code: "DIWALI" }, other: { label: "Corporate event", code: "EVENT" },
+  team: { label: "Team gathering", code: "TEAM-GAME" }, holiday: { label: "Holiday party", code: "HOLIDAY-PARTY" }, allhands: { label: "All-hands opener", code: "ALL-HANDS" },
+  newhire: { label: "New-hire welcome", code: "NEW-HIRE" }, customer: { label: "Customer gathering", code: "CUSTOMER-GAME" }, friday: { label: "Friday team break", code: "TEAM-BREAK" },
+  family: { label: "Family day", code: "FAMILY-DAY" }, diwali: { label: "Diwali party", code: "DIWALI" }, other: { label: "Corporate gathering", code: "GAME" },
 };
 const SLOTS = ["0900", "1000", "1200", "1300", "1500", "1600", "1800", "1900"];
 export const PRESET_MESSAGES = ["Welcome! The game starts soon. Please keep this page open.", "The game starts in about 10 minutes. Please keep this page open.", "Thank you for joining. Good luck, everyone!", "A short break is coming. Please stay on this page."];
 const BUNDLES: Record<string, { label: string; houses: string[] }> = {
-  c: { label: "Classic: Line, Four Corners, X and Blackout", houses: ["line", "corners", "x", "blackout"] },
-  s: { label: "Simple: Line and Blackout", houses: ["line", "blackout"] },
-  r: { label: "Rich: Line (3 winners), Four Corners, X, Frame, Postage Stamp and Blackout", houses: ["line", "line", "line", "corners", "x", "frame", "stamp", "blackout"] },
+  c: { label: "Milestone and the first five home", houses: ["milestone", "finish", "finish", "finish", "finish", "finish"] },
+  s: { label: "Milestone and the first home", houses: ["milestone", "finish"] },
+  r: { label: "Milestone, the first five home, biggest climb and comeback", houses: ["milestone", "finish", "finish", "finish", "finish", "finish", "climb", "comeback"] },
 };
 
 const pad = (n: number) => String(n).padStart(2, "0");
@@ -46,10 +46,11 @@ export const startMsOf = (d: string, t: string, tz: string = DEFAULT_TZ): number
 export const startRoundOf = (ms: number): number => roundAt(ms);
 const validDay = (d: string | null) => !!d && /^\d{4}-\d{2}-\d{2}$/.test(d), validTime = (t: string | null) => !!t && SLOTS.includes(t);
 const money = (n: number, inIndia = true) => inIndia ? `₹${price(n, "INR").total.toLocaleString("en-IN")} (about US$ ${price(n, "USD").total})` : `US$ ${price(n, "USD").total} (or ₹${price(n, "INR").total.toLocaleString("en-IN")})`;
+const boardOf = (q: URLSearchParams): number => { const b = Number(q.get("b")); return b === 144 || b === 225 ? b : 100; };
 const packFor = (cap: number) => PACKS.find((p) => p[0] >= cap)?.[0] ?? null;
 
 /** The params a step carries forward, in a stable short order. */
-const KEYS = ["id", "z", "d", "t", "o", "c", "k", "s", "r", "j", "v", "p", "x", "m"];
+const KEYS = ["id", "z", "d", "t", "o", "c", "b", "p", "x", "m"];
 export function link(ctx: GoCtx, step: string, q: URLSearchParams, set: Record<string, string> = {}): string {
   const out = new URLSearchParams();
   for (const k of KEYS) { const v = k in set ? set[k] : q.get(k); if (v !== null && v !== undefined && v !== "") out.set(k, v); }
@@ -75,61 +76,57 @@ const timeRows = (ctx: GoCtx, q: URLSearchParams, next: string): [string, string
   return SLOTS.filter((t) => startMsOf(d, t, tz) >= ctx.now + 2 * 3_600_000).map((t) => [timeLabel(t) + " (" + zoneLabel(q) + ")", link(ctx, next, q, { t }), t === "1600"] as [string, string, boolean?]);
 };
 const summaryLines = (q: URLSearchParams): string[] => {
-  const d = q.get("d")!, t = q.get("t")!, o = OCCASIONS[q.get("o") || "other"] ?? OCCASIONS.other!, c = Number(q.get("c")), k = q.get("k") === "2" ? 2 : 1, s = Number(q.get("s")) || 9, r = Number(q.get("r")) || 1;
-  const v = Number(q.get("v")) || 0, j = q.get("j") === "c", p = BUNDLES[q.get("p") || "c"] ?? BUNDLES.c!, x = q.get("x") === "l";
+  const d = q.get("d")!, t = q.get("t")!, o = OCCASIONS[q.get("o") || "other"] ?? OCCASIONS.other!, c = Number(q.get("c")), p = BUNDLES[q.get("p") || "c"] ?? BUNDLES.c!, x = q.get("x") === "l", size = boardOf(q);
   const pk = packFor(c);
-  return [`Game: ${o!.label}`, `Day and time: ${dayLabel(d)}, ${timeLabel(t)} ${zoneLabel(q)} (the first number is called 2 minutes after)`, `People: up to ${c}${pk ? ` (${money(pk)})` : ""}`,
-    `${k} card${k === 1 ? "" : "s"} per person, a number every ${s} seconds, ${r} round${r === 1 ? "" : "s"}`, j ? "Invite-only: only people on your list can join" : "Anyone with the link can join",
-    v ? `Each guest may invite up to ${v} more people` : "Guests may not invite others", `Prizes: ${p.label}`, x ? "One lucky draw (1 winner); you name the prize later" : "No lucky draw", "Nothing is charged until you pay, before the start time."];
+  return [`Game: ${o!.label}`, `Day and time: ${dayLabel(d)}, ${timeLabel(t)} ${zoneLabel(q)} (the first turn opens 2 minutes after)`, `Players: up to ${c}${pk ? ` (${money(pk)})` : ""}`,
+    `How it plays: a race on a board of ${size} squares; every turn has a 10 second window and the dice roll by themselves; each player has a board of their own`, "People come in by employee ID only: the organizer loads the list in the console",
+    `Gifts: ${p.label}`, x ? "One lucky draw (1 winner); the gift is named later" : "No lucky draw", "Nothing is charged until the organizer or a co-organizer presses Pay now in the console, before the start time."];
 };
 const consoleOf = (ctx: GoCtx, id: string, act = "") => `${ctx.origin}/zc.html?e=${encodeURIComponent(id)}${act ? "&do=" + act : ""}`;
 
 export async function goScreen(ctx: GoCtx, step: string, q: URLSearchParams): Promise<Screen> {
   const L = (s: string, set: Record<string, string> = {}) => link(ctx, s, q, set);
   switch (step) {
-    case "": case "start": return { say: "Hello! I can set up or manage your Corporate Snakes and Ladders game with you. What would you like to do?", choices: choices([["Start a new game", `${ctx.base}/go/new`, true], ["Change a game that has not started yet", `${ctx.base}/go/games`], ["Show the links of a game", `${ctx.base}/go/games?then=links`], ["Tell me about the software (is it safe, secure, legal?)", `${ctx.base}/facts`], ["Try a free demo first", `${ctx.origin}/demo.html`]]), ifWrong: WRONG };
+    case "": case "start": return { say: "Hello! I can set up or manage a Corporate Snakes and Ladders game with you. What would you like to do?", choices: choices([["Start a new game", `${ctx.base}/go/new`, true], ["Change a game that has not started yet", `${ctx.base}/go/games`], ["Show the links of a game", `${ctx.base}/go/games?then=links`], ["Ask about the software (is it safe, secure, legal?)", `${ctx.base}/facts`], ["Try a free demo first", `${ctx.origin}/demo.html`]]), ifWrong: WRONG };
     case "new":
       if (!zoneKey(q)) return { say: "Which time zone are you in? (The start time is set in it.)", choices: choices(Object.entries(ZONES).map(([k, z]) => [z.label, L("new", { z: k })] as [string, string, boolean?])), ifWrong: WRONG };
       return { say: `Which day is the game? (${zoneLabel(q)})`, choices: choices(dayRows(ctx, q, "time")), ifWrong: WRONG };
     case "time": if (!validDay(q.get("d"))) return goScreen(ctx, "new", q);
-      return { say: `${dayLabel(q.get("d")!)}. At what time should it start? (Guests can join before; the first number is called 2 minutes after the start time.)`, choices: choices(timeRows(ctx, q, "occ")), ifWrong: WRONG };
+      return { say: `${dayLabel(q.get("d")!)}. At what time should it start? (Players can get ready before; the first turn opens 2 minutes after the start time.)`, choices: choices(timeRows(ctx, q, "occ")), ifWrong: WRONG };
     case "occ": if (!validDay(q.get("d")) || !validTime(q.get("t"))) return goScreen(ctx, "new", q);
       return { say: "What is the occasion?", choices: choices(Object.entries(OCCASIONS).map(([k, v]) => [v.label, L("size", { o: k })] as [string, string])), ifWrong: WRONG };
-    case "size": return { say: "How many people at most? Choose a little above your headcount (people invited by your guests count too). The price follows the size and is paid only when you are ready, before the start.", choices: choices(PACKS.map(([n]) => [`Up to ${n} people: ${money(n, zoneKey(q) === "in" || !zoneKey(q))}`, L("play", { c: String(n) }), n === 250] as [string, string, boolean?])), ifWrong: WRONG };
+    case "size": return { say: "How many players at most? Choose a little above the headcount. The price follows the size and is paid only when the game is ready, before the start.", choices: choices(PACKS.map(([n]) => [`Up to ${n} players: ${money(n, zoneKey(q) === "in" || !zoneKey(q))}`, L("play", { c: String(n) }), n === 250] as [string, string, boolean?])), ifWrong: WRONG };
     case "play": {
-      const k = q.get("k") === "2" ? 2 : 1, j = q.get("j") === "c", v = Number(q.get("v")) || 0;
-      const lines = `Here is how it will play: ${k} card${k === 1 ? "" : "s"} per person, a number every ${Number(q.get("s")) || 9} seconds, ${Number(q.get("r")) || 1} round. ${j ? "Invite-only." : "Open to anyone with the link."} ${v ? `Guests may invite up to ${v} more people each.` : "Guests may not invite others."}`;
-      return { say: `${lines} These are the recommended choices. Change anything, or continue.`, choices: choices([["Looks good, continue", L("prizes"), true], [k === 1 ? "Give each person 2 cards (more chances)" : "Give each person 1 card", L("play", { k: k === 1 ? "2" : "1" })], [j ? "Open to anyone with the link" : "Invite-only (only people on my list)", L("play", { j: j ? "o" : "c" })], [v ? "Guests may not invite others" : "Let each guest invite up to 4 more (family, colleagues)", L("play", { v: v ? "0" : "4" })]]), ifWrong: WRONG };
+      const size = boardOf(q);
+      return { say: `Here is how it will play: a race on a board of ${size} squares${size === 100 ? " (the usual one)" : ""}, with 9 snakes and 9 ladders. Every turn has a 10 second window and the dice roll by themselves. Each player has a board of their own and one pawn. The game ends when 5 players are home, or after 26 turns. People come in by employee ID only: the organizer loads the list of IDs in the console. These are the recommended choices. Continue, or change the board.`, choices: choices([["Looks good, continue", L("prizes"), true], ...[100, 144, 225].filter((n) => n !== size).map((n) => [`Use a board of ${n} squares`, L("play", { b: String(n) })] as [string, string])]), ifWrong: WRONG };
     }
-    case "prizes": return { say: "Which prizes do you want to run? (You give the prizes; the software is only provided by IT Services by Rajat Agarwal. You name each prize afterwards.)", choices: choices(Object.entries(BUNDLES).map(([k, b]) => [b.label, L("extras", { p: k }), k === "c"] as [string, string, boolean?])), ifWrong: WRONG };
-    case "extras": return { say: "Do you want a lucky draw during the game? (Breaks and video or audio messages can be added after saving; I can help.)", choices: choices([["No lucky draw", L("review", { x: "n" }), true], ["Add one lucky draw (1 winner; you name the prize later)", L("review", { x: "l" })]]), ifWrong: WRONG };
+    case "prizes": return { say: "Which gifts do you want to give? (The organizer gives the gifts; the service only provides the software. Each gift is named afterwards.)", choices: choices(Object.entries(BUNDLES).map(([k, b]) => [b.label, L("extras", { p: k }), k === "c"] as [string, string, boolean?])), ifWrong: WRONG };
+    case "extras": return { say: "Do you want a lucky draw during the game? (Brand moments, and the pre-game, winner and closing messages, can be added after saving; I can help.)", choices: choices([["No lucky draw", L("review", { x: "n" }), true], ["Add one lucky draw (1 winner; the gift is named later)", L("review", { x: "l" })]]), ifWrong: WRONG };
     case "review": {
       if (!validDay(q.get("d")) || !validTime(q.get("t")) || !q.get("c")) return goScreen(ctx, "new", q);
-      return { say: ["Please read this back to the organizer and ask for a clear yes:", ...summaryLines(q).map((l) => "- " + l), "", "Nothing has been saved yet."].join("\n"), choices: choices([["Yes, save my draft", L("save"), true], ["Change the day or time", L("new", { d: "", t: "" })], ["Change the size", L("size")], ["Change how it plays", L("play")], ["Change the prizes", L("prizes")]]), ifWrong: WRONG };
+      return { say: ["Please read this back to the organizer and ask for a clear yes:", ...summaryLines(q).map((l) => "- " + l), "", "Nothing has been saved yet."].join("\n"), choices: choices([["Yes, save the draft", L("save"), true], ["Change the day or time", L("new", { d: "", t: "" })], ["Change the size", L("size")], ["Change how it plays", L("play")], ["Change the gifts", L("prizes")]]), ifWrong: WRONG };
     }
     case "save": {
       if (!validDay(q.get("d")) || !validTime(q.get("t")) || !q.get("c")) return goScreen(ctx, "new", q);
       const tz = zoneOf(q), startMs = startMsOf(q.get("d")!, q.get("t")!, tz);
       if (startMs <= ctx.now) return { say: "That start time has already passed. Please choose a new day and time.", choices: choices([["Choose a new day and time", `${ctx.base}/go/new`]]) };
-      const o = OCCASIONS[q.get("o") || "other"] ?? OCCASIONS.other!, k = q.get("k") === "2" ? 2 : 1, p = BUNDLES[q.get("p") || "c"] ?? BUNDLES.c!;
+      const o = OCCASIONS[q.get("o") || "other"] ?? OCCASIONS.other!, p = BUNDLES[q.get("p") || "c"] ?? BUNDLES.c!, size = boardOf(q);
       const seen: Record<string, number> = {}; const rewards = p.houses.map((h) => { seen[h] = (seen[h] ?? 0) + 1; return { pattern: h, ordinal: seen[h], text: "" }; });
       const base = `${o.code}-${pad(istParts(startMs, tz).mo)}${pad(istParts(startMs, tz).d)}`; let id = base, made: any = null;
       for (let i = 1; i <= 9; i++) {
         id = i === 1 ? base : `${base}-${i}`;
-        const body: any = { id, name: `${o.label}, ${dayLabel(q.get("d")!)}`, startRound: startRoundOf(startMs), tz, callSeconds: Number(q.get("s")) || 9, cap: Number(q.get("c")), tickets: k, rounds: Number(q.get("r")) || 1, rewards, closed: q.get("j") === "c", ...(q.get("x") === "l" ? { breaks: [{ kind: "lucky", title: "Lucky draw", winners: 1, seconds: 60 }] } : {}) };
+        const body: any = { id, name: `${o.label}, ${dayLabel(q.get("d")!)}`, startRound: startRoundOf(startMs), tz, callSeconds: 10, cap: Number(q.get("c")), tickets: 1, rounds: 1, rewards, ...(size !== 100 ? { board: { size, snakes: 9, ladders: 9, finish: "exact" } } : {}), ...(q.get("x") === "l" ? { breaks: [{ kind: "lucky", title: "Lucky draw", winners: 1, seconds: 60 }] } : {}) };
         const r = await ctx.api("POST", "z", body);
         if (r.status !== 200) return { say: `I could not save it: ${r.json?.error ?? "something went wrong"}. ${r.json?.next ?? ""}`.trim(), choices: choices([["Open the organizer's console", `${ctx.origin}/zc.html`]]), ifWrong: WRONG };
         if (!r.json.existed) { made = r.json; break; }
       }
       if (!made) return { say: "I could not find a free game code. Please open the console.", choices: choices([["Open the organizer's console", `${ctx.origin}/zc.html`]]) };
-      const v = Number(q.get("v")) || 0;
-      if (v) await ctx.api("PATCH", `z/${id}/settings`, { invites: { on: true, per: v, cats: ["family", "colleagues"] } });
-      return { done: true, say: [`Your draft is saved. Its code is ${id}. Nobody else can see it yet.`, "What is left, and who does it:", "1. Name the prizes (you, or tell me what each prize is and I will add them).", "2. Add your brand messages, videos or a lucky draw if you want (I can help; I can also build a test link so you see a video exactly as a guest will).", "3. You press Publish (free) on the page below: one tap.", `4. You pay before the start time (${dayLabel(q.get("d")!)}, ${timeLabel(q.get("t")!)} ${zoneLabel(q)}). I never pay.`, "5. You share the guest link, which arrives by e-mail after publishing."].join("\n"),
+      return { done: true, say: [`The draft is saved. Its code is ${id}. Nobody else can see it yet.`, "What is left, and who does it:", "1. Name the gifts (the organizer, or tell me what each gift is and I will add them).", "2. Add brand messages, videos or a lucky draw, and the pre-game, winner and closing messages, if wanted (I can help; I can also build a test link so the organizer sees a video exactly as a player will).", "3. The organizer presses Publish (free) on the page below: one tap.", `4. The organizer or a co-organizer pays before the start time (${dayLabel(q.get("d")!)}, ${timeLabel(q.get("t")!)} ${zoneLabel(q)}), with Pay now in the console. I never pay.`, "5. The organizer shares the game link, which arrives by e-mail after publishing."].join("\n"),
         choices: choices([["Open the draft in the console (watch it)", made.openUrl ?? consoleOf(ctx, id), true], ["Publish: the organizer taps once", consoleOf(ctx, id, "publish")], ["Read the game back", `${ctx.base}/go/game?id=${id}`], ["See the links", `${ctx.base}/go/links?id=${id}`]]), ifWrong: WRONG };
     }
     case "games": {
       const r = await ctx.api("GET", "history");
-      if (r.status !== 200) return { say: "I could not read your games. Please open the console.", choices: choices([["Open the organizer's console", `${ctx.origin}/zc.html`]]) };
+      if (r.status !== 200) return { say: "I could not read the games. Please open the console.", choices: choices([["Open the organizer's console", `${ctx.origin}/zc.html`]]) };
       const next = q.get("then") === "links" ? "links" : "game";
       const open = (r.json.engagements as any[]).filter((e) => roundTimeMs(e.start_round) > ctx.now);
       if (!open.length) return { say: "You have no game that has not started yet. Do you want to start a new one?", choices: choices([["Start a new game", `${ctx.base}/go/new`, true]]) };
@@ -147,9 +144,9 @@ async function gameStep(ctx: GoCtx, step: string, q: URLSearchParams): Promise<S
   const sm = await ctx.api("GET", `z/${id}/summary`);
   if (sm.status !== 200) return { say: `I could not read the game ${id}: ${sm.json?.error ?? "not found"}.`, choices: choices([["Choose another game", `${ctx.base}/go/games`]]) };
   const s = sm.json, draft = /draft/.test(s.status), unpaid = /payment due|NOT PAID/.test(s.status), published = !draft;
-  const links = (): string[] => [`Console: ${s.consoleUrl}`, ...(s.shareUrl ? [`Guest link (send to guests): ${s.shareUrl}`, `Big screen: ${s.shareUrl.replace("/z.html", "/big.html")}`] : ["Guest link and big-screen link appear after you publish."]), ...(s.payUrl ? [`Pay (organizer only): ${s.payUrl}, before ${s.payBefore}`] : []), `Test a video or audio link: ${ctx.origin}/preview.html (the organizer can open this; I can build a ready address for a link)`];
+  const links = (): string[] => [`Console: ${s.consoleUrl}`, ...(s.shareUrl ? [`Game link (send to the players): ${s.shareUrl}`, `Big screen: ${s.shareUrl.replace("/z.html", "/big.html")}`] : ["The game link and the big-screen link appear after the organizer publishes."]), ...(unpaid && s.payUntil ? [`Paying: the organizer or a co-organizer presses Pay now in the console, before ${s.payUntil}`] : []), `Test a video or audio link: ${ctx.origin}/preview.html (the organizer can open this; I can build a ready address for a link)`];
   if (step === "links") return { say: ["Links for " + id + ":", ...links().map((l) => "- " + l)].join("\n"), choices: choices([["Back to this game", `${ctx.base}/go/game?id=${id}`]]) };
-  if (step === "who") { const p = await ctx.api("GET", `z/${id}/participants?limit=1`); return { say: `${p.json?.total ?? 0} ${(p.json?.total ?? 0) === 1 ? "person has" : "people have"} joined ${id}${s.limit ? " out of a limit of " + s.limit : ""}. I only see card numbers, never names or mobile numbers.`, choices: choices([["Back to this game", `${ctx.base}/go/game?id=${id}`]]) }; }
+  if (step === "who") { const p = await ctx.api("GET", `z/${id}/participants?limit=1`); return { say: `${p.json?.total ?? 0} ${(p.json?.total ?? 0) === 1 ? "person has" : "people have"} joined ${id}${s.limit ? " out of a limit of " + s.limit : ""}. I only see board numbers, never names or mobile numbers.`, choices: choices([["Back to this game", `${ctx.base}/go/game?id=${id}`]]) }; }
   if (step === "gtime") return { say: `Change the day of ${id} (now ${s.startsAtIST}). Which day?`, choices: choices(dayRows(ctx, new URLSearchParams([...q.entries(), ["z", Object.entries(ZONES).find(([, z]) => z.tz === s.tz)?.[0] ?? ""]]), "gtime2")), ifWrong: WRONG };
   if (step === "gtime2") { if (!validDay(q.get("d"))) return goScreen(ctx, "gtime", q); return { say: `${dayLabel(q.get("d")!)}. At what time?`, choices: choices(timeRows(ctx, q, "gtime3")), ifWrong: WRONG }; }
   if (step === "gtime3") {
@@ -157,17 +154,17 @@ async function gameStep(ctx: GoCtx, step: string, q: URLSearchParams): Promise<S
     const gz = typeof s.tz === "string" ? s.tz : DEFAULT_TZ, ms = startMsOf(q.get("d")!, q.get("t")!, gz); const r = await ctx.api("PATCH", `z/${id}/settings`, { startRound: startRoundOf(ms) });
     return r.status === 200 ? { done: true, say: `Done. ${id} now starts on ${dayLabel(q.get("d")!)} at ${timeLabel(q.get("t")!)} (${typeof s.tz === "string" ? s.tz.replace(/_/g, " ") : "India time"}; the first number 2 minutes after).`, choices: choices([["Back to this game", `${ctx.base}/go/game?id=${id}`]]) } : { say: `I could not change it: ${r.json?.error ?? "error"}. ${r.json?.next ?? ""}`.trim(), choices: choices([["Back to this game", `${ctx.base}/go/game?id=${id}`]]) };
   }
-  if (step === "say") { if (!published) return { say: "Messages can be sent only after you publish: nobody can see a draft.", choices: choices([["Publish: the organizer taps once", consoleOf(ctx, id, "publish")], ["Back", `${ctx.base}/go/game?id=${id}`]]) }; return { say: "Which message should go to every guest's phone (it is spoken and shown, and goes to the big screen)?", choices: choices(PRESET_MESSAGES.map((m, i) => [m, link(ctx, "say2", q, { id, m: String(i + 1) })] as [string, string])) }; }
-  if (step === "say2") { const i = Number(q.get("m")) - 1, text = PRESET_MESSAGES[i]; if (!text) return goScreen(ctx, "say", q); const r = await ctx.api("POST", `z/${id}/announce`, { text }); return { done: r.status === 200, say: r.status === 200 ? `Sent to every guest: "${text}"` : `I could not send it: ${r.json?.error ?? "error"}. ${r.json?.next ?? ""}`.trim(), choices: choices([["Back to this game", `${ctx.base}/go/game?id=${id}`]]) }; }
+  if (step === "say") { if (!published) return { say: "Messages can be sent only after the organizer publishes: nobody can see a draft.", choices: choices([["Publish: the organizer taps once", consoleOf(ctx, id, "publish")], ["Back", `${ctx.base}/go/game?id=${id}`]]) }; return { say: "Which message should go to every player's phone (it is spoken and shown, and goes to the big screen)?", choices: choices(PRESET_MESSAGES.map((m, i) => [m, link(ctx, "say2", q, { id, m: String(i + 1) })] as [string, string])) }; }
+  if (step === "say2") { const i = Number(q.get("m")) - 1, text = PRESET_MESSAGES[i]; if (!text) return goScreen(ctx, "say", q); const r = await ctx.api("POST", `z/${id}/announce`, { text }); return { done: r.status === 200, say: r.status === 200 ? `Sent to every player: "${text}"` : `I could not send it: ${r.json?.error ?? "error"}. ${r.json?.next ?? ""}`.trim(), choices: choices([["Back to this game", `${ctx.base}/go/game?id=${id}`]]) }; }
   if (step === "helper") {
-    return { done: true, say: `A Host needs a name and a mobile number or an e-mail address (or both), and only the owner enters those, in the console (Your team). Ask the organizer to add the Host there; I cannot. A Host looks after the game with them but cannot change the account or add another Host.`, choices: choices([["Back to this game", `${ctx.base}/go/game?id=${id}`]]) };
+    return { done: true, say: `A co-organizer needs a name and a mobile number or an e-mail address (or both), and only the organizer enters those, in the console. Ask the organizer to add the co-organizer there; I cannot. A co-organizer looks after the game with them but cannot change the account or add another co-organizer.`, choices: choices([["Back to this game", `${ctx.base}/go/game?id=${id}`]]) };
   }
   // the game menu
-  const rows: [string, string, boolean?][] = [["Change the day or time", `${ctx.base}/go/gtime?id=${id}`], ["Show the links", `${ctx.base}/go/links?id=${id}`], ["How many have joined", `${ctx.base}/go/who?id=${id}`], ["Create a Host link", `${ctx.base}/go/helper?id=${id}`]];
-  if (published) rows.splice(2, 0, ["Send a message to every guest", `${ctx.base}/go/say?id=${id}`]);
+  const rows: [string, string, boolean?][] = [["Change the day or time", `${ctx.base}/go/gtime?id=${id}`], ["Show the links", `${ctx.base}/go/links?id=${id}`], ["How many have joined", `${ctx.base}/go/who?id=${id}`], ["Add a co-organizer", `${ctx.base}/go/helper?id=${id}`]];
+  if (published) rows.splice(2, 0, ["Send a message to every player", `${ctx.base}/go/say?id=${id}`]);
   if (draft) rows.unshift(["Publish (free): the organizer taps once", consoleOf(ctx, id, "publish"), true]);
-  rows.push(["Delete all guest data now: the organizer confirms", consoleOf(ctx, id, "erase")], ["Pause or stop: the organizer taps once", consoleOf(ctx, id, "pause")]);
-  return { say: [`Game ${id}: ${s.status}. Starts ${s.startsAtIST}. Up to ${s.limit} people, ${s.participants} joined, ${s.tickets} card${s.tickets === 1 ? "" : "s"} each.`, ...(unpaid && s.payBefore ? [`Payment is due before ${s.payBefore} (the organizer pays; I never do).`] : []), "What would you like to do?"].join("\n"), choices: choices(rows), ifWrong: WRONG };
+  rows.push(["Delete all player data now: the organizer confirms", consoleOf(ctx, id, "erase")], ["Pause or stop: the organizer taps once", consoleOf(ctx, id, "pause")]);
+  return { say: [`Game ${id}: ${s.status}. Starts ${s.startsAtIST}. Up to ${s.limit} players, ${s.participants} joined.`, ...(unpaid && s.payUntil ? [`Payment is due before ${s.payUntil}: the organizer or a co-organizer presses Pay now in the console. I never pay.`] : []), "What would you like to do?"].join("\n"), choices: choices(rows), ifWrong: WRONG };
 }
 
 export function screenText(s: Screen): string {
