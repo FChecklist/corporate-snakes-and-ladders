@@ -50,7 +50,7 @@ describe("console voice: the organizer and host screens say you, never I, my, me
   });
   test("the approved start, throws and invite words are on the screens", () => {
     const zc = rd("apps/web/public/zc.js");
-    for (const w of ["The game starts by itself at this time. You do nothing.", "Every throw happens by itself", "Invite people with just an ID", "No names or personal details are needed.", "Just upload or paste the IDs of the people you want to invite: employee ID, associate ID, vendor ID or customer ID, whichever you use.", "Your invitee opens the game link and enters their ID. If it is on your list, they join and play. If it is not, you get a request to approve or decline.", "The list and all IDs are deleted within 24 hours after the game ends."]) expect(zc).toContain(w);
+    for (const w of ["The game starts by itself at this time. You do nothing.", "Every throw happens by itself", "Invite people with just an ID", "No names or personal details are needed.", "Just upload or paste the IDs of the people you want to invite: employee ID, associate ID, vendor ID or customer ID, whichever you use.", "The invitee opens the game link and enters their ID. If it is on the list, they join and play. If it is not, you get a request to approve or decline.", "The list and all IDs are deleted within 24 hours after the game ends."]) expect(zc).toContain(w);
   });
   test("consent.js keeps the recorded tick-box sentences (legal text tied to Terms version 2026-11-01): they are the only first-person words left, and they are listed here so a new one cannot slip in", () => {
     const lines = new Set(firstPersonIn("consent.js", rd("apps/web/public/consent.js")).map((h) => h.split(":")[1]));

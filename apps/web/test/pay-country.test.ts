@@ -110,11 +110,11 @@ describe("after paying: add to the invoice, or skip", () => {
     expect((await o.json(await o.api("GET", `/api/paylink/${t}`))).status).toBe("paid");
     expect(invoices(o).length).toBe(0); // the tax invoice waits for the buttons
     p.click("#invskip"); const done = await p.waitFor((x) => /The invoice/.test(x));
-    expect(p.$("#pk-invform")).toBeNull(); expect(done).not.toMatch(/Add to your invoice/);
+    expect(p.$("#pk-invform")).toBeNull(); expect(done).not.toMatch(/Add to the invoice/);
     expect(invoices(o).length).toBe(1); expect(JSON.parse(invoices(o)[0]!.data).buyer.gstin).toBeUndefined();
     const tab = tabOf(p); await p.close();
     const q = await opn(o, "", { session: tab, cc: "IN" }); const again = await q.waitFor((x) => /Payment received/.test(x) && /The invoice/.test(x)); // after a reload: the receipt, with the invoice
-    expect(again).not.toMatch(/Add to your invoice/); expect(q.$("#paygo")).toBeNull();
+    expect(again).not.toMatch(/Add to the invoice/); expect(q.$("#paygo")).toBeNull();
   });
   test("pay, then add the details: the invoice is made out to the company and carries the GST number; what was typed is kept through a failed send and a reload", async () => {
     const { o, t } = await game("PC-2", "Details Night"); const p = await opn(o, t, { cc: "IN" }); await p.waitFor((x) => /Details Night/.test(x)); await pay(p);
@@ -147,7 +147,7 @@ describe("after paying: add to the invoice, or skip", () => {
     const tab2 = tabOf(q); await q.close();
     o.world.now = T + 16 * MIN; // 15 minutes after the capture
     const r = await opn(o, "", { session: tab2, cc: "IN" }); const txt = await r.waitFor((x) => /The invoice/.test(x));
-    expect(txt).not.toMatch(/Add to your invoice/); expect(invoices(o).length).toBe(1); expect(JSON.parse(invoices(o)[0]!.data).buyer.name).not.toBe("Typed Co"); // issued 'as is': what was only typed is not on it
+    expect(txt).not.toMatch(/Add to the invoice/); expect(invoices(o).length).toBe(1); expect(JSON.parse(invoices(o)[0]!.data).buyer.name).not.toBe("Typed Co"); // issued 'as is': what was only typed is not on it
   });
   test("a payment in US dollars: the receipt says US$, and the invoice has no Indian GST", async () => {
     const { o, t } = await game("PC-5", "Dollar Night"); const p = await opn(o, t, { cc: "DE" }); await p.waitFor((x) => /US\$34/.test(x));

@@ -46,7 +46,7 @@ const phone = async (o: O, id: string, h: Hooks = {}) => {
   } });
   open.push(p); return p;
 };
-const joinGame = async (p: Page, name = "Asha") => { await p.waitFor((x) => /Join the game/.test(x), 20000); (p.$("#nm") as any).value = name; const ph = p.$("#ph") as any; if (ph) ph.value = "9812345678"; p.click("#go"); await p.waitFor((x) => /You are in|Starting in|Your game is setting up/.test(x), 60000); };
+const joinGame = async (p: Page, name = "Asha") => { await p.waitFor((x) => /Join the game/.test(x), 20000); (p.$("#nm") as any).value = name; const ph = p.$("#ph") as any; if (ph) ph.value = "9812345678"; p.click("#go"); await p.waitFor((x) => /You are in|Starting in|The game is setting up/.test(x), 60000); };
 /** joins, then moves the clocks five minutes past the start: the game is being played and the board is on the screen */
 const joinAndPlay = async (o: O, p: Page) => { await joinGame(p); o.world.now = roundMs(START) + 5 * 60_000; skew.ms = o.world.now - T; await p.waitFor(() => !!p.$(".zlook"), 60000); };
 const doc = (p: Page) => p.win.document;
