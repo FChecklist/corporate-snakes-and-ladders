@@ -22,7 +22,8 @@
   };
   // ---------- what the game's public settings say besides the plan: the brand strip, a cancelled game; and a personal invite link's token ----------
   const TOKEN = (q.get("t") || "").trim().slice(0, 80); // a personal link: sent as `token` when joining, so no mobile number is needed
-  const INFO = { brand: null, cancelled: null, dns: false, joinPhone: false, verify: "mobile", empOnly: false, ownerRules: false }; // dns = "this game did not start": nobody paid, the time and 20 hours passed, the guest data was auto-deleted
+  const INFO = { brand: null, cancelled: null, dns: false, joinPhone: false, verify: "mobile", empOnly: false, ownerRules: false, msg: { pre: "", win: "", close: "" } }; // dns = "this game did not start": nobody paid, the time and 20 hours passed, the guest data was auto-deleted. msg = the organizer's three optional messages (plain text, already cleaned by the server; always drawn with esc)
+  const cleanMsg = (s) => (typeof s === "string" ? s.replace(/\s+/g, " ").trim().slice(0, 300) : "");
   const cleanBrand = (b) => {
     if (!b || typeof b !== "object") return null;
     const name = String(b.name == null ? "" : b.name).replace(/\s+/g, " ").trim().slice(0, 60);
@@ -39,6 +40,7 @@
     if ("brand" in r && !(fromJoin && INFO.brand)) { INFO.brand = cleanBrand(r.brand); if (!DEMO && EID && INFO.brand && INFO.brand.logo !== undefined) { try { store.set("cbz:" + EID + ":brand", JSON.stringify(INFO.brand)); } catch { /* storage full or blocked: the strip just is not kept */ } } } // a join answer carries the brand without its logo: never let it replace the full one read from info
     if ("joinPhone" in r) INFO.joinPhone = r.joinPhone === true;
     if ("verify" in r) { INFO.verify = r.verify === "id" || r.verify === "both" ? r.verify : "mobile"; INFO.empOnly = r.employeesOnly === true; INFO.idKind = r.idKind === "email" ? "email" : "emp"; INFO.idClean = r.idClean === true; INFO.ownerRules = r.ownerRules === true; }
+    if ("rewards" in r && "startRound" in r) INFO.msg = { pre: cleanMsg(r.preGameMessage), win: cleanMsg(r.winnerMessage), close: cleanMsg(r.closingMessage) }; // an info or join answer carries all three, or none when the organizer wrote none
     if (r.demo === true) INFO.demo = true;
     if (r.didNotStart === true) INFO.dns = true; else if ("startRound" in r && !fromJoin) INFO.dns = false;
     if ("cancelled" in r || "startRound" in r) INFO.cancelled = r.cancelled ? { message: String(r.message || "").slice(0, 200) } : null;
@@ -498,6 +500,7 @@
       : `<h2>You are in. See you at ${esc(when)}</h2><div class="zsmall zflush">Starting in</div><div class="zcount" aria-live="off" id="cd">${clock(toFirst - GRACE_SECS)}</div><p class="zsmall zflush">hours : minutes : seconds. Keep this page open: the game moves by itself.</p>`;
     const rules = ruleLines(v);
     return `<div class="zcard zwait">${top}
+      ${orgMsg("premsg", "A message from the organizer", INFO.msg.pre)}
       <div class="zdo"><b>What to do:</b> nothing yet. Keep this page open. ${v.cfg.play === "presence" ? "When the first turn opens, tap the Roll button." : "Your rolls happen by themselves."}</div>
       <p class="zsmall zflush">Tip: switch your phone to Do not disturb, so calls and messages do not cover the game. Your phone is asked to keep the screen on while this page is open. Sound is on unless you turn it off (the sound button).</p>
       ${prizes ? `<h3>What you can win</h3><div class="zprizes2">${prizes}</div>` : ""}
@@ -531,12 +534,17 @@
       if (t - t0 < 6000 && canvas.isConnected) requestAnimationFrame(f); else ctx.clearRect(0, 0, W, H);
     })(t0);
   }
-  function showHurray(list) {
+  // What a winner is told they won: the organizer's own words for each prize (or a plain sentence when there are none), one block for each prize, then the organizer's winner message once. Plain text only, always drawn with esc.
+  const wonWords = (v, w) => { const ctx = { milestones: v.cfg && v.cfg.milestones, milestoneLines: ZG.linesFor(v.cfg.rewards, "milestone").length }; return ZG.winWords ? ZG.winWords(w, ctx) : { main: w.text || w.name || "A prize", sub: "" }; };
+  const wonRows = (v, list, cls) => list.map((w) => { const x = wonWords(v, w); return `<div class="${cls}"><b class="zwonwhat">${esc(x.main)}</b>${x.sub ? `<span class="zsmall zflush zwonsub">${esc(x.sub)}</span>` : ""}</div>`; }).join("");
+  const orgMsg = (id, title, text) => (text ? `<div class="zorgmsg" id="${id}"><b>${esc(title)}</b><p class="zflush">${esc(text)}</p></div>` : "");
+  const closeMsgCard = () => (INFO.msg.close ? `<div class="zcard zclosecard" id="closemsg"><h2>A message from the organizer</h2><p class="zflush zclosetext">${esc(INFO.msg.close)}</p></div>` : ""); // shown to every player on the final screen
+  const winnerNote = () => (INFO.msg.win ? `<p class="zwinmsg" id="winmsg">${esc(INFO.msg.win)}</p>` : "");
+  function showHurray(list, v) {
     const old = document.getElementById("hurray"); if (old) old.remove();
     const box = document.createElement("div"); box.id = "hurray"; box.className = "zhurray"; box.setAttribute("role", "alertdialog"); box.setAttribute("aria-live", "assertive");
-    const what = list.map((w) => esc(w.name)).join(", ");
-    const prize = list.filter((w) => w.text).map((w) => `<div class="zhp">${esc(w.text)}</div>`).join("");
-    box.innerHTML = `<canvas class="zconf" aria-hidden="true"></canvas><div class="zhcard"><div class="zhbig">Hurray!</div><div class="zhsub">Congratulations, you won</div><div class="zhwhat">${what}</div>${list.length === 1 && HOW[list[0].pattern] ? `<div class="zhsub">${esc(HOW[list[0].pattern])}</div>` : ""}${prize}<button class="zbtn" id="hurok">Wonderful</button></div>`;
+    const what = list.map((w) => { const x = wonWords(v, w); return `<div class="zhwhat">${esc(x.main)}</div>${x.sub ? `<div class="zhsub">${esc(x.sub)}</div>` : ""}`; }).join("");
+    box.innerHTML = `<canvas class="zconf" aria-hidden="true"></canvas><div class="zhcard"><div class="zhbig">Hurray!</div><div class="zhsub">Congratulations, you won</div>${what}${INFO.msg.win ? `<div class="zhp" id="hurmsg">${esc(INFO.msg.win)}</div>` : ""}<button class="zbtn" id="hurok">Wonderful</button></div>`;
     document.body.appendChild(box);
     const done = () => { if (box.isConnected) box.remove(); };
     box.querySelector("#hurok").onclick = done; setTimeout(done, 15000);
@@ -591,10 +599,10 @@
       CF.busy = false; paint();
     };
   }
-  function prizesCard() {
+  function prizesCard(v) {
     if (!PRIZES.length) return "";
-    const rows = PRIZES.slice().sort((a, b) => a.round - b.round).map((w) => `<div class="zrow"><span>${esc(w.name)}${w.text ? `<br><small class="zsmall zflush">${esc(w.text)}</small>` : ""}${HOW[w.pattern] ? "<br>" + howLine(w.pattern) : ""}</span><em>${w.pattern === "lucky" ? "Lucky draw" : "Prize"}</em></div>`).join("");
-    return `<div class="zcard zprizes"><h2>Your prizes</h2>${rows}<p class="zsmall">Saved on this phone. Show this to your organizer to collect.</p></div>`;
+    const rows = PRIZES.slice().sort((a, b) => a.round - b.round).map((w) => { const x = wonWords(v, w); return `<div class="zrow"><span><b class="zwonwhat">${esc(x.main)}</b>${x.sub ? `<br><small class="zsmall zflush zwonsub">${esc(x.sub)}</small>` : ""}</span><em>${w.pattern === "lucky" ? "Lucky draw" : "Prize"}</em></div>`; }).join("");
+    return `<div class="zcard zprizes"><h2>Your prizes</h2>${rows}${v.phase === "ended" ? winnerNote() : ""}<p class="zsmall">Saved on this phone. Show this to your organizer to collect.</p></div>`; // what each prize is, in plain words; the winner message once the game is over (while it runs, the card at the top carries it)
   }
   let shareLink = location.origin + "/";
   try { localStorage.removeItem("cbz-phone"); } catch {} // older versions saved the participant's own number on the phone: it is not kept any more
@@ -830,12 +838,12 @@
     if (v.phase === "ended" && !v.stopped) banners.push(`<div class="zbanner ok">${v.endedByPrizes ? "All the end prizes have been awarded." : "The game is over."} Thank you for taking part.</div>`);
     const chk = v.pendingChecks > 0 ? `<p class="zsmall">Double-checking ${plural(v.pendingChecks, "earlier result", "earlier results")} in the background.</p>` : "";
     const curWins = v.won || [];
-    const ribbon = curWins.length ? `<div class="zwin" role="status">&#127881; Congratulations! You won ${curWins.map((w) => esc(lineName(v.cfg, w.pattern, w.ordinal))).join(", ")}${curWins.some((w) => w.text) ? " &middot; " + curWins.filter((w) => w.text).map((w) => esc(w.text)).join(", ") : ""}</div>` : "";
+    const ribbon = curWins.length && v.phase !== "ended" ? `<div class="zwin" role="status">&#127881; Congratulations! You won:</div>${wonRows(v, curWins, "zwonrow")}${winnerNote()}` : ""; // what was won, in plain words, and the winner message; once the game is over the prizes card says it instead
     const waiting = isWaiting(v);
     const sndBtn = `<button class="zsnd zsndin" id="snd" aria-pressed="${sound}">${sound ? "&#128266; Sound on" : "&#128263; Sound off"}</button>`;
     return `${brandStrip(sndBtn)}
       ${annBanner(v)}${banners.join("")}
-      ${v.phase === "ended" ? finalCard(v) + closingCard(v) + confirmCard(v) + prizesCard() : ""}
+      ${v.phase === "ended" ? finalCard(v) + closeMsgCard() + closingCard(v) + confirmCard(v) + prizesCard(v) : ""}
       ${waitingRoom(v)}
       ${openingCard(v)}
       ${v.brk ? breakCard(v.brk) : ""}
@@ -846,7 +854,7 @@
       ${teamCard(v)}
       ${standingsCard(v)}
       ${waiting ? "" : prizesStatusCard(v)}
-      ${v.phase === "ended" ? "" : prizesCard()}
+      ${v.phase === "ended" ? "" : prizesCard(v)}
       ${waiting || !(self.SLRules ? SLRules.showRules("playing") && v.phase !== "ended" : v.phase !== "ended") ? "" : rulesFold(v)}
       ${mineCard(v)}${inviteCard(v)}
       ${luckyCard(v)}
@@ -874,7 +882,7 @@
     noteRoll(v);
     $app.innerHTML = playView(v);
     paintBrand(); syncDie(); syncTimer(); slidePawn(v); bindFolds(); syncMedia(v); bindShare(); bindConfirm(v); loadInvites(v); bindInvite(v); loadMine(v); bindMine(v);
-    if (fresh.length) showHurray(fresh);
+    if (fresh.length) showHurray(fresh, v);
     const s = document.getElementById("snd");
     if (s) s.onclick = async () => { sound = !sound; store.set("cbz-sound", sound ? "on" : "off"); if (window.TBAudio) { TBAudio.enabled = sound; if (sound) await TBAudio.unlock(); } paint(); };
     const tb = document.getElementById("throw");
