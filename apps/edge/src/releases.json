@@ -2,7 +2,7 @@
   {
     "version": "1.3.1",
     "date": "2026-11-25",
-    "commit": "pending (the commit that carries this change; fill in once applied)",
+    "commit": "3aeab44",
     "title": "A small mark at the top of every page",
     "changes": [
       "The numerals १३९ now sit at the very top centre of every page, in a tiny bold dark-blue type with a hair-thin dark-red line under them (owner order, approved 25 Nov 2026)",

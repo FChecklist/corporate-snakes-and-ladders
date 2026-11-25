@@ -2,7 +2,7 @@
 // This scans every page source: the static *.html files (apps/web/public and site), and the pages built in code (the Trust page, the Back-soon page, the two share-link pages, the printable invoice).
 // Not pages (so not scanned): e-mails (apps/edge/src/brand.ts pageHtml), JSON and fragments, the dev-only simulators in tools/sim2.
 import { describe, expect, test } from "bun:test";
-import { readFileSync, readdirSync } from "node:fs";
+import { readFileSync, readdirSync, existsSync } from "node:fs";
 import { join, resolve } from "node:path";
 
 const ROOT = resolve(import.meta.dir, "../../..");
@@ -11,8 +11,10 @@ const RULE1 = '.mark139{position:absolute;top:0;left:0;right:0;margin:0;padding:
 const RULE2 = ".mark139 span{display:inline-block;border-bottom:.5px solid #7A1010;padding-bottom:.5px}";
 const read = (p: string) => readFileSync(join(ROOT, p), "utf8");
 const count = (s: string, needle: string) => s.split(needle).length - 1;
-const htmlIn = (dir: string) => readdirSync(join(ROOT, dir)).filter((f) => f.endsWith(".html")).map((f) => `${dir}/${f}`);
-const STATIC = [...htmlIn("apps/web/public"), ...htmlIn("site")];
+/** Every .html page under dir, at any depth (and the built copy in pages/public when it exists). */
+const htmlIn = (dir: string): string[] => !existsSync(join(ROOT, dir)) ? [] : readdirSync(join(ROOT, dir), { withFileTypes: true }).flatMap((e) =>
+  e.isDirectory() ? (e.name === "node_modules" ? [] : htmlIn(`${dir}/${e.name}`)) : e.name.endsWith(".html") ? [`${dir}/${e.name}`] : []);
+const STATIC = [...htmlIn("apps/web/public"), ...htmlIn("site"), ...htmlIn("pages/public")];
 const CODE_PAGES: [string, number][] = [["apps/edge/src/trust-page.ts", 1], ["apps/edge/src/admin.ts", 1], ["apps/edge/src/people.ts", 2], ["packages/billing/src/index.ts", 1]];
 
 /** The page's own CSS plus every local stylesheet it links (a page may carry the rule inline or load it from the shared sheet). */
