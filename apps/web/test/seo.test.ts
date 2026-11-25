@@ -8,6 +8,7 @@ const rd = (f: string) => readFileSync(new URL(f, PUB), "utf8");
 const INDEXABLE = ["index.html", "partner.html", "helpdesk.html", "terms.html", "partner-terms.html", "organizer-guide.html", "trust.html", "brochure.html", "about.html", "contact.html", "pricing.html"];
 const NOINDEX = ["signin.html", "pay.html", "paytest.html", "ai-link.html", "helpdesk-accept.html", "helpdesk-approve.html", "report.html", "z.html", "zc.html", "big.html", "404.html", "owner-funnel.html", "owner-visits.html"];
 const urlOf = (f: string) => ORIGIN + (f === "index.html" ? "/" : "/" + f);
+const SERVED = ["/ai-manual"]; // pages the Worker builds (there is no file): listed in the sitemap like any indexable page
 const meta = (h: string, re: RegExp) => (h.match(re) ?? [])[1] ?? "";
 
 const POINTERS = ["legal.html", "privacy.html", "legal-position.html", "dpa.html", "subprocessors.html", "refund-policy.html"]; // they only point to the one legal document (terms): not indexed, not in the sitemap
@@ -21,9 +22,9 @@ describe("the older legal pages only point to the one document", () => {
 describe("sitemap and robots", () => {
   const sm = rd("sitemap.xml"), locs = [...sm.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]!);
   test("every indexable page is listed once, with a real last-modified date, and nothing else is", () => {
-    expect(locs.sort()).toEqual(INDEXABLE.map(urlOf).sort());
+    expect(locs.sort()).toEqual([...INDEXABLE.map(urlOf), ...SERVED.map((x) => ORIGIN + x)].sort());
     const entries = [...sm.matchAll(/<url>[\s\S]*?<\/url>/g)].map((m) => m[0]);
-    expect(entries.length).toBe(INDEXABLE.length);
+    expect(entries.length).toBe(INDEXABLE.length + SERVED.length);
     for (const e of entries) { expect(e).toMatch(/<lastmod>\d{4}-\d{2}-\d{2}<\/lastmod>/); const d = meta(e, /<lastmod>([^<]+)</); expect(Date.parse(d)).toBeGreaterThan(Date.parse("2026-09-01")); expect(Date.parse(d)).toBeLessThanOrEqual(Date.now() + 86_400_000); }
     expect(sm).toContain('xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"');
   });

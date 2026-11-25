@@ -325,10 +325,10 @@ describe("organizers, their AI assistant, and what the AI may not do", () => {
   });
   test("the refusal explains itself plainly, and the manifest says what the AI cannot do", async () => {
     const r = await (await call("POST", "/api/z/MINE1/erase", {}, asA())).json() as any;
-    expect(r.error).toMatch(/AI assistant may not/);
+    expect(r.error).toMatch(/AI assistant cannot do this/); expect(r.error).toMatch(/tell the organizer what needs doing and where/); expect(r.error).not.toMatch(/\b(my|mine|your|yours)\b/i);
     const mf = await (await call("GET", "/api/z/ai-manifest")).json() as any;
     expect(JSON.stringify(mf.you_cannot)).toMatch(/Choose, publish, change or remove winners/);
-    expect(JSON.stringify(mf)).not.toMatch(/lottery|bogey|admin/i);
+    expect(JSON.stringify(mf)).not.toMatch(/lottery|bogey|prize\b|admin/i); // (player is the owner's word now, so it is no longer on this list)
   });
   test("a new AI key replaces the old one; revoking stops it at once; the master key is unaffected", async () => {
     const second = ((await (await call("POST", "/api/org/ai", {}, asM())).json()) as any).aiKey;
@@ -763,7 +763,7 @@ describe("brand moments: five for each board, placed by the software", () => {
   test("the AI manual teaches the new rules and no longer says breaks repeat in every round", async () => {
     const { manualText } = await import("../src/ai-link");
     const t = manualText("https://x.example", "cba_" + "a".repeat(48), "ai", T);
-    expect(t).toContain("5 for each board"); expect(t).toContain("ROUND 1 only"); expect(t).toContain("opening"); expect(t).toContain("closing");
+    expect(t).toContain("5 in all for a game"); expect(t).toContain("1 opening"); expect(t).toContain("1 closing"); expect(t).toContain("opening"); expect(t).toContain("closing");
     expect(t).not.toContain("breaks repeat in every round");
   });
 });

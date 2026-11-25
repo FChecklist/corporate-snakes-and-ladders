@@ -35,7 +35,7 @@ describe("the paste text and the manual", () => {
   test("the paste is two short lines plus the link, framed as the owner's own documentation, with the key only inside the link", async () => {
     const o = await organizer();
     expect(o.msg.split("\n").length).toBe(2); expect(o.msg.length).toBeLessThan(420);
-    expect(o.msg).toMatch(/API documentation and instructions for MY OWN Corporate Snakes and Ladders account/); expect(o.msg).toMatch(/I am the owner/);
+    expect(o.msg).toMatch(/API documentation and instructions for the Corporate Snakes and Ladders account that I own/); expect(o.msg).not.toMatch(/MY OWN/); expect(o.msg).toMatch(/I am the owner/);
     expect(o.msg.endsWith(`${ORIGIN}/ai/${o.ai}`)).toBe(true);
     expect(o.msg.split(o.ai).length).toBe(2); // the key appears once: in the link
     expect(o.msg).not.toMatch(/x-organizer/i); expect(o.msg).not.toMatch(/ai-manifest/);
@@ -71,7 +71,7 @@ describe("the paste text and the manual", () => {
     const o = await organizer();
     const hk = await j(await call("POST", "/api/org/host", { mobile: "9876500009", email: "host@acme.com" }, o.h)); expect(hk.hostKey).toMatch(/^cbh_/); expect(hk.manualUrl).toBe(`${ORIGIN}/ai/${hk.hostKey}`);
     const t = await (await linkGet(hk.hostKey)).text();
-    expect(t).toMatch(/Co-organizer's AI assistant/); expect(t).toMatch(/You help a Co-organizer/); expect(t).toContain(`${ORIGIN}/ai/${hk.hostKey}/z/{id}/announce`);
+    expect(t).toMatch(/co-organizer's AI assistant/); expect(t).toMatch(/You help a co-organizer/); expect(t).toContain(`${ORIGIN}/ai/${hk.hostKey}/z/{id}/announce`);
     expect(t).not.toMatch(/PATCH .*settings/); expect(t).not.toContain("/roster"); expect(t).not.toMatch(/org\/host/);
   });
   test("the header-based manifest still works and now lists the new things and the link", async () => {
@@ -138,7 +138,7 @@ describe("GET-only fallback (_method and _body)", () => {
     expect(bad.status).toBe(400); expect(await bad.text()).toMatch(/URL-encode/);
     await call("GET", `/ai/${o.ai}/z/GET-5/settings?_method=PATCH&_body=${q({ invites: { on: true, per: 2, cats: ["dealers"] } })}`);
     expect((await j(await call("GET", `/ai/${o.ai}/z/GET-5/summary`))).invites).toEqual({ on: true, per: 2, cats: ["dealers"] });
-    const m = await (await linkGet(o.ai)).text(); expect(m).toContain("franchisees"); expect(m.length).toBeLessThan(33_000); // (limit raised from 29,000 to 33,000 when the 20 houses and their how-to-win lines joined the manual) the short front door (rules, choices, the 10 facts) comes FIRST, so a chatbot that cuts the page short still has what it needs
+    const m = await (await linkGet(o.ai)).text(); expect(m).toContain("franchisees"); expect(m.length).toBeLessThan(40_000); // (limit raised from 29,000 to 33,000 when the 20 houses and their how-to-win lines joined the manual, and to 40,000 when the real game's settings, the three messages and the payment rule replaced the older text) the short front door (rules, choices, the 10 facts) comes FIRST, so a chatbot that cuts the page short still has what it needs
   });
   test("it works only under /ai/<key>/: on the normal API a GET with _method is just a GET", async () => {
     const o = await organizer();
@@ -225,7 +225,7 @@ describe("what the organizer's AI may and may not do now", () => {
     expect(raw.prepare("SELECT 1 FROM participant WHERE eid='CAP-6'").all().length).toBe(0);
     const req = await j(await call("POST", `/ai/${o.ai}/z/CAP-6/control/request`, { action: "erase" })); expect(req.message).toMatch(/Nothing has been deleted/); // ask only
     const pr = await call("POST", `/ai/${o.ai}/z/CAP-6/control/request`, { action: "pause" }); expect(pr.status).toBe(200); // ask only: nothing is paused
-    const refusal = await j(await call("POST", `/ai/${o.ai}/z/CAP-6/erase`, {})); expect(refusal.error).toMatch(/tell them plainly/i);
+    const refusal = await j(await call("POST", `/ai/${o.ai}/z/CAP-6/erase`, {})); expect(refusal.error).toMatch(/tell the organizer what needs doing and where/i);
   });
   test("publishing through the link stays a hand-over: the organizer's console link, no publish", async () => {
     const o = await organizer(); await call("POST", `/ai/${o.ai}/z`, eng("CAP-7"));

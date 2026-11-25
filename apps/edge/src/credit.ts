@@ -14,6 +14,7 @@ import { PACKS, price } from "../../../packages/shared/src/pricing";
 import { fulfil, PAYER, sendMail, type PayEnv } from "./pay";
 import { openText } from "./pii";
 import { orgIsTest, testFlag } from "./mode";
+import { aiCannotPay, isAiCaller } from "./ai-pay";
 /** Was this game made under owner rules 1.1 (its settings carry rules "1.1")? Same reading as people.ts rulesOf, kept here so the two files do not import each other. */
 const underOwnerRules = (e: { config?: string | null }): boolean => { try { return !!e.config && JSON.parse(e.config).rules === "1.1"; } catch { return false; } };
 import type { D1, Env } from "./worker";
@@ -223,12 +224,13 @@ const PAYER_KINDS = new Set(["master", "host", "cohost"]);
 export async function creditRoute(req: Request, env: PayEnv, now: number, spend: (n: number) => Promise<boolean>, a: CreditAuth): Promise<Response | null> {
   const url = new URL(req.url), p = url.pathname, db = env.DB;
   if (req.method === "GET" && p === "/api/org/credit") {
+    if (isAiCaller(a.kind, a.viaLink)) return aiCannotPay(); // an AI key never sees or uses credit: the one plain answer (ai-pay.ts)
     if (!a.org || a.viaLink || (a.kind !== "master" && a.kind !== "host")) return json({ error: a.kind === "cohost" ? "Credit is shown to the Organizer and co-organizers." : "Not allowed." }, 403);
     return json(await listCredits(db, a.org, now));
   }
   const m = p.match(/^\/api\/z\/([A-Za-z0-9_-]{4,40})\/pay-with-credit$/);
   if (!m || req.method !== "POST") return null;
-  if (a.kind === "ai") return json({ error: "Paying is for people to do themselves. Ask the owner to use their credit in the console." }, 403);
+  if (isAiCaller(a.kind, a.viaLink)) return aiCannotPay(); // an AI key, or a co-organizer's AI work link, never pays with credit: the one plain answer (ai-pay.ts)
   if (!a.org || a.viaLink || !a.kind || !PAYER_KINDS.has(a.kind)) return json({ error: "Not allowed." }, 403);
   const e = await db.prepare("SELECT * FROM engagement WHERE id=?").bind(m[1]!).first<any>();
   if (!e || e.org !== a.org) return json({ error: "No such engagement." }, 404);

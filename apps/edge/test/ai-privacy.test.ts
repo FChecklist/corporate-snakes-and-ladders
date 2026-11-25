@@ -63,7 +63,7 @@ describe("no AI-readable route returns a name or a mobile number", () => {
   });
   test("the manual tells the AI that the owner loads the list in the console, and still teaches the same conversation", () => {
     const t = manualText(ORIGIN, "cba_" + "a".repeat(48), "ai", T);
-    expect(t).toMatch(/the owner loads their list in the Players card/); expect(t).toMatch(/names and mobile numbers never pass through you/); expect(t).not.toMatch(/roster\?_method|ask them to paste lines like/);
+    expect(t).toMatch(/The organizer pastes or uploads the list of IDs in the console/); expect(t).toMatch(/the list never passes through an AI/); expect(t).not.toMatch(/roster\?_method|ask them to paste lines like/);
     for (const step of ["A. Greet the owner", "2. THE CONVERSATION", "11. When they say it is ready", "12. Afterwards"]) expect(t).toContain(step);
   });
 });

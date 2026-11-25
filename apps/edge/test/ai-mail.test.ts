@@ -50,7 +50,7 @@ describe("the dedicated mail builders", () => {
     expect(m.text).toMatch(/1\. Copy the box/); expect(m.text).toMatch(/2\. Paste it into any AI chat/); expect(m.text).toMatch(/3\. Answer its questions/); expect(m.text).toMatch(/does the work/);
     for (const t of [/payment/, /publishing/, /erasing/, /pause or stop/, /Replace the AI link/, /stops at once/]) { expect(m.text).toMatch(t); expect(h).toMatch(t); }
     expect(m.text.split(KEY).length).toBe(2); expect(h.split(KEY).length).toBe(2); // the key appears once, inside the paste
-    expect(m.text).toContain("MY OWN Corporate Snakes and Ladders account");
+    expect(m.text).toContain("the Corporate Snakes and Ladders account that I own");
   });
   test("a replacement mail says the old link has stopped", () => {
     const m = aiLinkMail(ORIGIN, KEY, "replace", T + 86_400_000);
@@ -107,7 +107,7 @@ describe("the AI link is in the dedicated mails and nowhere else", () => {
   test("no other source that builds a mail, a PDF, a report or a player page can carry an AI link", () => {
     const root = join(import.meta.dir, "..", "..", "..");
     const read = (...p: string[]) => readFileSync(join(root, ...p), "utf8");
-    const edge = readdirSync(join(root, "apps/edge/src")).filter((f) => f.endsWith(".ts") && !["ai-link.ts", "ai-facts.ts", "ai-functions.ts", "ai-go.ts", "trust-page.ts", "mails.ts", "worker.ts", "local.ts", "helpdesk.ts"].includes(f));
+    const edge = readdirSync(join(root, "apps/edge/src")).filter((f) => f.endsWith(".ts") && !["ai-link.ts", "ai-facts.ts", "ai-functions.ts", "ai-go.ts", "ai-manual.ts", "trust-page.ts", "mails.ts", "worker.ts", "local.ts", "helpdesk.ts"].includes(f)); // ai-manual.ts is the PUBLIC manual page: it names the key prefixes and the shape of an AI link, never a key (apps/edge/test/ai-manual.test.ts checks that)
     for (const f of edge) expect(read("apps/edge/src", f)).not.toMatch(/aiPaste|aiMessage|aiLinkMail|coHostLinkMail|cba_|cbh_|\/ai\//);
     expect(read("apps/edge/src", "helpdesk.ts")).not.toMatch(/aiPaste|aiMessage|aiLinkMail|coHostLinkMail/); // Help Desk mints its keys, but a key travels by e-mail only in the builder of mails.ts (helpDeskPublishedMail)
     const pages = ["report.html", "report.js", "reportgen.js", "z.html", "z.js", "zgame.js", "big.html", "big.js", "play.html", "play.js", "pay.html", "pay.js", "partner.html", "partner.js", "screen.js"];
