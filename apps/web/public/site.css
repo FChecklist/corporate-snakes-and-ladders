@@ -34,7 +34,7 @@ body{overflow-x:hidden}
 .steps p,.benef p{margin:0;color:var(--ink2);font-size:14px}
 .benef{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px}
 .benef article{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:18px}
-.benef .bi{width:38px;height:38px;border-radius:10px;background:var(--pri);color:var(--acc);display:grid;place-items:center;margin-bottom:10px}
+.benef .bi{width:38px;height:38px;border-radius:10px;background:var(--pri);color:var(--acc2);display:grid;place-items:center;margin-bottom:10px}
 .pricehead{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;margin-bottom:18px}
 .pricehead .cur button{padding:8px 16px;font-size:13px;min-height:44px}
 .packs{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px}
@@ -49,7 +49,7 @@ body{overflow-x:hidden}
 .faq{max-width:780px}
 .faq details{border:1px solid var(--line);background:var(--surface);border-radius:12px;margin:8px 0}
 .faq summary{cursor:pointer;padding:13px 16px;font-weight:600;min-height:44px;display:flex;align-items:center}
-.faq details[open] summary{color:var(--pri)}
+.faq details[open] summary{color:var(--snk-link)}
 .faq details p{margin:0;padding:0 16px 14px;color:var(--ink2);font-size:14.5px}
 .foot{background:var(--deep);color:var(--snk-ember-100);padding:30px 0 40px;font-size:13.5px}
 .foot .in{max-width:1120px;margin:0 auto;padding:0 16px;display:flex;flex-wrap:wrap;gap:12px 28px;justify-content:space-between}
@@ -68,11 +68,11 @@ body{overflow-x:hidden}
 .legal section{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:20px 22px;margin:22px 0;box-shadow:var(--shadow)}
 .legal li{margin:7px 0;color:var(--ink2)}
 .legal ul{padding-left:20px}
-.legaltop{background:linear-gradient(135deg,var(--snk-deep),var(--snk-primary));color:var(--ivory)}
+.legaltop{background:linear-gradient(135deg,var(--snk-deep),var(--snk-primary));color:var(--snk-on-dark)}
 .legaltop .sin{display:flex;align-items:center;gap:12px;padding-top:14px;padding-bottom:14px}
 .legaltop a.back{margin-left:auto;color:#fff;border:1px solid rgba(255,255,255,.4);border-radius:999px;padding:8px 14px;text-decoration:none;font-weight:600;font-size:13px;min-height:40px;display:inline-flex;align-items:center}
 .legaltop .brand{display:flex;align-items:center;gap:12px;color:inherit;text-decoration:none}
-.legal .toc a{color:var(--pri);border-color:var(--line);min-height:40px;display:inline-flex;align-items:center}
+.legal .toc a{color:var(--snk-link);border-color:var(--line);min-height:40px;display:inline-flex;align-items:center}
 .legal :target{scroll-margin-top:12px;outline:2px solid var(--acc);outline-offset:4px}
 
 .snav .links a.aipill{background:linear-gradient(135deg,var(--acc2),var(--acc));color:var(--deep);border-color:var(--acc);font-weight:700;gap:6px;box-shadow:0 0 0 3px rgba(var(--snk-accent-rgb),.25)}
@@ -108,7 +108,7 @@ body{overflow-x:hidden}
 .faq .opts{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;padding:0 16px 16px}
 .faq .opt{position:relative;border:1px solid var(--line);border-radius:12px;padding:14px 16px;background:var(--sunk)}
 .faq .opt.best{background:linear-gradient(135deg,var(--snk-honey-50),#fff);border:2px solid var(--acc)}
-.faq .opt h4{margin:0 0 6px;font:600 16px var(--serif);display:flex;align-items:center;gap:8px;color:var(--pri)}
+.faq .opt h4{margin:0 0 6px;font:600 16px var(--serif);display:flex;align-items:center;gap:8px;color:var(--snk-link)}
 .faq .opt h4 .ic{width:18px;height:18px;stroke:var(--pri);fill:none;stroke-width:1.8}
 .faq .opt p{padding:0;margin:0;font-size:14px}
 .faq .ob{position:absolute;top:-10px;right:12px;background:var(--acc);color:var(--deep);font:700 12px var(--sans);letter-spacing:.08em;text-transform:uppercase;padding:3px 10px;border-radius:99px}

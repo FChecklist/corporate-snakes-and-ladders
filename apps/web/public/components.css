@@ -60,17 +60,16 @@ body.ck{margin:0;background:var(--bg);color:var(--ink);font:var(--fs-base)/var(-
 .ck-nav>a.login{background:var(--on-bar);border-color:var(--on-bar);color:var(--bar-b);font-weight:700}
 .ck .ck-nav>a.login{color:var(--bar-b)}
 .ck-nav>a.demo:hover,.ck-nav>a.login:hover{filter:brightness(.96)}
-html:not(.js) .ck-dots,html:not(.js) .ck-menu{display:none}
+html:not(.js) .ck-menu{display:none}
 html:not(.js) .ck-top-in{flex-wrap:wrap;padding-block:8px}
 html:not(.js) .ck-nav{flex-wrap:wrap;margin-left:0}
-@media (min-width:1024px) and (max-width:1199.98px){.ck-nav>a{padding:0 10px;font-size:14px}.ck-name b{font-size:20px}.ck-dots{margin-left:6px}}
+@media (min-width:1024px) and (max-width:1199.98px){.ck-nav>a{padding:0 10px;font-size:14px}.ck-name b{font-size:20px}}
 @media (max-width:1023.98px){
   html.js .ck-menu{display:inline-flex;align-items:center;justify-content:center}
   html.js .ck-nav{display:none;position:absolute;left:0;right:0;top:100%;margin:0;padding:8px var(--gutter) 18px;flex-direction:column;align-items:stretch;gap:0;background:var(--bar-b);border-bottom:3px solid var(--bar-edge);box-shadow:0 14px 28px rgba(var(--snk-shade-rgb),.25);max-height:calc(100vh - var(--bar) - 8px);overflow-y:auto}
   html.js .ck-nav.open{display:flex}
   .ck-nav>a{min-height:52px;font-size:17px;border:0;border-bottom:1px solid rgba(255,255,255,.22);border-radius:0;padding:0 4px;background:transparent}
   .ck-nav>a.demo,.ck-nav>a.login{margin-top:12px;border:2px solid transparent;border-radius:var(--r-pill);justify-content:center}
-  .ck-dots{align-self:flex-start;margin:16px 0 0}
   .ck-name b{font-size:20px}
 }
 @media (max-width:359.98px){.ck-name b{font-size:17px}.ck-brand{gap:8px}.ck-brand .ck-badge{width:38px;height:38px}.ck-menu{padding:0 12px}}
