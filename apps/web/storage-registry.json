@@ -38,6 +38,14 @@
       ]
     },
     {
+      "id": "player-look",
+      "store": "localStorage",
+      "say": "On a player's phone: whether the board is shown in the Retro or the Modern look. It is never sent to us.",
+      "keys": [
+        "snk-look"
+      ]
+    },
+    {
       "id": "player-old",
       "store": "localStorage",
       "cleanup": true,
