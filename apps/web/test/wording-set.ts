@@ -13,7 +13,7 @@ export const API_DOC = new Set(["apps/edge/src/ai-link.ts", "apps/edge/src/ai-fu
 export const USER_FILES = [...PAGES, ...SCRIPTS, ...EDGE, ...PACKAGES, "apps/web/public/llms.txt"];
 export const MARKETING = ["index", "about", "brochure", "organizer-guide", "pricing", "demo", "contact", "partner", "trust", "helpdesk"].map((n) => `apps/web/public/${n}.html`).concat(["apps/web/public/site.js", "apps/web/public/llms.txt"]);
 
-const API_NAMES = /(\/|\{|`|"|')\s*(?:participants|tickets?|hosts?|co-hosts?)\b|\b(?:participants|tickets|host|co-host)\s*[|:}]|[|]\s*(?:host|co-host)\b|\btickets? is (?:always|never)\b|\blimit, tickets\b|organizer,\s*host,\s*co-host(?: or none)?|organizer, host or co-host|\bhost\/co-host\b/gi;
+const API_NAMES = /(\/|\{|`|"|')\s*(?:participants|tickets?|hosts?|co-hosts?)\b|\b(?:participants|tickets|host|co-host)\??\s*[|:}]|\b(?:host|co-host) = a |\bhost \(a co-organizer\), co-host \(a game helper\)|[|]\s*(?:host|co-host)\b|\btickets? is (?:always|never)\b|\blimit, tickets\b|organizer,\s*host,\s*co-host(?: or none)?|organizer, host or co-host|\bhost\/co-host\b/gi;
 const apiClean = (s: string) => s.replace(API_NAMES, " ");
 
 export const RULES: Record<string, { re: RegExp; files: string[]; what: string }> = {

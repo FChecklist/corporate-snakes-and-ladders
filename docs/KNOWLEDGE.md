@@ -59,7 +59,7 @@ Nothing is deployed from a docs-only change. Cloudflare only, no Vercel. Every d
 - Players-throw play, mobile-number games and the pay-link and Razorpay checkout code are still in the source for games made without the rules; they are switched off by `OWNER_RULES`.
 - The `/changes` page and the footer link to it (VERSIONING-TODO items 3 and 4) are not built yet; the footer shows "Version X" from `release.json`.
 
-- The words "your" and "my" are gone from the pages, scripts, Worker messages and e-mails, but `wording-baseline.json` still counts older text in the AI manuals and a few files; the recorded consent sentences (K1 to K6, `consent.js`, `consent-text.json`: "I agree", "my details") and the legal documents were not changed. They are tied to Terms version 2026-11-01 (owner decision).
+- The words nickname, host, guest, participant, ticket, "your" and "my" are gone from every page, script, Worker message, e-mail and manual that `apps/web/test/wording-set.ts` reads (`wording-baseline.json` is empty), but the recorded consent sentences (K1 to K6, `consent.js`, `consent-text.json`: "I agree", "my details") and the legal documents were not changed. They are tied to Terms version 2026-11-01 (owner decision).
 - `bun run typecheck` reports 96 errors, all in `apps/edge/test` (header typing); it is the same 96 as on the live line before 1.6.0 (see `docs/TEST_HANDOFF.md`).
 
 ## 8. Owner-only steps still open

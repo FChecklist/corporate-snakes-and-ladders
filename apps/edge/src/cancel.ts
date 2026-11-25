@@ -75,7 +75,7 @@ async function reopenBlocker(db: D1, e: any, now: number): Promise<{ reason?: st
   const restored = (await db.prepare("SELECT cu.id AS id, cu.credit_id AS credit_id, cu.amount_inr AS amount_inr, c.expires_ms AS exp FROM credit_use cu JOIN credit c ON c.id=cu.credit_id WHERE cu.eid=? AND cu.status='restored'").bind(e.id).all<RestoredUse>()).results ?? [];
   for (const c of made) {
     if (c.status === "expired" || c.expires_ms <= now) return { ...none, reason: "The credit from this payment has lapsed (365 days after the payment), so the game can no longer be moved." };
-    if (c.status !== "active" || Math.round(c.remaining_inr * 100) !== Math.round(c.total_inr * 100)) return { ...none, reason: "The credit from this payment has already been used for another game, so this game can no longer be moved. What is left of the credit is still yours for a new game." };
+    if (c.status !== "active" || Math.round(c.remaining_inr * 100) !== Math.round(c.total_inr * 100)) return { ...none, reason: "The credit from this payment has already been used for another game, so this game can no longer be moved. What is left of the credit stays available for a new game." };
   }
   for (const u of restored) if (u.exp <= now) return { ...none, reason: "Part of the credit that paid for this game has lapsed, so the game can no longer be moved." };
   const exps = [...made.map((c) => c.expires_ms), ...restored.map((u) => u.exp)];

@@ -1,9 +1,15 @@
 {
   "product": "Corporate Snakes and Ladders",
-  "version": "1.5.4",
+  "version": "1.6.0",
   "commit": "set by the build",
   "builtAt": "set by the build",
   "changes": [
+    {
+      "id": "2026-11-25-games-gaps-1-6-0",
+      "what": "A player gives a name (the older word for it is gone), a Retro or Modern board look chosen by each player, Snakes' own colour scheme, a full AI manual page and llms.txt where the AI can prepare the pre-game, winner and closing messages but cannot pay, winners are told what they won, one wording set (game and player, co-organizer, boards, Pay now and credits) and the rules in one short line each",
+      "where": "apps/edge/src (people.ts, ai-manual.ts, ai-pay.ts, ai-link.ts, worker.ts, mails.ts), packages/beacon/src (config.ts, winwords.ts, phone-runtime.ts), packages/shared/src/lines.ts, apps/web/public (z.js, zc.js, looks.css, looks.js, snakes-scheme.css, llms.txt), apps/web/test, docs/WORDING_2026-11-25.md",
+      "pr": "cloud/snakes-gaps-2026-11-25"
+    },
     {
       "id": "2026-11-23-audit-fix-1-5-4",
       "what": "A winner can no longer be made up: before a report of a win counts, the server checks it against the public game (the turn has happened, the game has started, the seat exists, and the named player really got there on that turn); a winner's name and mobile number are kept for 365 days so the prize can be handed over, and nothing else about the winner (no network address, browser or phone details) is kept past 24 hours; the pages, the report and the e-mails say exactly that; smaller tidy-ups to how the site checks its own codes and counts joins",

@@ -1,5 +1,20 @@
 [
   {
+    "version": "1.6.0",
+    "date": "2026-11-25",
+    "commit": "",
+    "title": "The Snakes and Ladders gaps of the evaluation of 24 Nov",
+    "changes": [
+      "A player gives a name when joining (2 to 20 letters, numbers or spaces); the older word for it is gone from every page, message, manual and fact. The refusal messages are plain and kind",
+      "Players can choose a Retro or a Modern look for the board. The choice is kept only on their own phone",
+      "Snakes and Ladders has its own colour scheme, Ember and Rung, in one file. The teal block and the blue, maroon and emerald theme dots copied from another game are gone",
+      "AI help: a full AI manual page at /ai-manual, a new llms.txt, and the AI manuals now describe this game (not Tambola). An AI assistant can prepare the pre-game message, the winner message and the closing message, and is refused plainly on every payment route: only the organizer or a co-organizer pays, with Pay now",
+      "A winner is told what they won, then the organizer's winner message. The organizer can write a pre-game message and a closing message; players see the closing message when the game is over",
+      "Words: game and player, co-organizer instead of host, boards instead of tickets, Pay now and credits, no gateway name on marketing pages, and no my, mine, your or yours in what people read",
+      "The rules are shown in one short line each (milestone tie-break, exact finish, tie) on the player page and the home page. The home and about pages no longer say a turn lasts 20 seconds or that players press the dice"
+    ]
+  },
+  {
     "version": "1.5.4",
     "date": "2026-11-23",
     "commit": "",

@@ -1,76 +1,8 @@
 {
- "ticket": {
-  "apps/edge/src/ai-functions.ts": 4,
-  "apps/edge/src/ai-link.ts": 14
- },
- "host": {
-  "apps/edge/src/ai-functions.ts": 21,
-  "apps/edge/src/ai-go.ts": 4,
-  "apps/edge/src/ai-link.ts": 17
- },
- "guest": {
-  "apps/web/public/trust.html": 3,
-  "apps/edge/src/ai-functions.ts": 20,
-  "apps/edge/src/ai-go.ts": 16,
-  "apps/edge/src/ai-link.ts": 32,
-  "apps/edge/src/trust-page.ts": 7,
-  "apps/web/public/llms.txt": 6
- },
- "participant": {
-  "apps/edge/src/ai-link.ts": 5
- },
- "pay": {
-  "apps/web/public/partner.html": 1,
-  "apps/edge/src/ai-functions.ts": 1
- },
- "pronoun": {
-  "apps/web/public/helpdesk-approve.html": 1,
-  "apps/web/public/helpdesk.html": 5,
-  "apps/web/public/organizer-guide.html": 1,
-  "apps/web/public/partner.html": 49,
-  "apps/web/public/ai-link.js": 16,
-  "apps/web/public/big.js": 5,
-  "apps/web/public/common.js": 12,
-  "apps/web/public/demo.js": 8,
-  "apps/web/public/google.js": 1,
-  "apps/web/public/guide.js": 204,
-  "apps/web/public/helpdesk-accept.js": 9,
-  "apps/web/public/helpdesk-approve.js": 10,
-  "apps/web/public/helpdesk.js": 8,
-  "apps/web/public/partner.js": 37,
-  "apps/web/public/pay.js": 37,
-  "apps/web/public/paykit.js": 19,
-  "apps/web/public/paylink.js": 17,
-  "apps/web/public/paytest.js": 5,
-  "apps/web/public/preview.js": 11,
-  "apps/web/public/report.js": 4,
-  "apps/web/public/rights.js": 11,
-  "apps/web/public/signin.js": 2,
-  "apps/web/public/site.js": 40,
-  "apps/web/public/z.js": 74,
-  "apps/web/public/zc.js": 273,
-  "apps/edge/src/ai-functions.ts": 7,
-  "apps/edge/src/ai-go.ts": 10,
-  "apps/edge/src/ai-link.ts": 13,
-  "apps/edge/src/cancel.ts": 23,
-  "apps/edge/src/checkin.ts": 8,
-  "apps/edge/src/clone.ts": 4,
-  "apps/edge/src/credit.ts": 17,
-  "apps/edge/src/demo.ts": 1,
-  "apps/edge/src/helpdesk.ts": 10,
-  "apps/edge/src/hostsetup.ts": 6,
-  "apps/edge/src/lifecycle.ts": 14,
-  "apps/edge/src/mails.ts": 41,
-  "apps/edge/src/partners.ts": 4,
-  "apps/edge/src/pay.ts": 33,
-  "apps/edge/src/payfirst.ts": 1,
-  "apps/edge/src/people.ts": 19,
-  "apps/edge/src/phonekit.ts": 1,
-  "apps/edge/src/price-adjust.ts": 1,
-  "apps/edge/src/report-layout.ts": 15,
-  "apps/edge/src/rights.ts": 15,
-  "apps/edge/src/throws.ts": 1,
-  "apps/edge/src/winners.ts": 8,
-  "apps/edge/src/worker.ts": 67
- }
+ "ticket": {},
+ "host": {},
+ "guest": {},
+ "participant": {},
+ "pay": {},
+ "pronoun": {}
 }

@@ -2,6 +2,33 @@
 
 Reconstructed on 20 Nov 2026 from git history, tags and the live `/version.json` (https://snakes.corporatetambola.com/version.json). Before this file there was no changelog and no version policy; entries below the live one are approximate (dates from tags and commits). Unknown values are written "unknown", not guessed. From now on follow the standard: marketing-ledger plans/VERSION-AND-KNOWLEDGE-STANDARD-2026-11-20.md section 2.2 (newest first; Added/Changed/Fixed; what, where, PR, two audit PASS ids, rollback id).
 
+## 1.6.0 (25 Nov 2026): the Snakes and Ladders gaps of the owner's evaluation of 24 Nov
+
+Branch `cloud/snakes-gaps-2026-11-25`, opened as a draft pull request whose base is PR #15's branch `cloud/nickname-name-only-2026-11-25`. **Base note:** PR #15 (name check on a name-only join) sits on `master` (version 1.3.0 plus docs), not on PR #14, and docs/KNOWLEDGE.md says work must be based on the live line. So PR #14's head `p1/owner-rules-v1-1` (version 1.5.4) was merged into this branch first (merge commit `7e0bd33`); the pull request therefore shows PR #14's commits as well as the gap work. Not deployed, the money flag and every secret untouched (`pages/wrangler.toml` and `config/` are unchanged). Audit PASS ids: none yet; nothing is claimed here (two independent audits on the exact SHA are asked for in the PR). Rollback id (previous deploy): unknown; nothing of this branch is live.
+
+### Added
+- **Retro / Modern board look (gap 2).** The player page has a "Board look" choice (Retro, the default, or Modern) above the board, copied in mechanism from Corporate Tambola (a key on the phone, an attribute on the page, a radio group). Per player: kept only on the player's own phone under `snk-look`, read before the first paint by `looks.js`, nothing is sent to the server. Styles in `looks.css`. 15 tests in `apps/web/test/board-look-picker.test.ts`.
+- **Snakes' own colours (gap 3).** The scheme "Ember and Rung" lives in one file, `snakes-scheme.css` (rust, honey-orange, dark brown, clay; no teal, no other game's colours), and every stylesheet, page, icon and theme-colour meta uses it. The copied teal block and the copied blue/maroon/emerald theme dots are gone. Test: `apps/web/test/snakes-colours.test.ts`.
+- **AI help (gap 4).** `/ai-manual` (a full public page for an AI assistant, with the payee read from the payee record, never typed in), a new `llms.txt`, the three message fields in both manuals, and one plain refusal: an AI key (`cba_`, prefix kept) cannot pay on any payment route.
+- **Winner and closing messages (gap 5).** Settings `preGameMessage`, `winnerMessage` and `closingMessage` (plain text, up to 300 characters); a winner is told what they won, then the organizer's winner message; everyone sees the closing message at the end.
+- **Rules in one short line each (gap 7).** The milestone tie-break, the exact finish and what happens on a tie are in `packages/shared/src/lines.ts`, on the player page ("Rules, one line each") and on the home page, and `packages/beacon/test/rules-lines.test.ts` proves each by playing the engine.
+- **Wording tests (gaps 1 and 6).** `apps/web/test/wording-rules.test.ts` fails if the old word for a name appears anywhere, and for host, guest, participant, ticket, payment words and "your" or "my" every scanned file holds zero (`wording-baseline.json` is empty and can only stay that way); no new tick box, no new "I agree" line and no Hindi text can be added; `docs/WORDING_2026-11-25.md` lists the rules.
+
+### Changed
+- **A player gives a name (gap 1).** The check of PR #15 stays (2 to 20 letters, numbers or spaces, HTML removed) as `cleanPlayerName`, with plain, kind messages and the codes `bad-name` and `need-name`. The word "nickname" is gone from the join page, share text, consoles, big screen, privacy and trust pages, the AI manuals and the ten facts.
+- **Words (gap 6).** game and player; co-organizer (the `cbh_` role) and invite-only co-organizer (the `cbc_` role) instead of host and co-host; boards, never tickets; "Pay now" and credits; Razorpay is not named on marketing pages; no my, mine, your or yours in what is read (see "Not done"). The fairness sentence now says "not the co-organizer" and the privacy sentence says "player information".
+- The home and about pages said a turn lasts 20 seconds and that players press the dice; the live line has a 10-second window and the dice roll by themselves.
+
+### Fixed
+- PR #15's own tests made their game with a 20-second window, which the live line refuses (400); they use 10 seconds now (merged base: 4 failing tests before, 0 after).
+- An AI key could start an anonymous checkout before; every payment route now answers it first with the plain refusal.
+
+### Not done on purpose
+- Text the wording tests do not read: the legal documents, the invoice terms, the recorded consent sentences (see below), the older release notes, the static `site/` copy and the documents under `docs/`. A person should also read the console and the error guide once for flow: the "your" and "my" sentences were rewritten with a parser-based tool, not by hand (see docs/WORDING_2026-11-25.md).
+- The recorded consent tick boxes (K1 to K6) and `consent.js` / `consent-text.json` ("I agree") are a legal act tied to Terms version 2026-11-01 and are not changed; the legal documents are not edited.
+- The static `site/` pages (an older copy, not built into the live site) are only partly updated.
+- Nothing was deployed, merged or pushed to `master`.
+
 ## 1.5.4 (23 Nov 2026): fix after the security audit of 1.5.3
 
 Same branch `p1/owner-rules-v1-1`, same live line (version 1.4.1, commit 042b4d6; checked 23 Nov: it is an ancestor of the branch, 18 ahead and 0 behind with this version, the base `rc/snakes-runner-2026-11-05` is that line, nothing to merge in). Not deployed, no money flag or secret touched (`pages/wrangler.toml` and `config/` are unchanged). Audit of 1.5.3 (head 11841d0c): correctness PASS; security FAIL with one High (H1) and two Mediums (M1, M2). This version fixes all three and the Lows that could be fixed safely, each with a test that fails on the 1.5.3 source. Audit PASS ids: pending (two independent audits on the exact SHA are asked for in the PR). Rollback id (previous deploy): unknown, nothing of this branch is live.
