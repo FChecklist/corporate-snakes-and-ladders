@@ -24,8 +24,8 @@
    The night values are also ready to use on their own (--snk-night-*) for pages that are always dark.
 
    The same file is copied to site/snakes-scheme.css (the separate coming-soon site has no build). A test keeps both
-   copies identical.  Every text and background pair below is checked for WCAG AA contrast in
-   apps/web/test/snakes-colours.test.ts.
+   copies identical. The text and background pairs of this scheme (light and night, the board bands,
+   the signals, the buttons and bars) are checked for WCAG AA contrast in apps/web/test/snakes-colours.test.ts.
    ================================================================================================================ */
 :root{
   /* ---- the scheme, light (the default) ---- */
