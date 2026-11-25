@@ -60,7 +60,8 @@ const ruleBy = (test: (s: string) => boolean) => sRules.find((r) => test(r.selec
 const light = declsOf(ruleBy((s) => s === ":root")!.body);
 const darkAuto = declsOf(ruleBy((s) => s.startsWith(':root[data-snk-dark="auto"]'))!.body);
 const darkMode = declsOf(ruleBy((s) => s === ':root[data-mode="dark"]')!.body);
-const bridge = declsOf(ruleBy((s) => s === ":root:root:root:root")!.body);
+// the bridge: the suite brand kit names (--action, --bar-a ...) and the names shared with it (--bg, --ink ...) answered in the scheme colours. It sits at the top of app.css, not in the scheme file.
+const bridge = declsOf(rulesOf(rd(join(PUB, "app.css"))).find((r) => r.selector === ":root:root:root:root")!.body);
 const HEX6 = /^#[0-9A-Fa-f]{6}$/;
 /** the colour a value ends up as: a hex, a var() of the scheme, or white */
 function colour(v: string | undefined, vars: Record<string, string> = light, depth = 0): string {
@@ -116,7 +117,21 @@ describe("1. the scheme file", () => {
     const app = rd(join(PUB, "app.css"));
     for (const m of ["--pri:var(--snk-primary)", "--pri2:var(--snk-primary-2)", "--deep:var(--snk-deep)", "--acc:var(--snk-accent)", "--acc2:var(--snk-accent-2)", "--bg:var(--snk-bg)", "--ink:var(--snk-ink)", "--line:var(--snk-line)", "--ok:var(--snk-ok)", "--bad:var(--snk-bad)", "--warn:var(--snk-warn)"]) expect(app).toContain(m);
   });
-  test("the suite brand kit (tokens.css, generated) is left alone, and the bridge answers every colour of it that a Snakes page can show", () => {
+  test("the scheme file holds only --snk-* variables: it can never clobber a page that has names of its own (the big screen and the coming-soon site define --bg, --ink and --line themselves)", () => {
+    const names = [...SCHEME.replace(/\/\*[\s\S]*?\*\//g, "").matchAll(/(--[a-z0-9-]+)\s*:/g)].map((m) => m[1]!);
+    expect(names.length).toBeGreaterThan(150);
+    expect(names.filter((n) => !n.startsWith("--snk-"))).toEqual([]);
+    expect(SCHEME).not.toContain(":root:root");
+  });
+  test("the big screen and the coming-soon site load neither app.css nor the brand kit (they have their own names, so no bridge may reach them)", () => {
+    for (const f of [join(PUB, "big.html"), ...walk(SITE).filter((p) => p.endsWith(".html"))]) expect(rd(f), rel(f)).not.toMatch(/href="\/(app|tokens|components)\.css/);
+    expect(rd(join(PUB, "big.css"))).toContain("--bg:var(--snk-night-sunk)"); expect(rd(join(SITE, "site.css"))).toContain("--bg:var(--snk-night-bg)");
+  });
+  test("the home page loads app.css (with the bridge) before the brand kit, so the bridge has to win by its four :root, and it does", () => {
+    const h = rd(join(PUB, "index.html"));
+    expect(h.indexOf("/app.css")).toBeGreaterThan(-1); expect(h.indexOf("/app.css")).toBeLessThan(h.indexOf("/tokens.css")); expect(h.indexOf("/tokens.css")).toBeLessThan(h.indexOf("/components.css"));
+  });
+  test("the suite brand kit (tokens.css, generated) is left alone, and the bridge in app.css answers every colour of it that a Snakes page can show", () => {
     const tokens = declsOf(rulesOf(rd(join(PUB, "tokens.css"))).find((r) => r.selector === ":root")!.body);
     const skip = /^--(g-|gw-|st-)|^--(marigold|saffron|teal|rose|coral)$/; // the six game colours and washes draw only the game switcher; the status and bright colours are not used by any Snakes page (checked below)
     const colourish = Object.entries(tokens).filter(([k, v]) => !skip.test(k) && /^(#[0-9A-Fa-f]{3,8}|rgba?\(|var\()/.test(v)).map(([k]) => k);
@@ -133,14 +148,20 @@ describe("1. the scheme file", () => {
     }
     expect(bad).toEqual([]);
   });
+  test("the game pack (pack/, copied from the console repo, do not edit here) is untouched, and the bridge defines every variable its colours ask for, so its fallback colours never show", () => {
+    const man = JSON.parse(rd(join(PUB, "pack/MANIFEST.json"))).files as Record<string, string>;
+    for (const f of ["pack.css", "gamelog.html"]) expect(new Bun.CryptoHasher("sha256").update(readFileSync(join(PUB, "pack", f))).digest("hex"), f).toBe(man[f]);
+    const asked = [...rd(join(PUB, "pack/pack.css")).matchAll(/var\(\s*(--[a-z0-9-]+)\s*,/g)].map((m) => m[1]!);
+    expect([...new Set(asked)].filter((n) => !(n in bridge)).filter((n) => !n.startsWith("--ctp-"))).toEqual([]);
+  });
 });
 
 // ---------------------------------------------------------------------------------------------------------------------------------------------------------
 describe("2. every page links the scheme before any other style", () => {
-  const pages = [...walk(PUB), ...walk(SITE)].filter((f) => f.endsWith(".html") && !/[\\/]vendor[\\/]/.test(f));
-  test("there are pages to check, including the site and the pack page", () => {
+  const pages = [...walk(PUB), ...walk(SITE)].filter((f) => f.endsWith(".html") && !/[\\/](vendor|pack)[\\/]/.test(f)); // vendor/ is third-party; pack/ is copied from the console repo and is not shipped as a page
+  test("there are pages to check, including the site", () => {
     expect(pages.length).toBeGreaterThan(40);
-    expect(pages.map(rel)).toContain("site/index.html"); expect(pages.map(rel)).toContain("apps/web/public/pack/gamelog.html");
+    expect(pages.map(rel)).toContain("site/index.html"); expect(pages.map(rel)).toContain("apps/web/public/index.html");
   });
   test("each page head has the link, ahead of every other stylesheet and style block", () => {
     const bad: string[] = [];
@@ -171,8 +192,9 @@ const ORGANIZER_CHOICES = ["#0B3D91", "#1B7F5C", "#B3261E", "#6A1B9A", "#C26A00"
 const WITH_ORGANIZER_CHOICES = ["apps/web/public/zc.js", "apps/web/public/zgame.js"];
 // The slim Corporate Games bar is the same navy on every game of the suite (gamesbar.test.ts keeps it); only its focus ring is this game's accent.
 const SUITE_BAR: Record<string, string[]> = { "apps/web/public/gamesbar.css": ["#14213D", "#C9D3E8"], "site/site.css": ["#14213D", "#C9D3E8"] };
-// tokens.css is the suite brand kit, generated elsewhere and shared by the six games; the bridge in snakes-scheme.css overrides every colour a Snakes page can show. vendor/ is third-party code.
-const SKIP = (p: string) => /[\\/](tokens\.css|vendor|fonts)([\\/]|$)/.test(p) || /[\\/]vendor[\\/]/.test(p);
+// tokens.css is the suite brand kit, generated elsewhere and shared by the six games; the bridge at the top of app.css overrides every colour a Snakes page can show. vendor/ is third-party code.
+// pack/ is the game pack copied from the console repo: its fallback colours never show, because the bridge defines the variables it asks for.
+const SKIP = (p: string) => /[\\/](tokens\.css|vendor|fonts)([\\/]|$)/.test(p) || /[\\/]vendor[\\/]/.test(p) || /[\\/]public[\\/]pack[\\/]/.test(p); // pack/ is the game pack copied from the console repo (MANIFEST.json: do not edit here); see the test below
 
 const HEXRE = /(?<![&\w(])#([0-9a-fA-F]{8}|[0-9a-fA-F]{6}|[0-9a-fA-F]{3,4})\b/g; // not an HTML number (&#127942;), not an anchor (a#b), not an id reference (url(#a1))
 const norm = (h: string) => { const t = h.length <= 4 ? [...h].map((c) => c + c).join("") : h; return t.slice(0, 6).toUpperCase(); };
@@ -204,7 +226,7 @@ const OWNED: string[] = [
   ...walk(PUB).filter((f) => /\.(css|html|js|svg|webmanifest)$/.test(f) && !SKIP(f)),
   ...walk(SITE).filter((f) => /\.(css|html|js|svg)$/.test(f)),
   join(ROOT, "tools/make-icons.py"),
-  ...["mails.ts", "brand.ts", "trust-page.ts"].map((f) => join(ROOT, "apps/edge/src", f)),
+  ...["mails.ts", "brand.ts", "trust-page.ts", "admin.ts"].map((f) => join(ROOT, "apps/edge/src", f)),
   join(ROOT, "packages/beacon/src/zboard.ts"),
 ];
 
@@ -237,7 +259,7 @@ describe("3. no copied colours, nothing blue, green-blue or purple", () => {
   test("the colours live in ONE place: a stylesheet holds only variables, white, black and grey (the suite games bar is the one exception)", () => {
     const bad: string[] = [];
     const sheets = [...walk(PUB), ...walk(SITE)].filter((f) => f.endsWith(".css") && !SKIP(f) && !/snakes-scheme\.css$/.test(f));
-    expect(sheets.length).toBeGreaterThan(14);
+    expect(sheets.length).toBeGreaterThan(12);
     for (const f of sheets) {
       const css = rd(f).replace(/\/\*[\s\S]*?\*\//g, "");
       for (const m of css.matchAll(HEXRE)) { const h = norm(m[1]!); if (!neutral(h) && !(SUITE_BAR[rel(f)] ?? []).some((x) => x.replace("#", "") === h)) bad.push(`${rel(f)}: #${h}`); }

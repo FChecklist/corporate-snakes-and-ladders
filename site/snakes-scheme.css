@@ -15,8 +15,8 @@
    Only warm colours are used. There is no teal, aqua, blue, green-blue or purple on the game's own pages.
 
    How other files use it: write var(--snk-primary), var(--snk-bg) and so on. Never write a colour in another file.
-   The old short names (--pri, --deep, --acc ...) in app.css and the suite kit names (--action, --bar-a ...) in the
-   bridge at the end of this file point here, so older rules keep working.
+   The old short names (--pri, --deep, --acc ...) and the suite brand kit names (--action, --bar-a ...) are answered at the
+   top of app.css, where they point here, so older rules keep working. This file holds only the scheme itself.
 
    Light is the default. Dark follows the device ONLY on a page whose <html> carries data-snk-dark="auto" (theme.js sets it,
    and only the home page loads theme.js), or when the Dark button sets data-mode="dark". The player page, the console and the
@@ -24,8 +24,8 @@
    The night values are also ready to use on their own (--snk-night-*) for pages that are always dark.
 
    The same file is copied to site/snakes-scheme.css (the separate coming-soon site has no build). A test keeps both
-   copies identical.  Every text and background pair below is checked for WCAG AA contrast in
-   apps/web/test/snakes-colours.test.ts.
+   copies identical. The text and background pairs of this scheme (light and night, the board bands,
+   the signals, the buttons and bars) are checked for WCAG AA contrast in apps/web/test/snakes-colours.test.ts.
    ================================================================================================================ */
 :root{
   /* ---- the scheme, light (the default) ---- */
@@ -167,24 +167,4 @@
   --snk-warn-bg:var(--snk-night-warn-bg);
   --snk-info:var(--snk-night-info);
   --snk-info-bg:var(--snk-night-info-bg);
-}
-
-/* ---- the bridge: the suite brand kit (tokens.css, components.css, paykit.css) speaks its own names. They are answered here, in
-   the colours of this scheme. Four :root in a row make this win over tokens.css in light and in dark, whatever order the files load.
-   The six game colours (--g-*) and their washes (--gw-*) in tokens.css are NOT touched: they only draw the game switcher. ---- */
-:root:root:root:root{
-  --bg:var(--snk-bg);--paper:var(--snk-surface);--tint:var(--snk-wash);--ink:var(--snk-ink);--muted:var(--snk-muted);--line:var(--snk-line);
-  --action:var(--snk-primary);--on-action:var(--snk-on-primary);--link:var(--snk-link);--focus:var(--snk-focus);
-  --accent:var(--snk-accent-ink);--gold:var(--snk-accent);--goldt:var(--snk-accent-ink);
-  --wash-gold:var(--snk-warn-bg);--wash-rose:var(--snk-wash);--wash-teal:var(--snk-ok-bg);
-  --hero-a:var(--snk-paper);--hero-b:var(--snk-wash);
-  --blob-1:rgba(var(--snk-primary-rgb),.18);--blob-2:rgba(var(--snk-accent-rgb),.28);--blob-3:rgba(var(--snk-accent-rgb),.18);
-  --band:var(--snk-primary);--band-deep:var(--snk-deep);--on-band:#fff;--band-muted:var(--snk-accent-2);--band-gold:var(--snk-accent);
-  --cta-bg:var(--snk-deep);--cta-a:var(--snk-primary);--cta-b:var(--snk-deep);--cta-on:#fff;--cta-btn:#fff;--cta-btn-on:var(--snk-deep);
-  --shadow:0 1px 2px rgba(var(--snk-shade-rgb),.06),0 8px 24px rgba(var(--snk-shade-rgb),.08);
-  --shadow-lift:0 2px 4px rgba(var(--snk-shade-rgb),.08),0 16px 36px rgba(var(--snk-shade-rgb),.14);
-  --hl:rgba(var(--snk-accent-rgb),.45);--disc:var(--snk-wash);--field:var(--snk-surface);--field-line:var(--snk-clay-500);
-  --ok:var(--snk-ok);--ok-bg:var(--snk-ok-bg);--bad:var(--snk-bad);--bad-bg:var(--snk-bad-bg);--warn:var(--snk-warn);--warn-bg:var(--snk-warn-bg);
-  --bar-a:var(--snk-primary);--bar-b:var(--snk-ember-800);--bar-deep:var(--snk-deep);--bar-edge:var(--snk-accent);
-  --on-bar:#fff;--on-bar-muted:var(--snk-accent-2);--bar-gold:var(--snk-accent);--bar-ink:var(--snk-deep);
 }
