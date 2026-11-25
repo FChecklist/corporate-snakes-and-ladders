@@ -1324,7 +1324,7 @@
   function markAct() { // the one button the AI asked about is outlined and scrolled into view; it is never pressed for you
     if (!ACT || !eid || S.actMarked === eid + ACT) return;
     const el = ACT === "publish" ? document.getElementById("pubgo") || document.getElementById("publishopen") : ACT === "erase" ? document.getElementById("erase") : document.querySelector(`[data-ctl="${ACT === "stop" ? "stop" : "pause"}"]`);
-    if (!el) return; S.actMarked = eid + ACT; el.style.outline = "4px solid #E4572E"; el.style.outlineOffset = "3px"; try { el.scrollIntoView({ block: "center" }); } catch { /* not every browser */ }
+    if (!el) return; S.actMarked = eid + ACT; el.style.outline = "4px solid var(--snk-primary-2)"; el.style.outlineOffset = "3px"; try { el.scrollIntoView({ block: "center" }); } catch { /* not every browser */ }
   }
   const go = (id) => { const e = document.getElementById(id); if (e && e.scrollIntoView) { try { e.scrollIntoView({ behavior: "smooth", block: "start" }); } catch { /* not every browser */ } } };
   function openStep(n) { S.open = n; S.sheet = false; S.toast = ""; S.note = ""; if (n === 5) refreshTeam(); redraw(); go("sec" + n); if ((n === 6 && canRun()) || (n === 2 && role() === "cohost")) loadPeople().then(redraw); }

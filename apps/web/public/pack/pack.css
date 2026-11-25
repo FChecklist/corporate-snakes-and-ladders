@@ -1,6 +1,6 @@
 /* Game pack styles: the live control bar, the Yes / No panel, the game log. Light and dark, no inline styles, no outside files. Colours come from the game's own variables when it has them. */
-.ctp-runbar, .ctp-confirm, .ctp-page { --ctp-ink: var(--ink, #1c1014); --ctp-bg: var(--card, #fff); --ctp-line: var(--line, #e4d9c6); --ctp-accent: var(--btn, #0b3d91); --ctp-bad: var(--bad, #b3261e); color: var(--ctp-ink); font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
-@media (prefers-color-scheme: dark) { .ctp-runbar, .ctp-confirm, .ctp-page { --ctp-ink: var(--ink, #f2eee6); --ctp-bg: var(--card, #1a1f2e); --ctp-line: var(--line, #323a55); --ctp-accent: var(--btn, #2f5fc4); --ctp-bad: var(--bad, #ff8d84); } }
+.ctp-runbar, .ctp-confirm, .ctp-page { --ctp-ink: var(--ink, var(--snk-ink)); --ctp-bg: var(--card, var(--snk-surface)); --ctp-line: var(--line, var(--snk-line)); --ctp-accent: var(--btn, var(--snk-primary)); --ctp-bad: var(--bad, var(--snk-bad)); color: var(--ctp-ink); font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+@media (prefers-color-scheme: dark) { .ctp-runbar, .ctp-confirm, .ctp-page { --ctp-ink: var(--ink, var(--snk-night-ink)); --ctp-bg: var(--card, var(--snk-night-surface)); --ctp-line: var(--line, var(--snk-night-line)); --ctp-accent: var(--btn, var(--snk-night-primary)); --ctp-bad: var(--bad, var(--snk-night-bad)); } }
 .ctp-runbar { background: var(--ctp-bg); border: 1.5px solid var(--ctp-line); border-radius: 14px; padding: 16px; display: grid; gap: 12px; }
 .ctp-story { margin: 0; font-size: 18px; font-weight: 600; }
 .ctp-people { margin: 0; color: inherit; opacity: .85; }

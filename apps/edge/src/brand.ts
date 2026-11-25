@@ -1,6 +1,6 @@
 // One definition of how Corporate Snakes and Ladders presents itself in every e-mail: the same header (logo mark + wordmark) and the same footer (name, support address, legal link).
 // Every e-mail the service sends goes through sendMail / sendReportMail (pay.ts), which adds this footer and wraps plain mails in this header, so a mail without the brand cannot go out.
-// The name is always exactly "Corporate Snakes and Ladders". The palette is the site's (wine, gold, ivory).
+// The name is always exactly "Corporate Snakes and Ladders". The palette is the game's own (see apps/web/public/snakes-scheme.css): "wine" is the ember primary, "gold" the rung accent, "ivory" the paper.
 
 /** The version of the Terms in force (the date at the top of /terms.html). Stored with the organizer when they continue. */
 export const TERMS_VERSION = "2026-11-01";
@@ -11,7 +11,7 @@ export const BRAND = {
   support: "hello@corporatetambola.com", // the contact address the site's legal page publishes
   legalPath: "/legal.html",
   defaultOrigin: "https://snakes.corporatetambola.com",
-  wine: "#0B5D5B", gold: "#FFC93C", gold2: "#FFE08A", ivory: "#F7FBFA", line: "#D5E3E1",
+  wine: "#9C3D1E", gold: "#FF9650", gold2: "#FFD8BC", ivory: "#FFF4EC", line: "#E6CDBD",
 } as const;
 
 /** Every subject that leaves the service starts with the game tag, so one shared inbox can tell the games apart. Added in one place (sendMail / sendReportMail in pay.ts). */
@@ -34,14 +34,14 @@ export function headerHtml(origin?: string): string {
 /** The footer row of every HTML e-mail: name, support address, legal link. */
 export function footerHtml(origin?: string): string {
   const o = base(origin);
-  return `<tr data-brand="footer"><td style="border-top:1px solid ${BRAND.line};background:${BRAND.ivory};border-radius:0 0 10px 10px;padding:14px 22px;font-size:12px;line-height:1.6;color:#5C6F6D;"><b style="color:${BRAND.wine};">${BRAND.name}</b> &middot; ${BRAND.tagline}<br>Questions? Write to <a href="mailto:${BRAND.support}" style="color:${BRAND.wine};">${BRAND.support}</a><br><a href="${o}${BRAND.legalPath}" style="color:${BRAND.wine};">Rules, privacy and disclaimer</a></td></tr>`;
+  return `<tr data-brand="footer"><td style="border-top:1px solid ${BRAND.line};background:${BRAND.ivory};border-radius:0 0 10px 10px;padding:14px 22px;font-size:12px;line-height:1.6;color:#6E5A4F;"><b style="color:${BRAND.wine};">${BRAND.name}</b> &middot; ${BRAND.tagline}<br>Questions? Write to <a href="mailto:${BRAND.support}" style="color:${BRAND.wine};">${BRAND.support}</a><br><a href="${o}${BRAND.legalPath}" style="color:${BRAND.wine};">Rules, privacy and disclaimer</a></td></tr>`;
 }
 
 /** The full HTML page around some rows. */
 export function pageHtml(title: string, rows: string, origin?: string): string {
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(title)}</title></head>
-<body style="margin:0;background:#EEF5F4;font-family:Arial,Helvetica,sans-serif;color:#1c2433;">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#EEF5F4;"><tr><td align="center" style="padding:20px 10px;">
+<body style="margin:0;background:#FFEEE3;font-family:Arial,Helvetica,sans-serif;color:#2B1A12;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#FFEEE3;"><tr><td align="center" style="padding:20px 10px;">
 <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="width:100%;max-width:600px;background:#ffffff;border-radius:10px;border:1px solid ${BRAND.line};">
 ${headerHtml(origin)}
 ${rows}

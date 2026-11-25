@@ -94,16 +94,17 @@ describe("mail that is not built by mails.ts gets the same brand when it is sent
 });
 
 describe("pages: one title pattern, icons, manifest, theme colour", () => {
-  const PAGES = ["index.html", "report.html", "legal.html", "terms.html", "dpa.html", "subprocessors.html", "partner-terms.html", "organizer-guide.html", "partner.html", "pay.html", "big.html", "zc.html", "z.html", "ai-link.html", "signin.html", "404.html"];
+  const PRIMARY = /--snk-primary:\s*(#[0-9A-Fa-f]{6})/.exec(read("apps/web/public", "snakes-scheme.css"))![1]!; // the one place the colour lives (snakes-scheme.css)
+  const PAGES =["index.html", "report.html", "legal.html", "terms.html", "dpa.html", "subprocessors.html", "partner-terms.html", "organizer-guide.html", "partner.html", "pay.html", "big.html", "zc.html", "z.html", "ai-link.html", "signin.html", "404.html"];
   for (const f of PAGES) {
     test(`${f}: title names Corporate Snakes and Ladders exactly; favicon, touch icon, manifest and theme colour`, () => {
       const s = read("apps/web/public", f); const title = (s.match(/<title>([^<]*)<\/title>/) ?? [])[1]!;
       expect(title).toMatch(/(^Corporate Snakes and Ladders|\| Corporate Snakes and Ladders$)/); expect(title).not.toMatch(/CORPORATE|Bingo Corporate/);
-      for (const needle of ['rel="icon"', "apple-touch-icon", 'rel="manifest"', 'name="theme-color" content="#0B5D5B"']) expect(s).toContain(needle);
+      for (const needle of ['rel="icon"', "apple-touch-icon", 'rel="manifest"', `name="theme-color" content="${PRIMARY}"`]) expect(s).toContain(needle);
     });
   }
   test("the PWA manifest and the build ship the brand", () => {
-    const m = JSON.parse(read("apps/web/public/manifest.webmanifest")); expect(m.name).toBe("Corporate Snakes and Ladders"); expect(m.short_name).toBe("Corporate Snakes and Ladders"); expect(m.theme_color).toBe("#0B5D5B");
+    const m = JSON.parse(read("apps/web/public/manifest.webmanifest")); expect(m.name).toBe("Corporate Snakes and Ladders"); expect(m.short_name).toBe("Corporate Snakes and Ladders"); expect(m.theme_color).toBe(PRIMARY.toUpperCase());
     expect(read("pages/build.mjs")).toContain('"404.html"');
   });
   test("every page header uses the Corporate Snakes and Ladders name; the report PDF names it and carries the support address and legal link", () => {

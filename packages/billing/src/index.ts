@@ -18,7 +18,7 @@ export interface Brand {
   line: string; // one-line description on the invoice
 }
 export const BRANDS: Record<BrandId, Brand> = {
-  corporate_snakes_and_ladders: { id: "corporate_snakes_and_ladders", name: "Corporate Snakes and Ladders", domain: "corporate-snakes-and-ladders.example", invoicePrefix: "CB", theme: "#0B5D5B", line: "Live engagement software" },
+  corporate_snakes_and_ladders: { id: "corporate_snakes_and_ladders", name: "Corporate Snakes and Ladders", domain: "corporate-snakes-and-ladders.example", invoicePrefix: "CB", theme: "#9C3D1E", line: "Live engagement software" },
   dpdp: { id: "dpdp", name: "dpdp.VERIDIAN-AIOS.COM", domain: "dpdp.veridian-aios.com", invoicePrefix: "DPDP", theme: "#0E7C6E", line: "Data protection compliance software" },
   projexa: { id: "projexa", name: "projexa-ai.com", domain: "projexa-ai.com", invoicePrefix: "PXA", theme: "#1C2B3A", line: "Project management software" },
   dewberry: { id: "dewberry", name: "dewberry.in", domain: "dewberry.in", invoicePrefix: "DEW", theme: "#5B3A8C", line: "Software solutions" },

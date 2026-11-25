@@ -29,7 +29,7 @@
   const style = () => {
     if (document.getElementById("cbc-style")) return;
     const s = document.createElement("style"); s.id = "cbc-style";
-    s.textContent = ".cbc{margin:10px 0;text-align:left}.cbc-note{margin:0;font-size:12px;line-height:1.45;color:#5b6b73}.cbc-note a{color:inherit;text-decoration:underline}";
+    s.textContent = ".cbc{margin:10px 0;text-align:left}.cbc-note{margin:0;font-size:12px;line-height:1.45;color:var(--snk-muted)}.cbc-note a{color:inherit;text-decoration:underline}";
     document.head.appendChild(s);
   };
   const line = (kind) => {
