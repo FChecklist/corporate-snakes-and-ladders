@@ -6,6 +6,7 @@ import { readFileSync, readdirSync, existsSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { trustHtml } from "../../edge/src/trust-page";
 import { backSoon } from "../../edge/src/admin";
+import { BRANDS, DEFAULT_COMPANY, renderInvoiceHtml, splitGst } from "../../../packages/billing/src";
 
 const ROOT = resolve(import.meta.dir, "../../..");
 const MARK = '<div class="mark139" lang="hi" aria-hidden="true"><span>१३९</span></div>';
@@ -51,13 +52,14 @@ describe("the १३९ mark on every page", () => {
     const trust = read("apps/web/public/trust.html");
     expect(trust).toContain('<link rel="stylesheet" href="/app.css">');
   });
-  test("the Trust page and the Back-soon page, as the edge code really builds them, have the mark first in the body, once, with the CSS", async () => {
-    const built: [string, string][] = [["trustHtml()", trustHtml()], ["backSoon()", await backSoon(new Request("https://example.test/", { headers: { accept: "text/html" } })).text()]];
+  test("the Trust page, the Back-soon page and the printable invoice, as the code really builds them, have the mark first in the body, once, with the CSS", async () => {
+    const invoice = renderInvoiceHtml({ number: "CB/2026-27/000001", issuedAt: Date.UTC(2026, 9, 1), brand: BRANDS.corporate_snakes_and_ladders, company: DEFAULT_COMPANY, draft: false, buyer: { name: "Acme" }, currency: "INR", lines: [{ description: "Game", quantity: 1, amount: 100 }], tax: splitGst(100, "INR", "27", undefined, true) });
+    const built: [string, string][] = [["renderInvoiceHtml()", invoice], ["trustHtml()", trustHtml()], ["backSoon()", await backSoon(new Request("https://example.test/", { headers: { accept: "text/html" } })).text()]];
     for (const [name, html] of built) {
       expect([name, count(html, 'class="mark139"')]).toEqual([name, 1]);
       expect([name, html.replace(/^[\s\S]*?<body[^>]*>/, "").startsWith(MARK)]).toEqual([name, true]);
       // the Trust page takes its CSS from /app.css (checked above); the Back-soon page carries it inline
-      if (name === "backSoon()") expect([name, html.includes(RULE1 + RULE2)]).toEqual([name, true]);
+      if (name === "backSoon()" || name === "renderInvoiceHtml()") expect([name, html.includes(RULE1 + RULE2)]).toEqual([name, true]);
       else expect([name, html.includes('<link rel="stylesheet" href="/app.css">')]).toEqual([name, true]);
     }
   });
