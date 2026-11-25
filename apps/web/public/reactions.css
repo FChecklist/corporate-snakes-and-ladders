@@ -5,8 +5,8 @@
 .rx{position:relative;pointer-events:none;max-width:100%;font:900 clamp(11px,3vw,21px)/1.05 var(--sans,system-ui,sans-serif);text-transform:uppercase;text-align:center;overflow-wrap:anywhere;color:var(--rxi);-webkit-text-stroke:2px var(--rxl);paint-order:stroke fill;padding:9px 11px;rotate:var(--rxt,0deg);filter:drop-shadow(2px 3px 0 var(--rxl));animation:var(--rxa) var(--rxd,2.2s) cubic-bezier(.2,.9,.3,1.2) both;isolation:isolate}
 .rx::before{content:"";position:absolute;inset:-5px -4px;z-index:-1;background:var(--rxb)}
 /* Eight colour pairs: --rxb fill, --rxi ink, --rxl line. Ink on fill is at least 4.5:1 (checked by tools/conformance.ts). */
-.rx.p1{--rxb:#FFD23F;--rxi:#2A1A00;--rxl:#FFFFFF}.rx.p2{--rxb:#C62828;--rxi:#FFFFFF;--rxl:#3A0000}.rx.p3{--rxb:#2EC4A0;--rxi:#00251D;--rxl:#FFFFFF}.rx.p4{--rxb:#4DA3FF;--rxi:#001B3A;--rxl:#FFFFFF}
-.rx.p5{--rxb:#6A35C9;--rxi:#FFFFFF;--rxl:#1B0A3D}.rx.p6{--rxb:#B6E83A;--rxi:#1D2B00;--rxl:#FFFFFF}.rx.p7{--rxb:#FF7AB8;--rxi:#3D0020;--rxl:#FFFFFF}.rx.p8{--rxb:#1E2A44;--rxi:#FFE066;--rxl:#0B1020}
+.rx.p1{--rxb:var(--snk-honey-300);--rxi:var(--snk-honey-900);--rxl:#FFFFFF}.rx.p2{--rxb:var(--snk-red-700);--rxi:#FFFFFF;--rxl:var(--snk-red-900)}.rx.p3{--rxb:var(--snk-olive-400);--rxi:var(--snk-olive-900);--rxl:#FFFFFF}.rx.p4{--rxb:var(--snk-ember-300);--rxi:var(--snk-ember-900);--rxl:#FFFFFF}
+.rx.p5{--rxb:var(--snk-ember-700);--rxi:#FFFFFF;--rxl:var(--snk-ember-900)}.rx.p6{--rxb:var(--snk-clay-300);--rxi:var(--snk-clay-900);--rxl:#FFFFFF}.rx.p7{--rxb:var(--snk-red-300);--rxi:var(--snk-red-900);--rxl:#FFFFFF}.rx.p8{--rxb:var(--snk-clay-800);--rxi:var(--snk-honey-300);--rxl:var(--snk-clay-900)}
 /* Eight original shapes, drawn by tools/shapes.ts */
 /* shapes:start */
 .rx.sh-burst::before{clip-path:polygon(50.0% 0.0%,58.0% 20.1%,75.0% 6.7%,71.9% 28.1%,93.3% 25.0%,79.9% 42.0%,100.0% 50.0%,79.9% 58.0%,93.3% 75.0%,71.9% 71.9%,75.0% 93.3%,58.0% 79.9%,50.0% 100.0%,42.0% 79.9%,25.0% 93.3%,28.1% 71.9%,6.7% 75.0%,20.1% 58.0%,0.0% 50.0%,20.1% 42.0%,6.7% 25.0%,28.1% 28.1%,25.0% 6.7%,42.0% 20.1%)}

@@ -1,31 +1,13 @@
-(function () {
-  var T = [["maroon", "#117A77", "Maroon"], ["blue", "#1553B8", "Studio blue"], ["emerald", "#127A6F", "Emerald"]];
-  function get() { try { return localStorage.getItem("cb-theme") || "blue"; } catch (e) { return "blue"; } }
-  function apply(n) {
-    document.documentElement.setAttribute("data-theme", n);
-    try { localStorage.setItem("cb-theme", n); } catch (e) {}
-    [].forEach.call(document.querySelectorAll(".tdots button"), function (b) { b.setAttribute("aria-pressed", String(b.dataset.t === n)); });
-  }
-  document.documentElement.setAttribute("data-theme", get());
-  function mount() {
-    var d = document.createElement("div"); d.className = "tdots"; d.setAttribute("role", "group"); d.setAttribute("aria-label", "Colour theme");
-    T.forEach(function (t) {
-      var b = document.createElement("button"); b.type = "button"; b.dataset.t = t[0]; b.style.background = t[1]; b.title = t[2]; b.setAttribute("aria-label", t[2] + " theme");
-      b.onclick = function () { apply(t[0]); }; d.appendChild(b);
-    });
-    document.body.appendChild(d); apply(get());
-  }
-  if (document.body) mount(); else document.addEventListener("DOMContentLoaded", mount);
-})();
-
-/* Corporate Games brand kit. Load in <head> WITHOUT defer so it runs before the page is drawn:
-   marks the page as script-capable (class "js") and applies the saved colour theme and light/dark choice. The choice lives on this device only. */
+/* Load in <head> WITHOUT defer so it runs before the page is drawn:
+   marks the page as script-capable (class "js") and applies the saved Light or Dark choice (the Dark button on the home page).
+   The choice lives on this device only. The colours themselves come from snakes-scheme.css: the old blue, maroon and emerald
+   themes (and their three dots) are gone, and a choice saved for them earlier is cleared here. */
 (function () {
   var d = document.documentElement;
   d.classList.add("js");
+  d.setAttribute("data-snk-dark", "auto"); // only the home page loads this file: it follows the device (see snakes-scheme.css); the player page and the console stay light
   try {
-    var c = localStorage.getItem("ct-theme");
-    if (c === "blue" || c === "maroon" || c === "emerald" || c === "indigo") d.setAttribute("data-theme", c);
+    localStorage.removeItem("cb-theme"); localStorage.removeItem("ct-theme");
     var m = localStorage.getItem("cg-theme");
     if (m === "dark" || m === "light") d.setAttribute("data-mode", m);
   } catch (e) { /* storage blocked: follow the page default and the device */ }
