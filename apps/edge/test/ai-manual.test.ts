@@ -160,7 +160,7 @@ describe("it is wired into the site the way the Trust page is", () => {
   test("a built site carries its route and its header rules (the site is built and read, not guessed)", () => {
     const b = Bun.spawnSync(["bun", "run", join(root, "pages/build.mjs")], { cwd: root, stdout: "pipe", stderr: "pipe" }); expect(b.exitCode, new TextDecoder().decode(b.stderr)).toBe(0);
     const routes = JSON.parse(readFileSync(join(root, "pages/public/_routes.json"), "utf8")); expect(routes.include).toContain("/ai-manual"); expect(routes.include).toContain("/ai-manual.html"); expect(routes.include.length).toBeLessThanOrEqual(100);
-    const headers = readFileSync(join(root, "pages/public/_headers"), "utf8"); expect(headers).toMatch(/\n\/ai-manual\n/); expect(headers).toMatch(/\n\/ai-manual\.html\n/);
+    const headers = readFileSync(join(root, "pages/public/_headers"), "utf8"); expect(headers).toMatch(/\n\/ai-manual\n/); expect(headers).toMatch(/\n\/ai-manual\.html\n/); expect(headers).toMatch(/\n\/llms\.txt\n\s+X-Robots-Tag: noindex, nofollow\n/); // llms.txt is for AIs to read: kept out of search, not marked noai
     expect(readdirSync(join(root, "pages/public")).includes("ai-manual.html")).toBe(false); // there is no file: the Worker builds the page
   });
 });

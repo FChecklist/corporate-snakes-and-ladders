@@ -40,6 +40,7 @@ rules += "/" + hdr(GOOGLECSP);
 rules += "/*\n  Strict-Transport-Security: max-age=31536000" + PRIVATE_ROBOTS_HEADER + "\n"; // private site: never listed by a search engine (pages/private-site.mjs)
  // HTTPS only: a browser that has seen the site over HTTPS never tries plain HTTP again
 rules += "/version.json\n  Cache-Control: no-store\n";
+rules += "/llms.txt\n  X-Robots-Tag: noindex, nofollow\n"; // llms.txt is written for AI assistants to read: not listed by search engines (private site), but not marked noai (the AI manual page is built by the Worker, which sets its own headers)
 rules += "/*.js\n  Cache-Control: no-cache\n  X-Robots-Tag: noindex, noai, noimageai\n/img/*\n  Cache-Control: public, max-age=604800\n/*.css\n  Cache-Control: no-cache\n/fonts/*\n  Cache-Control: public, max-age=31536000, immutable\n";
 versionRefs(OUT, STAMP.commit); // every local script and stylesheet address in the pages carries ?v=<commit> (pages/cache-bust.mjs): a returning visitor never runs an old script on a new page, whatever cache time the zone adds (the zone setting Browser Cache TTL replaces a no-cache header on the custom domain, so the address itself must change)
 hideFromSearch(OUT); // 1 Nov 2026: noindex meta on every page, robots.txt Disallow all, no sitemap
