@@ -1,7 +1,7 @@
 /* Corporate Games brand kit. Load with defer. Does two small jobs, with no outside request and no inline code:
    1. the phone menu button (#ck-menu opens and closes #ck-nav),
    2. the Dark / Light button (any button with data-ck-mode).
-   The colours come from snakes-scheme.css (the old theme dots are gone). */
+   The colours come from snakes-scheme.css. */
 (function () {
   var d = document.documentElement;
   function store(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* blocked */ } }

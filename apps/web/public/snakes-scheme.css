@@ -60,6 +60,8 @@
   --snk-warn-bg:#FDEEC4;
   --snk-info:#57493F;
   --snk-info-bg:#F3E6DE;
+  /* text on a surface that is dark in light AND in dark (the hero, the bars): it does not switch */
+  --snk-on-dark:#FFF4EC;
   /* the five bands of the board (one per row of squares) and the deeper twin for every second square */
   --snk-band-0:#FFD9C2;--snk-band-0-alt:#FFC4A3;
   --snk-band-1:#FFD08A;--snk-band-1-alt:#F9C56B;
@@ -78,10 +80,10 @@
   --snk-red-50:#FEF1EF;--snk-red-100:#FCE1DD;--snk-red-200:#F8C5BE;--snk-red-300:#F19A90;--snk-red-400:#E4695C;--snk-red-500:#D23F31;--snk-red-600:#C42B22;--snk-red-700:#B91C1C;--snk-red-800:#8F1818;--snk-red-900:#5E1010;
   /* ---- night: the same roles for dark surfaces. Fixed values, so an always-dark page can use them directly. ---- */
   --snk-night-primary:#B8461F;
-  --snk-night-primary-2:#C44D25;
+  --snk-night-primary-2:#BF4A22;
   --snk-night-deep:#0F0603;
   --snk-night-accent:#FF9650;
-  --snk-night-accent-2:#FFD8BC;
+  --snk-night-accent-2:#FFEADB;
   --snk-night-bg:#1E100A;
   --snk-night-surface:#2B1810;
   --snk-night-sunk:#160A05;
