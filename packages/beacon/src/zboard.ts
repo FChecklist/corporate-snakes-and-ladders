@@ -22,8 +22,8 @@ export const BOARD_CSS = `
 .zb-note{min-height:22px;margin:4px auto;max-width:640px;font:700 15px system-ui,sans-serif}
 `;
 
-const PAL = ["#ef4b5b", "#ff8a1f", "#ffcf24", "#7ccb3a", "#2f9bf0", "#ff72b8", "#9a5be0"], PALE = "#e6eaee";
-const SK = [{ b: "#22c55e", d: "#0b4d22", l: "#d9ffc4" }, { b: "#14b8a6", d: "#074a42", l: "#c5fff2" }, { b: "#84cc16", d: "#364f08", l: "#f2ffc0" }, { b: "#fb923c", d: "#6e2a06", l: "#ffeacb" }, { b: "#16a34a", d: "#06391a", l: "#c9f7d6" }, { b: "#ef4444", d: "#5a0f0f", l: "#ffd9d9" }];
+const PAL = ["#E4695C", "#FF9650", "#F6D27A", "#A9BA5E", "#D4683A", "#F19A90", "#B89E8D"], PALE = "#E9D9CC"; // the Ember and Rung ramps (apps/web/public/snakes-scheme.css)
+const SK = [{ b: "#587018", d: "#25350B", l: "#DEE5B5" }, { b: "#B07408", d: "#3D230B", l: "#FDEEC4" }, { b: "#8A9E3A", d: "#25350B", l: "#F6F8E8" }, { b: "#D4683A", d: "#3B190D", l: "#FBE4D8" }, { b: "#6C8226", d: "#25350B", l: "#EDF1D8" }, { b: "#C0391B", d: "#5E1010", l: "#FCE1DD" }];
 type A = Record<string, string | number>;
 const el = (t: string, a: A, p: Element): SVGElement => { const e = document.createElementNS(NS, t); for (const k in a) e.setAttribute(k, String(a[k])); p.appendChild(e); return e as SVGElement; };
 const txt = (p: Element, a: A, s: string): void => { el("text", a, p).textContent = s; };
@@ -31,19 +31,19 @@ const txt = (p: Element, a: A, s: string): void => { el("text", a, p).textConten
 function defs(S: Element): void {
   const d = el("defs", {}, S);
   const g = el("linearGradient", { id: "zbwd", x1: 0, y1: 0, x2: 1, y2: 1 }, d);
-  el("stop", { offset: 0, "stop-color": "#d49a5c" }, g); el("stop", { offset: ".5", "stop-color": "#a8703a" }, g); el("stop", { offset: 1, "stop-color": "#865326" }, g);
+  el("stop", { offset: 0, "stop-color": "#E58A5E" }, g); el("stop", { offset: ".5", "stop-color": "#B24A22" }, g); el("stop", { offset: 1, "stop-color": "#7A2F17" }, g);
   const h = el("linearGradient", { id: "zbhl", x1: 0, y1: 0, x2: 0, y2: 1 }, d);
   el("stop", { offset: 0, "stop-color": "#fff", "stop-opacity": 0.4 }, h); el("stop", { offset: ".45", "stop-color": "#fff", "stop-opacity": 0 }, h); el("stop", { offset: 1, "stop-color": "#000", "stop-opacity": 0.18 }, h);
   const f = el("filter", { id: "zbsh", x: "-20%", y: "-20%", width: "140%", height: "140%" }, d);
   el("feDropShadow", { dx: 1.2, dy: 2, stdDeviation: 1.6, "flood-color": "#000", "flood-opacity": 0.38 }, f);
-  const r = el("radialGradient", { id: "zbbl", cx: ".35", cy: ".3", r: ".8" }, d); el("stop", { offset: 0, "stop-color": "#6f8cff" }, r); el("stop", { offset: 1, "stop-color": "#1a2f9a" }, r);
+  const r = el("radialGradient", { id: "zbbl", cx: ".35", cy: ".3", r: ".8" }, d); el("stop", { offset: 0, "stop-color": "#E58A5E" }, r); el("stop", { offset: 1, "stop-color": "#7A2F17" }, r);
   const c = el("clipPath", { id: "zbclip" }, d); el("rect", { x: O, y: O, width: G, height: G }, c);
 }
 function frame(S: Element): void {
   defs(S);
   el("rect", { x: 0, y: 0, width: VB, height: VB, rx: 14, fill: "url(#zbwd)" }, S);
-  el("rect", { x: 2, y: 2, width: VB - 4, height: VB - 4, rx: 12, fill: "none", stroke: "#f3d9a8", "stroke-opacity": 0.7, "stroke-width": 1.5 }, S);
-  el("rect", { x: O - 3, y: O - 3, width: G + 6, height: G + 6, rx: 4, fill: "#f6ead0", stroke: "#5b3714", "stroke-width": 1.5 }, S);
+  el("rect", { x: 2, y: 2, width: VB - 4, height: VB - 4, rx: 12, fill: "none", stroke: "#F6D27A", "stroke-opacity": 0.7, "stroke-width": 1.5 }, S);
+  el("rect", { x: O - 3, y: O - 3, width: G + 6, height: G + 6, rx: 4, fill: "#FFF4EC", stroke: "#4B382D", "stroke-width": 1.5 }, S);
 }
 /** One snake: a single slim tapered filled path from the head square to the tail square, a belly stripe, a few diamonds, a clear head with eyes and a forked tongue. */
 function snake(S: Element, h: number, t: number, i: number): void {
@@ -56,7 +56,7 @@ function snake(S: Element, h: number, t: number, i: number): void {
   el("path", { d: edge(0.38), fill: col.l, opacity: 0.9 }, g);
   for (let k = 7; k < M - 8; k += 6) { const p = P[k]!, n = nrm(k), w = p[2]! * 0.62, len = Math.max(2.2, p[2]! * 0.62), ang = Math.atan2(n[3]!, n[2]!) * 180 / Math.PI; el("path", { d: `M${-len} 0L0 ${-w}L${len} 0L0 ${w}Z`, transform: `translate(${p[0]!.toFixed(1)} ${p[1]!.toFixed(1)}) rotate(${ang.toFixed(0)})`, fill: col.d, opacity: 0.8 }, g); }
   const hg = el("g", { transform: `translate(${head.x.toFixed(1)} ${head.y.toFixed(1)}) rotate(${head.deg.toFixed(1)}) scale(1.3)`, filter: "url(#zbsh)" }, S);
-  el("path", { d: "M16 0L24 0M24 0L29 -4M24 0L29 4", stroke: "#e0262f", "stroke-width": 2.2, fill: "none", "stroke-linecap": "round", "stroke-linejoin": "round" }, hg);
+  el("path", { d: "M16 0L24 0M24 0L29 -4M24 0L29 4", stroke: "#C81D2B", "stroke-width": 2.2, fill: "none", "stroke-linecap": "round", "stroke-linejoin": "round" }, hg);
   el("path", { d: "M-7 -9C3 -15 18 -11 21 0C18 11 3 15 -7 9Z", fill: col.b, stroke: col.d, "stroke-width": 2, "stroke-linejoin": "round" }, hg);
   for (const sy of [-1, 1]) { el("circle", { cx: 8, cy: sy * 6.5, r: 4.4, fill: "#fff", stroke: col.d, "stroke-width": 1.1 }, hg); el("circle", { cx: 9.2, cy: sy * 6.5, r: 2.3, fill: "#141414" }, hg); el("circle", { cx: 17, cy: sy * 2.6, r: 1, fill: col.d }, hg); }
 }
@@ -65,19 +65,19 @@ function ladder(S: Element, f: number, t: number): void {
   const { a, z, nx, ny, ux, uy, L } = ladderShape(f, t), dx = z[0]! - a[0]!, dy = z[1]! - a[1]!, g = el("g", { filter: "url(#zbsh)" }, S);
   for (const s of [-1, 1]) {
     const x1 = a[0]! + nx * s, y1 = a[1]! + ny * s, x2 = z[0]! + nx * s, y2 = z[1]! + ny * s;
-    el("line", { x1, y1, x2, y2, stroke: "#3d210a", "stroke-width": 6, "stroke-linecap": "round" }, g);
-    el("line", { x1, y1, x2, y2, stroke: "#c07a38", "stroke-width": 3.6, "stroke-linecap": "round" }, g);
+    el("line", { x1, y1, x2, y2, stroke: "#3B190D", "stroke-width": 6, "stroke-linecap": "round" }, g);
+    el("line", { x1, y1, x2, y2, stroke: "#D4683A", "stroke-width": 3.6, "stroke-linecap": "round" }, g);
   }
   const k = Math.max(3, Math.round(L / 20));
-  for (let i = 1; i < k; i++) { const u = i / k, x = a[0]! + dx * u, y = a[1]! + dy * u; for (const [c, w] of [["#3d210a", 5], ["#e8b878", 2.6]] as const) el("line", { x1: x - nx, y1: y - ny, x2: x + nx, y2: y + ny, stroke: c, "stroke-width": w, "stroke-linecap": "round" }, g); }
-  for (const s of [-1, 1]) { const x = a[0]! + nx * s, y = a[1]! + ny * s, ang = Math.atan2(uy, ux) * 180 / Math.PI; el("rect", { x: -5, y: -2.5, width: 10, height: 5, rx: 2.5, transform: `translate(${x} ${y}) rotate(${ang + 90})`, fill: "#2f1a08" }, g); }
+  for (let i = 1; i < k; i++) { const u = i / k, x = a[0]! + dx * u, y = a[1]! + dy * u; for (const [c, w] of [["#3B190D", 5], ["#EFAE8C", 2.6]] as const) el("line", { x1: x - nx, y1: y - ny, x2: x + nx, y2: y + ny, stroke: c, "stroke-width": w, "stroke-linecap": "round" }, g); }
+  for (const s of [-1, 1]) { const x = a[0]! + nx * s, y = a[1]! + ny * s, ang = Math.atan2(uy, ux) * 180 / Math.PI; el("rect", { x: -5, y: -2.5, width: 10, height: 5, rx: 2.5, transform: `translate(${x} ${y}) rotate(${ang + 90})`, fill: "#2B1A12" }, g); }
 }
 function trophy(S: Element, x: number, y: number): void {
   const g = el("g", { transform: `translate(${x} ${y}) scale(.95)`, filter: "url(#zbsh)" }, S);
-  el("path", { d: "M-12 -14h24v8c0 9-5 14-12 14S-12 3-12 -6z", fill: "#ffc300", stroke: "#8a5a00", "stroke-width": 2, "stroke-linejoin": "round" }, g);
-  el("path", { d: "M-12 -10h-6c0 7 3 10 8 10M12 -10h6c0 7-3 10-8 10", fill: "none", stroke: "#8a5a00", "stroke-width": 2.4, "stroke-linecap": "round" }, g);
-  el("rect", { x: -4, y: 8, width: 8, height: 6, fill: "#d99a00", stroke: "#8a5a00", "stroke-width": 1.6 }, g); el("rect", { x: -10, y: 14, width: 20, height: 5, rx: 2, fill: "#8a5a00" }, g);
-  el("path", { d: "M-7 -10v8", stroke: "#fff3a8", "stroke-width": 2.4, "stroke-linecap": "round" }, g);
+  el("path", { d: "M-12 -14h24v8c0 9-5 14-12 14S-12 3-12 -6z", fill: "#EBB94A", stroke: "#7F4A12", "stroke-width": 2, "stroke-linejoin": "round" }, g);
+  el("path", { d: "M-12 -10h-6c0 7 3 10 8 10M12 -10h6c0 7-3 10-8 10", fill: "none", stroke: "#7F4A12", "stroke-width": 2.4, "stroke-linecap": "round" }, g);
+  el("rect", { x: -4, y: 8, width: 8, height: 6, fill: "#D69A1F", stroke: "#7F4A12", "stroke-width": 1.6 }, g); el("rect", { x: -10, y: 14, width: 20, height: 5, rx: 2, fill: "#7F4A12" }, g);
+  el("path", { d: "M-7 -10v8", stroke: "#FDEEC4", "stroke-width": 2.4, "stroke-linecap": "round" }, g);
 }
 
 /** Draw (or redraw) the shared board with every pawn count inside its square. `me` is the viewer's player id. (`look` is kept for callers; there is one look now.) */
@@ -96,10 +96,10 @@ export function renderBoard(root: HTMLElement, b: Board, st: SnakesState, me: st
   Object.entries(b.snakes).forEach(([h, t], i) => snake(grid, +h, t, i));
   for (let n = 1; n <= 100; n++) {
     const k = squareKind(b, n), { col, row } = squareXY(n), x0 = O + col * C, y0 = O + (9 - row) * C;
-    if (k === "penalty") { const g = el("g", { filter: "url(#zbsh)" }, grid), bx = x0 + 4, by = y0 + 28, w = 52, h = 27, c = 8; el("polygon", { points: `${bx + c},${by} ${bx + w - c},${by} ${bx + w},${by + c} ${bx + w},${by + h - c} ${bx + w - c},${by + h} ${bx + c},${by + h} ${bx},${by + h - c} ${bx},${by + c}`, fill: "#d62828", stroke: "#fff", "stroke-width": 2.4, "stroke-linejoin": "round" }, g); txt(g, { x: x0 + 30, y: by + 20, "font-size": 19, fill: "#fff", "text-anchor": "middle" }, "STOP"); }
+    if (k === "penalty") { const g = el("g", { filter: "url(#zbsh)" }, grid), bx = x0 + 4, by = y0 + 28, w = 52, h = 27, c = 8; el("polygon", { points: `${bx + c},${by} ${bx + w - c},${by} ${bx + w},${by + c} ${bx + w},${by + h - c} ${bx + w - c},${by + h} ${bx + c},${by + h} ${bx},${by + h - c} ${bx},${by + c}`, fill: "#C81D2B", stroke: "#fff", "stroke-width": 2.4, "stroke-linejoin": "round" }, g); txt(g, { x: x0 + 30, y: by + 20, "font-size": 19, fill: "#fff", "text-anchor": "middle" }, "STOP"); }
     if (k === "reward") { const g = el("g", { filter: "url(#zbsh)" }, grid); el("circle", { cx: x0 + 33, cy: y0 + 41, r: 16, fill: "url(#zbbl)", stroke: "#fff", "stroke-width": 2.4 }, g); txt(g, { x: x0 + 33, y: y0 + 48, "font-size": 20, fill: "#fff", "text-anchor": "middle" }, "+2"); }
     if (k === "finish") trophy(grid, x0 + 38, y0 + 36);
-    if (k === "start") { const g = el("g", { filter: "url(#zbsh)" }, grid); el("rect", { x: x0 + 4, y: y0 + 31, width: 52, height: 23, rx: 11.5, fill: "#1f9d4a", stroke: "#fff", "stroke-width": 2.2 }, g); txt(g, { x: x0 + 30, y: y0 + 48, "font-size": 14.5, fill: "#fff", "text-anchor": "middle" }, "START"); }
+    if (k === "start") { const g = el("g", { filter: "url(#zbsh)" }, grid); el("rect", { x: x0 + 4, y: y0 + 31, width: 52, height: 23, rx: 11.5, fill: "#587018", stroke: "#fff", "stroke-width": 2.2 }, g); txt(g, { x: x0 + 30, y: y0 + 48, "font-size": 14.5, fill: "#fff", "text-anchor": "middle" }, "START"); }
   }
   for (let n = 1; n <= 100; n++) {
     const { col, row } = squareXY(n), x = O + col * C + 4, y = O + (9 - row) * C + 4, w = n < 10 ? 26 : n < 100 ? 36 : 46, k = squareKind(b, n);
@@ -108,8 +108,8 @@ export function renderBoard(root: HTMLElement, b: Board, st: SnakesState, me: st
     txt(g, { x: x + w / 2, y: y + 20.5, "text-anchor": "middle", "font-size": 23, fill: "#111" }, String(n));
   }
   /** Players: a blue ring marks the viewer's square; each square with people shows the count in a badge in its bottom-right corner (22 units: about 11 px on a 360 px phone). */
-  if (mine) { const { col, row } = squareXY(mine); el("rect", { x: O + col * C + 2.5, y: O + (9 - row) * C + 2.5, width: C - 5, height: C - 5, rx: 8, fill: "none", stroke: "#1456c2", "stroke-width": 4 }, grid); }
-  for (const [ns, c] of Object.entries(on)) { const n = +ns, { col, row } = squareXY(n), w = c > 999 ? 52 : c > 99 ? 44 : c > 9 ? 36 : 30, x = O + col * C + C - 3, y = O + (9 - row) * C + C - 3; el("rect", { x: x - w, y: y - 28, width: w, height: 28, rx: 14, fill: mine === n ? "#1456c2" : "#222", stroke: "#fff", "stroke-width": 2 }, grid); txt(grid, { x: x - w / 2, y: y - 7, "font-size": 22, fill: "#fff", "text-anchor": "middle" }, String(c)); }
+  if (mine) { const { col, row } = squareXY(mine); el("rect", { x: O + col * C + 2.5, y: O + (9 - row) * C + 2.5, width: C - 5, height: C - 5, rx: 8, fill: "none", stroke: "#9C3D1E", "stroke-width": 4 }, grid); }
+  for (const [ns, c] of Object.entries(on)) { const n = +ns, { col, row } = squareXY(n), w = c > 999 ? 52 : c > 99 ? 44 : c > 9 ? 36 : 30, x = O + col * C + C - 3, y = O + (9 - row) * C + C - 3; el("rect", { x: x - w, y: y - 28, width: w, height: 28, rx: 14, fill: mine === n ? "#9C3D1E" : "#222", stroke: "#fff", "stroke-width": 2 }, grid); txt(grid, { x: x - w / 2, y: y - 7, "font-size": 22, fill: "#fff", "text-anchor": "middle" }, String(c)); }
 }
 export const standLine = (st: SnakesState, me: string): string => { const s = standing(st, me); return `${s.ahead} ahead of you, ${s.behind} behind you`; };
 

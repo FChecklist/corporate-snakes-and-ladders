@@ -43,7 +43,7 @@ describe("the dedicated mail builders", () => {
     const h = m.html; const first = h.indexOf(AI_WARNING), last = h.lastIndexOf(AI_WARNING);
     expect(first).toBeGreaterThan(0); expect(last).toBeGreaterThan(first);
     expect(first).toBeLessThan(h.indexOf("<h1")); expect(last).toBeGreaterThan(h.indexOf("WHAT TO DO")); expect(h.split(AI_WARNING).length).toBe(3);
-    expect(h).toMatch(/#b71c1c/); // red
+    expect(h).toMatch(/#c81d2b/i); // red (the scheme's stop colour, --snk-bad in apps/web/public/snakes-scheme.css)
     const hrefs = [...h.matchAll(/href\s*=\s*"([^"]*)"/gi)].map((x) => x[1]).filter((h) => !/^mailto:|legal.html$/.test(h!)); expect(hrefs).toEqual([`${ORIGIN}/ai-link.html`]); expect(h).toContain("Show your AI work link"); // the only link is the button to the sign-in page, never the key; the paste box is not a link
     expect(h).toContain(`${ORIGIN}/ai/${KEY}`); // but the text is in the box, to copy
     for (const t of ["ChatGPT", "Claude", "Gemini", "Grok", "DeepSeek", "z.ai"]) { expect(m.text).toContain(t); expect(h).toContain(t); }
