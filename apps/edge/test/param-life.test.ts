@@ -192,7 +192,7 @@ describe("the lifecycle tick can be repeated safely", () => {
 describe("a player's own requests (access, correction, erasure, nomination) and leaving", () => {
   const ask = (id: string, pid: string, device: string, kind: string, extra: Record<string, unknown> = {}, now = T) => call("POST", `/api/z/${id}/datareq`, { pid, device, kind, ...extra }, {}, now);
   const seat = async () => { const g = await paidGame({ cap: 100 }); const r = await j(await join(g.id, 1, { name: "Maya Lopez" })); return { g, pid: r.pid as string, device: dev(1) }; };
-  for (const [kind, extra, status] of [["access", {}, 200], ["correction", { note: "My name is Maya Lopes" }, 200], ["correction", { note: "x" }, 400], ["erasure", {}, 200], ["nomination", { note: "My brother" }, 200], ["status", {}, 200], ["delete-everything", {}, 400], ["", {}, 400]] as [string, Record<string, unknown>, number][]) {
+  for (const [kind, extra, status] of [["access", {}, 200], ["correction", { note: "The name is Maya Lopes" }, 200], ["correction", { note: "x" }, 400], ["erasure", {}, 200], ["nomination", { note: "The brother" }, 200], ["status", {}, 200], ["delete-everything", {}, 400], ["", {}, 400]] as [string, Record<string, unknown>, number][]) {
     test(`a ${kind || "blank"} request ${Object.keys(extra).length ? "with a note " : ""}answers ${status}`, async () => { const s = await seat(); expect((await ask(s.g.id, s.pid, s.device, kind, extra)).status).toBe(status); });
   }
   test("access shows what is held without the stored seal, in plain words", async () => {

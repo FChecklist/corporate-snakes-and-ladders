@@ -123,11 +123,11 @@ export async function partnerRoute(req: Request, env: PayEnv, now: number, spend
     let devCode: string | undefined;
     if (have) {
       await db.prepare("INSERT INTO kv(k,v) VALUES(?,?) ON CONFLICT(k) DO UPDATE SET v=excluded.v").bind(`penr/${eh}`, JSON.stringify({ t: t0, n })).run();
-      await sendMail(env, db, email, "Refer & earn: you already have an account", `This e-mail address or mobile number is already enrolled in Refer & earn.\n\nSign in with your e-mail (nothing else to remember): ${origin}/partner.html`, now);
+      await sendMail(env, db, email, "Refer & earn: you already have an account", `This e-mail address or mobile number is already enrolled in Refer & earn.\n\nSign in with the e-mail (nothing else to remember): ${origin}/partner.html`, now);
     } else {
       const code = String(100000 + (crypto.getRandomValues(new Uint32Array(1))[0]! % 900000));
       await db.prepare("INSERT INTO kv(k,v) VALUES(?,?) ON CONFLICT(k) DO UPDATE SET v=excluded.v").bind(`penr/${eh}`, JSON.stringify({ t: t0, n, c: await sha("pcode|" + eh + "|" + code), x: now + 600_000, ph, nm: name, src: b.source === "card" ? "card" : "direct", a: 0 })).run();
-      await sendMail(env, db, email, "Your Refer & earn code", `Your code is ${code}. It works for 10 minutes.\n\nIf you did not ask for it, ignore this e-mail.`, now);
+      await sendMail(env, db, email, "The Refer & earn code", `The code is ${code}. It works for 10 minutes.\n\nIf you did not ask for it, ignore this e-mail.`, now);
       if (env.TEST_MODE === "1") devCode = code;
     }
     return json({ ok: true, sent: true, ...(devCode ? { devCode } : {}) });
@@ -170,7 +170,7 @@ export async function partnerRoute(req: Request, env: PayEnv, now: number, spend
       await db.prepare("INSERT INTO kv(k,v) VALUES(?,?) ON CONFLICT(k) DO UPDATE SET v=excluded.v").bind(`psig/${eh}`, JSON.stringify({ t: recent ? prev.t : now, n: recent ? prev.n + 1 : 1, c: await sha("pcode|" + eh + "|" + code), l: await sha("plink|" + token), x: now + 600_000, a: 0 })).run();
       await db.prepare("INSERT INTO kv(k,v) VALUES(?,?) ON CONFLICT(k) DO UPDATE SET v=excluded.v").bind(`psiglink/${await sha("plink|" + token)}`, JSON.stringify({ eh, x: now + 600_000 })).run();
       const sm = signInMail(origin, code, token, `${origin}/partner.html?t=${token}`);
-      await sendMail(env, db, email, "Your Refer & earn sign-in: a 6-digit code, or one tap", sm.text, now, { html: sm.html, secret: true });
+      await sendMail(env, db, email, "The Refer & earn sign-in: a 6-digit code, or one tap", sm.text, now, { html: sm.html, secret: true });
       if (env.TEST_MODE === "1") { devCode = code; devToken = token; }
     }
     return json({ ok: true, sent: true, ...(devCode ? { devCode, devToken } : {}) });

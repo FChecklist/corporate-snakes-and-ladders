@@ -234,7 +234,7 @@ async function reportStep(env: LifeEnv, e: any, life: { end_ms: number }, now: n
     const cfg = sch.cfg, endMs = life.end_ms, first = roundMs(sch.start);
     const base = await baseData(env, e, cfg, sch, st, email, now, endMs, first);
     const link = await reportLink(env, eid);
-    const ok = await sendReportMail(env, email, `Your Corporate Snakes and Ladders game report ${eid}: open it before ${istFull(reportLinkUntil(endMs), cfg.tz)}`, bodyFor(eid, base, link), []);
+    const ok = await sendReportMail(env, email, `The Corporate Snakes and Ladders game report ${eid}: open it before ${istFull(reportLinkUntil(endMs), cfg.tz)}`, bodyFor(eid, base, link), []);
     if (!ok) return false; // try again at the next call
     st.stage = "done"; await save(); return true;
   }
@@ -243,18 +243,18 @@ async function reportStep(env: LifeEnv, e: any, life: { end_ms: number }, now: n
 
 const bodyFor = (eid: string, d: ReportData, link: string) => [
   `Hello,`, ``,
-  `Your game ${eid} has ended. Your complete report is ready: when the game started, how many people took part at each stage, every prize and who won it, the invite tree, all statistics, and the name and mobile number of every player.`, ``,
-  `Open it here (the PDF is built on your own computer or phone, so this link is all that is sent):`,
+  `The game ${eid} has ended. The complete report is ready: when the game started, how many people took part at each stage, every prize and who won it, the invite tree, all statistics, and the name and mobile number of every player.`, ``,
+  `Open it here (the PDF is built on the computer or phone, so this link is all that is sent):`,
   link, ``,
-  `The link works until ${istFull(reportLinkUntil(d.endMs))}; the players' details are permanently deleted at ${istFull(d.personalDeleteAtMs)}, as promised. Please open it and save the PDF before then: it is the only copy of this data once ours is deleted. You can share the link with your invite-only co-organizer; anyone who has it can read the report, so share it carefully. Winners confirm the name and mobile number their prize goes to on their own phone; the report shows what they confirmed, whether they changed anything, and whether you have handed the prize over, so open it again after you have ticked "Prize given" in your console.`, ``,
+  `The link works until ${istFull(reportLinkUntil(d.endMs))}; the players' details are permanently deleted at ${istFull(d.personalDeleteAtMs)}, as promised. Please open it and save the PDF before then: it is the only copy of this data once ours is deleted. You can share the link with the invite-only co-organizer; anyone who has it can read the report, so share it carefully. Winners confirm the name and mobile number their prize goes to on their own phone; the report shows what they confirmed, whether they changed anything, and whether you have handed the prize over, so open it again after you have ticked "Prize given" in the console.`, ``,
   `What happens to the data:`,
   `- By ${istFull(d.personalDeleteAtMs)} (within 24 hours of the game ending) every player's name, mobile number, seat, join record and invite record is permanently deleted from the systems.`,
-  `- For 365 days only this is kept: the organizer, co-organizer and invite-only co-organizer details, the log of what your AI assistant did, and the winners record (which prize, which round, what time, which seat, and the name, mobile number and employee ID (if any) each winner confirmed so the prize can be handed over, with whether it was given). No network address or phone details of any winner are kept: they are deleted with everyone else's.`,
+  `- For 365 days only this is kept: the organizer, co-organizer and invite-only co-organizer details, the log of what the AI assistant did, and the winners record (which prize, which round, what time, which seat, and the name, mobile number and employee ID (if any) each winner confirmed so the prize can be handed over, with whether it was given). No network address or phone details of any winner are kept: they are deleted with everyone else's.`,
   `- Everything about this game is deleted at 00:00 hours IST on ${istDate(d.fullDeleteAtMs)} (the end of the 365th day). Billing data is kept for audit and tax reasons.`,
   ``,
   `The winners were worked out by the software from the public numbers and accepted only when several different phones agreed. You cannot choose or change a winner or a dice throw, and neither can IT Services by Rajat Agarwal.`, ``,
-  `Everything can be deleted sooner on request: press Delete in your console, ask your AI assistant to request it (you confirm in your console), or reply to this e-mail from your registered address.`, ``,
-  `Corporate Snakes and Ladders is built to follow India's DPDP Act, the EU and UK GDPR and US privacy laws (including CCPA / CPRA): only what is needed to run your game is collected, it is protected with encryption, kept for the shortest time possible and never sold, and every request to see, correct or delete data is honoured.`, ``,
+  `Everything can be deleted sooner on request: press Delete in the console, ask the AI assistant to request it (you confirm in the console), or reply to this e-mail from the registered address.`, ``,
+  `Corporate Snakes and Ladders is built to follow India's DPDP Act, the EU and UK GDPR and US privacy laws (including CCPA / CPRA): only what is needed to run the game is collected, it is protected with encryption, kept for the shortest time possible and never sold, and every request to see, correct or delete data is honoured.`, ``,
   `Sent on ${istFull(d.sentAtMs)} to ${d.organizerEmail}.`,
 ].join("\n");
 
@@ -331,7 +331,7 @@ async function remindReport(env: LifeEnv, e: any, life: any, now: number) {
   const email = contact ? (JSON.parse(contact.v).email as string) : null;
   await env.DB.prepare("INSERT OR IGNORE INTO kv(k,v) VALUES(?,?)").bind(`rptremind/${eid}`, String(now)).run();
   if (!email) return;
-  await sendReportMail(env, email, `Reminder: open your Corporate Snakes and Ladders report ${eid} before ${istFull(reportLinkUntil(life.end_ms), tzOfRow(e))}`, `Hello,\n\nYour game ${eid} report has not been opened yet. The link closes at ${istFull(reportLinkUntil(life.end_ms), tzOfRow(e))} and the players' details are permanently deleted at ${istFull(personalDeleteAt(life.end_ms), tzOfRow(e))}, and the report cannot be made after that.\n\nOpen it here and save the PDF:\n${await reportLink(env, eid)}\n\nCorporate Snakes and Ladders`, []);
+  await sendReportMail(env, email, `Reminder: open the Corporate Snakes and Ladders report ${eid} before ${istFull(reportLinkUntil(life.end_ms), tzOfRow(e))}`, `Hello,\n\nThe game ${eid} report has not been opened yet. The link closes at ${istFull(reportLinkUntil(life.end_ms), tzOfRow(e))} and the players' details are permanently deleted at ${istFull(personalDeleteAt(life.end_ms), tzOfRow(e))}, and the report cannot be made after that.\n\nOpen it here and save the PDF:\n${await reportLink(env, eid)}\n\nCorporate Snakes and Ladders`, []);
 }
 
 // ------------------------------------------------------------------------------------------------ games that did not start

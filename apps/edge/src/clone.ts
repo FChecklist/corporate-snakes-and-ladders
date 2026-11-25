@@ -62,7 +62,7 @@ export async function cloneGame(env: Env, e: any, b: any, now: number, origin: s
   }
   if (org) {
     const n = (await db.prepare("SELECT COUNT(*) AS c FROM engagement e WHERE e.org=? AND e.pack=0 AND NOT EXISTS (SELECT 1 FROM kv WHERE k='pub/' || e.id)").bind(org).first<{ c: number }>())?.c ?? 0;
-    if (n >= MAX_DRAFTS) return json({ error: `You have ${MAX_DRAFTS} unpublished drafts. Publish one, or delete one you do not need (open Your games, then press Delete next to it). An unpublished draft is also forgotten after 30 days.`, code: "draft-limit" }, 409);
+    if (n >= MAX_DRAFTS) return json({ error: `You have ${MAX_DRAFTS} unpublished drafts. Publish one, or delete one you do not need (open The games, then press Delete next to it). An unpublished draft is also forgotten after 30 days.`, code: "draft-limit" }, 409);
   }
   if (!(await spend(6))) return json({ error: "It is very busy right now. Please try again in a few minutes." }, 503);
   // OWNER RULES 1.1: a new game is always made under them. A copy of an older game keeps its prizes, brand and turn length but is by employee ID only, throws by itself, and takes no mobile-number list along.
@@ -86,7 +86,7 @@ export async function cloneGame(env: Env, e: any, b: any, now: number, origin: s
   if (b?.withPeople === true && !toRules) { // (an older game's list holds mobile numbers and names: a game under the owner rules starts with an empty list of IDs)
     const r = await copyPeople(env, e.id, id, e.cap, now, spend, { config: newConfig, created_ms: now });
     peopleCopied = r.copied;
-    if (!r.copied) peopleNote = r.busy ? "It is very busy right now. Add your people again in a few minutes." : "The old player list has been auto-deleted, so add your people again.";
+    if (!r.copied) peopleNote = r.busy ? "It is very busy right now. Add the people again in a few minutes." : "The old player list has been auto-deleted, so add the people again.";
   }
   let cfg: any = {}; try { cfg = e.config ? JSON.parse(e.config) : {}; } catch { cfg = {}; }
   const copied = [
@@ -94,6 +94,6 @@ export async function cloneGame(env: Env, e: any, b: any, now: number, origin: s
     ...(cfg.rounds ? ["Rounds"] : []), ...(cfg.invites ? ["Player invites"] : []), ...(Array.isArray(cfg.rewards) && cfg.rewards.length ? ["Prizes (all of them, with their texts)"] : []),
     ...(cfg.brand ? ["Brand strip"] : []), ...((cfg.breaks?.length || cfg.opening || cfg.closing) ? ["Brand moments and lucky draw"] : []),
   ];
-  return json({ ok: true, id, openUrl: `${origin}/zc.html?e=${id}`, copied, peopleCopied, ...(peopleNote ? { peopleNote } : {}), needsStart: pending, startRound: sr, from: e.id, message: "Your new game is ready to check. Pick the date and time, then publish. This is a new game. Nothing is paid or published yet." });
+  return json({ ok: true, id, openUrl: `${origin}/zc.html?e=${id}`, copied, peopleCopied, ...(peopleNote ? { peopleNote } : {}), needsStart: pending, startRound: sr, from: e.id, message: "The new game is ready to check. Pick the date and time, then publish. This is a new game. Nothing is paid or published yet." });
 }
 

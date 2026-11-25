@@ -13,7 +13,7 @@
   /** Every rule of the after-payment form is a constant here, so a later change is one line (the Worker has the same two in payfirst.ts). */
   PK.RULES = { taxIdNeedsCompany: true, invoiceMinutes: 15 };
   const GSTIN_RE = /^\d{2}[A-Z]{5}\d{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/;
-  const GSTIN_MSG = "That GSTIN does not look right. It has 15 characters, like 27ABCDE1234F1Z5.", COMPANY_MSG = "Please add your company name. A GST invoice needs the business name.";
+  const GSTIN_MSG = "That GSTIN does not look right. It has 15 characters, like 27ABCDE1234F1Z5.", COMPANY_MSG = "Please add the company name. A GST invoice needs the business name.";
 
   const svg = (d, extra) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"${extra || ""}>${d}</svg>`;
   const I = PK.icons = {
@@ -62,7 +62,7 @@
       : '<p class="pk-ctyline" id="pk-ctyline"><b>Where are you paying from?</b></p>';
     const items = PK.countries().map(([k, n]) => `<li><button type="button" class="pk-ctyopt${k === c ? " on" : ""}" data-cty="${k}" data-n="${esc(n.toLowerCase())}"${k === c ? ' aria-current="true"' : ""}>${esc(n)}</button></li>`).join("");
     return `<section class="pk-card pk-cty" id="pk-cty" aria-label="Country"><div class="pk-ctytop">${line}</div><div id="ctybox"${open ? "" : " hidden"}>
-      <label class="pk-lab" for="ctyq">Search for your country</label><input class="pk-in" id="ctyq" type="search" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="For example India" aria-controls="ctylist">
+      <label class="pk-lab" for="ctyq">Search for the country</label><input class="pk-in" id="ctyq" type="search" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="For example India" aria-controls="ctylist">
       <ul class="pk-ctylist" id="ctylist">${items}</ul><p class="pk-hint" id="ctyno" hidden>No country matches that.</p>
       <p class="pk-hint">India pays in rupees (₹) with GST. Every other country pays in US dollars (US$).</p></div></section>`;
   };
@@ -107,28 +107,28 @@
       if (g.startMs) { r.push(PK.row("Game date", esc(PK.istDate(g.startMs)))); r.push(PK.row("Start time", esc(PK.istTime(g.startMs)))); }
       if (g.organizer && g.organizer.name) r.push(PK.row("Organizer", esc(g.organizer.name)));
       if (g.organizer && g.organizer.email) r.push(PK.row("Organizer e-mail", esc(g.organizer.email)));
-      body = `<p class="pk-gname">${esc(g.name || g.id || "Your game")}</p><dl class="pk-dl">${r.join("")}</dl>`;
-    } else body = `<p class="pk-gname">${esc(o.emptyTitle || "Your game")}</p>${o.emptyText ? `<p class="pk-empty">${esc(o.emptyText)}</p>` : ""}`;
+      body = `<p class="pk-gname">${esc(g.name || g.id || "The game")}</p><dl class="pk-dl">${r.join("")}</dl>`;
+    } else body = `<p class="pk-gname">${esc(o.emptyTitle || "The game")}</p>${o.emptyText ? `<p class="pk-empty">${esc(o.emptyText)}</p>` : ""}`;
     let price = "";
-    if (o.noPrice) price = '<div class="pk-price"><p class="pk-nopr">Choose your country to see the price.</p></div>';
+    if (o.noPrice) price = '<div class="pk-price"><p class="pk-nopr">Choose the country to see the price.</p></div>';
     else if (p) {
       const label = o.priceLabel || (g && g.participants ? `Game pack, up to ${nf(g.participants)} participants` : "Amount");
       const rows = [], list = o.listTotal != null ? o.listTotal : p.total;
       if (cur === "INR" && Number(p.gst) > 0 && o.listTotal == null) rows.push(`<div class="r"><span>${esc(label)} (before GST)</span><span>${money(p.base, cur)}</span></div><div class="r"><span>GST</span><span>${money(p.gst, cur)}</span></div>`);
       else if (o.priceLabel || (g && g.participants)) rows.push(`<div class="r"><span>${esc(label)}</span><span>${money(list, cur)}</span></div>`);
-      if (o.creditUsed) rows.push(`<div class="r"><span>Your credit used</span><span>- ${money(o.creditUsed, cur)}</span></div>`);
+      if (o.creditUsed) rows.push(`<div class="r"><span>The credit used</span><span>- ${money(o.creditUsed, cur)}</span></div>`);
       rows.push(`<div class="r t"><span>${esc(o.totalLabel || "Total to pay")}</span><span>${money(p.total, cur)}</span></div>`);
       price = `<div class="pk-price">${rows.join("")}</div>${cur === "INR" ? "" : '<p class="pk-note"><b>Charged in US$.</b> No Indian GST is added.</p>'}`;
     }
     return `<section class="pk-card" aria-labelledby="pk-sum-h"><div class="pk-sum-top"><h2 class="pk-kicker" id="pk-sum-h">Order summary</h2>${badge}</div>${body}${price}
-      <p class="pk-owner">Software owned and made by<b>${esc(B.payeeCaps)}</b>Your payment is made to ${esc(B.payee)}.</p></section>`;
+      <p class="pk-owner">Software owned and made by<b>${esc(B.payeeCaps)}</b>The payment is made to ${esc(B.payee)}.</p></section>`;
   };
   /** The same game block, as the loading frame: same size, so nothing jumps when the real answer comes. */
   PK.summarySkeleton = () => '<section class="pk-card" aria-busy="true" aria-label="Loading the game details"><div class="pk-sum-top"><p class="pk-kicker">Order summary</p></div><div class="pk-skel l1"></div><div class="pk-skel l2"></div><div class="pk-skel l2"></div><div class="pk-skel l2"></div><div class="pk-skel l3"></div></section>';
   PK.trust = () => `<section class="pk-card pk-trustcard" aria-label="Why this payment is safe"><ul class="pk-trust">
-    <li>${I.lock}<div><b>Secure payment by Razorpay</b><span>Your card, UPI or bank details go to Razorpay only.</span></div></li>
+    <li>${I.lock}<div><b>Secure payment by Razorpay</b><span>The card, UPI or bank details go to Razorpay only.</span></div></li>
     <li>${I.shield}<div><b>RBI-regulated payment gateway</b><span>Trusted by businesses across the world.</span></div></li>
-    <li>${I.card}<div><b>Your card and UPI details are never seen by us</b><span>${esc(PK.BRAND.name)} never sees or stores them.</span></div></li>
+    <li>${I.card}<div><b>The card and UPI details are never seen by us</b><span>${esc(PK.BRAND.name)} never sees or stores them.</span></div></li>
     <li>${I.receipt}<div><b>Tax invoice by e-mail</b><span>Sent to the e-mail you give Razorpay.</span></div></li></ul>
     <p class="pk-fine">All data is handled as required by India's DPDP Act, US privacy laws and the EU GDPR.</p></section>`;
 
@@ -164,7 +164,7 @@
   PK.friendly = (e, kept) => {
     const tail = kept ? " What you typed is kept." : "";
     if (e && e.cancelled) return "The payment window was closed, so nothing was charged. Press the button to try again.";
-    if (e && e.status === 0) return "We could not reach the service. Please check your internet connection and try again." + tail;
+    if (e && e.status === 0) return "We could not reach the service. Please check the internet connection and try again." + tail;
     if (e && e.status === 429) return String((e && e.message) || "").trim() || "Please try again later.";
     const m = String((e && e.message) || "").trim() || "Something went wrong.";
     return m + tail;
@@ -206,19 +206,19 @@
   PK.orderBody = (S) => { const b = {}; b[F.country || "country"] = PK.cty(S); b.currency = PK.cur(S) || "INR"; return b; };
 
   // ---- the receipt, and the optional details for the invoice ----
-  PK.invoice = (d, email) => !d || !d.invoiceUrl ? "" : `<div class="pk-inv"><h3>Your invoice ${esc(d.invoiceNumber || "")}</h3><div class="pk-invbody" id="invbody">Loading your invoice...</div>
+  PK.invoice = (d, email) => !d || !d.invoiceUrl ? "" : `<div class="pk-inv"><h3>The invoice ${esc(d.invoiceNumber || "")}</h3><div class="pk-invbody" id="invbody">Loading the invoice...</div>
     <div class="pk-btns"><a class="pk-btn alt" id="invpdf" href="${esc(d.invoiceUrl)}.pdf" download>Download PDF</a><a class="pk-btn alt" id="invprint" href="${esc(d.invoiceUrl)}" target="_blank" rel="noopener">Open / print</a><a class="pk-btn alt" id="invwa" href="#">Send by WhatsApp</a><button class="pk-btn alt" id="invcopy" type="button">Copy invoice link</button></div>
     <div class="pk-invto"><label for="invto">E-mail this invoice to</label><input class="pk-in" id="invto" type="email" autocomplete="email" value="${esc(email || "")}"><button class="pk-btn sm" id="invsend" type="button">E-mail it</button></div><p class="pk-note" id="invmsg" role="status"></p></div>`;
   /** "Add to your invoice (all optional)": name, company name, GST / Tax ID, and a Skip button. Shown while the invoice is still waiting for the payer. */
   PK.invoiceForm = (S, d) => {
     const to = d && d.payer && d.payer.email ? d.payer.email : "";
-    return `<div class="pk-invform" id="pk-invform"><h3>Add to your invoice <span class="opt">(all optional)</span></h3>
-      <p class="pk-sub">Your tax invoice is e-mailed${to ? ` to <b>${esc(to)}</b>` : ""} when you press a button below. If you do nothing, it is sent by itself in ${PK.RULES.invoiceMinutes} minutes.</p>
+    return `<div class="pk-invform" id="pk-invform"><h3>Add to the invoice <span class="opt">(all optional)</span></h3>
+      <p class="pk-sub">The tax invoice is e-mailed${to ? ` to <b>${esc(to)}</b>` : ""} when you press a button below. If you do nothing, it is sent by itself in ${PK.RULES.invoiceMinutes} minutes.</p>
       ${PK.field({ id: "nm", f: "name", label: "Name", auto: "name", value: S.name, ph: "Full name" })}
       ${PK.field({ id: "org", f: "org", label: "Company name", auto: "organization", value: S.org, ph: "Company name" })}
       ${PK.field({ id: "tax", f: "tax", label: "GST / Tax ID", value: S.tax, max: 20, cls: "pk-up", ph: "For example 27ABCDE1234F1Z5" })}
       ${PK.errBox()}
-      <div class="pk-btns"><button class="pk-btn" id="invadd" type="button">Add to my invoice</button><button class="pk-btn alt" id="invskip" type="button">Skip</button></div></div>`;
+      <div class="pk-btns"><button class="pk-btn" id="invadd" type="button">Add to the invoice</button><button class="pk-btn alt" id="invskip" type="button">Skip</button></div></div>`;
   };
   /** The first thing wrong with the optional details: {id, msg} or null (the Worker checks the same two rules again). */
   PK.validateInvoice = (S, country) => {
@@ -264,15 +264,15 @@
     if (py.method) { const det = py.methodDetail || "", how = det && det.toLowerCase().indexOf(String(py.method).toLowerCase()) === 0 ? det : det ? py.method + " · " + det : py.method; r.push(PK.row("Paid with", esc(how))); } // "UPI ID as***@okhdfc" already starts with the method; "Visa credit card ending 1111" does not
     if (py.email) r.push(PK.row("E-mail (from Razorpay)", esc(py.email)));
     if (py.phone) r.push(PK.row("Mobile (from Razorpay)", esc(py.phone)));
-    r.push(PK.row("Razorpay transaction ID", esc(d.razorpayPaymentId || "being confirmed, see your e-mail"), "mono"));
+    r.push(PK.row("Razorpay transaction ID", esc(d.razorpayPaymentId || "being confirmed, see the e-mail"), "mono"));
     if (d.orderId) r.push(PK.row(`${B.name} payment confirmation ID`, esc(d.orderId), "mono"));
     if (d.invoiceNumber) r.push(PK.row("Invoice number", esc(d.invoiceNumber), "mono"));
     for (const x of o.rows || []) r.push(PK.row(x[0], x[1], x[2]));
     const mail = py.email || o.email || "";
-    return `<section class="pk-card done" role="status"><div class="pk-done-head"><span class="tick">${I.check}</span><div><h2>${esc(o.title || "Payment received")}</h2><p>${o.lead || ""}</p></div></div><dl class="pk-dl">${r.join("")}</dl>${d.invoicePending ? (o.form || "") : ""}${PK.invoice(d, mail)}${d.invoiceUrl && py.email ? `<p class="pk-note">We e-mailed your tax invoice to <b>${esc(py.email)}</b>.</p>` : ""}${o.after || ""}</section>`;
+    return `<section class="pk-card done" role="status"><div class="pk-done-head"><span class="tick">${I.check}</span><div><h2>${esc(o.title || "Payment received")}</h2><p>${o.lead || ""}</p></div></div><dl class="pk-dl">${r.join("")}</dl>${d.invoicePending ? (o.form || "") : ""}${PK.invoice(d, mail)}${d.invoiceUrl && py.email ? `<p class="pk-note">We e-mailed the tax invoice to <b>${esc(py.email)}</b>.</p>` : ""}${o.after || ""}</section>`;
   };
   /** the proforma invoice (not paid), folded away until asked for; same ids as before so TB.proformaWire still works */
-  PK.proforma = () => '<details class="pk-pf"><summary>Proforma invoice (not paid)</summary><div class="in"><div class="pk-invbody" id="pfbody">Preparing your proforma invoice...</div><div class="pk-btns"><button class="pk-btn alt" id="pfpay" type="button">Pay now</button></div></div></details>';
+  PK.proforma = () => '<details class="pk-pf"><summary>Proforma invoice (not paid)</summary><div class="in"><div class="pk-invbody" id="pfbody">Preparing the proforma invoice...</div><div class="pk-btns"><button class="pk-btn alt" id="pfpay" type="button">Pay now</button></div></div></details>';
   PK.page = (root, html, focus) => { root.innerHTML = html; if (focus) { const h = root.querySelector("#pk-h1"); if (h) try { h.focus({ preventScroll: false }); } catch (e) { /* fine */ } } };
 
   // older callers (and any page not yet moved to the kit) get the new look through the old names

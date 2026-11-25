@@ -14,12 +14,12 @@
   const pips = (face) => Array.from({ length: 9 }, (_, i) => `<i class="pip${(PIPS[face] || []).includes(i) ? " on" : ""}"></i>`).join("");
   // the same real 3D cube as the live game: ivory, black pips, opposite faces add up to 7; it tumbles on two axes and settles on the number
   const faces = () => [1, 2, 3, 4, 5, 6].map((n) => `<div class="dface df${n}">${pips(n)}</div>`).join("");
-  const cube = (mode, n) => `<div class="dice3d${mode === "rolling" ? " rolling" : ""}" role="img" aria-label="${mode === "rolling" ? "Rolling the dice" : n ? "Last roll " + n : "Your dice"}"><div class="dshadow"></div><div class="dhop"><div class="dtilt"><div class="dcube ${mode === "rolling" ? "rolling show" + n : n ? "show" + n : "idle"}">${faces()}</div></div></div></div>`;
+  const cube = (mode, n) => `<div class="dice3d${mode === "rolling" ? " rolling" : ""}" role="img" aria-label="${mode === "rolling" ? "Rolling the dice" : n ? "Last roll " + n : "The dice"}"><div class="dshadow"></div><div class="dhop"><div class="dtilt"><div class="dcube ${mode === "rolling" ? "rolling show" + n : n ? "show" + n : "idle"}">${faces()}</div></div></div></div>`;
   const PLAYERS = [{ name: "You", cls: "me" }, { name: "Maya", cls: "p1" }, { name: "Ravi", cls: "p2" }, { name: "Zoya", cls: "p3" }];
   const START = 60; // the demo starts near the end so a game takes about a minute
   let board = null;
   try { board = ZG.generateBoard("DEMO", 1, "9f2c4a7e1d3b5860a1c3e5f7092b4d6e8f0a1b2c3d4e5f60718293a4b5c6d7e8", { size: 100, snakes: 9, ladders: 9, finish: "exact" }); } catch { board = null; }
-  if (!board) { app.innerHTML = '<div class="zcard" role="status"><h2>Free demo</h2><p class="zsmall zflush zgap">The demo could not start in this browser. Please try again.</p><a class="zbtn" href="/">Create my game</a></div>'; return; }
+  if (!board) { app.innerHTML = '<div class="zcard" role="status"><h2>Free demo</h2><p class="zsmall zflush zgap">The demo could not start in this browser. Please try again.</p><a class="zbtn" href="/">Create the game</a></div>'; return; }
 
   const S = { pending: 0, landed: false, pos: PLAYERS.map((_, i) => START + i), turn: 0, busy: false, last: null, who: 0, rolls: 0, done: null, auto: false, face: 0, msg: "", tone: "go" };
   const ctr = (s, side) => { const p = ZG.squareXY(s, side); return { x: p.col + 0.5, y: side - 1 - p.row + 0.5 }; };
@@ -64,12 +64,12 @@
   };
   function view() {
     const yourTurn = S.turn === 0 && !S.busy && !S.done;
-    const state = S.done ? (S.done === "you" ? "You made it home!" : `${PLAYERS[S.who].name} got home first.`) : S.busy ? (S.turn === 0 ? "Rolling the dice…" : `${PLAYERS[S.turn].name} is rolling…`) : yourTurn ? "Your turn: tap the Roll button." : `${PLAYERS[S.turn].name} is next…`;
-    const chipTone = S.done ? "end" : yourTurn ? "go" : "wait", chip = S.done ? "Game over" : yourTurn ? "Your turn" : "Wait";
+    const state = S.done ? (S.done === "you" ? "You made it home!" : `${PLAYERS[S.who].name} got home first.`) : S.busy ? (S.turn === 0 ? "Rolling the dice…" : `${PLAYERS[S.turn].name} is rolling…`) : yourTurn ? "The turn: tap the Roll button." : `${PLAYERS[S.turn].name} is next…`;
+    const chipTone = S.done ? "end" : yourTurn ? "go" : "wait", chip = S.done ? "Game over" : yourTurn ? "The turn" : "Wait";
     const die = `<div class="zdieblk">${cube(S.busy && MOTION() ? "rolling" : "", S.busy ? S.pending : S.face)}<div class="dnum${S.landed ? " pop" : ""}" aria-hidden="true">${S.busy ? "&hellip;" : S.face || ""}</div></div>`;
     const legend = PLAYERS.map((p, i) => `<span class="zlg"><i class="pawn t ${p.cls}"></i>${esc(p.name)} <b>${S.pos[i]}</b></span>`).join("");
     const last = S.last ? `<div class="zthrow ${S.last.s.kind === "ladder" ? "up" : S.last.s.kind === "snake" ? "down" : S.last.s.kind === "finish" ? "win" : ""}" role="status"><span class="zsteptxt">${esc(stepText(S.last.who, S.last.s))}</span></div>` : "";
-    const end = S.done ? `<div class="zcard zfinal"><div class="zmedal" aria-hidden="true">${S.done === "you" ? "&#127942;" : "&#127922;"}</div><div class="zfbig">${S.done === "you" ? "You won the practice game!" : "Nice try! Play again?"}</div><p class="zsmall zbigger">This was only practice: no prizes and nothing was saved. In a real game everyone gets their own board and the prizes are set by your organizer.</p><button class="zbtn" id="dagain" type="button">Play again</button><a class="zbtn alt" href="/">Create my game</a></div>` : "";
+    const end = S.done ? `<div class="zcard zfinal"><div class="zmedal" aria-hidden="true">${S.done === "you" ? "&#127942;" : "&#127922;"}</div><div class="zfbig">${S.done === "you" ? "You won the practice game!" : "Nice try! Play again?"}</div><p class="zsmall zbigger">This was only practice: no prizes and nothing was saved. In a real game everyone gets their own board and the prizes are set by the organizer.</p><button class="zbtn" id="dagain" type="button">Play again</button><a class="zbtn alt" href="/">Create the game</a></div>` : "";
     return `<div class="zbrand zdef" data-bg="#9C3D1E" data-fg="#ffffff"><b><a class="zlogo" href="/" aria-label="Corporate Snakes and Ladders home"><img src="/logo-mark.svg" alt="Corporate Snakes and Ladders logo" width="18" height="18"></a>CORPORATE SNAKES AND LADDERS</b><span class="zdemotag">FREE DEMO</span></div>
       <p class="zdemoinfo zgoalline zflush"><b>Practice game.</b> In a real game the dice roll by themselves; here you can press Roll or use Auto roll. A ladder takes you up, a snake takes you down. Land exactly on 100. You start on ${START} to keep it quick.</p>
       <div class="zcard zdice st-${chipTone}"><div class="zchiprow"><span class="zchip2 ${chipTone}">${chip}</span><span class="zchip2 plain">Roll ${S.rolls + (S.done ? 0 : 1)} &middot; Square ${S.pos[0]}</span></div>
@@ -78,7 +78,7 @@
       <div class="zcard zboardcard"><h2>The board</h2> <span class="zgoalpill">Goal: land exactly on 100</span><div class="zlegend2">${legend}</div>${boardHtml()}
         <p class="zsmall zleg"><span class="zkey end">&#127942;</span> last square 100 <span class="zkey up">&#9650;</span> ladder: up <span class="zkey down">&#9660;</span> snake: down</p></div>
       ${end}
-      <div class="zcard"><h2>Ready for your own game?</h2><p class="zsmall zflush zgap">Share one link. Everyone plays on their own phone. The software checks every result.</p><a class="zbtn" href="/">Create my game</a></div>`;
+      <div class="zcard"><h2>Ready for the game?</h2><p class="zsmall zflush zgap">Share one link. Everyone plays on their own phone. The software checks every result.</p><a class="zbtn" href="/">Create the game</a></div>`;
   }
   /** the pawns slide from their old squares to the new ones (about 0.4 s; none with "reduce motion") */
   const rectsOf = () => { const w = document.querySelector(".sqwrap"), m = {}; if (!w) return m; const wr = w.getBoundingClientRect(); document.querySelectorAll(".sqov .pawn.t").forEach((el) => { const k = ["me", "p1", "p2", "p3"].find((c) => el.classList.contains(c)); if (k && !m[k]) { const r = el.getBoundingClientRect(); m[k] = { x: r.left - wr.left, y: r.top - wr.top }; } }); return m; };

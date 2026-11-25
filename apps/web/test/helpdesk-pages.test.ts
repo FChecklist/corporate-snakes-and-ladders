@@ -95,7 +95,7 @@ describe("Help Desk pages", () => {
     expect(p.text()).toMatch(/Annual Day/); expect(p.text()).toMatch(/Up to 300 people/); expect(p.text()).toMatch(/Only you publish and pay/);
     expect(p.win.location.search).toBe("");
     (p.$("#em") as any).value = "boss@acme.com"; (p.$("#ph") as any).value = "98765 00009"; p.click("#pub");
-    await p.waitFor((x) => /Your game is live/.test(x));
+    await p.waitFor((x) => /The game is live/.test(x));
     expect(s.world.raw.prepare("SELECT COUNT(*) c FROM kv WHERE k='pub/PG-1'").get()).toEqual({ c: 1 });
     expect((s.world.raw.prepare("SELECT used_ms FROM helpdesk_pub").get() as any).used_ms).not.toBeNull();
     expect(s.world.raw.prepare("SELECT COUNT(*) c FROM organizer_key WHERE created_by='d' AND kind='host' AND host_id=hash").get()).toEqual({ c: 1 });

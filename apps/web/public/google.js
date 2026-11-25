@@ -5,7 +5,7 @@
 (function () {
   const TB = window.TB || (window.TB = {});
   const WEBVIEW = /; wv\)|FBAN|FBAV|FB_IAB|Instagram|Line\/|MicroMessenger|LinkedInApp|Snapchat|Twitter|GSA\//i; // browsers inside other apps, which Google refuses to sign in on
-  const LINE = "Open this page in your browser, or use an e-mail code.";
+  const LINE = "Open this page in the browser, or use an e-mail code.";
   let cfg;
   async function config() {
     if (cfg !== undefined) return cfg;

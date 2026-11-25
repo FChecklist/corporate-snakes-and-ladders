@@ -285,7 +285,7 @@ describe("organizers, their AI assistant, and what the AI may not do", () => {
     expect(h.engagements).toEqual([]);
     expect((await (await call("GET", "/api/history", undefined, asM())).json() as any).engagements.map((x: any) => x.id)).toEqual(["MINE1"]);
   });
-  test("another organizer can neither reuse my roster nor create over my id", async () => {
+  test("another organizer can neither reuse the roster nor create over the id", async () => {
     await call("POST", "/api/z", { id: "THEIRS", startRound: FUTURE, callSeconds: 10, cap: 50 }, { "x-organizer": other });
     expect((await call("POST", "/api/z/THEIRS/reuse", { from: "MINE1" }, { "x-organizer": other })).status).toBe(400);
     const r = await (await call("POST", "/api/z", { id: "MINE1", startRound: 1, callSeconds: 10, cap: 1 }, { "x-organizer": other })).json() as any;

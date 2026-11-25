@@ -43,7 +43,7 @@ describe("replace the report link (G-07)", () => {
   });
 });
 
-describe("Close your organizer account", () => {
+describe("Close the organizer account", () => {
   test("only the organizer's own key, with a confirmation; it deletes the account and every engagement; payments stay; all keys die", async () => {
     const o = await org(); await game(o, "CLS-1"); await game(o, "CLS-2");
     await call("POST", "/api/z/CLS-1/join", { phone: "9811111111", name: "Asha", device: "1".repeat(32) });
@@ -64,11 +64,11 @@ describe("Close your organizer account", () => {
     const o = await org(); await game(o, "CLS-3", 0);
     const r = await call("POST", "/api/org/close", { confirm: true }, o.h, T + 5 * 60_000); expect(r.status).toBe(409);
     expect((raw.prepare("SELECT COUNT(*) AS c FROM engagement").get() as any).c).toBe(1);
-    const z = rd("zc.js"); expect(z).toContain("Close your account"); expect(z).toContain("This cannot be undone.");
+    const z = rd("zc.js"); expect(z).toContain("Close the account"); expect(z).toContain("This cannot be undone.");
   });
 });
 
-describe("Close my partner account", () => {
+describe("Close the partner account", () => {
   test("the partner row is deleted with their own key; commission rows stay as accounting records; a stranger cannot", async () => {
     const a: any = await (await call("POST", "/api/partner/enroll", { phone: "9811122233", email: "p@partner.example", consent: true })).json();
     const v: any = await (await call("POST", "/api/partner/enroll/verify", { email: "p@partner.example", code: a.devCode })).json();
@@ -78,7 +78,7 @@ describe("Close my partner account", () => {
     expect((raw.prepare("SELECT COUNT(*) AS c FROM partner").get() as any).c).toBe(0);
     expect((raw.prepare("SELECT COUNT(*) AS c FROM commission").get() as any).c).toBe(1);
     expect((await call("GET", "/api/partner/me", undefined, { "x-partner": v.partnerKey })).status).toBe(403);
-    expect(rd("partner.js")).toContain("Close my partner account");
+    expect(rd("partner.js")).toContain("Close the partner account");
   });
 });
 

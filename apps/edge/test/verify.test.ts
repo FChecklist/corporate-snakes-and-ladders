@@ -203,7 +203,7 @@ describe("the owner's three test sign-ins", () => {
     // (in this game the console asks a new account for the Terms tick before the first game is made, so a test sign-in gets the K2 record the console needs; no mail goes out)
     const org = rowsOf("SELECT org FROM organizer_email")[0].org;
     expect(rowsOf("SELECT COUNT(*) c FROM organizer_key WHERE org=? AND kind='master'", org)[0].c).toBeLessThanOrEqual(6);
-    const { sendMail } = await import("../src/pay"); expect(await sendMail(env as any, (env as any).DB, em, "Your report", "text", T)).toBe(false);
+    const { sendMail } = await import("../src/pay"); expect(await sendMail(env as any, (env as any).DB, em, "The report", "text", T)).toBe(false);
     expect(rowsOf("SELECT COUNT(*) c FROM outbox WHERE to_addr LIKE '%xyz.in'")[0].c).toBe(0);
   });
 });

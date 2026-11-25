@@ -207,14 +207,14 @@ describe("the report and the deletion", () => {
     expect(sentReports.length).toBe(1);
     const m = sentReports[0]!;
     expect(m.to).toBe("boss@acme.com"); expect(m.subject).toMatch(/PRV-1/); expect(m.attachments.length).toBe(0);
-    expect(m.text).toMatch(/built on your own/); expect(m.text).toMatch(/within 24 hours/); expect(m.text).toMatch(/365 days/); expect(m.text).not.toMatch(/backup/i); expect(m.text).toMatch(/winners record/);
+    expect(m.text).toMatch(/built on the computer or phone/); expect(m.text).toMatch(/within 24 hours/); expect(m.text).toMatch(/365 days/); expect(m.text).not.toMatch(/backup/i); expect(m.text).toMatch(/winners record/);
     expect(m.text).toMatch(/DPDP Act/); expect(m.text).toMatch(/CCPA/); expect(m.text).not.toMatch(/personal data(?! protection)/i);
     expect(m.text + "").not.toMatch(/the law requires|required by law/i);
     const link = linkOf(m); expect(link).toMatch(/report\.html\?e=PRV-1&k=/);
     const r = await buildReport(link); const pdf = r.text;
     expect(pdf.startsWith("%PDF-1.4")).toBe(true); expect(pdf).toMatch(/%%EOF\s*$/);
     for (const needle of ["Organizer Olga", "Player 3", "98765 00001", "98765 00002", "Zed ??", "organizer", "boss@acme.com", "Sent on:", "deleted", "365th day"]) expect(pdf.toLowerCase()).toContain(needle.toLowerCase());
-    for (const needle of ["The commitment to your data", "permanently deleted from the systems within 24 hours", "DPDP", "GDPR", "California Consumer Privacy Act", "advertising", "encryption", "winners record", "Agreed by", "Prize given"]) expect(pdf).toContain(needle);
+    for (const needle of ["The commitment to the data", "permanently deleted from the systems within 24 hours", "DPDP", "GDPR", "California Consumer Privacy Act", "advertising", "encryption", "winners record", "Agreed by", "Prize given"]) expect(pdf).toContain(needle);
     expect(pdf).not.toMatch(/personal data(?! protection)/i);
     expect(pdf).not.toMatch(/the law requires|required by law/i);
     expect(pdf).not.toMatch(/(rs|inr|usd|price)[^\n(]{0,12}per (person|participant|head|user)/i);
@@ -338,7 +338,7 @@ describe("asking for deletion", () => {
     expect((raw.query("SELECT COUNT(*) c FROM participant").get() as any).c).toBe(2);
     expect((await j(await inbound({ from: "boss@acme.com", subject: "Hello", text: "thanks for the game PRV-MAIL" }))).action).toBe("none"); // no deletion wish
     // a forged sender is not enough: the first mail only sends a code to the REGISTERED address; nothing is deleted yet
-    const first = await j(await inbound({ from: "The Boss <Boss@Acme.com>", subject: "Re: your report", text: "Please DELETE all the data of PRV-MAIL now." }));
+    const first = await j(await inbound({ from: "The Boss <Boss@Acme.com>", subject: "Re: the report", text: "Please DELETE all the data of PRV-MAIL now." }));
     expect(first.action).toBe("confirm-sent"); expect((raw.query("SELECT COUNT(*) c FROM participant").get() as any).c).toBe(2);
     const ask = raw.query("SELECT to_addr, subject, body FROM outbox WHERE subject LIKE '%Confirm the deletion%' ORDER BY id DESC LIMIT 1").get() as any;
     expect(ask.to_addr).toBe("boss@acme.com"); const code = ask.body.match(/\b\d{6}\b/)[0];

@@ -55,10 +55,10 @@ describe("the Invite-only co-organizer role step on the console", () => {
     btn.dispatchEvent(new w.MouseEvent("click", { bubbles: true })); await tick(120);
     const post = sent.find((s) => s.url.endsWith("/api/org/role/accept"))!; expect(post.method).toBe("POST"); expect(post.key).toMatch(/^cbc_/);
     expect(post.body.consent).toEqual({ v: VER, boxes: ["A"], notice: true });
-    expect(d.getElementById("roleaccept")).toBeNull(); expect(text(d)).toMatch(/Your game at a glance|Diwali game/);
+    expect(d.getElementById("roleaccept")).toBeNull(); expect(text(d)).toMatch(/The game at a glance|Diwali game/);
   });
   test("an invite-only co-organizer who accepted before goes straight to the page; a Co-organizer or the Organizer never sees this step", async () => {
     const { d } = await consolePage(true);
-    expect(d.getElementById("roleaccept")).toBeNull(); expect(text(d)).toMatch(/Diwali game|Your game at a glance/);
+    expect(d.getElementById("roleaccept")).toBeNull(); expect(text(d)).toMatch(/Diwali game|The game at a glance/);
   });
 });

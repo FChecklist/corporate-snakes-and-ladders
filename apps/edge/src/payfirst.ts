@@ -25,7 +25,7 @@ export const PAY_RULES = {
 } as const;
 export const GSTIN_RE = /^\d{2}[A-Z]{5}\d{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/;
 export const GSTIN_MSG = "That GSTIN does not look right. It has 15 characters, like 27ABCDE1234F1Z5.";
-export const COMPANY_MSG = "Please add your company name. A GST invoice needs the business name.";
+export const COMPANY_MSG = "Please add the company name. A GST invoice needs the business name.";
 
 const str = (v: unknown): string => (typeof v === "string" ? v.trim() : "");
 

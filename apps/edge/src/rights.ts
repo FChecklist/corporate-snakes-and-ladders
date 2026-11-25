@@ -62,7 +62,7 @@ interface Seat { seq: number; pid: string; ph: string; dev: string | null; src: 
 /** The player's own seat, or the answer to send: needs the card id and the phone's own device id, and the phone must be the one that holds the card. */
 async function ownSeat(c: RightsCtx): Promise<Seat | Response> {
   const pid = typeof c.b?.pid === "string" ? c.b.pid : "", device = typeof c.b?.device === "string" ? c.b.device : "";
-  if (!/^[0-9a-z]{3,40}$/.test(pid) || !/^[0-9a-f]{16,64}$/.test(device)) return c.json({ error: `Please open this from the phone that holds your ${NOUN}.`, code: "bad-request" }, 400);
+  if (!/^[0-9a-z]{3,40}$/.test(pid) || !/^[0-9a-f]{16,64}$/.test(device)) return c.json({ error: `Please open this from the phone that holds the ${NOUN}.`, code: "bad-request" }, 400);
   const dev = (await sha(`dev|${c.eid}|${device}`)).slice(0, 32);
   const s = await c.db.prepare("SELECT seq, pid, ph, dev, src, inv, role, blocked FROM seat WHERE eid=? AND pid=? AND dev=?").bind(c.eid, pid, dev).first<Seat>();
   if (!s) return c.json({ error: `This is not the phone that holds this ${NOUN}. Nobody can ask for another player.`, code: "not-your-card" }, 403);
@@ -104,7 +104,7 @@ export async function leaveRoute(c: RightsCtx): Promise<Response> {
   if (s instanceof Response) return s;
   if (!(await c.spend(4))) return c.json({ error: "It is busy right now. Please try again in a few minutes.", code: "busy" }, 503);
   await takeOut(c, s);
-  return c.json({ ok: true, left: true, message: "You have left the game. Your name and your place were deleted from the system just now. You can close this page." });
+  return c.json({ ok: true, left: true, message: "You have left the game. The name and the place were deleted from the system just now. You can close this page." });
 }
 
 /** What we hold about this player right now, in plain words (the answer to "what do you hold about me"). */
@@ -112,16 +112,16 @@ export async function heldAbout(c: RightsCtx, s: Seat): Promise<{ what: string; 
   const out: { what: string; value: string }[] = [];
   const p = await c.db.prepare("SELECT pii, joined_ms FROM participant WHERE eid=? AND pid=?").bind(c.eid, s.pid).first<{ pii: string | null; joined_ms: number }>();
   const who = await openPii(c.env as any, p?.pii);
-  out.push({ what: "Your name for this game", value: who?.name ? who.name : "none" });
-  if (who?.phone) out.push({ what: "Your mobile number (given by the organizer's list)", value: "ending " + who.phone.slice(-2) });
-  out.push({ what: `Your ${NOUN} number`, value: String(s.seq) });
+  out.push({ what: "The name for this game", value: who?.name ? who.name : "none" });
+  if (who?.phone) out.push({ what: "The mobile number (given by the organizer's list)", value: "ending " + who.phone.slice(-2) });
+  out.push({ what: `The ${NOUN} number`, value: String(s.seq) });
   if (p?.joined_ms) out.push({ what: "When you joined", value: istTime(p.joined_ms) });
   out.push({ what: "How you joined", value: s.inv !== null ? `through the invite of ${NOUN} ${s.inv}` : "through a game link" });
   const claims = (await c.db.prepare("SELECT COUNT(*) AS n FROM claim WHERE eid=? AND pid=?").bind(c.eid, s.pid).first<{ n: number }>())?.n ?? 0;
-  out.push({ what: "Your winning claims", value: String(claims) });
+  out.push({ what: "The winning claims", value: String(claims) });
   const pr = (await c.db.prepare("SELECT pii FROM prize WHERE eid=? AND seat=? AND pii IS NOT NULL").bind(c.eid, s.seq).all<{ pii: string }>()).results ?? [];
   if (pr.length) { const w = await openPii(c.env as any, pr[0]!.pii); out.push({ what: "Details you confirmed to collect a prize", value: `${w?.name ?? ""}${w?.phone ? ", mobile ending " + w.phone.slice(-2) : ""}`.trim() || "yes" }); }
-  out.push({ what: "Your phone", value: `only a scrambled form of its random id, to keep one ${NOUN} to one phone` });
+  out.push({ what: "The phone", value: `only a scrambled form of its random id, to keep one ${NOUN} to one phone` });
   out.push({ what: "Deleted for good", value: istTime(await c.erasureMs()) + " at the latest (within 24 hours after the game ends)" });
   return out;
 }
@@ -153,12 +153,12 @@ export async function requestRoute(c: RightsCtx): Promise<Response> {
     const rows = (await c.db.prepare("SELECT id, kind, created_ms, due_ms, status, done_ms FROM data_request WHERE eid=? AND pid=? ORDER BY created_ms").bind(c.eid, s.pid).all<any>()).results ?? [];
     return c.json({ promiseDays: PROMISE_DAYS, promise: PROMISE_TEXT, requests: rows.map((r: any) => ({ id: r.id, kind: r.kind, status: r.status, receivedMs: r.created_ms, answerByMs: r.due_ms, doneMs: r.done_ms ?? null })) });
   }
-  if (!REQUEST_KINDS.includes(kind)) return c.json({ error: "Please choose what you want: to see your data, to correct it, or to delete it.", code: "bad-kind" }, 400);
+  if (!REQUEST_KINDS.includes(kind)) return c.json({ error: "Please choose what you want: to see the data, to correct it, or to delete it.", code: "bad-kind" }, 400);
   const note = cleanNote(c.b?.note);
   if (kind === "correction" && note.length < 2) return c.json({ error: "Please write what should be corrected.", code: "note-needed" }, 400);
   const mine = (await c.db.prepare("SELECT id, kind, status, created_ms, due_ms FROM data_request WHERE eid=? AND pid=?").bind(c.eid, s.pid).all<any>()).results ?? [];
   const open = mine.find((r: any) => r.kind === kind && r.status === "open");
-  if (open) return c.json({ ok: true, again: true, id: open.id, kind, status: "open", promiseDays: PROMISE_DAYS, promise: PROMISE_TEXT, receivedMs: open.created_ms, answerByMs: open.due_ms, message: `Your request has already been received. You will have your answer ${PROMISE_TEXT}.` });
+  if (open) return c.json({ ok: true, again: true, id: open.id, kind, status: "open", promiseDays: PROMISE_DAYS, promise: PROMISE_TEXT, receivedMs: open.created_ms, answerByMs: open.due_ms, message: `The request has already been received. You will have the answer ${PROMISE_TEXT}.` });
   if (mine.length >= MAX_REQUESTS_PER_PLAYER) return c.json({ error: "You have already sent several requests for this game. Please wait for the answer.", code: "too-many" }, 429);
   if (!(await c.spend(6))) return c.json({ error: "It is busy right now. Please try again in a few minutes.", code: "busy" }, 503);
   const id = "dr_" + randHex(8), due = c.now + PROMISE_DAYS * 86_400_000;
@@ -171,6 +171,6 @@ export async function requestRoute(c: RightsCtx): Promise<Response> {
   await mailBoth(c, id, kind, s, name, note, due, erased);
   return c.json({
     ok: true, id, kind, status: erased ? "done" : "open", promiseDays: PROMISE_DAYS, promise: PROMISE_TEXT, receivedMs: c.now, answerByMs: due, ...(held ? { held } : {}), ...(erased ? { erased: true } : {}),
-    message: erased ? "Done. Your name and your place were deleted just now. The organizer has been told." : kind === "nomination" ? `Your request has been received. To name the person, please write to ${BRAND.support} with their name and how to reach them. You will have your answer ${PROMISE_TEXT}, by ${istDay(due)}.` : `Your request has been received. You will have your answer ${PROMISE_TEXT}, by ${istDay(due)}.`,
+    message: erased ? "Done. The name and the place were deleted just now. The organizer has been told." : kind === "nomination" ? `The request has been received. To name the person, please write to ${BRAND.support} with their name and how to reach them. You will have your answer ${PROMISE_TEXT}, by ${istDay(due)}.` : `The request has been received. You will have the answer ${PROMISE_TEXT}, by ${istDay(due)}.`,
   });
 }

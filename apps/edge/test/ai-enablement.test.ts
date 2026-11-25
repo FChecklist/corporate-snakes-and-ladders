@@ -63,7 +63,7 @@ describe("the front door", () => {
   });
   test("an invite-only co-organizer's AI link gets a short front door of its own and cannot use the organizer's guided path or map", async () => {
     const o = await organizer(); const hk = await j(await call("POST", "/api/org/host", { email: "host@acme.com", mobile: "9876500009" }, { "x-organizer": o.token })); const hb = `${ORIGIN}/ai/${hk.hostKey}`;
-    expect((await open(`${hb}/start`)).text).toMatch(/Host's AI assistant/);
+    expect((await open(`${hb}/start`)).text).toMatch(/Co-organizer's AI assistant/);
     expect((await open(`${hb}/go/new`)).status).toBe(403); expect((await open(`${hb}/map`)).status).toBe(403);
   });
 });

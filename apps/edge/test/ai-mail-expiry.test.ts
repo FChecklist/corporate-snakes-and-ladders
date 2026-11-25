@@ -66,7 +66,7 @@ describe("the e-mailed link lasts 24 hours", () => {
   });
 });
 
-describe("Show your AI work link: the signed-in read behind the e-mail's button", () => {
+describe("Show the AI work link: the signed-in read behind the e-mail's button", () => {
   test("only the organizer's own sign-in gets the lasting paste; it is never the key in the mail; AI, invite-only co-organizer, platform and anonymous are refused", async () => {
     const o = await organizer(); const mailKey = mailedKey(outbox()[0]!.body);
     const r = await j(await call("GET", "/api/org/ai/link", undefined, o.h));
@@ -96,7 +96,7 @@ describe("alert when a link is used from somewhere new", () => {
     expect(alerts().length).toBe(0);
     await use(o.ai, "198.51.100.9", "DE", "ChatGPT-User/1.0", T + 2000);
     expect(alerts().length).toBe(1);
-    const a = alerts()[0]!; expect(a.to_addr).toBe("boss@acme.com"); expect(a.body).toMatch(/Replace your AI link/); expect(a.body).toContain("DE");
+    const a = alerts()[0]!; expect(a.to_addr).toBe("boss@acme.com"); expect(a.body).toMatch(/Replace the AI link/); expect(a.body).toContain("DE");
     expect(a.body + a.subject).not.toMatch(LEAK); expect(a.body).not.toContain(o.ai);
     await use(o.ai, "198.51.100.9", "DE", "ChatGPT-User/1.0", T + 3000); // seen now
     await use(o.ai, "192.0.2.4", "FR", "Claude-User/1.0", T + 4000); // new again, within 24 h

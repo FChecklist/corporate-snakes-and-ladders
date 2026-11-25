@@ -27,10 +27,10 @@
         `<div class="pmain">` +
         `<div class="pamt">` +
         `<span class="tot"><small>Price</small> ${TB.money(shown, S.cur)}</span></div>` +
-        `<button type="button" class="btn pcta" data-buy="${n}" aria-label="Create your game for up to ${nf(n)} players">Create your game ${ic("arrow")}</button></div>` +
+        `<button type="button" class="btn pcta" data-buy="${n}" aria-label="Create the game for up to ${nf(n)} players">Create the game ${ic("arrow")}</button></div>` +
         `<ul class="pperks">${perks.map((t) => `<li><span class="tick" aria-hidden="true">&#10003;</span>${t}</li>`).join("")}</ul></div>`;
     }
-    if (FREE.on) { $("priceNote").textContent = "You build and publish your game for free. It does not begin until it is paid for. A late payment starts the first turn 2 minutes after the payment is confirmed. " + (S.cur === "INR" ? "Prices in Indian rupees." : "Prices in US dollars."); return; }
+    if (FREE.on) { $("priceNote").textContent = "You build and publish the game for free. It does not begin until it is paid for. A late payment starts the first turn 2 minutes after the payment is confirmed. " + (S.cur === "INR" ? "Prices in Indian rupees." : "Prices in US dollars."); return; }
     $("priceNote").textContent = S.cur === "INR" ? "Prices in Indian rupees. Billed in India." : "Prices in US dollars. Billed outside India.";
   }
   document.addEventListener("click", (e) => {
@@ -85,21 +85,21 @@
     const c = $("oCty").value, india = c === "IN";
     $("taxBox").innerHTML = india
       ? `<input type="hidden" id="oGst" value="">`
-      : `<label class="lb" for="oGst">Company tax / VAT number (optional)</label><input class="inp" id="oGst" maxlength="30" autocomplete="off" placeholder="Shown on your invoice">`;
+      : `<label class="lb" for="oGst">Company tax / VAT number (optional)</label><input class="inp" id="oGst" maxlength="30" autocomplete="off" placeholder="Shown on the invoice">`;
     S.cur = india ? "INR" : "USD"; renderPrices(); sumRefresh();
   }
   function openCheckout(pack) {
     if (FREE.on) return openFree();
     ORDER = { pack };
     const def = TB.guessCountry();
-    TB.sheet(`${xbtn}<div class="eyebrow">Your order</div><h2>Up to ${nf(pack)} players</h2>
+    TB.sheet(`${xbtn}<div class="eyebrow">The order</div><h2>Up to ${nf(pack)} players</h2>
       <ul class="facts"><li>${ic("ticket")}Every player gets a board on their phone</li><li>${ic("phone")}A name is all it takes. No app to download, no password for players</li><li>${ic("users")}A game for a close group, in any country</li><li>${ic("gift")}Players never pay. You give the gifts</li></ul>
       <div class="sum" id="ordSum"></div>
       <form id="coForm" novalidate>
         <label class="lb" for="oName">Organization name</label><input class="inp" id="oName" autocomplete="organization" placeholder="e.g. Acme Industries">
-        <label class="lb" for="oMail">Your e-mail (invoice and login)</label><input class="inp" id="oMail" type="email" autocomplete="email" placeholder="your e-mail">
-        <label class="lb" for="oPh">Your mobile number (optional)</label><input class="inp" id="oPh" type="tel" autocomplete="tel" placeholder="98765 43210">
-        <label class="lb" for="oCty">Country of your organization</label><select class="inp" id="oCty">${TB.countryOpts(def)}</select>
+        <label class="lb" for="oMail">The e-mail (invoice and login)</label><input class="inp" id="oMail" type="email" autocomplete="email" placeholder="the e-mail">
+        <label class="lb" for="oPh">The mobile number (optional)</label><input class="inp" id="oPh" type="tel" autocomplete="tel" placeholder="98765 43210">
+        <label class="lb" for="oCty">Country of the organization</label><select class="inp" id="oCty">${TB.countryOpts(def)}</select>
         <div id="taxBox"></div><div id="fErr"></div>
         <button class="btn block" style="margin-top:16px" type="submit" id="payGo">${ic("lock")} ${PAYMODE === "razorpay" ? "Pay now" : PAYMODE === "off" ? "Payments are not switched on yet" : "Pay now (test payment)"}</button>
       </form>
@@ -128,12 +128,12 @@
     try { if (Number.isInteger(S.pack) && S.pack > 10) { sessionStorage.setItem("cbz-cap", String(S.pack)); } } catch {} // the size chosen on the website carries through the sign-in: Quick setup opens with it
     TB.sheet(`${xbtn}<div class="openfree" role="group" aria-labelledby="ofTitle">
       <div class="sheethead"><span class="rolepill">For the organizer or co-organizer</span><span class="sbrand" role="img" aria-label="Corporate Snakes and Ladders"><span class="mark"><img src="/logo-mark.svg" alt="Corporate Snakes and Ladders logo" width="34" height="34"></span><span class="word">Corporate Snakes and Ladders<i>.</i></span></span></div>
-      <div class="eyebrow ofeye">Build it and publish it free.</div><h2 id="ofTitle">Create your game</h2>
+      <div class="eyebrow ofeye">Build it and publish it free.</div><h2 id="ofTitle">Create the game</h2>
       <ul class="bgrid"><li><span class="bico">${ic("play")}</span><span>Add a message, video or lucky draw between turns</span></li><li><span class="bico">${ic("trophy")}</span><span>Pick the gifts: a milestone gift and 1st to 5th place</span></li><li><span class="bico">${ic("users")}</span><span>Snakes and Ladders for a close group in a company</span></li><li><span class="bico">${ic("ticket")}</span><span>Every board is different, and equally hard</span></li><li><span class="bico">${ic("phone")}</span><span>Each player gets a board on their phone</span></li><li><span class="bico">${ic("star")}</span><span>A free AI assistant sets it up for you</span></li><li><span class="bico">${ic("gift")}</span><span>Players never pay. You provide the gifts</span></li><li><span class="bico">${ic("trash")}</span><span>Player names are auto-deleted within 24 hours of the game ending</span></li><li><span class="bico">${ic("shield")}</span><span>Designed to follow DPDP Act, GDPR and CCPA</span></li></ul>
-      ${k2Box}${gBox}<form id="frForm" novalidate><label class="lb" for="fMail">Your e-mail</label><input class="inp big" id="fMail" type="email" inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" placeholder="your e-mail" aria-describedby="fErr"><div id="fErr" role="alert"></div>
-      <button class="btn block big" style="margin-top:14px" type="submit" id="frGo" disabled aria-disabled="true">Create my game ${ic("arrow")}</button></form>
+      ${k2Box}${gBox}<form id="frForm" novalidate><label class="lb" for="fMail">The e-mail</label><input class="inp big" id="fMail" type="email" inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" placeholder="the e-mail" aria-describedby="fErr"><div id="fErr" role="alert"></div>
+      <button class="btn block big" style="margin-top:14px" type="submit" id="frGo" disabled aria-disabled="true">Create the game ${ic("arrow")}</button></form>
       <p class="trust">${ic("shield")}Free to build and publish. No password.</p>
-      <p class="proto">Your console opens at once. Your e-mail is used for your invoice and to sign you in later.</p><p class="proto"><a href="/demo.html">Want to see it first? Try the free 70-second demo.</a></p></div>`);
+      <p class="proto">The console opens at once. The e-mail is used for the invoice and to sign you in later.</p><p class="proto"><a href="/demo.html">Want to see it first? Try the free 70-second demo.</a></p></div>`);
     $("frForm").addEventListener("submit", async (e) => {
       e.preventDefault(); const m = $("fMail").value.trim().toLowerCase();
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(m)) return setErr("Please enter a valid e-mail address.");
@@ -152,7 +152,7 @@
   }
   async function pay() {
     const org = $("oName").value.trim(), email = $("oMail").value.trim().toLowerCase(), country = $("oCty").value, taxId = $("oGst").value.trim().toUpperCase();
-    if (org.length < 2) return setErr("Please enter your organization name.");
+    if (org.length < 2) return setErr("Please enter the organization name.");
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) return setErr("Please enter a valid e-mail address.");
     setErr("");
     const btn = $("payGo"); btn.disabled = true; const keep = btn.innerHTML; btn.textContent = "Processing…";
@@ -166,12 +166,12 @@
   }
   function done() {
     const o = ORDER;
-    TB.sheet(`${xbtn}<div class="res ok">${ic("check")}</div><h2 class="center">Your game is ready</h2>
+    TB.sheet(`${xbtn}<div class="res ok">${ic("check")}</div><h2 class="center">The game is ready</h2>
       <div class="sum"><div class="kv"><span>Order</span><b class="mono">${esc(o.orderId)}</b></div><div class="kv"><span>Organization</span><b>${esc(o.org)}</b></div><div class="kv"><span>Players</span><b>Up to ${nf(o.pack)}</b></div><div class="kv t"><span>${o.mode === "test" ? "Paid (test)" : "Paid"}</span><b>${TB.money(o.total, o.currency)}</b></div>${o.invoiceNumber ? `<div class="kv"><span>Invoice</span><b class="mono"><a href="${esc(o.invoiceUrl)}" target="_blank" rel="noopener">${esc(o.invoiceNumber)}</a></b></div>` : ""}</div>
-      ${o.organizerKey ? `<div class="note info" role="note"><b>Your organizer key</b> (shown only once, and also e-mailed to you):<div class="mono" id="orgKey" style="word-break:break-all;margin:6px 0">${esc(o.organizerKey)}</div><button class="btn sm" type="button" id="cpKey">Copy key</button></div>` : `<p class="small muted center">You already have an organizer key. Sign in with your e-mail to continue.</p>`}
-      <p class="small muted center">Next step: open your console to set the date, pick your gifts and share the link. The details and your invoice have been sent to <b>${esc(o.email)}</b>.</p>
+      ${o.organizerKey ? `<div class="note info" role="note"><b>The organizer key</b> (shown only once, and also e-mailed to you):<div class="mono" id="orgKey" style="word-break:break-all;margin:6px 0">${esc(o.organizerKey)}</div><button class="btn sm" type="button" id="cpKey">Copy key</button></div>` : `<p class="small muted center">You already have an organizer key. Sign in with the e-mail to continue.</p>`}
+      <p class="small muted center">Next step: open the console to set the date, pick the gifts and share the link. The details and the invoice have been sent to <b>${esc(o.email)}</b>.</p>
       <div id="fErr"></div>
-      <button class="btn block" id="toLogin" type="button">Open my console ${ic("arrow")}</button>`);
+      <button class="btn block" id="toLogin" type="button">Open the console ${ic("arrow")}</button>`);
     const cp = $("cpKey"); if (cp) cp.addEventListener("click", () => { try { navigator.clipboard.writeText(o.organizerKey); TB.toast("Key copied"); } catch {} });
     $("toLogin").addEventListener("click", () => { if (o.organizerKey) { try { CTK.set("cbz-org", o.organizerKey); } catch {} location.href = "/zc.html"; } else askCode(o.email, $("toLogin")); });
   }
@@ -181,15 +181,15 @@
   function nextAfterSignIn() { let nx = "/zc.html"; try { const n = sessionStorage.getItem("cbz-next"); if (n && /^\/(zc|pay)(\.html)?(\?(e=[A-Za-z0-9_-]{4,40}|demo=1|quick=1(&cap=\d{1,5})?))?$/.test(n)) nx = n; sessionStorage.removeItem("cbz-next"); } catch {} return nx; }
   function openLogin(email) {
     window.CBFunnel && CBFunnel.report("signup_started");
-    TB.sheet(`${xbtn}<div class="eyebrow">Organizer sign-in</div><h2>Sign in or create your account</h2><p class="muted small">Type your e-mail and press Continue. That is all: there is no password. New here? Your account is made at once. Coming back? Two ways to get in are e-mailed to you; you use <b>one</b> of them. Players never sign in here: they join with your game link.</p>
-      ${gBox}<form id="lgForm" novalidate><label class="lb" for="lMail">Your e-mail</label><input class="inp big" id="lMail" data-need="1" type="email" inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" placeholder="your e-mail" value="${esc(email || "")}"><div id="k2slot"></div><div id="fErr" role="alert"></div>
+    TB.sheet(`${xbtn}<div class="eyebrow">Organizer sign-in</div><h2>Sign in or create the account</h2><p class="muted small">Type the e-mail and press Continue. That is all: there is no password. New here? The account is made at once. Coming back? Two ways to get in are e-mailed to you; you use <b>one</b> of them. Players never sign in here: they join with the game link.</p>
+      ${gBox}<form id="lgForm" novalidate><label class="lb" for="lMail">The e-mail</label><input class="inp big" id="lMail" data-need="1" type="email" inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" placeholder="the e-mail" value="${esc(email || "")}"><div id="k2slot"></div><div id="fErr" role="alert"></div>
       <button class="btn block big" style="margin-top:14px" type="submit" id="lgGo">Continue ${ic("arrow")}</button></form>`);
     let termsShown = false;
     // a NEW address (or Google sign-up) needs the Terms box: it is shown only then, never ticked in advance, and Continue stays off until it is ticked
     const showTerms = (info) => {
       termsShown = true; if (info && Array.isArray(info.boxes)) K2.info = info; Object.keys(K2.state).forEach((k) => delete K2.state[k]);
       const k = $("k2slot"); if (!k) return;
-      k.innerHTML = `<p class="small muted" style="margin:12px 0 4px"><b>New here?</b> Press the button below and your organizer account is created at once. It is free to build and publish.</p><div id="k2box"></div>`;
+      k.innerHTML = `<p class="small muted" style="margin:12px 0 4px"><b>New here?</b> Press the button below and the organizer account is created at once. It is free to build and publish.</p><div id="k2box"></div>`;
       k2Mount(["lgGo"]); setErr(""); const f = k.querySelector("input"); if (f) f.focus();
     };
     $("lgForm").addEventListener("submit", async (e) => {
@@ -222,18 +222,18 @@
   function codeView(email, devCode) {
     const boxes6 = [0, 1, 2, 3, 4, 5].map((i) => `<input class="otpb" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" autocomplete="${i === 0 ? "one-time-code" : "off"}" aria-label="Digit ${i + 1} of 6" autocapitalize="off" spellcheck="false">`).join("");
     TB.sheet(`${xbtn}<div class="sheethead"><div class="eyebrow">Step 2</div><span class="sbrand" role="img" aria-label="Corporate Snakes and Ladders"><span class="mark"><img src="/logo-mark.svg" alt="" width="26" height="26"></span><span class="word">Corporate Snakes and Ladders<i>.</i></span></span></div>
-      <h2 id="cdTitle">Now open your e-mail</h2>
+      <h2 id="cdTitle">Now open the e-mail</h2>
       <p class="sheetbody">An e-mail has been sent to <b class="sendto">${esc(email)}</b>. Pick <b>ONE</b> of these two ways. You do not need both.</p>
-      <div class="optbox"><div class="optn">Option 1</div><p class="optt">Go to your e-mail and type the 6-digit number here</p><p class="opts">Open the e-mail. Find the 6 numbers. Type them in the six boxes below and press <b>Submit</b>.</p></div>
-      <div class="optbox"><div class="optn">Option 2</div><p class="optt">Go to your e-mail and tap the button</p><p class="opts">Open the e-mail and tap the button <b>Sign me in</b>. You are signed in at once. You do not type anything. (You can then close this page.)</p></div>
-      ${devCode ? `<div class="note info devcode" role="note"><span>Local test mode: your code is <b>${esc(devCode)}</b></span><button type="button" class="btn sm" id="useCode">Use this code</button></div>` : ""}
-      <form id="cdForm" novalidate><label class="lb" id="otpLabel">Option 1: type your 6-digit code here</label>
+      <div class="optbox"><div class="optn">Option 1</div><p class="optt">Go to the e-mail and type the 6-digit number here</p><p class="opts">Open the e-mail. Find the 6 numbers. Type them in the six boxes below and press <b>Submit</b>.</p></div>
+      <div class="optbox"><div class="optn">Option 2</div><p class="optt">Go to the e-mail and tap the button</p><p class="opts">Open the e-mail and tap the button <b>Sign me in</b>. You are signed in at once. You do not type anything. (You can then close this page.)</p></div>
+      ${devCode ? `<div class="note info devcode" role="note"><span>Local test mode: the code is <b>${esc(devCode)}</b></span><button type="button" class="btn sm" id="useCode">Use this code</button></div>` : ""}
+      <form id="cdForm" novalidate><label class="lb" id="otpLabel">Option 1: type the 6-digit code here</label>
       <div class="otp" role="group" aria-labelledby="otpLabel">${boxes6}</div>
       <input id="lCode" class="otphid" inputmode="numeric" autocomplete="off" maxlength="6" aria-hidden="true" tabindex="-1">
       <div id="fErr" role="alert"></div>
       <div id="k2box"></div><button class="btn block big" style="margin-top:16px" type="submit" id="cdGo">Submit</button></form>
       <button class="btn line block big" style="margin-top:8px" type="button" id="resend">Send a new code</button>
-      <p class="sheethelp" id="cdHelp" role="status" aria-live="polite">The e-mail can take a minute. Not there? Look in your spam or junk folder, or press <b>Send a new code</b>. Both options work for 10 minutes.</p>`);
+      <p class="sheethelp" id="cdHelp" role="status" aria-live="polite">The e-mail can take a minute. Not there? Look in the spam or junk folder, or press <b>Send a new code</b>. Both options work for 10 minutes.</p>`);
     const boxes = Array.from(document.querySelectorAll(".otpb")), hid = $("lCode");
     const sync = () => { hid.value = boxes.map((b) => b.value).join(""); };
     const spread = (digits) => { const d = digits.replace(/\D/g, "").slice(0, 6); boxes.forEach((b, i) => { b.value = d[i] || ""; }); sync(); const n = Math.min(d.length, 5); boxes[n].focus(); };
@@ -255,7 +255,7 @@
       } catch (e) {
         if (e.code === "consent-required" || e.code === "terms-changed") { // the e-mail code stays valid: show the Terms box now, and Submit stays off until it is ticked
           if (e.consent && Array.isArray(e.consent.boxes)) K2.info = e.consent; Object.keys(K2.state).forEach((k) => delete K2.state[k]);
-          k2Mount(["cdGo"]); setErr("Please press Submit once more. Your code is still good."); return;
+          k2Mount(["cdGo"]); setErr("Please press Submit once more. The code is still good."); return;
         }
         b.disabled = false; setErr(e.message); boxes[0].focus();
       }
@@ -287,7 +287,7 @@
       const k = (await r.json()).kind, who = k === "host" ? "Co-organizer" : k === "master" ? "Organizer" : "";
       if (!who) return;
       let both = false; try { both = !!CTK.get("cbz-alt"); } catch {}
-      a.textContent = `Signed in as ${who}${both ? " (also " + (who === "Host" ? "Organizer" : "Co-organizer") + ")" : ""} · Open my console`;
+      a.textContent = `Signed in as ${who}${both ? " (also " + (who === "Host" ? "Organizer" : "Co-organizer") + ")" : ""} · Open the console`;
       a.href = "/zc.html"; a.classList.add("signedin");
       a.addEventListener("click", (e) => e.stopImmediatePropagation(), true);
     } catch { /* offline: the normal link stays */ }
@@ -300,7 +300,7 @@
   var bar = document.createElement("div");
   bar.id = "topbar"; bar.setAttribute("role", "navigation"); bar.setAttribute("aria-label", "Quick links"); bar.hidden = true;
   bar.innerHTML = '<button type="button" class="tb-brand" id="tbTop" aria-label="Back to the top"><span class="tb-mark" aria-hidden="true"><img src="/logo-mark.svg" alt="Corporate Snakes and Ladders logo" width="28" height="28"></span><b>Corporate Snakes and Ladders</b><span class="tb-up" aria-hidden="true">&#8593; Top</span></button>' +
-    '<a class="tb-cta" id="tbBuy" href="#pricing">Create your game</a>';
+    '<a class="tb-cta" id="tbBuy" href="#pricing">Create the game</a>';
   document.body.appendChild(bar);
   var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches, shown = false, tick = 0;
   function onScroll() {

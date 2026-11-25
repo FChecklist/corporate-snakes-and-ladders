@@ -43,8 +43,8 @@ describe("the country: the only thing asked before paying", () => {
       const { o, t } = await game("PC-U" + (cc ?? "N"), "Unknown Night"); const p = await opn(o, t, { cc });
       const txt = await p.waitFor((x) => /Unknown Night/.test(x));
       expect([cc, /Where are you paying from/.test(txt)]).toEqual([cc, true]); expect((p.$("#ctybox") as any).hidden).toBe(false);
-      expect(txt).toMatch(/Choose your country to see the price/); expect(p.$("#ctychange")).toBeNull();
-      expect((p.$("#paygo") as any).disabled).toBe(true); expect(p.$("#paygo").textContent).toMatch(/Choose your country first/);
+      expect(txt).toMatch(/Choose the country to see the price/); expect(p.$("#ctychange")).toBeNull();
+      expect((p.$("#paygo") as any).disabled).toBe(true); expect(p.$("#paygo").textContent).toMatch(/Choose the country first/);
       type(p, "#ctyq", "india"); expect(visibleCountries(p)).toContain("India"); expect(visibleCountries(p)).not.toContain("Germany");
       type(p, "#ctyq", "zzzz"); expect(visibleCountries(p)).toEqual([]); expect((p.$("#ctyno") as any).hidden).toBe(false);
       type(p, "#ctyq", "india"); p.click('.pk-ctyopt[data-cty="IN"]');
@@ -92,28 +92,28 @@ describe("the country: the only thing asked before paying", () => {
     const at = async (cc?: string) => { const p = await openPage(o.world, { url: "http://localhost/paytest.html", html: "paytest.html", scripts: [...KIT, "paytest.js"], afterLoad: cc ? fromCountry(cc) : undefined }); pages.push(p); await p.waitFor((x) => /Test our payment/.test(x)); return p; };
     const de = await at("DE"); expect(de.text()).toMatch(line("Germany", "US$")); expect(de.$("#go").textContent).toBe("Pay US$1 (test)");
     const inn = await at("IN"); expect(inn.text()).toMatch(line("India", "₹")); expect(inn.$("#go").textContent).toBe("Pay ₹1 (test)");
-    const none = await at(); expect(none.$("#go").disabled).toBe(true); expect(none.$("#go").textContent).toMatch(/Choose your country first/); expect((none.$("#ctybox") as any).hidden).toBe(false);
+    const none = await at(); expect(none.$("#go").disabled).toBe(true); expect(none.$("#go").textContent).toMatch(/Choose the country first/); expect((none.$("#ctybox") as any).hidden).toBe(false);
     for (const id of ["#nm", "#em", "#ph", "#org", "#tax", "#okey"]) expect([id, inn.$(id)]).toEqual([id, null]);
   });
 });
 
-describe("after paying: add to your invoice, or skip", () => {
+describe("after paying: add to the invoice, or skip", () => {
   const pay = async (p: any) => { p.click("#paygo"); return p.waitFor((x: string) => /Payment received/.test(x), 20_000); };
   const invoices = (o: O) => o.world.raw.prepare("SELECT payment_id, data FROM invoice").all() as { payment_id: string; data: string }[];
 
   test("pay, then Skip: the game is paid, the receipt shows the form, Skip issues the invoice 'as it is', and a reload brings the receipt back", async () => {
     const { o, t } = await game(); const p = await opn(o, t, { cc: "IN" }); await p.waitFor((x) => /Diwali Night/.test(x));
     const txt = await pay(p);
-    expect(txt).toMatch(/Add to your invoice/); expect(txt).toMatch(/all optional/); expect(p.$("#invadd")).not.toBeNull(); expect(p.$("#invskip").textContent).toBe("Skip");
+    expect(txt).toMatch(/Add to the invoice/); expect(txt).toMatch(/all optional/); expect(p.$("#invadd")).not.toBeNull(); expect(p.$("#invskip").textContent).toBe("Skip");
     for (const id of ["#nm", "#org", "#tax"]) expect([id, p.$(id)]).not.toEqual([id, null]);
     expect((o.world.raw.prepare("SELECT status FROM payment").get() as any).status).toBe("paid"); // paid at once
     expect((await o.json(await o.api("GET", `/api/paylink/${t}`))).status).toBe("paid");
     expect(invoices(o).length).toBe(0); // the tax invoice waits for the buttons
-    p.click("#invskip"); const done = await p.waitFor((x) => /Your invoice/.test(x));
+    p.click("#invskip"); const done = await p.waitFor((x) => /The invoice/.test(x));
     expect(p.$("#pk-invform")).toBeNull(); expect(done).not.toMatch(/Add to your invoice/);
     expect(invoices(o).length).toBe(1); expect(JSON.parse(invoices(o)[0]!.data).buyer.gstin).toBeUndefined();
     const tab = tabOf(p); await p.close();
-    const q = await opn(o, "", { session: tab, cc: "IN" }); const again = await q.waitFor((x) => /Payment received/.test(x) && /Your invoice/.test(x)); // after a reload: the receipt, with the invoice
+    const q = await opn(o, "", { session: tab, cc: "IN" }); const again = await q.waitFor((x) => /Payment received/.test(x) && /The invoice/.test(x)); // after a reload: the receipt, with the invoice
     expect(again).not.toMatch(/Add to your invoice/); expect(q.$("#paygo")).toBeNull();
   });
   test("pay, then add the details: the invoice is made out to the company and carries the GST number; what was typed is kept through a failed send and a reload", async () => {
@@ -125,34 +125,34 @@ describe("after paying: add to your invoice, or skip", () => {
     p.click("#invadd"); await p.waitFor(() => /invoice service is busy/.test(errText(p)));
     expect(errText(p)).toMatch(/What you typed is kept/); expect(snap(p, ["#nm", "#org", "#tax"])).toEqual({ "#nm": "Asha Rao", "#org": "Acme Ltd", "#tax": GST.toLowerCase() }); expect(invoices(o).length).toBe(0);
     const tab = tabOf(p); await p.close();
-    const q = await opn(o, "", { session: tab, cc: "IN" }); await q.waitFor((x) => /Add to your invoice/.test(x));
+    const q = await opn(o, "", { session: tab, cc: "IN" }); await q.waitFor((x) => /Add to the invoice/.test(x));
     expect(snap(q, ["#nm", "#org", "#tax"])).toEqual({ "#nm": "Asha Rao", "#org": "Acme Ltd", "#tax": GST.toLowerCase() });
-    q.click("#invadd"); await q.waitFor((x) => /Your invoice/.test(x));
+    q.click("#invadd"); await q.waitFor((x) => /The invoice/.test(x));
     expect(invoices(o).length).toBe(1); const d = JSON.parse(invoices(o)[0]!.data); expect(d.buyer).toMatchObject({ name: "Acme Ltd", gstin: GST });
   });
   test("a GST number with no company name is asked for the company; a wrong GSTIN is told so; nothing is issued meanwhile", async () => {
     const { o, t } = await game("PC-3", "Gst Night"); const p = await opn(o, t, { cc: "IN" }); await p.waitFor((x) => /Gst Night/.test(x)); await pay(p);
     type(p, "#tax", GST); p.click("#invadd"); await p.waitFor(() => /company name/.test(errText(p)));
-    expect(errText(p)).toBe("Please add your company name. A GST invoice needs the business name."); expect(p.$("#org").getAttribute("aria-invalid")).toBe("true");
+    expect(errText(p)).toBe("Please add the company name. A GST invoice needs the business name."); expect(p.$("#org").getAttribute("aria-invalid")).toBe("true");
     type(p, "#org", "Acme Ltd"); type(p, "#tax", "12345"); p.click("#invadd"); await p.waitFor(() => /GSTIN does not look right/.test(errText(p)));
     expect(p.$("#tax").getAttribute("aria-invalid")).toBe("true"); expect(invoices(o).length).toBe(0);
-    type(p, "#tax", GST); p.click("#invadd"); await p.waitFor((x) => /Your invoice/.test(x)); expect(invoices(o).length).toBe(1);
+    type(p, "#tax", GST); p.click("#invadd"); await p.waitFor((x) => /The invoice/.test(x)); expect(invoices(o).length).toBe(1);
   });
   test("pay, then close the page: it comes back with the form until 15 minutes have passed, and with the invoice after that (nobody pressed anything)", async () => {
     const { o, t } = await game("PC-4", "Closed Night"); const p = await opn(o, t, { cc: "IN" }); await p.waitFor((x) => /Closed Night/.test(x)); await pay(p);
     type(p, "#org", "Typed Co");
     const tab = tabOf(p); await p.close();
     o.world.now = T + 10 * MIN;
-    const q = await opn(o, "", { session: tab, cc: "IN" }); await q.waitFor((x) => /Add to your invoice/.test(x)); expect(val(q, "#org")).toBe("Typed Co"); expect(invoices(o).length).toBe(0);
+    const q = await opn(o, "", { session: tab, cc: "IN" }); await q.waitFor((x) => /Add to the invoice/.test(x)); expect(val(q, "#org")).toBe("Typed Co"); expect(invoices(o).length).toBe(0);
     const tab2 = tabOf(q); await q.close();
     o.world.now = T + 16 * MIN; // 15 minutes after the capture
-    const r = await opn(o, "", { session: tab2, cc: "IN" }); const txt = await r.waitFor((x) => /Your invoice/.test(x));
+    const r = await opn(o, "", { session: tab2, cc: "IN" }); const txt = await r.waitFor((x) => /The invoice/.test(x));
     expect(txt).not.toMatch(/Add to your invoice/); expect(invoices(o).length).toBe(1); expect(JSON.parse(invoices(o)[0]!.data).buyer.name).not.toBe("Typed Co"); // issued 'as is': what was only typed is not on it
   });
   test("a payment in US dollars: the receipt says US$, and the invoice has no Indian GST", async () => {
     const { o, t } = await game("PC-5", "Dollar Night"); const p = await opn(o, t, { cc: "DE" }); await p.waitFor((x) => /US\$34/.test(x));
     const txt = await pay(p); expect(txt).toMatch(/US\$34/);
-    p.click("#invskip"); await p.waitFor((x) => /Your invoice/.test(x));
+    p.click("#invskip"); await p.waitFor((x) => /The invoice/.test(x));
     const d = JSON.parse((o.world.raw.prepare("SELECT data FROM invoice").get() as any).data); expect(d.currency).toBe("USD"); expect(d.tax.mode).toBe("none");
     expect((o.world.raw.prepare("SELECT currency, amount FROM payment").get() as any)).toEqual({ currency: "USD", amount: 34 });
   });

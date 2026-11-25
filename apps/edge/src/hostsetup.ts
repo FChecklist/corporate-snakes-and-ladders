@@ -117,9 +117,9 @@ export async function hostSetupRoute(c: HostCtx): Promise<Response | null> {
   if (p === "/api/host/setup/mobile") {
     const b = await c.body(req); { const refused = await requireAccept(c, b); if (refused) return refused; }
     const m = c.cleanPhone(b?.mobile ?? b?.phone);
-    if (!m.ok) return c.json({ error: "Please give your mobile number. " + m.why }, 400);
+    if (!m.ok) return c.json({ error: "Please give the mobile number. " + m.why }, 400);
     const st = await hostStateRow(db, c.hid);
-    if (st?.verified_ms && st.mobile_ok) return c.json({ error: "Your mobile number is already saved. Ask the Organizer to change it.", code: "already-set" }, 409);
+    if (st?.verified_ms && st.mobile_ok) return c.json({ error: "The mobile number is already saved. Ask the Organizer to change it.", code: "already-set" }, 409);
     if (!(await c.spend(2))) return c.busy();
     const row = await identityRow(db, c.hid);
     const sealed = await sealPii(env as any, { phone: m.digits, name: row?.label || null });
@@ -135,7 +135,7 @@ export async function hostSetupRoute(c: HostCtx): Promise<Response | null> {
     const email = typeof b?.email === "string" ? cleanEmail(b.email) : "";
     if (!EMAIL_RE.test(email)) return c.json({ error: "Please enter a valid e-mail address." }, 400);
     const st = await hostStateRow(db, c.hid);
-    if (st?.verified_ms) return c.json({ error: "Your e-mail is already confirmed. Sign in with it on other devices.", code: "already-verified" }, 409);
+    if (st?.verified_ms) return c.json({ error: "The e-mail is already confirmed. Sign in with it on other devices.", code: "already-verified" }, 409);
     const row = await identityRow(db, c.hid), onFile = row?.email_sealed ? await openText(env as any, row.email_sealed) : null;
     if (onFile && cleanEmail(onFile) !== email) return c.json({ error: `This link is for ${maskEmail(onFile)}`, code: "email-mismatch" }, 409);
     const eh = await emailHashOf(email);
@@ -148,7 +148,7 @@ export async function hostSetupRoute(c: HostCtx): Promise<Response | null> {
       db.prepare("INSERT INTO login_code(email_hash,code_hash,expires_ms,attempts,win_start,sent,link_hash) VALUES(?,?,?,0,?,1,NULL) ON CONFLICT(email_hash) DO UPDATE SET code_hash=excluded.code_hash, expires_ms=excluded.expires_ms, attempts=0, win_start=?, sent=?, link_hash=NULL").bind(eh, await sha("code|" + eh + "|" + code), now + 600_000, fresh ? now : lc!.win_start, fresh ? now : lc!.win_start, fresh ? 1 : lc!.sent + 1),
       db.prepare("INSERT INTO host_state(host_id,org,pend_hash,pend_sealed,link_exp_ms) VALUES(?,?,?,?,?) ON CONFLICT(host_id) DO UPDATE SET pend_hash=excluded.pend_hash, pend_sealed=excluded.pend_sealed").bind(c.hid, c.org, eh, await sealText(env as any, email), now + HOST_LINK_TTL_MS),
     ]);
-    await c.sendMail(email, "Your Corporate Snakes and Ladders code", `Your 6-digit code is ${code}.\n\nType it on the page where you are finishing your Co-organizer setup. It works for 10 minutes.\n\nDid not ask for this? Ignore this e-mail.`);
+    await c.sendMail(email, "The Corporate Snakes and Ladders code", `The 6-digit code is ${code}.\n\nType it on the page where you are finishing the Co-organizer setup. It works for 10 minutes.\n\nDid not ask for this? Ignore this e-mail.`);
     return c.json({ ok: true, ...(c.test ? { devCode: code } : {}) });
   }
   if (p === "/api/host/setup/email/verify") {

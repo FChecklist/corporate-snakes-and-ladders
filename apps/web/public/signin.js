@@ -11,7 +11,7 @@
   const loadConsent = async () => { try { info = await CBConsent.load("K2", getJson); loadErr = ""; } catch { loadErr = "The terms could not be loaded. Please reload this page."; } };
   const draw = (msg) => {
     app.innerHTML = `<div class="zhead"><b><a class="zlogo" href="/" aria-label="Corporate Snakes and Ladders home"><img src="/logo-mark.svg" alt="Corporate Snakes and Ladders logo" width="20" height="20"></a>Corporate Snakes and Ladders</b></div><div class="zcard zform"><h2>Press the button to sign in</h2>
-      <p class="zsmall" style="margin-top:0">This is Option 2 from your e-mail. It works once, for 10 minutes.</p>
+      <p class="zsmall" style="margin-top:0">This is Option 2 from the e-mail. It works once, for 10 minutes.</p>
       ${msg ? `<div class="zbanner bad" role="alert">${esc(msg)}</div>` : ""}
       <div id="k2">${info ? CBConsent.html(info, state) : `<p class="zsmall" role="status">${esc(loadErr || "Loading the terms…")}</p>`}</div>
       ${t ? `<button class="zbtn" id="go" disabled aria-disabled="true">Continue to Corporate Snakes and Ladders</button>` : `<div class="zbanner bad">This sign-in link is incomplete. Please ask for a new one from the sign-in page.</div>`}
@@ -36,7 +36,7 @@
         if (!r.ok) throw new Error(j.error || "Something went wrong. Please try again.");
         try { CTK.set("cbz-org", j.token); } catch {}
         location.replace(go);
-      } catch (e) { draw(e && e.name === "TypeError" ? "The service could not be reached. Please check your internet and try again." : e && e.message ? e.message : "Something went wrong. Please try again."); }
+      } catch (e) { draw(e && e.name === "TypeError" ? "The service could not be reached. Please check the internet and try again." : e && e.message ? e.message : "Something went wrong. Please try again."); }
     };
   };
   draw("");

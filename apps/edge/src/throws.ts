@@ -8,7 +8,7 @@ import type { Env } from "./worker";
 
 type Json = (o: unknown, s?: number) => Response;
 type Spend = (env: Env, now: number, n?: number) => Promise<boolean>;
-export const LATE_MOVE_MSG = "Ohooo! 😊 Sorry, you moved after your turn ended. This move cannot be made.";
+export const LATE_MOVE_MSG = "Ohooo! 😊 Sorry, you moved after the turn ended. This move cannot be made.";
 const key = (eid: string, turn: number, seat: number) => `thr/${eid}/${String(turn).padStart(4, "0")}/${seat}`;
 
 export async function acceptThrow(env: Env, e: any, eid: string, b: any, now: number, json: Json, spend: Spend): Promise<Response> {

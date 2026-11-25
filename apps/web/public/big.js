@@ -101,7 +101,7 @@
     let title, line, ring = "";
     if (v.ended || v.phase === "ended" || t.state === "over") { title = "Game over"; line = "Thank you for playing."; }
     else if (t.state === "wait") { title = "Turn " + (t.index + 1); line = t.secondsLeft === null ? "Getting ready…" : `Opens in ${t.secondsLeft} seconds.`; ring = ringHtml(t.secondsLeft, 0, line); }
-    else if (t.state === "open") { title = "Turn " + (t.index + 1); line = presence ? "Throw now! Open your phone and press Throw." : "The dice are thrown when the window closes."; ring = ringHtml(t.secondsLeft, t.windowSec, `${t.secondsLeft} seconds left in this turn`); }
+    else if (t.state === "open") { title = "Turn " + (t.index + 1); line = presence ? "Throw now! Open the phone and press Throw." : "The dice are thrown when the window closes."; ring = ringHtml(t.secondsLeft, t.windowSec, `${t.secondsLeft} seconds left in this turn`); }
     else { title = "Turn " + (t.index + 1); line = "The dice are thrown."; ring = ringHtml(t.secondsLeft, 0, `Next turn in ${t.secondsLeft} seconds`); }
     const who = v.kind === "table" && v.table && v.table.whoseTurn !== null && !v.ended ? `<div class="whose">${esc(nickOf(v.table.whoseTurn))} throws</div>` : "";
     return `<div class="turnbox"><div class="lbl">${esc(title)}</div>${ring}<div class="state" role="status">${esc(line)}</div>${who}</div>`;
@@ -144,8 +144,8 @@
     const waiting = v.turnsPlayed === 0 && v.phase === "play" && v.turn.state === "wait" && v.turn.secondsLeft !== null && v.turn.secondsLeft > 0;
     if (waiting) {
       const sec = v.turn.secondsLeft, secs = v.callSeconds || 20;
-      const top = sec > GRACE_SECS ? `<p>The game starts in</p><div class="cd">${hms(sec - GRACE_SECS)}</div><p>Open the link on your phone and join.</p>` : `<h1>Your game is setting up</h1><p>Sign-up has closed. The first turn comes in a moment.</p><div class="cd">${mmss(sec)}</div>`;
-      const rules = [v.kind === "table" ? "1. Everyone plays on one shared board and takes turns." : "1. You have your own board. Nobody else has the same one.", `2. Every turn lasts about ${secs} seconds. Your throw is the dice for that turn.`, "3. Snakes take you down. Ladders take you up.", "4. To finish you need the exact number to land on the last square.", "5. The software checks everything. Nobody can change a result."];
+      const top = sec > GRACE_SECS ? `<p>The game starts in</p><div class="cd">${hms(sec - GRACE_SECS)}</div><p>Open the link on the phone and join.</p>` : `<h1>The game is setting up</h1><p>Sign-up has closed. The first turn comes in a moment.</p><div class="cd">${mmss(sec)}</div>`;
+      const rules = [v.kind === "table" ? "1. Everyone plays on one shared board and takes turns." : "1. You have the board. Nobody else has the same one.", `2. Every turn lasts about ${secs} seconds. The throw is the dice for that turn.`, "3. Snakes take you down. Ladders take you up.", "4. To finish you need the exact number to land on the last square.", "5. The software checks everything. Nobody can change a result."];
       return ($app.innerHTML = frame(`<div class="big">${top}${orgMsg("premsg", S.info && S.info.preGameMessage)}<ul class="rules">${rules.map((r) => `<li>${esc(r)}</li>`).join("")}</ul></div>`, v, ""));
     }
     const paused = v.paused ? `<div class="big note"><h1>Paused</h1><p>The organizer has paused the game. It will resume shortly.</p></div>` : "";

@@ -29,7 +29,7 @@ const phone = async (o: O, id: string, pre?: (win: any) => void) => {
   const p = await openPage(o.world, { url: `http://localhost/z?e=${id}`, html: "z.html", scripts: ["audio.js", "zgame.js", "z.js"], afterLoad: (win, f) => { if (f === "audio.js") pre?.(win); if (f === "zgame.js") rtFake(win, () => o.world.now); } });
   open.push(p); return p;
 };
-const join = async (p: Page) => { await p.waitFor((x) => /Join the game/.test(x), 20000); (p.$("#nm") as any).value = "Asha"; const ph = p.$("#ph") as any; if (ph) ph.value = "9812345678"; p.click("#go"); await p.waitFor((x) => /You are in|Starting in|Your game is setting up/.test(x), 60000); };
+const join = async (p: Page) => { await p.waitFor((x) => /Join the game/.test(x), 20000); (p.$("#nm") as any).value = "Asha"; const ph = p.$("#ph") as any; if (ph) ph.value = "9812345678"; p.click("#go"); await p.waitFor((x) => /You are in|Starting in|The game is setting up/.test(x), 60000); };
 
 describe("SL-11: the phone keeps its screen on, is quiet by default and tells the person to use Do not disturb", () => {
   test.skip("the page asks for a screen wake lock; sound is off until turned on; the waiting room carries the Do-not-disturb tip", async () => {
@@ -39,7 +39,7 @@ describe("SL-11: the phone keeps its screen on, is quiet by default and tells th
     await join(p);
     expect(asked).toBeGreaterThanOrEqual(1);
     expect(p.text()).toContain("Sound off");
-    expect(p.text()).toContain("switch your phone to Do not disturb");
+    expect(p.text()).toContain("switch the phone to Do not disturb");
   });
 });
 

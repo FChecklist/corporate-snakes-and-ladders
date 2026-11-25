@@ -19,7 +19,7 @@
   const q = new URLSearchParams(location.hash.replace(/^#/, ""));
   if (q.get("w") === "card") { ticketPreview(); return; }
   const when = ["break", "opening", "closing"].includes(q.get("w")) ? q.get("w") : "break";
-  const b = { kind: q.get("k") || "speech", title: (q.get("t") || "Your message").slice(0, 80), mediaUrl: q.get("u") || "", seconds: Math.max(15, Math.min(600, Number(q.get("s")) || 60)) };
+  const b = { kind: q.get("k") || "speech", title: (q.get("t") || "The message").slice(0, 80), mediaUrl: q.get("u") || "", seconds: Math.max(15, Math.min(600, Number(q.get("s")) || 60)) };
   let badLink = false; if (b.mediaUrl && !/^https:\/\/[^\s<>"'`]+$/i.test(b.mediaUrl)) { b.mediaUrl = ""; badLink = true; }
 
   const mediaHost = document.createElement("div");
@@ -68,20 +68,20 @@
   addEventListener("resize", placeMedia);
 
   const kind = mediaKind(b);
-  const sampleCard = `<div class="zcard"><h2>Your board (sample)</h2>${cardGrid("Sample board")}</div>`;
+  const sampleCard = `<div class="zcard"><h2>The board (sample)</h2>${cardGrid("Sample board")}</div>`;
   const what = b.kind === "speech" ? "Please listen to the speaker." : b.kind === "slides" ? "Please look at the screen." : "";
-  const heading = when === "break" ? "A short break" : when === "opening" ? "A message from your organizer" : "Thank you from your organizer";
-  const verdict = badLink ? "<b>The link you pasted was not used.</b> It must start with https:// and have no spaces. Go back, correct it and press Test it again." : !b.mediaUrl ? "No link: players see your message only." : kind ? "This link plays inside the game." : "<b>This link will NOT play inside the game.</b> It opens in a new tab and takes the player out of the game. Use a YouTube link, or a direct link to a video (.mp4) or audio (.mp3) file.";
+  const heading = when === "break" ? "A short break" : when === "opening" ? "A message from the organizer" : "Thank you from the organizer";
+  const verdict = badLink ? "<b>The link you pasted was not used.</b> It must start with https:// and have no spaces. Go back, correct it and press Test it again." : !b.mediaUrl ? "No link: players see the message only." : kind ? "This link plays inside the game." : "<b>This link will NOT play inside the game.</b> It opens in a new tab and takes the player out of the game. Use a YouTube link, or a direct link to a video (.mp4) or audio (.mp3) file.";
   let timer = 0, endsAt = 0;
 
   function paint(secondsLeft) {
     const over = secondsLeft !== null && secondsLeft <= 0;
     const act = b.mediaUrl && !over ? (kind ? `<div id="mslot" class="zmslot"></div><a class="zsmall" target="_blank" rel="noopener noreferrer" href="${esc(b.mediaUrl)}">Trouble playing? Open it in a new tab</a>` : `<a class="zbtn s" style="display:inline-flex;align-items:center;text-decoration:none;margin-top:10px" target="_blank" rel="noopener noreferrer" href="${esc(b.mediaUrl)}">${b.kind === "youtube" ? "Watch the video" : "Open"}</a>`) : "";
     const tail = when === "break" ? ` The game continues in ${Math.max(0, secondsLeft)}s.` : when === "opening" ? " The game starts in a moment." : "";
-    const card = over ? `<div class="zcard zbreak" role="status"><h2>${when === "break" ? "The break is over" : "The opening is over"}</h2><div class="zsmall" style="margin:0">The message and the video have gone, and ${when === "break" ? "the game carries on" : "the first turn comes next"}. This is what your players see: their board is right there again.</div><button class="zbtn s" id="again" type="button" style="margin-top:10px">Play it again</button></div>`
+    const card = over ? `<div class="zcard zbreak" role="status"><h2>${when === "break" ? "The break is over" : "The opening is over"}</h2><div class="zsmall" style="margin:0">The message and the video have gone, and ${when === "break" ? "the game carries on" : "the first turn comes next"}. This is what the players see: their board is right there again.</div><button class="zbtn s" id="again" type="button" style="margin-top:10px">Play it again</button></div>`
       : `<div class="zcard zbreak" role="status"><h2>${heading}</h2><div style="font:700 20px var(--sans,inherit);margin:2px 0 4px">${esc(b.title)}</div><div class="zsmall" style="margin:0">${what}${tail}</div>${act}</div>`;
     $app.innerHTML = `<div class="zhead"><b><a class="zlogo" href="/" aria-label="Corporate Snakes and Ladders home"><img src="/logo-mark.svg" alt="Corporate Snakes and Ladders logo" width="20" height="20"></a>Corporate Snakes and Ladders</b></div>
-      <div class="zbanner info" role="note"><b>Test only.</b> No game is running. It shows what a player's phone shows during your ${when === "break" ? "break" : when}.</div>
+      <div class="zbanner info" role="note"><b>Test only.</b> No game is running. It shows what a player's phone shows during the ${when === "break" ? "break" : when}.</div>
       <div class="zcard"><div class="zsmall" id="pvnote" style="margin:0">${verdict}</div></div>${card}${sampleCard}`;
     if (!over && kind && mediaHost.dataset.k !== "on") { mediaHost.dataset.k = "on"; startMedia(kind); }
     if (over) { mediaHost.textContent = ""; mediaHost.style.display = "none"; delete mediaHost.dataset.k; }
@@ -131,9 +131,9 @@
       $app.innerHTML = `<div class="zhead"><b><a class="zlogo" href="/" aria-label="Corporate Snakes and Ladders home"><img src="/logo-mark.svg" alt="Corporate Snakes and Ladders logo" width="20" height="20"></a>Corporate Snakes and Ladders</b></div>
         <div class="zbanner info" role="note"><b>PREVIEW.</b> This is a sample board, not a real one. Nothing is saved, nobody is told, and no game is running.${note ? " " + esc(note) : ""}</div>
         ${brand ? `<div class="zbrand" id="pvbrand">${brand.logo ? `<img class="zblogo" alt="" src="${esc(brand.logo)}">` : ""}${brand.name ? `<b>${esc(brand.name)}</b>` : ""}</div><div class="zpow"><a class="zlogo" href="/" aria-label="Corporate Snakes and Ladders home"><img src="/logo-mark.svg" alt="Corporate Snakes and Ladders logo" width="12" height="12"></a>Powered by Corporate Snakes and Ladders</div>` : `<div class="zbrand" id="pvbrand0"><a class="zlogo" href="/" aria-label="Corporate Snakes and Ladders home"><img src="/logo-mark.svg" alt="Corporate Snakes and Ladders logo" width="18" height="18"></a>CORPORATE SNAKES AND LADDERS</div><div class="zsmall" style="margin:4px 0 0">No company name or logo is set yet, so players see the default name. Set yours in the Brand step to see it here.</div>`}
-        <div class="zcard"><h2>Your board <span class="zdemotag">PREVIEW</span></h2>${cardGrid("Sample board")}</div>
+        <div class="zcard"><h2>The board <span class="zdemotag">PREVIEW</span></h2>${cardGrid("Sample board")}</div>
         <div class="zcard"><h2>What you can win</h2><ul class="zlist">${prizeLi}</ul></div>
-        <div class="zcard zbreak"><h2>A short break</h2><div style="font:700 20px var(--sans,inherit);margin:2px 0 4px">${esc(brk ? brk.title : "A message from your organizer")}</div><div class="zsmall" style="margin:0">Please listen to the speaker. The game continues in ${esc(String(brk && brk.seconds ? brk.seconds : 60))}s.</div></div>
+        <div class="zcard zbreak"><h2>A short break</h2><div style="font:700 20px var(--sans,inherit);margin:2px 0 4px">${esc(brk ? brk.title : "A message from the organizer")}</div><div class="zsmall" style="margin:0">Please listen to the speaker. The game continues in ${esc(String(brk && brk.seconds ? brk.seconds : 60))}s.</div></div>
         <div class="zcard"><h2>Lucky draw</h2><div class="zrow"><span>${esc(luckyTitle)}<br><small class="zsmall" style="margin:0">${luckyN} ${luckyN === 1 ? "person is" : "people are"} picked at random</small></span><i>at the end of the break</i></div></div>`;
       const b0 = document.getElementById("pvbrand0"); if (b0) { b0.style.background = "var(--snk-primary)"; b0.style.color = "#ffffff"; }
       const b = document.getElementById("pvbrand"); if (b && brand) { b.style.background = brand.color; b.style.color = brand.fg; }
@@ -144,6 +144,6 @@
     fetch(`/api/z/${encodeURIComponent(eid)}/info`, { method: "GET", headers: key ? { "x-organizer": key } : {} })
       .then((r) => { if (!r.ok) throw new Error("http " + r.status); return r.json(); })
       .then((j) => draw({ brand: j.brand, rewards: Array.isArray(j.rewards) ? j.rewards : [], breaks: Array.isArray(j.breaks) ? j.breaks : [], lucky: "" }, ""))
-      .catch(() => draw(fromHash(), "Your game could not be read just now, so this shows sample words."));
+      .catch(() => draw(fromHash(), "The game could not be read just now, so this shows sample words."));
   }
 })();

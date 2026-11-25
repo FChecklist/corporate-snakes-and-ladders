@@ -90,10 +90,10 @@ describe("the payment-link page (/paylink)", () => {
     const paid = JSON.parse(tabOf(p)["cbz-paydraft-paylink"]!); expect(paid.paid).toMatch(/^pay_[0-9a-f]{16}$/);
     fillAll(p, { "#nm": "Fiona Finance", "#org": "Acme Ltd", "#tax": "27AAPFU0939F1ZV" });
     const tab = tabOf(p); await p.close();
-    const q = await opn(o, "", tab); await q.waitFor((x) => /Add to your invoice/.test(x));
+    const q = await opn(o, "", tab); await q.waitFor((x) => /Add to the invoice/.test(x));
     expect(snap(q, ["#nm", "#org", "#tax"])).toEqual({ "#nm": "Fiona Finance", "#org": "Acme Ltd", "#tax": "27AAPFU0939F1ZV" });
     expect((q.win as any).__ctDirty()).toBe(true);
-    q.click("#invadd"); await q.waitFor((x) => /Your invoice/.test(x));
+    q.click("#invadd"); await q.waitFor((x) => /The invoice/.test(x));
     expect((q.win as any).__ctDirty()).toBe(false); // nothing half done any more
     expect((await o.json(await o.api("GET", `/api/paylink/${t}`))).status).toBe("paid");
   });

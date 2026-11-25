@@ -88,7 +88,7 @@ describe("showing it: pop-up, in place, take me there, back to where you were", 
     const p = await page(); const d = p.win.document; let again = 0;
     p.win.CTG.dialog({ status: 500, message: "boom for asha@example.com" }, { retry: () => again++ });
     const t = d.getElementById("ctg-dialog").textContent;
-    expect(t).toContain("not your doing"); expect(t).toContain("Reference:"); expect(t).not.toContain("asha@example.com");
+    expect(t).toContain("not the doing"); expect(t).toContain("Reference:"); expect(t).not.toContain("asha@example.com");
     expect(d.querySelector('#ctg-dialog a[href^="https://wa.me/919650397480?text="]')).toBeTruthy();
     d.querySelector('#ctg-dialog [data-ctg="retry"]').click(); expect(again).toBe(1); expect(d.getElementById("ctg-dialog")).toBeNull();
   });
@@ -134,7 +134,7 @@ describe("the right guide for the right message and the right person", () => {
     const p = await page(); const C = p.win.CTG.catalog as any[];
     // three short ones are whole, specific messages: "busy", "busy day", "choose a pack"
     for (const e of C) for (const m of e.m) { const n = String(m).toLowerCase().replace(/\d+/g, "").replace(/\s+/g, " ").trim(); expect(n.length >= 14 || ["busy", "busy day", "choose a pack"].includes(n)).toBe(true); }
-    for (const msg of ["You have been removed from this game by someone.", "You can have a look at the report later.", "Send a postcard to your friend.", "Check the weather before you travel.", "Your board is lovely."]) {
+    for (const msg of ["You have been removed from this game by someone.", "You can have a look at the report later.", "Send a postcard to the friend.", "Check the weather before you travel.", "The board is lovely."]) {
       const f = p.win.CTG.find({ status: -1, message: msg }); expect(f.matched).toBe(false);
     }
     // and the real, similar messages still reach their own guide

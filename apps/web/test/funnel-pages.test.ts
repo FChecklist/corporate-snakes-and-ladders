@@ -38,7 +38,7 @@ describe("page steps from the real pages", () => {
     expect(rows(w).find((r) => r.ev === "size_chosen")!.size).toBe(chosen);
     expect(rows(w).every((r) => r.game === null || r.game === "snakes")).toBe(true);
   });
-  test("landing page: signup_started when the create-your-game sheet opens", async () => {
+  test("landing page: signup_started when the create-the-game sheet opens", async () => {
     const w = on(); const p = await load(w, "index.html");
     const buy = p.win.document.querySelector("[data-buy]"); expect(buy).toBeTruthy(); buy.click(); await wait();
     expect(rows(w).map((r) => r.ev)).toEqual(["signup_started", "size_chosen", "viewed"]);

@@ -186,7 +186,7 @@ describe("no refund machinery is left", () => {
   });
 });
 
-describe("Confirming your payment", () => {
+describe("Confirming the payment", () => {
   test("a correctly signed payment the gateway has not confirmed shows 'confirming', never Paid; confirmation then marks it Paid", async () => {
     const t = await team();
     const c = await j(await pay(t.master));
@@ -339,7 +339,7 @@ describe("Invite-only co-organizer: name + mobile (no e-mail), bound to one game
   });
 });
 
-describe("'your players' personal data has been deleted' e-mail", () => {
+describe("'the players' personal data has been deleted' e-mail", () => {
   test("the automatic deletion mails the Organizer and every Co-organizer with the exact time in IST; the Invite-only co-organizer (no e-mail) gets nothing", async () => {
     const t = await team(); await paidGame(t); await join("9876543210", "Asha");
     const at = T + 3 * H + 40 * H;

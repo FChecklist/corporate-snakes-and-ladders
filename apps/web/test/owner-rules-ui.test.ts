@@ -35,8 +35,8 @@ describe("the console under the owner rules", () => {
     const { p, w } = await consoleFor("UIR-3", { OWNER_RULES: "1.1" });
     await openStep(p, 6, /Invite people with just an ID/);
     const t = p.text();
-    for (const w2 of ["No names or personal details are needed.", "The list and all IDs are deleted within 24 hours after the game ends.", "Add to your list"]) expect(t).toContain(w2);
-    for (const gone of ["Add a name and number", "Upload a PDF", "Paste from Excel", "From your contacts", "Mobile number"]) expect([gone, t.includes(gone)]).toEqual([gone, false]);
+    for (const w2 of ["No names or personal details are needed.", "The list and all IDs are deleted within 24 hours after the game ends.", "Add to the list"]) expect(t).toContain(w2);
+    for (const gone of ["Add a name and number", "Upload a PDF", "Paste from Excel", "From the contacts", "Mobile number"]) expect([gone, t.includes(gone)]).toEqual([gone, false]);
     const ticks = p.win.document.querySelectorAll("#mypeople input.cbc-tick"); ticks.forEach((c: any) => { c.checked = true; c.dispatchEvent(new p.win.Event("change", { bubbles: true })); });
     p.$("#rosterTxt").value = "Employee ID\nA-1101\nA 1101\na/1101\nB-7\n"; // the heading line is skipped
     p.click("#rosterGo");

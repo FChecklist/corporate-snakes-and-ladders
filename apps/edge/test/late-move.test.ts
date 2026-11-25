@@ -5,7 +5,7 @@ import { HOUR, T, W, call, dev, j, join, one, q, paidGame, reset, restore, round
 
 beforeEach(() => reset());
 afterEach(restore);
-const MSG = "Ohooo! 😊 Sorry, you moved after your turn ended. This move cannot be made.";
+const MSG = "Ohooo! 😊 Sorry, you moved after the turn ended. This move cannot be made.";
 
 async function game(play: "presence" | "fate" = "presence") {
   const g = await paidGame({ cap: 10, over: { play, startRound: startIn(2 * HOUR), callSeconds: 10 } });

@@ -162,9 +162,9 @@ export async function mailCreditCreated(env: PayEnv, c: CreditRow, e: { id: stri
   const claim = await env.DB.prepare("UPDATE credit SET mail_created_ms=? WHERE id=? AND mail_created_ms IS NULL").bind(now, c.id).run();
   if ((claim.meta?.changes ?? 0) === 0) return; // one of each per credit
   const lines = why === "cancel"
-    ? [c.expires_ms <= now ? `Your game "${gameName(e)}" (${e.id}) is cancelled. The credit from your payment of ${rs(c.total_inr, c.currency)} lapsed on ${lapseDate(c)}, 365 days after the payment, so there is nothing left to use.` : `Your game "${gameName(e)}" (${e.id}) is cancelled. Your payment of ${rs(c.total_inr, c.currency)} stays as credit until ${lapseDate(c)}. Use it for your next game.`]
-    : [`A payment of ${rs(c.total_inr, c.currency)} arrived for the game "${gameName(e)}" (${e.id}) after it was cancelled or closed. It stays as credit until ${lapseDate(c)}. Use it for your next game.`];
-  await mailTeam(env, c.org, c.eid ?? e.id, why === "cancel" ? `Your credit of ${rs(c.total_inr, c.currency)}: ${gameName(e)}` : `A payment became credit: ${gameName(e)}`, [...lines, NO_REFUND_LINE, `Open your console and choose "Use your credit" on the Pay step of your next game.`].join("\n\n"), now);
+    ? [c.expires_ms <= now ? `The game "${gameName(e)}" (${e.id}) is cancelled. The credit from the payment of ${rs(c.total_inr, c.currency)} lapsed on ${lapseDate(c)}, 365 days after the payment, so there is nothing left to use.` : `The game "${gameName(e)}" (${e.id}) is cancelled. The payment of ${rs(c.total_inr, c.currency)} stays as credit until ${lapseDate(c)}. Use it for the next game.`]
+    : [`A payment of ${rs(c.total_inr, c.currency)} arrived for the game "${gameName(e)}" (${e.id}) after it was cancelled or closed. It stays as credit until ${lapseDate(c)}. Use it for the next game.`];
+  await mailTeam(env, c.org, c.eid ?? e.id, why === "cancel" ? `The credit of ${rs(c.total_inr, c.currency)}: ${gameName(e)}` : `A payment became credit: ${gameName(e)}`, [...lines, NO_REFUND_LINE, `Open the console and choose "Use the credit" on the Pay step of the next game.`].join("\n\n"), now);
 }
 async function mailCreditUsed(env: PayEnv, c: CreditRow, amount: number, e: { id: string; org: string | null; config?: string | null }, left: number, now: number): Promise<void> {
   await mailTeam(env, c.org, e.id, `${rs(amount, c.currency)} of credit used for ${gameName(e)}`, [`${rs(amount, c.currency)} of credit was used for the game "${gameName(e)}" (${e.id}).`, left > 0.004 ? `That credit still has ${rs(left, c.currency)} left, valid until ${lapseDate(c)}.` : "That credit is now fully used."].join("\n\n"), now);
@@ -183,7 +183,7 @@ export async function creditTick(env: PayEnv, now: number): Promise<{ lapsed: nu
   for (const c of gone) {
     const claim = await db.prepare("UPDATE credit SET mail_lapse_ms=? WHERE id=? AND mail_lapse_ms IS NULL").bind(now, c.id).run();
     if ((claim.meta?.changes ?? 0) === 0) continue;
-    await mailTeam(env, c.org, c.eid, `Your credit of ${rs(c.lapsed_inr, c.currency)} lapsed`, `Your credit of ${rs(c.lapsed_inr, c.currency)} lapsed on ${lapseDate(c)}, 365 days after the payment. Unused credit lapses at the end of day 365. You can see it under "Credit that lapsed" in Your account.`, now); out.mailed++;
+    await mailTeam(env, c.org, c.eid, `The credit of ${rs(c.lapsed_inr, c.currency)} lapsed`, `The credit of ${rs(c.lapsed_inr, c.currency)} lapsed on ${lapseDate(c)}, 365 days after the payment. Unused credit lapses at the end of day 365. You can see it under "Credit that lapsed" in The account.`, now); out.mailed++;
   }
   const soon = (await db.prepare("SELECT * FROM credit WHERE status='active' AND expires_ms>? AND expires_ms<=? AND mail3_ms IS NULL AND CAST(ROUND(remaining_inr*100) AS INTEGER)>0 LIMIT 50").bind(now, now + 30 * DAY).all<CreditRow>()).results ?? [];
   for (const c of soon) {
@@ -193,7 +193,7 @@ export async function creditTick(env: PayEnv, now: number): Promise<{ lapsed: nu
     const claim = await db.prepare(`UPDATE credit SET ${col}=? WHERE id=? AND ${col} IS NULL`).bind(now, c.id).run();
     if ((claim.meta?.changes ?? 0) === 0) continue;
     if (three && c.mail30_ms === null) await db.prepare("UPDATE credit SET mail30_ms=? WHERE id=? AND mail30_ms IS NULL").bind(now, c.id).run(); // the 3-day mail replaces the 30-day one when we are already that close
-    await mailTeam(env, c.org, c.eid, `Your credit of ${rs(c.remaining_inr, c.currency)} lapses on ${lapseDate(c)}`, `Your credit of ${rs(c.remaining_inr, c.currency)} lapses on ${lapseDate(c)} (${three ? "in 3 days" : "in 30 days"}). Use it for your next game before then. After that it lapses, as credit is valid for 365 days.`, now); out.mailed++;
+    await mailTeam(env, c.org, c.eid, `The credit of ${rs(c.remaining_inr, c.currency)} lapses on ${lapseDate(c)}`, `The credit of ${rs(c.remaining_inr, c.currency)} lapses on ${lapseDate(c)} (${three ? "in 3 days" : "in 30 days"}). Use it for the next game before then. After that it lapses, as credit is valid for 365 days.`, now); out.mailed++;
   }
   return out;
 }
@@ -232,7 +232,7 @@ export async function creditRoute(req: Request, env: PayEnv, now: number, spend:
   if (!a.org || a.viaLink || !a.kind || !PAYER_KINDS.has(a.kind)) return json({ error: "Not allowed." }, 403);
   const e = await db.prepare("SELECT * FROM engagement WHERE id=?").bind(m[1]!).first<any>();
   if (!e || e.org !== a.org) return json({ error: "No such engagement." }, 404);
-  if (a.kind === "cohost" && a.eid && a.eid !== e.id) return json({ error: "Your Invite-only co-organizer link is for a different game." }, 403);
+  if (a.kind === "cohost" && a.eid && a.eid !== e.id) return json({ error: "The Invite-only co-organizer link is for a different game." }, 403);
   if (e.cancelled_ms) return json({ error: "This game was cancelled. It cannot be paid for.", code: "cancelled" }, 409);
   if (e.unplayed_ms) return json({ error: "This game did not start and is closed. It cannot be paid for.", code: "did-not-start" }, 409);
   if (underOwnerRules(e)) return json({ error: "You pay in the console. This page does not take payments.", code: "pay-in-console" }, 410); // owner rules 1.1: a game is paid only by the console's notice, credit included

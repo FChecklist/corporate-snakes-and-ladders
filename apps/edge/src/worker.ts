@@ -489,7 +489,7 @@ export async function remindUnpaid(env: Env, now: number): Promise<void> {
     const due = await env.DB.prepare("SELECT e.id, e.start_round, (SELECT v FROM kv WHERE k='pub/'||e.id) AS pub FROM engagement e WHERE e.pack=0 AND EXISTS (SELECT 1 FROM kv WHERE k='pub/'||e.id)").all<{ id: string; start_round: number; pub: string }>();
     for (const x of due.results ?? []) {
       const at = roundMs(x.start_round);
-      if (at > now && at - now < 36 * 3_600_000 && now - (Number(x.pub) || 0) >= 2 * 3_600_000) await nudge(env, x.id, "remind", now, `Payment pending for your game ${x.id}: it starts ${istTime(at)}`, `Your game ${x.id} starts ${istTime(at)}. It is not paid yet, and a game that is not paid for does not begin.\n\nYou can pay at any time until the player data is auto-deleted (20 hours after the game was meant to end). If you pay late, the first turn opens 2 minutes after the payment is confirmed.\n\nPay now (about 2 minutes): ${(env as PayEnv).PUBLIC_ORIGIN ?? ""}/pay.html?e=${x.id}`);
+      if (at > now && at - now < 36 * 3_600_000 && now - (Number(x.pub) || 0) >= 2 * 3_600_000) await nudge(env, x.id, "remind", now, `Payment pending for the game ${x.id}: it starts ${istTime(at)}`, `The game ${x.id} starts ${istTime(at)}. It is not paid yet, and a game that is not paid for does not begin.\n\nYou can pay at any time until the player data is auto-deleted (20 hours after the game was meant to end). If you pay late, the first turn opens 2 minutes after the payment is confirmed.\n\nPay now (about 2 minutes): ${(env as PayEnv).PUBLIC_ORIGIN ?? ""}/pay.html?e=${x.id}`);
     }
   } catch { /* tried again at the next tick */ }
 }
@@ -682,7 +682,7 @@ async function aiLink(req: Request, env: Env, now: number, waitUntil?: (p: Promi
 /** A fresh Host key (the personal link, or the key for one device of a Host). */
 const newHostKey = (): string => "cbh_" + randHex(24);
 /** The WhatsApp button for a Host who has only a mobile number: opens WhatsApp to that number with the one-time link ready to send (the Organizer presses send). */
-const waLinkFor = (digits: string, name: string, link: string): string => `https://wa.me/${phoneDigits(digits)}?text=${encodeURIComponent(`${name ? "Hello " + name + ", you" : "You"} are a Co-organizer of a Corporate Snakes and Ladders game. Open your link to finish your setup (it works once, for 7 days): ${link}`)}`;
+const waLinkFor = (digits: string, name: string, link: string): string => `https://wa.me/${phoneDigits(digits)}?text=${encodeURIComponent(`${name ? "Hello " + name + ", you" : "You"} are a Co-organizer of a Corporate Snakes and Ladders game. Open the link to finish the setup (it works once, for 7 days): ${link}`)}`;
 /** A brand-new organizer account for an e-mail (used by the first-time start and by Google sign-up): the console key, the lasting AI key (shown only in the console), and the 24-hour AI-link mail. */
 /* AI_LINK_MAIL_AT_SIGNUP="0" (a Pages variable, set on the live site): the AI work link is not offered in the organizer console, so the welcome e-mail that carried it is not sent either. A new organizer then gets only the sign-in e-mail (the 6-digit code as option 1, the sign-in link as option 2). Any other value sends it as before. */
 async function createOrganizer(env: Env, req: Request, email: string, now: number, via: "start" | "signin-google" | "host-to-organizer", ticked = false): Promise<{ ok: true; token: string; aiKey: string; aiMessage: string; org: string } | { error: string; status: number }> {
@@ -764,7 +764,7 @@ async function creditFields(env: Env, a: Auth, e: { id: string; org: string | nu
   const c = await activeCreditSummary(env.DB, e.org!, now);
   return { credit: c.activeTotalInr, creditExpiresMs: c.nextExpiryMs, creditApplied: await creditAppliedFor(env.DB, e.id), payable: payablePublic(await adjustAnyCur(env.DB, e.id, packOf(e.cap))) };
 }
-const deny = (a: Auth) => json({ error: a.kind === "ai" ? "Your AI assistant may not do this. It is for the organizer to do themselves in their console: tell them plainly what needs doing and where (your instructions say how)." : a.kind === "host" ? "Only the Organizer can do this. A Co-organizer looks after the game, not the account." : a.kind === "cohost" ? "An invite-only co-organizer can invite people and pay. Ask the Organizer or a Co-organizer for anything else." : "Not allowed." }, 403);
+const deny = (a: Auth) => json({ error: a.kind === "ai" ? "The AI assistant may not do this. It is for the organizer to do themselves in their console: tell them plainly what needs doing and where (the instructions say how)." : a.kind === "host" ? "Only the Organizer can do this. A Co-organizer looks after the game, not the account." : a.kind === "cohost" ? "An invite-only co-organizer can invite people and pay. Ask the Organizer or a Co-organizer for anything else." : "Not allowed." }, 403);
 /** What a Host may touch through an AI work link (x-cb-link): watching, and messages to everyone. Through the console a Host may do everything inside a game. */
 const HOST_ACTIONS = new Set(["participants", "summary", "results", "info", "announce", "prizes", "prizegiven", "override", "reportlink", "life"]);
 const MAX_HOSTS = 5;
@@ -787,7 +787,7 @@ const broughtBy = async (env: Env, org: string, hex7: string | null): Promise<nu
 
 export const AI_MANIFEST = {
   name: "Corporate Snakes and Ladders organizer API",
-  how: "Send your organizer AI key in the x-organizer header (or Authorization: Bearer). Easier for chat AIs: the same key in the address, https://<site>/ai/<key>, returns the full manual with ready-made addresses, and https://<site>/ai/<key>/z/{id}/summary works like /api/z/{id}/summary (GET-only tools add _method=POST|PATCH&_body=<URL-encoded JSON>). Every call is JSON. The numbers are drawn from public randomness on players' phones; you cannot change them. Every call you make is recorded (time, which key, what was asked, and where it came from) in an audit trail the organizer can read.",
+  how: "Send the organizer AI key in the x-organizer header (or Authorization: Bearer). Easier for chat AIs: the same key in the address, https://<site>/ai/<key>, returns the full manual with ready-made addresses, and https://<site>/ai/<key>/z/{id}/summary works like /api/z/{id}/summary (GET-only tools add _method=POST|PATCH&_body=<URL-encoded JSON>). Every call is JSON. The numbers are drawn from public randomness on players' phones; you cannot change them. Every call you make is recorded (time, which key, what was asked, and where it came from) in an audit trail the organizer can read.",
   your_role: "You are the organizer's event planner. Talk with them in plain, friendly words, never in API terms. Work through the steps in `conversation` IN ORDER, ONE question at a time, offering 2 to 4 clear options with a recommended default, and wait for their answer before moving on. Never invent details for them. They can watch everything you create appear live in their console (the openUrl returned when you create the engagement).",
   conversation: CONVERSATION.map((t) => t.replace(/\{api\}/g, "/api")),
   packs: PACKS.map(([n]) => ({ upTo: n, inr: price(n, "INR").total, usd: price(n, "USD").total })),
@@ -816,7 +816,7 @@ export const AI_MANIFEST = {
     { do: "Invite-only co-organizers (unlimited; an invite-only co-organizer has a name and a mobile number, no e-mail, belongs to one game, only invites people with an own link and pays) are added by the Organizer or a Co-organizer in the console, never through an AI link", call: "The people on the team: GET /api/org/team (or GET /api/org/team?e={game id}); remove one: POST /api/org/team/retire {id}" },
     { do: "Read the audit trail of AI calls, when the game ends, and whether the report is ready (the report address itself goes only to the organizer)", call: "GET /api/org/ai/audit ; GET /api/z/{id}/life ; GET /api/z/{id}/reportlink" },
     { do: "Suggest a feature, improvement or report that should be built (shared with every organizer's AI, and reviewed by IT Services)", call: "POST /api/z/suggestions {kind: feature|improvement|report|bug|other, title, body}" },
-    { do: "See everyone's suggestions and what was decided, and add your support to one", call: "GET /api/z/suggestions ; POST /api/z/suggestions/{id}/vote" },
+    { do: "See everyone's suggestions and what was decided, and add the support to one", call: "GET /api/z/suggestions ; POST /api/z/suggestions/{id}/vote" },
   ],
   payment_faq: [
     "Building and publishing are free. Only the organizer publishes (they confirm their e-mail and mobile number), and only the organizer pays; you never do either.",
@@ -863,7 +863,7 @@ async function route0(req: Request, env: Env, now: number, a: Auth): Promise<Res
   const p = url.pathname;
   // A Host whose first-open setup is not finished (confirmed e-mail + mobile number) can do nothing but finish it (hostsetup.ts). Public routes stay public.
   if (a.kind === "host" && !a.viaLink && a.hostReady === false && !(p === "/api/whoami" || p.startsWith("/api/host/setup") || p.startsWith("/api/auth/") || p.startsWith("/api/paylink/") || (req.method === "GET" && p.startsWith("/api/consent/")) || (req.method === "GET" && p.startsWith("/api/consent/")) || (p === "/api/notices" && req.method === "GET")))
-    return json({ error: "Please finish your setup first: confirm your e-mail address and add your mobile number.", code: "host-setup" }, 403);
+    return json({ error: "Please finish the setup first: confirm the e-mail address and add the mobile number.", code: "host-setup" }, 403);
 
   if (req.method === "GET" && p === "/api/z/ai-manifest") return json(AI_MANIFEST);
   { const bm = req.method === "GET" ? p.match(/^\/api\/beacon\/([0-9a-f]{64})\/public\/(latest|\d{1,10})$/) : null; if (bm) return beaconRelay(req, bm[1]!, bm[2]!); }
@@ -997,7 +997,7 @@ async function route0(req: Request, env: Env, now: number, a: Auth): Promise<Res
       const ha = hk ? await authOfKey(env, hk, now) : null;
       const kh = hk ? await sha("key|" + hk) : "";
       const ident = ha && ha.kind === "host" && ha.hid === kh ? await env.DB.prepare("SELECT expires_ms FROM organizer_key WHERE hash=?").bind(kh).first<{ expires_ms: number | null }>() : null;
-      if (!ha || !ident || ident.expires_ms !== null || !ha.org) return bad("This link has been used or has expired. Ask the Organizer for a new one, or sign in with your e-mail.", "host-link-gone");
+      if (!ha || !ident || ident.expires_ms !== null || !ha.org) return bad("This link has been used or has expired. Ask the Organizer for a new one, or sign in with the e-mail.", "host-link-gone");
       const row = await identityRow(env.DB, ha.hid!), onFile = row?.email_sealed ? await openText(env as any, row.email_sealed) : null;
       if (onFile && onFile.toLowerCase() !== email) return json({ error: `This link is for ${maskEmail(onFile)}`, code: "email-mismatch" }, 403);
       if (!(await spend(env, now, 3))) return BUSY();
@@ -1110,7 +1110,7 @@ async function route0(req: Request, env: Env, now: number, a: Auth): Promise<Res
   if (req.method === "POST" && p === "/api/org/ai/fresh") { // "Get a fresh AI link": a new 24-hour key, e-mailed to the organizer; the lasting key and other links are untouched
     if (a.kind !== "master" || !a.org) return deny(a);
     const live = (await env.DB.prepare("SELECT COUNT(*) AS c FROM organizer_key WHERE org=? AND kind='ai' AND revoked=0 AND expires_ms>?").bind(a.org, now).first<{ c: number }>())?.c ?? 0;
-    if (live >= 5) return json({ error: "You already asked for several fresh links today. Use the latest e-mail, or press Replace your AI link." }, 429);
+    if (live >= 5) return json({ error: "You already asked for several fresh links today. Use the latest e-mail, or press Replace the AI link." }, 429);
     if (!(await spend(env, now, 3))) return BUSY();
     return json({ ok: true, ...(await mailTempLink(env, req, a.org, "ai", "fresh", now)) });
   }
@@ -1139,9 +1139,9 @@ async function route0(req: Request, env: Env, now: number, a: Auth): Promise<Res
   if (req.method === "POST" && p === "/api/host/become-organizer") { // a Host who also wants to run their own games: the same e-mail gets an Organizer account (Terms box K2), and the person then holds both roles
     if (a.kind !== "host" || a.viaLink || !a.hid || a.hostReady === false) return deny(a);
     const row = await identityRow(env.DB, a.hid), mail = row?.email_sealed ? await openText(env as any, row.email_sealed) : null;
-    if (!mail) return json({ error: "Your e-mail is not confirmed yet. Finish your Co-organizer setup first." }, 409);
+    if (!mail) return json({ error: "The e-mail is not confirmed yet. Finish the Co-organizer setup first." }, 409);
     const email = cleanEmail(mail), eh = await sha("email|" + email);
-    if (await env.DB.prepare("SELECT org FROM organizer_email WHERE email_hash=?").bind(eh).first()) return json({ error: "You already have an Organizer account. Sign out and sign in again with your e-mail code to use it.", code: "has-organizer" }, 409);
+    if (await env.DB.prepare("SELECT org FROM organizer_email WHERE email_hash=?").bind(eh).first()) return json({ error: "You already have an Organizer account. Sign out and sign in again with the e-mail code to use it.", code: "has-organizer" }, 409);
     const b = await body(req);
     { const c = checkConsent("K2", b?.consent); if (!c.ok) return consentRefusal("K2", c); } // K2: the Terms + Privacy tick for the new Organizer account
     const made = await createOrganizer(env, req, email, now, "host-to-organizer", true);
@@ -1164,7 +1164,7 @@ async function route0(req: Request, env: Env, now: number, a: Auth): Promise<Res
       if (!a.org || a.viaLink || (a.kind !== "master" && a.kind !== "host" && a.kind !== "cohost")) return deny(a);
       const pe = await env.DB.prepare("SELECT id, org, cap, pack, cancelled_ms, config FROM engagement WHERE id=?").bind(plm[1]!).first<{ id: string; org: string | null; cap: number; pack: number | null; cancelled_ms: number | null; config: string | null }>();
       if (!pe || pe.org !== a.org) return json({ error: "No such game." }, 404);
-      if (a.kind === "cohost" && a.eid && a.eid !== pe.id) return json({ error: "Your Invite-only co-organizer link is for a different game." }, 403);
+      if (a.kind === "cohost" && a.eid && a.eid !== pe.id) return json({ error: "The Invite-only co-organizer link is for a different game." }, 403);
       if (pe.cancelled_ms) return json({ error: "This game was cancelled. It cannot be paid for." }, 409);
       if (rulesOf(pe)) return json({ error: "You make the payment link in the console, not here.", code: "pay-in-console" }, 410); // owner rules 1.1: this game takes no money
       if (pe.pack !== 0) return json({ error: "This game is already paid for.", code: "already-paid" }, 409);
@@ -1175,7 +1175,7 @@ async function route0(req: Request, env: Env, now: number, a: Auth): Promise<Res
     }
   }
   if (req.method === "POST" && p === "/api/org/host") { // the Organizer (or their AI) adds a Host: up to 5, each with a name and AT LEAST ONE of e-mail or mobile. A Host's own one-time link is e-mailed to the Host (if there is an e-mail) or sent by the Organizer on WhatsApp.
-    if (a.kind === "ai") return json({ error: "A Co-organizer needs a mobile number or an e-mail address. Only the owner enters those, in the console (Your team). Tell the organizer to add the Co-organizer there." }, 403);
+    if (a.kind === "ai") return json({ error: "A Co-organizer needs a mobile number or an e-mail address. Only the owner enters those, in the console (The team). Tell the organizer to add the Co-organizer there." }, 403);
     if (a.kind !== "master" || !a.org) return deny(a);
     const hb = await body(req);
     const hEmail = typeof hb?.email === "string" ? cleanEmail(hb.email) : "";
@@ -1202,13 +1202,13 @@ async function route0(req: Request, env: Env, now: number, a: Auth): Promise<Res
     return json({ ok: true, hostKey: key, link: hLink, manualUrl: `${hOrigin}/ai/${key}`, mailed: hm.mailed, emailed: hostMailed, id: kh.slice(0, 10), label, ...(hEmail ? { email: hEmail } : {}), ...(hMob && hMob.ok ? { mobileMasked: maskMobile(hMob.digits), waLink: waLinkFor(hMob.digits, label, hLink) } : {}), expiresMs: now + HOST_LINK_TTL_MS });
   }
   if (req.method === "POST" && p === "/api/org/host/link") { // the Organizer sends a Host a NEW first-open link: the old link stops at once. Only for a Host who has not confirmed their e-mail yet (later they sign in with it).
-    if (a.kind === "ai") return json({ error: "Only the owner sends a Co-organizer's link, in the console (Your team)." }, 403);
+    if (a.kind === "ai") return json({ error: "Only the owner sends a Co-organizer's link, in the console (The team)." }, 403);
     if (a.kind !== "master" || !a.org) return deny(a);
     const lb = await body(req);
     const lid = typeof lb?.id === "string" && /^[0-9a-f]{10}$/.test(lb.id) ? lb.id : "";
     if (!lid) return json({ error: "Pick a Co-organizer from the list." }, 400);
     const hr = await env.DB.prepare("SELECT hash, label, email_sealed, pii FROM organizer_key WHERE org=? AND substr(hash,1,10)=? AND kind='host' AND revoked=0 AND expires_ms IS NULL AND (host_id IS NULL OR host_id=hash)").bind(a.org, lid).first<{ hash: string; label: string | null; email_sealed: string | null; pii: string | null }>();
-    if (!hr) return json({ error: "That person is not on your team." }, 404);
+    if (!hr) return json({ error: "That person is not on the team." }, 404);
     const hst = await hostStateRow(env.DB, hr.hash);
     if (hst?.verified_ms) return json({ error: "This Co-organizer has already finished setup and signs in with their e-mail. If they cannot get in, retire them and add them again.", code: "host-active" }, 409);
     if (!(await spend(env, now, 4))) return BUSY();
@@ -1264,7 +1264,7 @@ async function route0(req: Request, env: Env, now: number, a: Auth): Promise<Res
     const id = typeof b?.id === "string" && /^[0-9a-f]{10}$/.test(b.id) ? b.id : "";
     if (!id) return json({ error: "Pick a person from the list." }, 400);
     const row = await env.DB.prepare("SELECT hash, kind FROM organizer_key WHERE org=? AND substr(hash,1,10)=? AND revoked=0 AND kind IN ('host','cohost')").bind(a.org, id).first<{ hash: string; kind: string }>();
-    if (!row) return json({ error: "That person is not on your team." }, 404);
+    if (!row) return json({ error: "That person is not on the team." }, 404);
     if (row.kind === "host" && a.kind !== "master") return deny(a);
     const me = await sha("key|" + (req.headers.get("x-organizer") || (req.headers.get("authorization") ?? "").replace(/^Bearer\s+/i, "")));
     if (row.hash === me) return json({ error: "That is the key you are using right now." }, 409);
@@ -1298,7 +1298,7 @@ async function route0(req: Request, env: Env, now: number, a: Auth): Promise<Res
   if (req.method === "POST" && p === "/api/org/close") { // "Close your organizer account": only the organizer's own sign-in key, never an AI key. Deletes the account and every engagement; payment and invoice records stay because the law requires them.
     if (a.kind !== "master" || !a.org) return deny(a);
     const b = await body(req);
-    if (b?.confirm !== true) return json({ error: "Please confirm in your console." }, 400);
+    if (b?.confirm !== true) return json({ error: "Please confirm in the console." }, 400);
     const engs = (await env.DB.prepare("SELECT * FROM engagement WHERE org=?").bind(a.org).all<any>()).results ?? [];
     for (const g of engs) if (now >= roundMs(g.start_round) && now < (await endBoundMs(env as any, g))) return json({ error: "A game is running. Close the account after it ends." }, 409);
     if (!(await spend(env, now, 8 + engs.length * 4))) return BUSY();
@@ -1367,7 +1367,7 @@ async function route0(req: Request, env: Env, now: number, a: Auth): Promise<Res
       if (!b || !["pause", "resume", "stop", "erase"].includes(b.action)) return json({ error: "Ask for pause, resume, stop or delete." }, 400);
       if (!(await spend(env, now))) return BUSY();
       if (b.action === "erase") { // the AI may ASK to delete all participant data; only the organizer's own confirmation in their console does it
-        await nudge(env, cid!, `delreq-${day(now)}`, now, `Your AI assistant asked to delete all player data: engagement ${cid}`, `Your AI assistant asked to delete all player data for ${cid}. Nothing is deleted yet.\n\nTo confirm, press Confirm in your console: ${(env as PayEnv).PUBLIC_ORIGIN ?? ""}/zc.html?e=${cid}\n\nNot you? Press Dismiss.`);
+        await nudge(env, cid!, `delreq-${day(now)}`, now, `The AI assistant asked to delete all player data: engagement ${cid}`, `The AI assistant asked to delete all player data for ${cid}. Nothing is deleted yet.\n\nTo confirm, press Confirm in the console: ${(env as PayEnv).PUBLIC_ORIGIN ?? ""}/zc.html?e=${cid}\n\nNot you? Press Dismiss.`);
         await env.DB.prepare("INSERT INTO cbl_request(eid,action,note,at_ms,open) VALUES(?,?,?,?,1)").bind(cid, "erase", typeof b.note === "string" ? b.note.replace(/[<>`]/g, "").slice(0, 200) : null, now).run();
         return json({ ok: true, message: "Nothing has been deleted yet. The organizer has been asked and must confirm in their console (they were also e-mailed). Tell them to open the console and press Confirm." });
       }
@@ -1469,7 +1469,7 @@ async function route0(req: Request, env: Env, now: number, a: Auth): Promise<Res
     const draft = !a.plat && !ent && !demo;
     if (draft) {
       const n = (await env.DB.prepare("SELECT COUNT(*) AS c FROM engagement e WHERE e.org=? AND e.pack=0 AND NOT EXISTS (SELECT 1 FROM kv WHERE k='pub/' || e.id)").bind(a.org).first<{ c: number }>())?.c ?? 0;
-      if (n >= MAX_DRAFTS) return json({ error: `You have ${MAX_DRAFTS} unpublished drafts. Publish one, or delete one you do not need (open Your games, then press Delete next to it). An unpublished draft is also forgotten after ${DRAFT_DAYS} days.` }, 409);
+      if (n >= MAX_DRAFTS) return json({ error: `You have ${MAX_DRAFTS} unpublished drafts. Publish one, or delete one you do not need (open The games, then press Delete next to it). An unpublished draft is also forgotten after ${DRAFT_DAYS} days.` }, 409);
     }
     if (!(await spend(env, now, 2))) return BUSY();
     const isTestEng = (await testFlag(env)) === 1 || (await orgIsTest(env, a.org)) ? 1 : 0; // made in TEST mode, or by a test account
@@ -1513,7 +1513,7 @@ async function route0(req: Request, env: Env, now: number, a: Auth): Promise<Res
       await sendMail(env as PayEnv, env.DB, registered, `Confirm the deletion of player data: ${tok}`, `A request to delete all player data was received for ${tok}. Nothing is deleted yet.\n\nTo confirm, reply to the e-mail you sent with this code: ${code}\n\nIt works for 30 minutes. Not you? Ignore this e-mail.`, now);
       asked.push(tok);
     }
-    if (done.length) await sendMail(env as PayEnv, env.DB, from, `Deleted: player data of ${done.join(", ")}`, `Done. All player data was deleted for: ${done.join(", ")}.\n\nThe winners record (seat, prize, round, time) and winners' prize hand-over details (the name, mobile number and employee ID, if any, each winner confirmed; nothing else about them) are kept for up to 365 days, together with your organizer details.`, now);
+    if (done.length) await sendMail(env as PayEnv, env.DB, from, `Deleted: player data of ${done.join(", ")}`, `Done. All player data was deleted for: ${done.join(", ")}.\n\nThe winners record (seat, prize, round, time) and winners' prize hand-over details (the name, mobile number and employee ID, if any, each winner confirmed; nothing else about them) are kept for up to 365 days, together with the organizer details.`, now);
     return json({ ok: true, action: done.length ? "deleted" : asked.length ? "confirm-sent" : "no-match", engagements: done });
   }
   if (req.method === "GET" && p === "/api/notices") { // our public news list: the same for everyone, nothing about the reader is stored or asked
@@ -1622,7 +1622,7 @@ async function route0(req: Request, env: Env, now: number, a: Auth): Promise<Res
   }
   if (action === "cohost" && req.method === "GET") { // the small game header a Co-host sees: no names, no list, no settings
     if (!a.plat && !(a.org && a.org === e.org)) return deny(a);
-    if (a.kind === "cohost" && a.eid && a.eid !== e.id) return json({ error: "Your Invite-only co-organizer link is for a different game." }, 403); // a Co-host belongs to one game
+    if (a.kind === "cohost" && a.eid && a.eid !== e.id) return json({ error: "The Invite-only co-organizer link is for a different game." }, 403); // a Co-host belongs to one game
     const kid = a.kind === "cohost" ? (await sha("key|" + (req.headers.get("x-organizer") || (req.headers.get("authorization") ?? "").replace(/^Bearer\s+/i, "")))).slice(0, 7) : null;
     const c = cfgOf(e), origin = (env as PayEnv).PUBLIC_ORIGIN ?? new URL(req.url).origin;
     const joined = (await env.DB.prepare("SELECT COUNT(*) AS c FROM participant WHERE eid=?").bind(eid).first<{ c: number }>())?.c ?? 0;
@@ -1633,7 +1633,7 @@ async function route0(req: Request, env: Env, now: number, a: Auth): Promise<Res
   }
   const locked = unpaid && !isDraft && !cancelled && !didNotStart && roundMs(e.start_round) - LOCK_LEAD_MS <= now; // published but not paid by its start time: it does not begin
   if (isDraft && (((action === "join" || action === "who") && req.method === "POST") || (action === "info" && !can(a, e)))) return json({ error: "This game is not open yet." }, 403);
-  if (locked && !can(a, e) && (action === "info" || action === "join")) await nudge(env, e.id, "lockmail", now, `Your game ${e.id} could not begin: payment is due`, `Your game ${e.id} could not begin: payment is due.\n\nPay now and the first turn opens 2 minutes after your payment is confirmed: ${(env as PayEnv).PUBLIC_ORIGIN ?? ""}/pay.html?e=${e.id}`);
+  if (locked && !can(a, e) && (action === "info" || action === "join")) await nudge(env, e.id, "lockmail", now, `The game ${e.id} could not begin: payment is due`, `The game ${e.id} could not begin: payment is due.\n\nPay now and the first turn opens 2 minutes after the payment is confirmed: ${(env as PayEnv).PUBLIC_ORIGIN ?? ""}/pay.html?e=${e.id}`);
   if (action === "who" && req.method === "POST") { // "Is this you?": once the employee ID is typed and both boxes are ticked, the first name and the first letter of the last name the organizer gave, so the person sees the name that will be used. Nothing is kept; a wrong ID counts like a wrong ID at the door.
     const b = await body(req), vf = verifyOf(e), id = normId(b?.empId, verifyOf(e).idKind, empCleanFor(e));
     if (vf.mode === "mobile" || !id) return json({ known: false });
@@ -1642,7 +1642,7 @@ async function route0(req: Request, env: Env, now: number, a: Auth): Promise<Res
     let hit = await personByPhone(env, eid!, eh);
     if (!hit) { const al = await env.DB.prepare("SELECT v FROM kv WHERE k=?").bind(`idx/${eid}/${eh}`).first<{ v: string }>(); if (al) hit = await personByPhone(env, eid!, al.v); }
     if (!hit || hit.status === "removed") {
-      if (await wrongIdOverLimit(env, req, eid!, now)) return json({ error: "Too many tries with an employee ID that is not on the list. Please ask your organizer for help.", code: "too-many-tries" }, 429);
+      if (await wrongIdOverLimit(env, req, eid!, now)) return json({ error: "Too many tries with an employee ID that is not on the list. Please ask the organizer for help.", code: "too-many-tries" }, 429);
       return json({ known: false });
     }
     const nm = ((await openPii(env, hit.pii))?.name ?? "").trim().split(/\s+/);
@@ -1667,8 +1667,8 @@ async function route0(req: Request, env: Env, now: number, a: Auth): Promise<Res
     const vf = verifyOf(e), empNorm = normId(b?.empId, vf.idKind, empCleanFor(e));
     if (empNorm === null) return json({ error: badIdMessage(b?.empId, vf.idKind, empCleanFor(e)), code: "bad-id" }, 400);
     const dev = typeof b?.device === "string" && /^[0-9a-f]{16,64}$/.test(b.device) ? (await sha(`dev|${eid}|${b.device}`)).slice(0, 32) : null; // one card, one device: the phone's own random id, only its hash is kept
-    if (vf.employeesOnly && vf.mode !== "mobile" && vf.mode !== "either" && !empNorm && !tok) return json({ error: vf.mode === "id" ? "Enter your employee ID." : "Enter your employee ID and your mobile number.", code: "need-id" }, 400);
-    if (vf.employeesOnly && vf.mode === "either" && !empNorm && !typedGiven && !tok) return json({ error: "Enter your mobile number or your employee ID.", code: "need-id" }, 400);
+    if (vf.employeesOnly && vf.mode !== "mobile" && vf.mode !== "either" && !empNorm && !tok) return json({ error: vf.mode === "id" ? "Enter the employee ID." : "Enter the employee ID and the mobile number.", code: "need-id" }, 400);
+    if (vf.employeesOnly && vf.mode === "either" && !empNorm && !typedGiven && !tok) return json({ error: "Enter the mobile number or the employee ID.", code: "need-id" }, 400);
     let extraDigits: string | null = null, idHit = false; // a mobile number given together with an employee ID that is on the list: kept as the person's contact, never a reason to refuse
     if ((vf.mode === "either" || vf.mode === "id") && empNorm && !tok) { // "mobile number or employee ID" (and ID alone): an ID on the list is as good as the listed mobile number (the person is then known by their listed number)
       const eh = await empHashOf(env, empNorm);
@@ -1678,7 +1678,7 @@ async function route0(req: Request, env: Env, now: number, a: Auth): Promise<Res
     }
     const idOnly = (vf.mode === "id" || vf.mode === "either") && !!empNorm && !typedGiven && !tok; // known by employee ID alone
     let digits = typedDigits ?? tokPii?.phone ?? (idOnly ? "" : null);
-    if (vf.mode === "both" && empNorm && !tok && !typedGiven) return json({ error: "Enter your employee ID and your mobile number.", code: "need-id" }, 400);
+    if (vf.mode === "both" && empNorm && !tok && !typedGiven) return json({ error: "Enter the employee ID and the mobile number.", code: "need-id" }, 400);
     let nameOnly = false;
     let ph = idOnly ? await empHashOf(env, empNorm) : typedPh ?? tok?.ph ?? null;
     if (!ph && !tok && !typedGiven && !empNorm && !vf.employeesOnly && vf.mode === "mobile" && cfgOf(e).join !== "phone") { // joining with a name only (the default for the common link): the guest is known by their name, and their phone by its own random id
@@ -1689,7 +1689,7 @@ async function route0(req: Request, env: Env, now: number, a: Auth): Promise<Res
       if (!dev) return json({ error: "Please refresh this page and try again." }, 400);
       ph = await sha(`nm|${eid}|${dev}`); digits = ""; nameOnly = true;
     }
-    if (!ph || (!digits && !idOnly && !nameOnly && !((vf.mode === "id" || vf.mode === "either") && tokPii))) return json({ error: vf.mode === "id" ? "Enter your employee ID, or your mobile number if you have no employee ID." : vf.mode === "either" ? "Enter your mobile number or your employee ID." : "Enter a valid mobile number." }, 400);
+    if (!ph || (!digits && !idOnly && !nameOnly && !((vf.mode === "id" || vf.mode === "either") && tokPii))) return json({ error: vf.mode === "id" ? "Enter the employee ID, or the mobile number if you have no employee ID." : vf.mode === "either" ? "Enter the mobile number or the employee ID." : "Enter a valid mobile number." }, 400);
     const ck = consentMissing(b, "K4"); // K4: both boxes, checked on the server before any name or number is kept
     const k4 = (subject: string) => recordConsent(env.DB, "K4", subject, eid!, now);
     const otherNumber = !!(tok && typedPh && typedPh !== tok.ph); // somebody else opened this person's link
@@ -1700,9 +1700,9 @@ async function route0(req: Request, env: Env, now: number, a: Auth): Promise<Res
     if (have) {
       if (have.blocked) return removedReply();
       if (have.seat && have.dev && have.dev !== dev) {
-        if (idHit) return json({ error: "This employee ID already has a board on another phone. A board plays on one phone only. If it is you on a new phone, ask your organizer to move your board to this phone.", code: "id-used" }, 423);
-        if (tok && !typedPh) return json({ error: "This link was already opened on another phone. If you are someone else, type your own mobile number to ask to join. If it is you on a new phone, ask whoever invited you to send the link again.", code: "link-used", needPhone: true }, 423);
-        return json({ error: "This board was opened in a different browser or app (or on another phone). A board plays on one device only. Open your link in the same browser or app you used first. If you cannot, ask your organizer to move your board to this phone.", code: "other-phone" }, 423);
+        if (idHit) return json({ error: "This employee ID already has a board on another phone. A board plays on one phone only. If it is you on a new phone, ask the organizer to move the board to this phone.", code: "id-used" }, 423);
+        if (tok && !typedPh) return json({ error: "This link was already opened on another phone. If you are someone else, type the mobile number to ask to join. If it is you on a new phone, ask whoever invited you to send the link again.", code: "link-used", needPhone: true }, 423);
+        return json({ error: "This board was opened in a different browser or app (or on another phone). A board plays on one device only. Open the link in the same browser or app you used first. If you cannot, ask the organizer to move the board to this phone.", code: "other-phone" }, 423);
       }
       if (have.seat && !have.dev && dev && (await env.DB.prepare("SELECT 1 AS x FROM seat WHERE eid=? AND dev=?").bind(eid, dev).first())) return json({ error: "This phone already holds a board in this game. One phone, one board. Ask the person to open the link on their own phone.", code: "device-used" }, 409);
       if (have.seat && !have.dev && !dev) return json({ error: "Please refresh this page and try again." }, 400); // an unbound board is handed over only to a phone that proves its device, like a new person
@@ -1715,22 +1715,22 @@ async function route0(req: Request, env: Env, now: number, a: Auth): Promise<Res
       await recordConsent(env.DB, "K4", have.pid, eid!, now);
       return reply(have.pid, { again: true, jr: have.jr ?? 0, ...(have.role ? { role: have.role } : {}) }); // same number twice = same participant
     }
-    if (locked) return json({ error: "This game has not begun because the organizer has not finished the booking. Please ask your organizer, then open this link again.", code: "locked" }, 403); // SL-05: asked FIRST. A NEW person cannot take a place when the game could not begin because the booking is incomplete (a person who already holds a board is handled above and keeps it), and must not be told a game is running when none is
-    if (now >= roundMs(e.start_round)) return json({ error: "Sign-up for this game has closed. It closed when the game started: nobody new can join once a game has begun. If you joined earlier, open your own link on the same phone.", code: "closed", closed: true }, 410); // R43: boards are drawn from the first public value after the start time
+    if (locked) return json({ error: "This game has not begun because the organizer has not finished the booking. Please ask the organizer, then open this link again.", code: "locked" }, 403); // SL-05: asked FIRST. A NEW person cannot take a place when the game could not begin because the booking is incomplete (a person who already holds a board is handled above and keeps it), and must not be told a game is running when none is
+    if (now >= roundMs(e.start_round)) return json({ error: "Sign-up for this game has closed. It closed when the game started: nobody new can join once a game has begun. If you joined earlier, open the link on the same phone.", code: "closed", closed: true }, 410); // R43: boards are drawn from the first public value after the start time
     let pr = await personByPhone(env, eid!, ph); // is this number (or employee ID) on any list of the game?
     const admitted = vf.mode !== "mobile" && !!pr && !!(await env.DB.prepare("SELECT 1 AS x FROM waiting WHERE eid=? AND ph=? AND status='admitted'").bind(eid, ph).first()); // the organizer already said yes to this person: the ID typed is not checked again, or they would wait for ever
     let idMiss = false, needIdAfterConsent = false; // an employee ID that does not match the list: the organizer decides
     if (vf.mode !== "mobile" && empNorm && !tok && !admitted) {
       if (vf.mode === "both") { const pp0 = pr ? await openPii(env, pr.pii) : null; if (!pr || (pp0?.empId && pp0.empId !== empNorm)) { pr = null; idMiss = true; } }
       else if (!pr) idMiss = true; // ID alone, not on the list
-      if (idMiss && (await wrongIdOverLimit(env, req, eid!, now))) return json({ error: "Too many tries with an employee ID that is not on the list. Please ask your organizer for help.", code: "too-many-tries" }, 429); // guessing IDs: only so many wrong IDs per network per game per 10 minutes (a right ID is never counted)
+      if (idMiss && (await wrongIdOverLimit(env, req, eid!, now))) return json({ error: "Too many tries with an employee ID that is not on the list. Please ask the organizer for help.", code: "too-many-tries" }, 429); // guessing IDs: only so many wrong IDs per network per game per 10 minutes (a right ID is never counted)
     } else if (vf.mode === "both" && pr && !tok && !admitted) { const pp0 = await openPii(env, pr.pii); if (pp0?.empId) needIdAfterConsent = true; } // asked only after the consent box is ticked: an untick-and-ask cannot be used to find out who is on the list
     if (pr?.status === "removed") return removedReply();
     const tickedBefore = !!(await env.DB.prepare("SELECT 1 AS x FROM consent_log WHERE kind='K4' AND ref=? AND subject=?").bind(eid, await pidOf(ph)).first()); // ticked when they asked to come in; the page does not keep it across a reload
     if (ck && !tickedBefore) return ck;
-    if (needIdAfterConsent) return json({ error: "Enter your employee ID.", code: "need-id" }, 400);
+    if (needIdAfterConsent) return json({ error: "Enter the employee ID.", code: "need-id" }, 400);
     if (!dev) return json({ error: "Please refresh this page and try again." }, 400);
-    if (await env.DB.prepare("SELECT 1 AS x FROM seat WHERE eid=? AND dev=?").bind(eid, dev).first()) return json({ error: "This phone already has a board in this game. One phone, one board. Others can join from their own phones, using your invitation link if the organizer allowed it.", code: "device-used" }, 409);
+    if (await env.DB.prepare("SELECT 1 AS x FROM seat WHERE eid=? AND dev=?").bind(eid, dev).first()) return json({ error: "This phone already has a board in this game. One phone, one board. Others can join from their own phones, using the invitation link if the organizer allowed it.", code: "device-used" }, 409);
     const n = await env.DB.prepare("SELECT COUNT(*) AS c FROM participant WHERE eid=?").bind(eid).first<{ c: number }>();
     if ((n?.c ?? 0) >= e.cap) return json({ error: "This game is full." }, 409);
     // who owns the link this person came through? Only used when they are on no list.
@@ -1756,7 +1756,7 @@ async function route0(req: Request, env: Env, now: number, a: Auth): Promise<Res
       if ("full" in w) return json({ error: "Many people are waiting for an answer right now. Please try again a little later.", code: "waiting-full" }, 429);
       if (w.status === "declined") return json({ error: "This game could not add you. Please talk to whoever invited you.", code: "declined", declined: true, wid: w.id }, 403);
       const who = await waitingWho({ env, e, eid: eid! }, overlimit ? "o" : target);
-      const msg = `Your request is with ${who}. You can come in as soon as they say yes.`;
+      const msg = `The request is with ${who}. You can come in as soon as they say yes.`;
       return overlimit
         ? json({ error: `This invitation has already been used by ${limit} people, which is the most one person can invite. ${msg}`, code: "invite-full", waiting: true, wid: w.id, with: who }, 409)
         : json({ error: `This game is by invitation. ${msg}`, code: "waiting", waiting: true, wid: w.id, with: who }, 403);
@@ -1776,7 +1776,7 @@ async function route0(req: Request, env: Env, now: number, a: Auth): Promise<Res
     await addSeat(ph, pii, dev, lateRound, { inv, cat: inv !== null ? cat : null, src: srcOf(inviter), ownerId: inviter, guardId, guardLimit, role });
     const row = await env.DB.prepare("SELECT p.pid AS pid, s.dev AS dev, s.jr AS jr, s.role AS role FROM participant p LEFT JOIN seat s ON s.eid=p.eid AND s.pid=p.pid WHERE p.eid=? AND p.phone_hash=?").bind(eid, ph).first<{ pid: string; dev: string | null; jr: number | null; role: string | null }>();
     if (!row) return (await env.DB.prepare("SELECT 1 AS x FROM seat WHERE eid=? AND dev=?").bind(eid, dev).first()) ? json({ error: "This phone already holds a board in this game. One phone, one board.", code: "device-used" }, 409) : guardId !== null ? wait(true, guardLimit) : json({ error: "This game is full." }, 409); // lost a race for the last place
-    if (row.dev && row.dev !== dev) return json({ error: "This board was opened in a different browser or app (or on another phone). A board plays on one device only. Open your link in the same browser or app you used first. If you cannot, ask your organizer to move your board to this phone.", code: "other-phone" }, 423);
+    if (row.dev && row.dev !== dev) return json({ error: "This board was opened in a different browser or app (or on another phone). A board plays on one device only. Open the link in the same browser or app you used first. If you cannot, ask the organizer to move the board to this phone.", code: "other-phone" }, 423);
     if (!ck) await k4(row.pid);
     return reply(row.pid, { jr: row.jr ?? 0, ...(row.role ? { role: row.role } : {}) });
   }
@@ -1848,7 +1848,7 @@ async function route0(req: Request, env: Env, now: number, a: Auth): Promise<Res
     const who = await env.DB.prepare("SELECT p.pid AS pid, s.blocked AS blocked FROM participant p LEFT JOIN seat s ON s.eid=p.eid AND s.pid=p.pid WHERE p.eid=? AND p.pid=?").bind(eid, b.pid).first<{ pid: string; blocked: number | null }>();
     if (!who) return json({ error: "Not a player of this game." }, 403);
     if (who.blocked) return json({ error: "You were removed from this game by the organizer.", code: "removed", removed: true }, 403); // the seat stays in the public list, the phone stops
-    if (checkinRequired(e)) { const st = seatOfPidText(b.pid); if (!st || (await presentMsOf(env.DB, eid!, st)) === null) return json({ error: "Mark yourself present first: the check-in is on your board page.", code: "not-present" }, 403); } if (checkinRequired(e) && !(await deviceMatches(env, eid!, b.pid, b.device))) return json({ error: "This board belongs to another phone.", code: "other-phone" }, 403); // the participant id is public: only the board's own phone may act for it
+    if (checkinRequired(e)) { const st = seatOfPidText(b.pid); if (!st || (await presentMsOf(env.DB, eid!, st)) === null) return json({ error: "Mark yourself present first: the check-in is on the board page.", code: "not-present" }, 403); } if (checkinRequired(e) && !(await deviceMatches(env, eid!, b.pid, b.device))) return json({ error: "This board belongs to another phone.", code: "other-phone" }, 403); // the participant id is public: only the board's own phone may act for it
     // only a person who checked in can win
     if (!tracks(e)) return json({ ok: true, stored: 0, tracked: false }); // large engagement: winners are worked out from the public numbers, nothing is stored per claim
     let stored = 0;
@@ -1856,7 +1856,7 @@ async function route0(req: Request, env: Env, now: number, a: Auth): Promise<Res
     for (const c of list) {
       const round = c?.round === undefined ? 1 : c.round;
       if (!PATTERNS.has(c?.pattern) || !Number.isInteger(c?.idx) || c.idx < 0 || c.idx > 74 || !Number.isInteger(round) || round < 1 || round > maxRound) continue;
-      if (!(await spend(env, now))) return json({ error: "Busy day. Your claim is kept on your phone and will be sent again.", stored }, 503);
+      if (!(await spend(env, now))) return json({ error: "Busy day. The claim is kept on the phone and will be sent again.", stored }, 503);
       const r = await env.DB.prepare("INSERT OR IGNORE INTO claim(eid,pid,pattern,round,idx,at_ms) VALUES(?,?,?,?,?,?)").bind(eid, b.pid, c.pattern, round, c.idx, now).run();
       stored += r.meta?.changes ?? 0; // a claim sent twice is stored once
     }
@@ -1877,7 +1877,7 @@ async function route0(req: Request, env: Env, now: number, a: Auth): Promise<Res
     const b = await body(req, 2_048);
     const text = typeof b?.text === "string" ? b.text.replace(/[<>`]/g, "").replace(/\s+/g, " ").trim() : null;
     if (text === null) return json({ error: "Write the message to send." }, 400);
-    if (text.length > 160) return json({ error: `A message can be at most 160 characters. Yours has ${text.length}. Please shorten it.`, code: "too-long" }, 400); // refused, not silently cut: guests would read half a sentence
+    if (text.length > 160) return json({ error: `A message can be at most 160 characters. That message has ${text.length}. Please shorten it.`, code: "too-long" }, 400); // refused, not silently cut: guests would read half a sentence
     const last = await env.DB.prepare("SELECT v FROM kv WHERE k=?").bind(`ann/${eid}`).first<{ v: string }>();
     if (last && now - (JSON.parse(last.v).at ?? 0) < 5_000) return json({ error: "Please wait a few seconds before sending another message." }, 429);
     if (!(await spend(env, now))) return BUSY();
@@ -1939,8 +1939,8 @@ async function route0(req: Request, env: Env, now: number, a: Auth): Promise<Res
     const free = !ent && freeLaunch(env as PayEnv) && e.cap <= FREE_CAP; // optional switch: small engagements free while the gateway is off
     if (!(await spend(env, now, 4))) return BUSY();
     const paid = !!(ent || free), startMs = roundMs(e.start_round);
-    const mailSubject = paid ? `Your engagement ${eid} is published and paid` : `Your engagement ${eid} is published: payment pending (it starts ${istTime(startMs)})`,
-      mailText = `Your engagement ${eid} is live.\n\nShare this link: ${shareUrl}\n\n${paid ? "" : `Payment pending: the game does not begin until it is paid for. You can pay at any time until the player data is auto-deleted; if you pay late, the first number comes 2 minutes after the payment is confirmed (about 2 minutes to pay): ${payUrl}\n\n`}Big screen for the room: ${origin}/big.html?e=${eid}`;
+    const mailSubject = paid ? `The engagement ${eid} is published and paid` : `The engagement ${eid} is published: payment pending (it starts ${istTime(startMs)})`,
+      mailText = `The engagement ${eid} is live.\n\nShare this link: ${shareUrl}\n\n${paid ? "" : `Payment pending: the game does not begin until it is paid for. You can pay at any time until the player data is auto-deleted; if you pay late, the first number comes 2 minutes after the payment is confirmed (about 2 minutes to pay): ${payUrl}\n\n`}Big screen for the room: ${origin}/big.html?e=${eid}`;
     await env.DB.batch([
       env.DB.prepare("INSERT INTO kv(k,v) VALUES(?,?) ON CONFLICT(k) DO UPDATE SET v=excluded.v").bind(`contact/${eid}`, JSON.stringify({ email: cEmail, phone: cPhone.slice(-10) })),
       env.DB.prepare("INSERT OR IGNORE INTO kv(k,v) VALUES(?,?)").bind(`pub/${eid}`, String(now)),
@@ -1982,7 +1982,7 @@ async function route0(req: Request, env: Env, now: number, a: Auth): Promise<Res
     const ph = seatNo ? "" : await phoneHash(b?.phone);
     const role = b?.role === "none" ? null : ["organizer", "host", "co-host"].includes(b?.role) ? b.role : undefined;
     if ((!ph && !seatNo) || role === undefined) return json({ error: "Give the board number (or the mobile number) and a role (organizer, host, co-host or none)." }, 400);
-    if (now >= roundMs(e.start_round + GRACE_ROUNDS)) return json({ error: "Flag your own team before the game begins. Every phone draws the lucky winners from the same list, so it cannot change once the game has started." }, 409);
+    if (now >= roundMs(e.start_round + GRACE_ROUNDS)) return json({ error: "Flag the team before the game begins. Every phone draws the lucky winners from the same list, so it cannot change once the game has started." }, 409);
     if (!(await spend(env, now))) return BUSY();
     const r = seatNo ? await env.DB.prepare("UPDATE seat SET role=? WHERE eid=? AND seq=?").bind(role, eid, seatNo).run() : await env.DB.prepare("UPDATE seat SET role=? WHERE eid=? AND ph=?").bind(role, eid, ph).run();
     return (r.meta?.changes ?? 0) > 0 ? json({ ok: true }) : json({ error: "That number has not joined yet. Ask them to open the game link first." }, 404);
@@ -2054,7 +2054,7 @@ async function route0(req: Request, env: Env, now: number, a: Auth): Promise<Res
     if (!src || !can(a, src)) return json({ error: "Pick an earlier game." }, 400); // someone else's roster is never reachable
     const old = await env.DB.prepare("SELECT phone_hash, pii FROM participant WHERE eid=? ORDER BY joined_ms, pid").bind(b.from).all<any>();
     const rows = old.results ?? [];
-    if (!rows.length) return json({ error: "That game's people list has already been deleted (personal data is deleted within 24 hours of a game ending). Upload your list again.", code: "gone" }, 410);
+    if (!rows.length) return json({ error: "That game's people list has already been deleted (personal data is deleted within 24 hours of a game ending). Upload the list again.", code: "gone" }, 410);
     if (rows.length > e.cap) return json({ error: "This game is smaller than the earlier roster." }, 409);
     if (!(await spend(env, now, rows.length * 2))) return BUSY();
     let copied = 0; const jr = lateNow();

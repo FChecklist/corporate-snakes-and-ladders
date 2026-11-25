@@ -61,7 +61,7 @@ describe("a game made under owner rules 1.1", () => {
   });
   test("refuses a mobile-number game, an Email ID game, 'anyone with the link' and 'players throw', with a plain reason", async () => {
     const t = await setup();
-    for (const [body, word] of [[{ verify: "mobile" }, "employee ID only"], [{ verify: "both" }, "employee ID only"], [{ idKind: "email" }, "employee ID only"], [{ employeesOnly: false }, "your yes or no"], [{ play: "presence" }, "by itself"]] as const) {
+    for (const [body, word] of [[{ verify: "mobile" }, "employee ID only"], [{ verify: "both" }, "employee ID only"], [{ idKind: "email" }, "employee ID only"], [{ employeesOnly: false }, "the yes or no"], [{ play: "presence" }, "by itself"]] as const) {
       const r = await call("PATCH", `/api/z/${t.id}/settings`, body, t.master); expect([JSON.stringify(body), r.status]).toEqual([JSON.stringify(body), 400]);
       expect((await j(r)).error).toContain(word);
     }

@@ -55,12 +55,12 @@ export async function acceptVotes(env: Env & PiiEnv, e: any, eid: string, b: any
     // the server checks the report against the public game; a report that was checked once is not checked again for every phone that repeats it
     const label = `${x.round}:${x.pattern}:${x.ordinal}`, vok = `vok/${eid}/${digest}`;
     if (!(await env.DB.prepare("SELECT 1 AS x FROM kv WHERE k=?").bind(vok).first())) {
-      if (!(await spend(env, now, 1))) return json({ error: "Busy day. Your report is kept on your phone and will be sent again.", counted }, 503);
+      if (!(await spend(env, now, 1))) return json({ error: "Busy day. The report is kept on the phone and will be sent again.", counted }, 503);
       const verdict = await checkClaim(env, e, eid, { pattern: x.pattern, ordinal: x.ordinal, round: x.round, idx: x.idx, pids }, now, (n) => spend(env, now, n));
       if (!verdict.ok) { (verdict.later ? deferred : refused).push(label); continue; }
       await env.DB.prepare("INSERT OR IGNORE INTO kv(k,v) VALUES(?,?)").bind(vok, "1").run();
     }
-    if (!(await spend(env, now, 3))) return json({ error: "Busy day. Your report is kept on your phone and will be sent again.", counted }, 503);
+    if (!(await spend(env, now, 3))) return json({ error: "Busy day. The report is kept on the phone and will be sent again.", counted }, 503);
     const v = await env.DB.prepare("INSERT OR IGNORE INTO rvote(eid,round,pattern,ordinal,seat,digest) VALUES(?,?,?,?,?,?)").bind(eid, x.round, x.pattern, x.ordinal, seat, digest).run();
     if (v.meta?.changes ?? 0) { // a phone repeating its report adds nothing, but the SAME report repeated may still finish a settlement a passing database hiccup left open
       counted++;
@@ -76,7 +76,7 @@ export async function acceptVotes(env: Env & PiiEnv, e: any, eid: string, b: any
     accepted++;
   }
   // a report that may become true a little later (its turn or the end of the game has not come) is answered "not yet": the phone keeps it and sends it again
-  if (deferred.length) return json({ error: "Not yet: the game has not got there. Your report is kept on your phone and will be sent again.", code: "not-yet", counted, accepted, done, need, deferred, ...(refused.length ? { refused } : {}) }, 409);
+  if (deferred.length) return json({ error: "Not yet: the game has not got there. The report is kept on the phone and will be sent again.", code: "not-yet", counted, accepted, done, need, deferred, ...(refused.length ? { refused } : {}) }, 409);
   return json({ ok: true, counted, accepted, done, need, ...(refused.length ? { refused } : {}) });
 }
 
@@ -102,10 +102,10 @@ export async function confirmPrize(env: Env & PiiEnv, eid: string, b: any, now: 
   const rows = (await env.DB.prepare("SELECT round, pattern, ordinal, pii, orig, trail FROM prize WHERE eid=? AND seat=?").bind(eid, seat).all<any>()).results ?? [];
   if (!rows.length) return json({ error: "No prize recorded for this board." }, 404);
   const name = cleanName(b.name), cur = await openPii(env, rows[0].pii), typed = String(b.phone ?? "").trim() ? cleanPhone(b.phone) : null;
-  if (!name) return json({ error: "Please write your name." }, 400);
+  if (!name) return json({ error: "Please write the name." }, 400);
   if (typed && !typed.ok) return json({ error: typed.why }, 400); // from any country: the page sends +<country code><number>
   // a mobile number is optional (a guest who joined with a name only has none): the prize is handed over by name and seat
-  if (false) return json({ error: "Please enter your mobile number." }, 400); // a winner who came in by employee ID may be found by the ID: the number is then welcome, not needed
+  if (false) return json({ error: "Please enter the mobile number." }, 400); // a winner who came in by employee ID may be found by the ID: the number is then welcome, not needed
   if (!(await spend(env, now, rows.length + 1))) return json({ error: "Busy day. Please try again after midnight UTC." }, 503);
   const phone = typed && typed.ok ? keptFromClean(typed.digits) : cur?.phone ?? "";
   const changed = !cur || keptPhone(cur.phone ?? "") !== phone || (cur.name ?? "") !== name;

@@ -6,9 +6,11 @@ const NOT_OURS = /(^|\/)(zgame|reportgen|control|zboard|autoupdate|rum|blackbox|
 export const PAGES = ls("apps/web/public", /\.html$/).filter((f) => !LEGAL.test(f));
 export const SCRIPTS = ls("apps/web/public", /\.js$/).filter((f) => !NOT_OURS.test(f));
 export const EDGE = ls("apps/edge/src", /\.ts$/);
+/** The game engine and the shared texts also hold sentences people read (setting errors, the fixed lines). The invoice terms in packages/billing are legal text and are left as they are.. */
+export const PACKAGES = ["packages/beacon/src", "packages/shared/src"].flatMap((d) => ls(d, /\.ts$/)).filter((f) => !/-browser\.ts$/.test(f));
 /** The AI documentation texts name API fields and routes (tickets, /participants, host and co-host as role values): the rules for words that are also API names are checked there with those names taken out. */
 export const API_DOC = new Set(["apps/edge/src/ai-link.ts", "apps/edge/src/ai-functions.ts", "apps/edge/src/ai-go.ts", "apps/edge/src/worker.ts"]);
-export const USER_FILES = [...PAGES, ...SCRIPTS, ...EDGE, "apps/web/public/llms.txt"];
+export const USER_FILES = [...PAGES, ...SCRIPTS, ...EDGE, ...PACKAGES, "apps/web/public/llms.txt"];
 export const MARKETING = ["index", "about", "brochure", "organizer-guide", "pricing", "demo", "contact", "partner", "trust", "helpdesk"].map((n) => `apps/web/public/${n}.html`).concat(["apps/web/public/site.js", "apps/web/public/llms.txt"]);
 
 const API_NAMES = /(\/|\{|`|"|')\s*(?:participants|tickets?|hosts?|co-hosts?)\b|\b(?:participants|tickets|host|co-host)\s*[|:}]|[|]\s*(?:host|co-host)\b|\btickets? is (?:always|never)\b|\blimit, tickets\b|organizer,\s*host,\s*co-host(?: or none)?|organizer, host or co-host|\bhost\/co-host\b/gi;
@@ -20,7 +22,7 @@ export const RULES: Record<string, { re: RegExp; files: string[]; what: string }
   guest: { re: /\bguests?\b/gi, files: USER_FILES, what: "guest (say player)" },
   participant: { re: /\bparticipants?\b/gi, files: USER_FILES, what: "participant (say player)" },
   pay: { re: /\b(?:buy now|buy (?:a |the )?(?:bigger |smaller )?(?:pack|credits?)|check-?out|purchase[sd]?|top[- ]?up|recharge)\b/gi, files: USER_FILES, what: "a payment word outside the set Pay now and credits" },
-  pronoun: { re: /\b(?:my|mine|your|yours)\b/gi, files: USER_FILES, what: "my, mine, your or yours" },
+  pronoun: { re: /\b(?:[Mm]y|[Mm]ine|[Yy]our|[Yy]ours|MINE|YOURS?)\b/g, files: USER_FILES, what: "my, mine, your or yours" },
 };
 export const countIn = (rule: string, file: string): { n: number; hits: string[] } => {
   const { re } = RULES[rule]!;

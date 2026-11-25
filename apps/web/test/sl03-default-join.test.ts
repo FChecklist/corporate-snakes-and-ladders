@@ -16,9 +16,9 @@ describe("SL-03: the default of a new game is 'anyone with the link'", () => {
     const s = await w.json(await w.api("POST", "/api/start", { email: "boss@acme.com" }));
     const p = await openPage(w.world, { url: "http://localhost/zc.html", html: "zc.html", scripts: ["zgame.js", "zc.js"], session: { "cbz-org": s.token } });
     open.push(p);
-    await p.waitFor((x) => /New game|Start a new game|Your games/i.test(x) && !!p.$("#mk"), 20000);
+    await p.waitFor((x) => /New game|Start a new game|The games/i.test(x) && !!p.$("#mk"), 20000);
     p.click("#mk");
-    await p.waitFor((x) => /Your draft is saved/i.test(x), 20000);
+    await p.waitFor((x) => /The draft is saved/i.test(x), 20000);
     const list = await w.json(await w.api("GET", "/api/history", undefined, s.token));
     const id = list.engagements[0].id as string;
     // the setting the console saved
@@ -45,8 +45,8 @@ describe("SL-03: a game set to 'only people on a list' with an empty list is fla
     const see = async (id: string) => {
       const p = await openPage(w.world, { url: `http://localhost/zc.html?e=${id}`, html: "zc.html", scripts: ["zgame.js", "zc.js"], session: { "cbz-org": s.token } });
       open.push(p); await p.waitFor((x) => /Check and publish/.test(x), 20000);
-      p.click('.zc-sech[data-open="7"]'); await p.waitFor((x) => /Publish your game, free/.test(x), 20000);
-      return p.html().includes("your list is empty"); // true or false only: never dump the page into a failure message
+      p.click('.zc-sech[data-open="7"]'); await p.waitFor((x) => /Publish the game, free/.test(x), 20000);
+      return p.html().includes("the list is empty"); // true or false only: never dump the page into a failure message
     };
     expect(await see("LISTMODE")).toBe(true);
     expect(await see("OPENMODE")).toBe(false);

@@ -42,7 +42,7 @@ export interface BrandSlot { kind: "file" | "youtube" | "slides" | "speech"; tit
 /** Who a participant may invite. The organizer switches this on and picks the kinds of guests; each participant may invite at most `per` people (the organizer, hosts and co-hosts any number), and the invitees may invite in turn. */
 export const INVITE_CATEGORIES: ReadonlyArray<{ id: string; label: string }> = [
   { id: "family", label: "Family members" }, { id: "colleagues", label: "Colleagues" }, { id: "friends", label: "Friends" }, { id: "dealers", label: "Dealers" }, { id: "vendors", label: "Vendors" },
-  { id: "customers", label: "Customers" }, { id: "partners", label: "Business partners" }, { id: "franchisees", label: "Franchisees" }, { id: "neighbours", label: "Neighbours and community" }, { id: "guests", label: "Other guests" },
+  { id: "customers", label: "Customers" }, { id: "partners", label: "Business partners" }, { id: "franchisees", label: "Franchisees" }, { id: "neighbours", label: "Neighbours and community" }, { id: "guests", label: "Other players" },
 ];
 export interface InviteCfg { on: boolean; per: number; cats: string[] }
 /** The company's own mark on every ticket: a name, one of 8 fixed colours and, optionally, a small logo kept INSIDE the game's settings as a data URL (nothing is ever fetched from outside). */
@@ -252,7 +252,7 @@ export function validateCfg(input: { verify?: unknown; employeesOnly?: unknown; 
     cfg.breaks = out;
   }
   if (input.mark !== undefined) { if (input.mark !== "auto" && input.mark !== "tap") return { ok: false, error: "Marking is not used in this game." }; if (input.mark === "tap") cfg.mark = "tap"; else delete cfg.mark; }
-  if (input.join !== undefined) { if (input.join !== "name" && input.join !== "phone") return { ok: false, error: "Joining is \"name\" (guests type their name) or \"phone\" (guests also give a mobile number)." }; if (input.join === "phone") cfg.join = "phone"; else delete cfg.join; }
+  if (input.join !== undefined) { if (input.join !== "name" && input.join !== "phone") return { ok: false, error: "Joining is \"name\" (players type their name) or \"phone\" (players also give a mobile number)." }; if (input.join === "phone") cfg.join = "phone"; else delete cfg.join; }
   if (input.tz !== undefined) { if (input.tz === null || input.tz === "") delete cfg.tz; else if (isTimeZone(input.tz)) { if (input.tz === DEFAULT_TZ) delete cfg.tz; else cfg.tz = input.tz; } else return { ok: false, error: "That time zone is not known. Use a name such as America/New_York or Asia/Kolkata." }; }
   if (input.name !== undefined) { const nm = cleanText(input.name, 60); if (nm) cfg.name = nm; else delete cfg.name; }
   if (input.brand !== undefined) { // null (or an empty object) removes the brand; otherwise the whole brand is replaced
@@ -379,16 +379,16 @@ export function validateCfg(input: { verify?: unknown; employeesOnly?: unknown; 
     const per = v.per === undefined ? cfg.invites!.per : v.per;
     if (!Number.isInteger(per) || per < 1 || per > MAX_INVITES_PER_PERSON) return { ok: false, error: `Each person can invite 1 to ${MAX_INVITES_PER_PERSON} people.` };
     const cats = v.cats === undefined ? cfg.invites!.cats : v.cats;
-    if (!Array.isArray(cats) || cats.some((c: unknown) => !INVITE_CATEGORIES.some((k) => k.id === c))) return { ok: false, error: "Pick the kinds of guests from the list." };
+    if (!Array.isArray(cats) || cats.some((c: unknown) => !INVITE_CATEGORIES.some((k) => k.id === c))) return { ok: false, error: "Pick the kinds of players from the list." };
     const uniq = [...new Set(cats as string[])];
-    if (v.on && uniq.length < 1) return { ok: false, error: "Pick at least one kind of guest people may invite." };
+    if (v.on && uniq.length < 1) return { ok: false, error: "Pick at least one kind of player people may invite." };
     cfg.invites = { on: v.on, per, cats: uniq };
   }
   const rules = opts.rules === true || base.rules === "1.1"; // OWNER RULES 1.1 (20 Nov 2026): invite by employee ID only; the game starts by itself; every throw happens by itself
   if (rules) {
     if (input.verify !== undefined && input.verify !== "id") return { ok: false, error: "People are invited by employee ID only. You paste or upload their IDs." };
     if (input.idKind === "email") return { ok: false, error: "People are invited by employee ID only." };
-    if (input.employeesOnly === false) return { ok: false, error: "Only the people on your list come in at once. Anyone else waits for your yes or no." };
+    if (input.employeesOnly === false) return { ok: false, error: "Only the people on the list come in at once. Anyone else waits for the yes or no." };
     if (input.play === "presence") return { ok: false, error: "Every throw happens by itself. Players do not need to throw." };
     cfg.rules = "1.1"; cfg.verify = "id"; cfg.employeesOnly = true; delete cfg.idKind; delete cfg.play;
   }

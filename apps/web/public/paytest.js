@@ -10,7 +10,7 @@
   const save = PK.persist($app, S, draft, KEYS);
   const GAME_ID = /^[A-Za-z0-9_-]{4,40}$/;
   const cur = () => PK.cur(S);
-  const label = () => (cur() ? "Pay " + TB.money(1, cur()) + " (test)" : "Choose your country first");
+  const label = () => (cur() ? "Pay " + TB.money(1, cur()) + " (test)" : "Choose the country first");
 
   const asideHtml = () => PK.summary({
     game: null, test: true, paid: !!S.done, noPrice: !cur(), price: { total: 1, base: 1, gst: 0, currency: cur() || "INR" }, priceLabel: "Payment test (nothing is bought)", totalLabel: S.done ? "Paid" : "Total to pay",
@@ -21,7 +21,7 @@
     return `${PK.countryLine(S)}
       <section class="pk-card"><h2>Game ID <span class="opt">(optional)</span></h2><p class="pk-sub">Type a Game ID only if you want it noted with this test. It is not looked up.</p>
         <div class="pk-f"><label for="gid">Game ID</label><input class="pk-in pk-mono" id="gid" data-f="gameId" value="${esc(S.gameId)}" autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="40" placeholder="For example ACME-DIWALI" aria-describedby="gid-h gid-e"><p class="pk-hint" id="gid-h" hidden></p><p class="pk-ferr" id="gid-e" hidden></p></div>
-        ${PK.errBox()}${PK.busyBox("Confirming your payment with Razorpay. Please keep this page open.")}
+        ${PK.errBox()}${PK.busyBox("Confirming the payment with Razorpay. Please keep this page open.")}
         <button class="pk-btn" id="go" type="button" ${cur() ? 'aria-disabled="false"' : 'disabled aria-disabled="true"'}>${label()}</button>
         ${CBConsent.html("K3")}
         <p class="pk-note">Secure payment by Razorpay to ${esc(PK.BRAND.payee)}. Billing data is kept for audit and tax reasons. A test payment is only for trying the payment, and stays as that record.</p></section>${PK.live()}`;
@@ -52,16 +52,16 @@
       await new Promise((ok) => setTimeout(ok, 4000));
       try { const r = await TB.api("GET", "/api/payments/paytest/" + paymentId); if (r && !r.confirming) return r; } catch (e) { if (e.status && e.status < 500) throw e; }
     }
-    throw new Error("Razorpay has not confirmed yet. If money was taken, your receipt will be e-mailed to you once it is.");
+    throw new Error("Razorpay has not confirmed yet. If money was taken, the receipt will be e-mailed to you once it is.");
   }
   const paidNow = (res, pid) => { S.done = res; S.paid = (res && res.orderId) || pid || ""; S.busy = false; save(); draw(true); };
   async function pay() {
     PK.setError($app, "");
     PK.sync($app, S, KEYS);
-    if (!PK.cty(S)) return PK.setError($app, "Please choose your country first.");
+    if (!PK.cty(S)) return PK.setError($app, "Please choose the country first.");
     const gid = (S.gameId || "").trim();
     if (gid && !GAME_ID.test(gid)) return PK.setError($app, "A game ID has 4 to 40 letters, digits, - or _.", "gid");
-    S.busy = true; PK.busy($app, true, "go", { on: "Confirming your payment…", off: label() });
+    S.busy = true; PK.busy($app, true, "go", { on: "Confirming the payment…", off: label() });
     let pid = "";
     try {
       const body = Object.assign(PK.orderBody(S), { consent: CBConsent.payload($app, "K3") });

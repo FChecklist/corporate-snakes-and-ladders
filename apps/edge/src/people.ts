@@ -73,7 +73,7 @@ export const normId = (raw: unknown, kind: "emp" | "email", clean = false): stri
   if (looksLikeEmail(raw)) return null; // one plain refusal for an email in an employee-ID box, in every game
   return normEmp(raw, clean);
 };
-export const badIdMessage = (raw: unknown, kind: "emp" | "email", clean = false): string => kind === "email" ? "Please check your Email ID. It looks incomplete." : looksLikeEmail(raw) ? "This looks like an Email ID. This game asks for an employee ID: letters and numbers only." : clean && cleanEmpId(raw).length > 30 ? "This Employee ID is too long. An employee ID may be up to 30 characters once cleaned." : "An employee ID has letters and numbers only (up to 30).";
+export const badIdMessage = (raw: unknown, kind: "emp" | "email", clean = false): string => kind === "email" ? "Please check the Email ID. It looks incomplete." : looksLikeEmail(raw) ? "This looks like an Email ID. This game asks for an employee ID: letters and numbers only." : clean && cleanEmpId(raw).length > 30 ? "This Employee ID is too long. An employee ID may be up to 30 characters once cleaned." : "An employee ID has letters and numbers only (up to 30).";
 /** The identity of a person who is known by employee ID alone (no mobile number needed). One hash for the same ID in every game, like the phone hash. */
 export const empHashOf = (env: { PHONE_SALT?: string; ORGANIZER_SECRET?: string }, id: string) => sha(`${env.PHONE_SALT ?? env.ORGANIZER_SECRET ?? "unset"}|emp|${id}`);
 /** What the organizer asked people to give to get in, read from the game's stored settings. */
@@ -110,7 +110,7 @@ export const inviterOf = (o: FromOwner): string => (o.kind === "org" ? "o" : o.k
 /** What `seat.src` says for a person who came in under this inviter (a Co-host's count of people brought reads it). */
 export const srcOf = (inviter: string): string => (inviter.startsWith("c:") ? "co:" + inviter.slice(2) : inviter.startsWith("h:") ? "ho:" + inviter.slice(2) : "link");
 
-export const waMessage = (name: string | null, game: string, link: string) => `${name ? name + ", you" : "You"} are invited to ${game}. Open your board here: ${link}`;
+export const waMessage = (name: string | null, game: string, link: string) => `${name ? name + ", you" : "You"} are invited to ${game}. Open the board here: ${link}`;
 export const waLinkOf = (digits: string, text: string) => `https://wa.me/${phoneDigits(digits)}?text=${encodeURIComponent(text)}`; // a kept number may start with +: wa.me wants the digits only
 
 /** Callers of the people routes. `all` = sees every list of the game (Organizer, Host). */
@@ -144,19 +144,19 @@ async function callerOf(c: Ctx, bodyMe?: unknown, bodyDevice?: unknown): Promise
     if (a.plat || a.kind === "master") return { who: { id: "o", kind: "organizer", all: true, limit: null, label: "Organizer", platform: a.plat } };
     if (a.kind === "host") return { who: { id: "h:" + c.keyId7, kind: "host", all: true, limit: null, label: "Co-organizer" } };
     if (a.kind === "cohost") {
-      if (a.eid && a.eid !== e.id) return { res: c.json({ error: "Your Invite-only co-organizer link is for a different game." }, 403) };
+      if (a.eid && a.eid !== e.id) return { res: c.json({ error: "The Invite-only co-organizer link is for a different game." }, 403) };
       return { who: { id: "c:" + c.keyId7, kind: "cohost", all: false, limit: e.cohost_limit ?? COHOST_LIMIT_DEFAULT, label: "Invite-only co-organizer" } };
     }
     return { res: c.json({ error: "Not allowed." }, 403) };
   }
   const pid = c.req.headers.get("x-cb-pid") || c.url.searchParams.get("me") || (typeof bodyMe === "string" ? bodyMe : "");
-  if (!pid) return { res: c.json({ error: "Please sign in, or open your game link first." }, 403) };
+  if (!pid) return { res: c.json({ error: "Please sign in, or open the game link first." }, 403) };
   const seat = await c.env.DB.prepare("SELECT seq, role, inv, blocked FROM seat WHERE eid=? AND pid=?").bind(c.eid, pid).first<{ seq: number; role: string | null; inv: number | null; blocked: number | null }>();
   if (!seat) return { res: c.json({ error: "Not a player of this game." }, 403) };
   // the card id is public (the seat list shows it): acting for a card also needs the phone's own device id, like check-in, prizes and leaving do
   if (!(await deviceMatches(c.env, c.eid, pid, c.req.headers.get("x-cb-dev") || c.url.searchParams.get("device") || (typeof bodyDevice === "string" ? bodyDevice : "")))) return { res: c.json({ error: "Open this board on the phone you joined with to invite people.", code: "device" }, 403) };
   if (seat.blocked) return { res: c.json({ error: "You were removed from this game.", code: "removed" }, 403) };
-  if (seat.role) return { res: c.json({ error: "Your team seat invites through the console, not through the game page." }, 403) };
+  if (seat.role) return { res: c.json({ error: "The team seat invites through the console, not through the game page." }, 403) };
   if (seat.inv !== null) return { res: c.json({ error: "Players invited by a player can play but cannot invite more people." }, 403) };
   if (!c.invites.on) return { res: c.json({ error: "The organizer has not switched on player invitations for this game." }, 403) };
   return { who: { id: "s:" + seat.seq, kind: "guest", all: false, limit: c.invites.per, label: "Player", seat: seat.seq } };
@@ -333,7 +333,7 @@ async function addPeople(c: Ctx, who: Caller, b: any): Promise<Response> {
   if (adds === 0) return c.json({ added: 0, duplicates, duplicateRows, invalid, people: [] });
   if (who.limit !== null) {
     const used = await listCount(db, c.eid, who.id), room = Math.max(0, who.limit - used);
-    if (adds > room) return c.json({ error: room === 0 ? `Your list is full: ${who.limit} people. Remove someone first, or ask the Organizer.` : `You can add ${room} more ${room === 1 ? "person" : "people"} (your limit is ${who.limit}). Nothing was added; please send fewer.`, code: "over-limit", limit: who.limit, used, room }, 409);
+    if (adds > room) return c.json({ error: room === 0 ? `The list is full: ${who.limit} people. Remove someone first, or ask the Organizer.` : `You can add ${room} more ${room === 1 ? "person" : "people"} (the limit is ${who.limit}). Nothing was added; please send fewer.`, code: "over-limit", limit: who.limit, used, room }, 409);
   }
   const total = await totalCount(db, c.eid);
   if (total + adds > c.e.cap) return c.json({ error: `This game is for ${c.e.cap} people and ${total} are already on the lists. Nothing was added.`, code: "over-cap", cap: c.e.cap, total }, 409);
@@ -390,7 +390,7 @@ async function exportPeople(c: Ctx, who: Caller): Promise<Response> {
 async function personFor(c: Ctx, who: Caller, id: string): Promise<{ row: PersonRow } | { res: Response }> {
   if (!/^[0-9a-f]{12}$/.test(id)) return { res: c.json({ error: "No such person." }, 404) };
   const row = await c.env.DB.prepare(`SELECT ${PERSON_COLS} FROM person WHERE eid=? AND id=?`).bind(c.eid, id).first<PersonRow>();
-  if (!row || (!who.all && row.inviter !== who.id)) return { res: c.json({ error: "No such person on your list." }, 404) };
+  if (!row || (!who.all && row.inviter !== who.id)) return { res: c.json({ error: "No such person on the list." }, 404) };
   return { row };
 }
 
@@ -426,7 +426,7 @@ async function removePerson(c: Ctx, who: Caller, id: string, b: any): Promise<Re
   await batched(db, stmts);
   if (c.started) await refreshBlocked(db, c.eid);
   if (who.kind === "host") { // a Host's removal tells the Organizer (the people are not named: the Organizer sees them in the console)
-    try { const to = await c.orgEmail(); if (to) await c.sendMail(to, `A Co-organizer removed ${targets.length === 1 ? "someone" : targets.length + " people"} from ${c.gameName}`, `${(await labelsOf(c))(who.id)} removed ${targets.length === 1 ? "one person" : targets.length + " people"} from ${c.gameName} at ${c.istTime(c.now)}.\n\nYou can see who in your console, under Your people.`); } catch { /* a mail is a nudge, never a requirement */ }
+    try { const to = await c.orgEmail(); if (to) await c.sendMail(to, `A Co-organizer removed ${targets.length === 1 ? "someone" : targets.length + " people"} from ${c.gameName}`, `${(await labelsOf(c))(who.id)} removed ${targets.length === 1 ? "one person" : targets.length + " people"} from ${c.gameName} at ${c.istTime(c.now)}.\n\nYou can see who in the console, under The people.`); } catch { /* a mail is a nudge, never a requirement */ }
   }
   return c.json({ ok: true, removed: targets.length, during: c.started });
 }
@@ -465,7 +465,7 @@ async function resendPerson(c: Ctx, who: Caller, id: string, b: any): Promise<Re
 
 /** The caller's OWN play seat: Organizer, Host and Co-host also play, through a personal link, and their seat is flagged so they stay out of the lucky draws. */
 async function myOwnSeat(c: Ctx, who: Caller, b: any): Promise<Response> {
-  if (who.kind === "guest") return c.json({ error: "Your game link is the one you were sent." }, 403);
+  if (who.kind === "guest") return c.json({ error: "The game link is the one you were sent." }, 403);
   const db = c.env.DB;
   const role = who.kind === "organizer" ? "organizer" : who.kind === "host" ? "host" : "co-host";
   let name: string | null = null, digits: string | null = null;
@@ -478,11 +478,11 @@ async function myOwnSeat(c: Ctx, who: Caller, b: any): Promise<Response> {
   }
   if (b?.phone !== undefined && b.phone !== null && String(b.phone).trim() !== "") { const cl = cleanPhone(b.phone); if (!cl.ok) return c.json({ error: cl.why }, 400); digits = cl.digits; }
   if (b?.name !== undefined) name = cleanName(b.name) || name;
-  if (!digits) return c.json({ error: "Your mobile number is needed to make your play link.", code: "need-phone" }, 400);
+  if (!digits) return c.json({ error: "The mobile number is needed to make the play link.", code: "need-phone" }, 400);
   const ph = await phoneHashOf(c.env, digits);
   const label = await labelsOf(c);
   let row = await db.prepare(`SELECT ${PERSON_COLS} FROM person WHERE eid=? AND ph=?`).bind(c.eid, ph).first<PersonRow>();
-  if (row && row.status === "removed") return c.json({ error: "That number was removed from this game. Add it back from Your people first." }, 409);
+  if (row && row.status === "removed") return c.json({ error: "That number was removed from this game. Add it back from The people first." }, 409);
   if (!row) {
     if (!(await c.spend(2))) return c.busy();
     const token = newToken(), up = who.kind === "organizer" ? "o" : (await db.prepare("SELECT created_by FROM organizer_key WHERE org=? AND substr(hash,1,7)=? AND revoked=0").bind(c.e.org, c.keyId7).first<{ created_by: string | null }>())?.created_by ?? "o";
@@ -536,7 +536,7 @@ async function decideWaiting(c: Ctx, who: Caller, wid: string, b: any): Promise<
   // admit: the person goes on the list of whoever's link they used; when that list is full (or they came over the limit) they go on the approver's own list, which has no limit
   let inviter: string = w.overlimit ? who.id : w.inviter;
   const lim = await limitOfInviter({ env: c.env, eid: c.eid, e: c.e, invites: c.invites }, inviter);
-  if (lim !== null && (await listCount(db, c.eid, inviter)) >= lim) { if (!who.all) return c.json({ error: `Your list is full (${lim} people). Remove someone first.`, code: "over-limit" }, 409); inviter = who.id; }
+  if (lim !== null && (await listCount(db, c.eid, inviter)) >= lim) { if (!who.all) return c.json({ error: `The list is full (${lim} people). Remove someone first.`, code: "over-limit" }, 409); inviter = who.id; }
   if ((await totalCount(db, c.eid)) >= c.e.cap && !(await db.prepare("SELECT 1 AS x FROM person WHERE eid=? AND ph=? AND status<>'removed'").bind(c.eid, w.ph).first())) return c.json({ error: `This game is for ${c.e.cap} people and all places are taken.`, code: "over-cap" }, 409);
   const token = newToken();
   const existing = await db.prepare("SELECT id, status FROM person WHERE eid=? AND ph=?").bind(c.eid, w.ph).first<{ id: string; status: string }>();
@@ -609,7 +609,7 @@ async function meRoute(c: Ctx): Promise<Response> {
     const ended = c.now >= await c.endBound();
     const state = w.status === "waiting" && ended ? "lapsed" : w.status;
     const who = await waitingWho(c, w.overlimit ? "o" : w.inviter);
-    return c.json({ state, with: who, message: state === "waiting" ? `Your request is with ${who}. You can come in as soon as they say yes.` : state === "admitted" ? "You are in. Open your link again to join." : state === "declined" ? "This game could not add you. Please talk to whoever invited you." : "This game has ended." });
+    return c.json({ state, with: who, message: state === "waiting" ? `The request is with ${who}. You can come in as soon as they say yes.` : state === "admitted" ? "You are in. Open the link again to join." : state === "declined" ? "This game could not add you. Please talk to whoever invited you." : "This game has ended." });
   }
   return c.json({ error: "Say which: ?pid=<your board id> or ?wid=<your request id>." }, 400);
 }
@@ -657,10 +657,10 @@ export async function joinLinkPage(env: Env, token: string, origin: string, game
   if (!e || e.cancelled_ms || e.unplayed_ms) return gone();
   const pii = await openPii(env, row.pii), first = (pii?.name ?? "").trim().split(/\s+/)[0] ?? "", game = gameNameOf(e);
   const target = `${origin}/z.html?e=${encodeURIComponent(row.eid)}&t=${encodeURIComponent(token.toLowerCase())}`;
-  const title = `You are invited to ${game}`, desc = `${first ? first + ", tap" : "Tap"} to open your board. Corporate Snakes and Ladders needs no app and no sign-up.`;
+  const title = `You are invited to ${game}`, desc = `${first ? first + ", tap" : "Tap"} to open the board. Corporate Snakes and Ladders needs no app and no sign-up.`;
   const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><meta http-equiv="refresh" content="0;url=${esc(target)}"><title>${esc(title)}</title>`
     + `<meta property="og:type" content="website"><meta property="og:site_name" content="Corporate Snakes and Ladders"><meta property="og:title" content="${esc(title)}"><meta property="og:description" content="${esc(desc)}"><meta property="og:url" content="${esc(origin + "/j/" + token.toLowerCase())}">`
-    + `<meta name="twitter:card" content="summary"><meta name="twitter:title" content="${esc(title)}"></head><body style="font-family:system-ui;max-width:32rem;margin:3rem auto;padding:0 1rem"><h1>${esc(title)}</h1><p><a href="${esc(target)}">Open your board</a></p></body></html>`;
+    + `<meta name="twitter:card" content="summary"><meta name="twitter:title" content="${esc(title)}"></head><body style="font-family:system-ui;max-width:32rem;margin:3rem auto;padding:0 1rem"><h1>${esc(title)}</h1><p><a href="${esc(target)}">Open the board</a></p></body></html>`;
   return new Response(html, { headers });
 }
 

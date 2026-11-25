@@ -145,7 +145,7 @@ describe("what the new game is", () => {
   });
 });
 
-describe("bring my people list", () => {
+describe("bring the people list", () => {
   test("the listed and the joined people come along as new un-joined invitations with NEW personal links; the old links stay with the old game", async () => {
     const t = await world();
     await people(t.master, [{ name: "Ben", phone: "9876543211" }, { name: "Chitra", phone: "9876543212" }, { name: "Asha", phone: "9876543210" }]);
@@ -168,7 +168,7 @@ describe("bring my people list", () => {
     expect((await j(await clone(t.master, {}))).peopleCopied).toBe(0);
     await call("POST", "/api/z/OLD-1/erase", {}, t.master);
     const b = await j(await clone(t.master, { withPeople: true }));
-    expect(b.peopleCopied).toBe(0); expect(b.peopleNote).toBe("The old player list has been auto-deleted, so add your people again.");
+    expect(b.peopleCopied).toBe(0); expect(b.peopleNote).toBe("The old player list has been auto-deleted, so add the people again.");
     expect(count("SELECT COUNT(*) AS c FROM person WHERE eid=?", b.id)).toBe(0);
   });
   test("the copy belongs to the new game and follows ITS clock: the old game's copy is erased on the old clock, the new list survives", async () => {

@@ -16,7 +16,7 @@
   const call = async (method, path, body) => {
     let r;
     try { r = await fetch(path, { method, headers: { "content-type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) }); }
-    catch { const err = Object.assign(new Error("We could not reach the service. Please check your internet and try again."), { status: 0 }); if (window.CTG) { CTG.wrap(err, { what: method + " " + path.split("?")[0] }); if (method !== "GET") { err.guided = true; CTG.watch(err, { retry: () => call(method, path, body) }); } } throw err; }
+    catch { const err = Object.assign(new Error("We could not reach the service. Please check the internet and try again."), { status: 0 }); if (window.CTG) { CTG.wrap(err, { what: method + " " + path.split("?")[0] }); if (method !== "GET") { err.guided = true; CTG.watch(err, { retry: () => call(method, path, body) }); } } throw err; }
     const j = await r.json().catch(() => ({}));
     if (!r.ok) { const err = Object.assign(new Error(j.error || "Something went wrong. Please try again."), { status: r.status, body: j }); if (window.CTG) { CTG.wrap(err, { what: method + " " + path.split("?")[0].replace(/\/[0-9a-f]{16,}/gi, "/...") }); if (method !== "GET") { err.guided = true; CTG.watch(err, { retry: () => call(method, path, body) }); } } throw err; }
     return j;
@@ -24,8 +24,8 @@
   const head = (title, lead) => `<h1 class="pk-h1" id="pk-h1" tabindex="-1">${esc(title)}</h1>${lead ? `<p class="pk-lead">${lead}</p>` : ""}`;
   const calm = (title, text) => `${head(title, esc(text))}<div class="pk-single">${S.info && S.info.game ? PK.summary({ game: S.info.game, price: null, paid: S.info.status === "paid" }) : ""}</div>`;
 
-  const holdCard = () => `${head("We are checking your payment")}<section class="pk-card" id="paywait" role="status"><p class="pk-sub">${S.busy ? "Please keep this page open. This can take a few minutes." : "Your payment is still being confirmed. If money left your account, the game is marked paid as soon as the bank confirms. Please do not pay again."}</p>${PK.errBox()}<button class="pk-btn${S.busy ? " is-busy" : ""}" id="chkpay" type="button"${S.busy ? " disabled" : ""}>${S.busy ? "Checking…" : "Check my payment"}</button>${S.busy ? "" : '<p class="pk-note"><button type="button" class="pk-link" id="payagain">No money was taken. Let me pay again.</button></p>'}</section>${PK.live()}`;
-  const skeleton = () => PK.layout({ title: "Payment for your game", lead: "Loading the game details…", wait: 3, step: 1, aside: PK.summarySkeleton(), col: '<section class="pk-card" aria-busy="true"><div class="pk-skel l1"></div><div class="pk-skel l2"></div><div class="pk-skel l2"></div><div class="pk-skel l3"></div></section>' });
+  const holdCard = () => `${head("We are checking the payment")}<section class="pk-card" id="paywait" role="status"><p class="pk-sub">${S.busy ? "Please keep this page open. This can take a few minutes." : "The payment is still being confirmed. If money left the account, the game is marked paid as soon as the bank confirms. Please do not pay again."}</p>${PK.errBox()}<button class="pk-btn${S.busy ? " is-busy" : ""}" id="chkpay" type="button"${S.busy ? " disabled" : ""}>${S.busy ? "Checking…" : "Check the payment"}</button>${S.busy ? "" : '<p class="pk-note"><button type="button" class="pk-link" id="payagain">No money was taken. Let me pay again.</button></p>'}</section>${PK.live()}`;
+  const skeleton = () => PK.layout({ title: "Payment for the game", lead: "Loading the game details…", wait: 3, step: 1, aside: PK.summarySkeleton(), col: '<section class="pk-card" aria-busy="true"><div class="pk-skel l1"></div><div class="pk-skel l2"></div><div class="pk-skel l2"></div><div class="pk-skel l3"></div></section>' });
 
   function view() {
     if (!token || S.gone) return head("This payment link is not working", "It may be incomplete or it may have been replaced. Please ask the person who sent it for a new link.");
@@ -35,7 +35,7 @@
         title: "Payment received", step: 3, finished: true, aside: PK.summary({ game: g, price: p, paid: true, totalLabel: "Paid" }) + PK.trust(),
         col: PK.receipt(Object.assign({ total: p && p.total, currency: p && p.currency }, d), {
           title: "Payment received. Thank you.", lead: "The game is paid for.",
-          forHtml: g ? `${esc(g.name || "Your game")}<small>game ID ${esc(g.id || "")}</small>` : "Your game",
+          forHtml: g ? `${esc(g.name || "The game")}<small>game ID ${esc(g.id || "")}</small>` : "The game",
           form: PK.invoiceForm(S, d),
         }),
       });
@@ -51,12 +51,12 @@
     if (!i.price) return calm("A custom arrangement is needed", "A game this big is arranged with us directly. Please write to us from the contact page.");
     const p = i.price, cur = PK.cur(S), ready = !!cur && (p.currency || "INR") === cur; // the price on show is always in the currency of the country shown
     return PK.layout({
-      title: "Payment for your game", step: S.busy ? 2 : 1, aside: PK.summary({ game: i.game, price: p, noPrice: !ready }) + PK.trust(),
-      lead: `Payment is for Game <b>${esc(i.game && i.game.name ? i.game.name : "Your game")}</b>; Amount <b>${ready ? esc(TB.money(p.total, cur)) : "to be shown"}</b>;<br>Please check the game below, then pay. You are paying for this one game only. Players never pay.`,
+      title: "Payment for the game", step: S.busy ? 2 : 1, aside: PK.summary({ game: i.game, price: p, noPrice: !ready }) + PK.trust(),
+      lead: `Payment is for Game <b>${esc(i.game && i.game.name ? i.game.name : "The game")}</b>; Amount <b>${ready ? esc(TB.money(p.total, cur)) : "to be shown"}</b>;<br>Please check the game below, then pay. You are paying for this one game only. Players never pay.`,
       col: `${PK.countryLine(S)}
-        <section class="pk-card"><h2>Pay</h2><p class="pk-sub">Razorpay's secure page asks for your mobile number and e-mail, and your tax invoice is sent there.</p>
-          ${PK.errBox()}${PK.busyBox("Confirming your payment with Razorpay. Please keep this page open.")}
-          <button class="pk-btn" id="paygo" type="button" ${ready ? 'aria-disabled="false"' : 'disabled aria-disabled="true"'}>${ready ? "Pay " + esc(TB.money(p.total, cur)) + " securely with Razorpay" : "Choose your country first"}</button>
+        <section class="pk-card"><h2>Pay</h2><p class="pk-sub">Razorpay's secure page asks for the mobile number and e-mail, and the tax invoice is sent there.</p>
+          ${PK.errBox()}${PK.busyBox("Confirming the payment with Razorpay. Please keep this page open.")}
+          <button class="pk-btn" id="paygo" type="button" ${ready ? 'aria-disabled="false"' : 'disabled aria-disabled="true"'}>${ready ? "Pay " + esc(TB.money(p.total, cur)) + " securely with Razorpay" : "Choose the country first"}</button>
           ${CBConsent.html("K3")}
           <p class="pk-note">Secure payment by Razorpay. Payment to <a href="https://itservices-rajat-agarwal.pages.dev/" rel="noopener" target="_blank">${esc(PK.BRAND.payee)}</a>. An invoice is e-mailed to you. See the <a href="/legal.html#privacy">privacy policy</a>.</p></section>
         ${TB.proformaBox()}${PK.live()}`,
@@ -83,7 +83,7 @@
         else { const j = await call("GET", `/api/paylink/${token}`); if (j.status === "paid") return { ok: true }; }
       } catch { /* keep asking */ }
     }
-    throw new Error("We are still waiting for Razorpay to confirm your payment. Nothing is lost: the game is marked paid as soon as it is confirmed. You can close this page and open the link again later to see the status.");
+    throw new Error("We are still waiting for Razorpay to confirm the payment. Nothing is lost: the game is marked paid as soon as it is confirmed. You can close this page and open the link again later to see the status.");
   }
   const paidNow = (r) => { S.done = r || { ok: true }; S.paid = (r && r.orderId) || S.pid || ""; S.busy = false; save(); draw(true); };
   function bind() {
@@ -94,8 +94,8 @@
     if (S.done && S.done.invoicePending) PK.invoiceWire($app, S, { paymentId: S.paid, country: S.done.country || PK.cty(S) || "IN", onDone: (r) => { S.done = r; save(); draw(true); } });
     if ($("paygo")) $("paygo").onclick = async () => {
       PK.setError($app, "");
-      if (!PK.cty(S)) return PK.setError($app, "Please choose your country first.");
-      const labels = { on: "Confirming your payment…", off: "Pay " + TB.money(S.info.price.total, S.info.price.currency || "INR") + " securely with Razorpay" };
+      if (!PK.cty(S)) return PK.setError($app, "Please choose the country first.");
+      const labels = { on: "Confirming the payment…", off: "Pay " + TB.money(S.info.price.total, S.info.price.currency || "INR") + " securely with Razorpay" };
       S.busy = true; PK.busy($app, true, "paygo", labels);
       try {
         const body = Object.assign(PK.orderBody(S), { consent: CBConsent.payload($app, "K3") });

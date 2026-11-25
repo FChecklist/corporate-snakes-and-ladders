@@ -58,14 +58,14 @@ export function layoutReport(d: ReportData): Uint8Array {
   pdf.box("Sent to you", [
     `E-mail address: ${d.organizerEmail}`,
     `Sent on: ${istFull(d.sentAtMs, d.tz)}  (${utcFull(d.sentAtMs)})`,
-    "This PDF is the complete record of your game, including the names and mobile numbers of everyone who took part. Please keep it safe: it is the only copy of this data that exists once the copy held by IT Services by Rajat Agarwal is deleted.",
+    "This PDF is the complete record of the game, including the names and mobile numbers of everyone who took part. Please keep it safe: it is the only copy of this data that exists once the copy held by IT Services by Rajat Agarwal is deleted.",
   ], [0.93, 0.96, 1], NAVY);
 
   pdf.box("What is kept, and what is deleted", [
     `You have been given ALL the data held about the people in this game. Within 24 hours of the game ending, and no later than ${istFull(d.personalDeleteAtMs, d.tz)}, every player's name, mobile number, join record, board assignment and invite link record is permanently deleted from the systems. After that nobody at Corporate Snakes and Ladders, and nothing in the software or database, holds them.`,
     "Kept for 365 days, only: (1) the details of the organizer, co-organizer and invite-only co-organizers (name, e-mail, mobile number); (2) the winners record: which prize, which round, at what time, and the seat number; and (3) the name, mobile number and employee ID (if any) each winner confirmed for the prize hand-over, with the date it was given. The winners record itself holds no names or numbers. No network address, browser or phone details of any winner are kept: they are deleted with everyone else's.",
     `Everything about this game, including those two records, is deleted at 00:00 hours (IST) on ${istDate(d.fullDeleteAtMs)}, which is the end of the 365th day. Billing data is kept for audit and tax reasons.`,
-    "For your next game you can reuse the people list until it is deleted (the reuse button in your console), or upload your own list again afterwards from this report.",
+    "For the next game you can reuse the people list until it is deleted (the reuse button in the console), or upload the list again afterwards from this report.",
   ]);
 
   // ---- 1 summary
@@ -122,7 +122,7 @@ export function layoutReport(d: ReportData): Uint8Array {
   pdf.h1("4. Statistics");
   pdf.table([{ head: "Measure", width: 52 }, { head: "Value", width: 48 }], [
     ["People who took part (joined)", String(g.joined)],
-    ["On your invitation list", String(g.onRoster)],
+    ["On the invitation list", String(g.onRoster)],
     ["Invited but never joined", String(g.notJoined)],
     ["Joined after the first turn (late)", String(g.late)],
     ["Joined through someone's invite link", String(g.viaInvite)],
@@ -138,24 +138,24 @@ export function layoutReport(d: ReportData): Uint8Array {
   if (d.omitPeople) { pdf.h1("5. Who invited whom, and 6. Everyone"); pdf.para(`This game had ${d.totalPeople} people, so the invite tree and the full list (names and mobile numbers) come in the following e-mails, in parts of up to 1,500 people each.`, { size: 9.5 }); }
   else { treeSection(pdf, d.people); listSection(pdf, d.people, d.tz); }
 
-  pdf.h1("7. When your data is deleted");
+  pdf.h1("7. When the data is deleted");
   pdf.table([{ head: "Data", width: 62 }, { head: "Deleted by", width: 48 }], [
     ["Players' names and mobile numbers, seats, invite links", istFull(d.personalDeleteAtMs, d.tz)],
     ["Organizer / co-organizer / invite-only co-organizer details, the winners record and the winners' hand-over details", `00:00 hours IST, ${istDate(d.fullDeleteAtMs)}`],
   ]);
-  pdf.para("Everything can be deleted sooner on request: press 'Delete' in your console, ask your AI assistant to request it (you confirm in your console), or e-mail from your registered address.", { size: 9 });
+  pdf.para("Everything can be deleted sooner on request: press 'Delete' in the console, ask the AI assistant to request it (you confirm in the console), or e-mail from the registered address.", { size: 9 });
 
-  pdf.h1("8. The commitment to your data");
+  pdf.h1("8. The commitment to the data");
   pdf.box("All of it is deleted. Here is exactly what, and when.", [
     `1. Everything about the people in this game (every name, mobile number, seat, join record and invite record) is permanently deleted from the systems within 24 hours of the game ending, and no later than ${istFull(d.personalDeleteAtMs, d.tz)}. You have all of it in this report; after that none of it is held.`,
     "2. Only these are kept, for 365 days: the details of the organizer, co-organizer and invite-only co-organizers (name, e-mail address and mobile number); the winners record (which prize, which round, at what time, which seat number); and the name, mobile number and employee ID (if any) each winner confirmed so the prize can be handed over. Nothing else about a winner is kept: no network address, browser or phone details.",
     `3. At 00:00 hours IST on ${istDate(d.fullDeleteAtMs)}, the end of the 365th day, everything else is deleted too. Billing data is kept for audit and tax reasons.`,
-    "4. Names and mobile numbers are also sealed (AES-256) while they are held, and only your own game's report is ever built from them.",
+    "4. Names and mobile numbers are also sealed (AES-256) while they are held, and only the game's report is ever built from them.",
   ]);
   pdf.box("The laws that are followed", [
     "Corporate Snakes and Ladders is built to follow India's Digital Personal Data Protection Act, 2023 (DPDP Act), the European Union's General Data Protection Regulation (GDPR) and the United Kingdom's equivalent, and the privacy laws of the United States, including state laws such as the California Consumer Privacy Act (CCPA / CPRA).",
-    "In practice this means: only the data needed to run your game is collected; it is used only for that purpose; it is protected with encryption; it is kept for the shortest time possible, and exactly how long is stated; it is never sold or used for advertising; and the people who took part, and you, can ask to see, correct or delete their data at any time.",
-    "You are the organizer of your game and decide who takes part; the data is processed on your behalf by IT Services by Rajat Agarwal. To exercise any right, or to ask anything, reply to the e-mail this report came with.",
+    "In practice this means: only the data needed to run the game is collected; it is used only for that purpose; it is protected with encryption; it is kept for the shortest time possible, and exactly how long is stated; it is never sold or used for advertising; and the people who took part, and you, can ask to see, correct or delete their data at any time.",
+    "You are the organizer of the game and decide who takes part; the data is processed on the behalf by IT Services by Rajat Agarwal. To exercise any right, or to ask anything, reply to the e-mail this report came with.",
   ], [0.93, 0.96, 1], NAVY);
   pdf.para(`Sent on ${istFull(d.sentAtMs, d.tz)} to ${d.organizerEmail}.`, { size: 8.5, color: [0.4, 0.43, 0.48] });
   pdf.para(`${BRAND.name}  |  Questions? Write to ${BRAND.support}  |  Rules, privacy and disclaimer: ${BRAND.defaultOrigin}${BRAND.legalPath}`, { size: 8.5, color: [0.4, 0.43, 0.48] });

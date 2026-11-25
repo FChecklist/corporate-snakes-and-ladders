@@ -118,7 +118,7 @@ export async function adjustRoute(req: Request, db: D1, now: number, owner: bool
     if (x.g.pack !== 0) view.text.push("This game is paid. Its price is locked.");
     else if (!x.editable) view.text.push(x.confirming ? "A payment is being confirmed. Try again in a few minutes." : `The price cannot be changed for this game (${x.status}).`);
     else if (list) {
-      view.text.push(`The organizer pays the list price plus or minus your amount. The lowest is ${money(1, cur)}; the most is twice the list price.`);
+      view.text.push(`The organizer pays the list price plus or minus the amount. The lowest is ${money(1, cur)}; the most is twice the list price.`);
       const sel = (id: string, label: string, opts: [string, string][], value: string) => ({ id, label, type: "select", options: opts.map(([v, t]) => ({ value: v, label: t })), value });
       view.form = { method: "POST", path: "/api/owner/price", fixed: { eid: q }, submit: x.row ? "Change price" : "Save price", done: "Saved. Tell the organizer by phone.",
         fields: [sel("currency", "Currency", [["INR", "Rupees (INR)"], ["USD", "Dollars (USD)"]], cur), sel("direction", "Change", [["down", "Reduce"], ["up", "Add"]], x.row && x.row.adjust_minor > 0 ? "up" : "down"),

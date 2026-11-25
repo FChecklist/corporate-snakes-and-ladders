@@ -111,9 +111,9 @@ describe("U6 / D7: what do you hold about me, correct it, delete me", () => {
   test("correction needs a note and goes to the organizer with the note", async () => {
     await game("RQ-3"); const a = await joinAs("RQ-3", 1, "Maia Lopes");
     expect((await ask("RQ-3", a, dev(1), "correction")).status).toBe(400);
-    const r = await ask("RQ-3", a, dev(1), "correction", { note: "My name is spelled Maya Lopez" }); expect(r.status).toBe(200);
+    const r = await ask("RQ-3", a, dev(1), "correction", { note: "The name is spelled Maya Lopez" }); expect(r.status).toBe(200);
     const m = mails().find((x) => x.to_addr === orgMail && /data request/i.test(x.subject))!; expect(m.body).toContain("Maya Lopez"); expect(m.body).toContain("correct");
-    expect((raw.query("SELECT note FROM data_request").get() as any).note).toBe("My name is spelled Maya Lopez");
+    expect((raw.query("SELECT note FROM data_request").get() as any).note).toBe("The name is spelled Maya Lopez");
   });
   test("erasure removes the player at once with the same code as leaving, the request is closed, and both mails say so", async () => {
     await game("RQ-4"); const a = await joinAs("RQ-4", 1, "Maya Lopez"); await joinAs("RQ-4", 2);
@@ -141,10 +141,10 @@ describe("U6 / D7: what do you hold about me, correct it, delete me", () => {
   });
   test("nomination (DPDP Act s14): it is a request in the owner's queue and goes to the organizer and the owner; the player is told the e-mail route; nothing is deleted", async () => {
     await game("RQ-N"); const a = await joinAs("RQ-N", 1, "Maya Lopez");
-    const r = await ask("RQ-N", a, dev(1), "nomination", { note: "my sister" }); expect(r.status).toBe(200);
+    const r = await ask("RQ-N", a, dev(1), "nomination", { note: "the sister" }); expect(r.status).toBe(200);
     const b = await j(r); expect(b.kind).toBe("nomination"); expect(b.status).toBe("open"); expect(b.erased).toBeUndefined(); expect(b.message).toContain("hello@corporatetambola.com"); expect(b.message).toContain("within 7 days");
     expect(count("SELECT COUNT(*) c FROM seat WHERE pid=?", a)).toBe(1); // nothing is deleted
-    expect(raw.query("SELECT kind, status, note, due_ms FROM data_request").get()).toEqual({ kind: "nomination", status: "open", note: "my sister", due_ms: T + 7 * 86_400_000 });
+    expect(raw.query("SELECT kind, status, note, due_ms FROM data_request").get()).toEqual({ kind: "nomination", status: "open", note: "the sister", due_ms: T + 7 * 86_400_000 });
     const m = mails(); expect(m.some((x) => x.to_addr === orgMail && /nominat|section 14/i.test(x.body) && x.body.includes("hello@corporatetambola.com"))).toBe(true);
     expect(m.some((x) => x.to_addr === OWNER_NOTIFY_EMAIL && /section 14/.test(x.body))).toBe(true);
     const q = await j(await call("GET", "/api/owner/data-requests?status=open", undefined, { "x-organizer": "plat" })); expect(q.requests.map((x: any) => x.kind)).toEqual(["nomination"]); // the owner's queue

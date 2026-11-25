@@ -93,7 +93,7 @@ describe("inviting an Organizer", () => {
     const b = await j(await call("POST", "/api/helpdesk/invite", { email: "stranger@acme.com" }, part(p.partnerKey)));
     expect(Object.keys(a).sort()).toEqual(Object.keys(b).sort()); expect(a.ok).toBe(true); expect(b.ok).toBe(true);
     const m = lastMail("known@acme.com", /asks to prepare/);
-    expect(m.body).toContain("Nothing is published or paid without your OK"); expect(m.body).toContain("Asha");
+    expect(m.body).toContain("Nothing is published or paid without the OK"); expect(m.body).toContain("Asha");
     expect(m.body).toMatch(/https:\/\/snakes\.test\/helpdesk-accept\.html\?t=[0-9a-f]{48}/);
     const mine = await me(p.partnerKey);
     expect(mine.clients.map((c: any) => c.orgEmailMasked).sort()).toEqual(["k***@acme.com", "s***@acme.com"]);
@@ -101,7 +101,7 @@ describe("inviting an Organizer", () => {
     expect(JSON.stringify(raw.query("SELECT * FROM helpdesk_link").all())).not.toContain("known@acme.com"); // sealed
     expect(mine.clients.every((c: any) => c.state === "invited" && !c.consoleUrl && !c.aiLink)).toBe(true); // no key before the Organizer allows
   });
-  test("limits: 5 invitations an hour per helper, 3 a day per Organizer address across helpers, no duplicates, not your own address, 50 clients at most", async () => {
+  test("limits: 5 invitations an hour per helper, 3 a day per Organizer address across helpers, no duplicates, not the address, 50 clients at most", async () => {
     const p = await helperJoined();
     expect((await call("POST", "/api/helpdesk/invite", { email: "asha@partner.example" }, part(p.partnerKey))).status).toBe(400);
     for (let i = 0; i < 5; i++) expect((await call("POST", "/api/helpdesk/invite", { email: `o${i}@acme.com` }, part(p.partnerKey))).status).toBe(200);
@@ -253,7 +253,7 @@ describe("the one-tap publish approval", () => {
     expect((await call("POST", "/api/helpdesk/approve/start", { t })).status).toBe(410);
     expect((await call("POST", "/api/helpdesk/approve/done", { t })).status).toBe(410);
     const m = lastMail("asha@partner.example", /is published/);
-    expect(m.body).toMatch(/OPEN MY HOST CONSOLE: https:\/\/snakes\.test\/zc\.html\?k=cbh_[0-9a-f]{48}&e=HD-GAME-1/); expect(m.body).toMatch(/\/ai\/cbh_[0-9a-f]{48}/);
+    expect(m.body).toMatch(/OPEN THE CO-ORGANIZER CONSOLE: https:\/\/snakes\.test\/zc\.html\?k=cbh_[0-9a-f]{48}&e=HD-GAME-1/); expect(m.body).toMatch(/\/ai\/cbh_[0-9a-f]{48}/);
   });
   test("an approval link expires after 7 days", async () => {
     const w = await world(); await makeGame(w.aiKey); await askAt(w, "HD-GAME-1");
@@ -320,7 +320,7 @@ describe("stopping", () => {
     expect(raw.query("SELECT state, ai_key_sealed FROM helpdesk_link").get()).toEqual({ state: "stopped", ai_key_sealed: null });
     expect(raw.query("SELECT COUNT(*) c FROM kv WHERE k='pub/HD-GAME-1'").get()).toEqual({ c: 1 }); // the published game stays
     expect((await j(await call("GET", "/api/org/team", undefined, org(w.master)))).hosts).toEqual([]);
-    expect(lastMail("asha@partner.example", /Help Desk stopped/).body).toContain("Your access to their account has ended");
+    expect(lastMail("asha@partner.example", /Help Desk stopped/).body).toContain("The access to their account has ended");
     const m = await me(w.p.partnerKey); expect(m.clients[0]).toMatchObject({ state: "stopped", hostLink: "ended" }); expect(m.clients[0].consoleUrl).toBeUndefined();
   });
   test("the Organizer can stop from the e-mailed link without signing in; a helper can end it too; the tokens of other links do nothing", async () => {

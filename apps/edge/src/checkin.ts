@@ -73,7 +73,7 @@ export async function checkinRoute(c: Ctx): Promise<Response> {
   // The participant id is not a secret (the seat list is public once the game starts), so the phone proves it is THE phone of this card: its own random device id, whose hash is kept with the seat (the same rule as joining).
   const devIn = c.req.method === "GET" ? c.url.searchParams.get("device") ?? "" : typeof b?.device === "string" ? b.device : "";
   const devHash = /^[0-9a-f]{16,64}$/.test(devIn) ? (await sha(`dev|${eid}|${devIn}`)).slice(0, 32) : null;
-  if (!devHash || !who.dev || who.dev !== devHash) return json({ error: "This board belongs to another phone. Open your own link on your own phone to check in.", code: "other-phone" }, 403);
+  if (!devHash || !who.dev || who.dev !== devHash) return json({ error: "This board belongs to another phone. Open the link on the phone to check in.", code: "other-phone" }, 403);
   const opensMs = checkinOpensMs(c.startMs), open = now >= opensMs, presentMs = await presentMsOf(db, eid, who.seq);
   const pii = await openPii(env as any, who.pii);
   if (c.req.method === "GET") {
@@ -88,7 +88,7 @@ export async function checkinRoute(c: Ctx): Promise<Response> {
   if (presentMs !== null) return json({ ok: true, present: true, presentMs });
   if (!open) return json({ error: `Check-in opens at ${new Date(opensMs + 5.5 * 3600_000).toISOString().slice(11, 16)} India time, 5 minutes before the game.`, code: "not-open", opensMs }, 403);
   const hadName = !!(pii?.name ?? who.name), hadMobile = !!pii?.phone; // a person who came in by employee ID may have neither on file: there is nothing to confirm then
-  if ((hadName && b?.confirmName !== true) || (hadMobile && b?.confirmMobile !== true)) return json({ error: hadName && hadMobile ? "Please confirm your name and your mobile number." : hadName ? "Please confirm your name." : "Please confirm your mobile number.", code: "confirm" }, 400);
+  if ((hadName && b?.confirmName !== true) || (hadMobile && b?.confirmMobile !== true)) return json({ error: hadName && hadMobile ? "Please confirm the name and the mobile number." : hadName ? "Please confirm the name." : "Please confirm the mobile number.", code: "confirm" }, 400);
   const failKey = `ckfail/${eid}/${who.seq}`;
   const fr = await db.prepare("SELECT v FROM kv WHERE k=?").bind(failKey).first<{ v: string }>(); const f = fr ? JSON.parse(fr.v) as { n: number; t: number } : null;
   if (f && f.n >= CHECKIN_MAX_TRIES && now - f.t < CHECKIN_LOCK_MS) return json({ error: "Too many wrong codes. Please wait a few minutes and try again.", code: "locked" }, 429);
@@ -97,7 +97,7 @@ export async function checkinRoute(c: Ctx): Promise<Response> {
     if (!(await c.spend(1))) return c.busy();
     const n = f && now - f.t < CHECKIN_LOCK_MS ? f.n + 1 : 1;
     await db.prepare("INSERT INTO kv(k,v) VALUES(?,?) ON CONFLICT(k) DO UPDATE SET v=excluded.v").bind(failKey, JSON.stringify({ n, t: now })).run();
-    return json({ error: "That code is not the one on your board. Look at your code again and type its 4 digits.", code: "wrong-code", triesLeft: Math.max(0, CHECKIN_MAX_TRIES - n) }, 400);
+    return json({ error: "That code is not the one on the board. Look at the code again and type its 4 digits.", code: "wrong-code", triesLeft: Math.max(0, CHECKIN_MAX_TRIES - n) }, 400);
   }
   // optional edits: the name and the mobile number kept for the prize hand-over (the identity of the card itself never changes)
   let name = pii?.name ?? who.name ?? null, phone = pii?.phone ?? null, editedName = false, editedMobile = false;

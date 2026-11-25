@@ -15,23 +15,23 @@
   };
   const S = { me: null, err: "", note: "" };
   const STATE = { invited: "Waiting for the Organizer to allow", active: "Active", stopped: "Stopped" };
-  const HOST = { none: "You become a Co-organizer when the Organizer publishes a game.", "waiting-for-setup": "Your Co-organizer link was e-mailed to you. Open it to finish your setup.", ready: "You are a Co-organizer.", ended: "" };
+  const HOST = { none: "You become a Co-organizer when the Organizer publishes a game.", "waiting-for-setup": "The Co-organizer link was e-mailed to you. Open it to finish the setup.", ready: "You are a Co-organizer.", ended: "" };
 
   const signInView = () => `<div class="zcard zform"><h2>Become a Help Desk person</h2>
-    <p class="zsmall" style="margin-top:0">Help Desk is a switch on your Refer &amp; earn account.</p>
+    <p class="zsmall" style="margin-top:0">Help Desk is a switch on the Refer &amp; earn account.</p>
     <p><a class="zbtn" style="display:inline-flex;align-items:center;text-decoration:none" href="/partner.html#joinbox">Join Refer &amp; earn first</a></p>
-    <label for="pk">Already joined? Your partner key</label><input class="hdi" id="pk" type="password" autocomplete="off" placeholder="cbp_…">
+    <label for="pk">Already joined? The partner key</label><input class="hdi" id="pk" type="password" autocomplete="off" placeholder="cbp_…">
     ${S.err ? `<div class="zbanner bad" role="alert">${esc(S.err)}</div>` : ""}
     <button class="zbtn" id="go">Continue</button></div>`;
   const joinView = () => `<div class="zcard zform"><h2>Turn on Help Desk</h2>
-    <label for="em">The e-mail you joined Refer &amp; earn with</label><input class="hdi" id="em" type="email" inputmode="email" autocomplete="email" placeholder="your e-mail">
+    <label for="em">The e-mail you joined Refer &amp; earn with</label><input class="hdi" id="em" type="email" inputmode="email" autocomplete="email" placeholder="the e-mail">
     ${S.err ? `<div class="zbanner bad" role="alert">${esc(S.err)}</div>` : ""}
     <button class="zbtn" id="on">Turn on Help Desk</button>
     <p class="zsmall"><a href="#" class="hdl" id="out">Sign out</a></p></div>`;
   const gameRow = (c, g) => `<div class="zsmall" style="display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin:6px 0"><span><b>${esc(g.title || g.eid)}</b> <span style="color:var(--snk-muted)">${g.published ? "Published" : "Not published yet"}</span></span>
     ${g.published ? "" : `<button class="zbtn s" data-ask="${esc(g.eid)}" data-link="${esc(c.id)}">Ask the Organizer to publish</button>`}</div>`;
   const clientCard = (c) => `<div class="zcard" data-client="${esc(c.id)}"><div class="zsmall" style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><b>${esc(c.orgEmailMasked)}</b><span>${esc(STATE[c.state] || c.state)}</span></div>
-    ${c.state === "active" ? `<div style="display:flex;flex-wrap:wrap;gap:8px;margin:10px 0"><a class="zbtn s" style="text-decoration:none;display:inline-flex;align-items:center" target="_blank" rel="noopener" href="${esc(c.consoleUrl)}">Open console</a><button class="zbtn s alt" data-copy="${esc(c.aiLink)}">Copy my AI link</button></div>
+    ${c.state === "active" ? `<div style="display:flex;flex-wrap:wrap;gap:8px;margin:10px 0"><a class="zbtn s" style="text-decoration:none;display:inline-flex;align-items:center" target="_blank" rel="noopener" href="${esc(c.consoleUrl)}">Open console</a><button class="zbtn s alt" data-copy="${esc(c.aiLink)}">Copy the AI link</button></div>
       ${c.games.length ? c.games.map((g) => gameRow(c, g)).join("") : `<p class="zsmall">No game yet. Open the console to create one.</p>`}
       ${HOST[c.hostLink] ? `<p class="zsmall">${esc(HOST[c.hostLink])}</p>` : ""}` : ""}
     ${c.state === "stopped" && c.games.length ? c.games.map((g) => `<p class="zsmall" style="margin:4px 0">${esc(g.title || g.eid)}: ${g.published ? "Published" : "Not published"}</p>`).join("") : ""}
@@ -45,7 +45,7 @@
         <label for="on">Their name (optional)</label><input class="hdi" id="on" maxlength="60" autocomplete="off">
         <button class="zbtn" id="inv">Send the invitation</button></div>
       ${m.clients.length ? m.clients.map(clientCard).join("") : `<div class="zcard"><p class="zsmall" style="margin:0">No clients yet. Add an Organizer above.</p></div>`}
-      <p class="zsmall"><a class="hdl" href="/partner.html">See my earnings</a></p>`;
+      <p class="zsmall"><a class="hdl" href="/partner.html">See the earnings</a></p>`;
   };
   function draw(v) { $app.innerHTML = v; bind(); }
   function bind() {
@@ -56,7 +56,7 @@
     if ($("out")) $("out").onclick = (e) => { e.preventDefault(); ls.del("cbz-pkey"); S.me = null; S.err = ""; S.note = ""; draw(signInView()); };
     if ($("inv")) $("inv").onclick = () => run($("inv"), async () => { await api("POST", "/api/helpdesk/invite", { email: $("oe").value.trim(), name: $("on").value.trim() }); S.note = "The invitation is on its way."; });
     $app.querySelectorAll("[data-ask]").forEach((b) => (b.onclick = () => run(b, async () => { await api("POST", "/api/helpdesk/request-publish", { linkId: b.dataset.link, eid: b.dataset.ask }); S.note = "The Organizer was e-mailed. They publish with one tap."; })));
-    $app.querySelectorAll("[data-stop]").forEach((a) => (a.onclick = (e) => { e.preventDefault(); if (!confirm("End this? Your access to this Organizer's account stops at once.")) return; run(null, async () => { await api("POST", "/api/helpdesk/stop", { linkId: a.dataset.stop }); S.note = "Done."; }); }));
+    $app.querySelectorAll("[data-stop]").forEach((a) => (a.onclick = (e) => { e.preventDefault(); if (!confirm("End this? The access to this Organizer's account stops at once.")) return; run(null, async () => { await api("POST", "/api/helpdesk/stop", { linkId: a.dataset.stop }); S.note = "Done."; }); }));
     $app.querySelectorAll("[data-copy]").forEach((b) => (b.onclick = async () => { try { await navigator.clipboard.writeText(b.dataset.copy); b.textContent = "Copied"; } catch { b.textContent = "Select and copy it from the console"; } }));
   }
   async function load() {

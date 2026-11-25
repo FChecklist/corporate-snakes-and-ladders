@@ -247,10 +247,10 @@ describe("e-mails: a heads-up 6 hours before and a note after, to the Organizer 
     await lifecycleTick(env as any, at - UNPLAYED_WARN_MS + 60_000); await lifecycleTick(env as any, at - 3 * H);
     for (const a of ["boss@acme.com", "priya@acme.com"]) {
       const m = mailsLike(a, /time has passed/); expect(m).toHaveLength(1);
-      expect(m[0]!.body).toContain("Your game time has passed. Player data will be auto-deleted at"); expect(m[0]!.body).toContain("IST"); expect(m[0]!.body).toContain("Tap to reschedule and keep it."); expect(m[0]!.body).toContain("https://bingo.test/zc.html?e=UNP-1");
+      expect(m[0]!.body).toContain("The game time has passed. Player data will be auto-deleted at"); expect(m[0]!.body).toContain("IST"); expect(m[0]!.body).toContain("Tap to reschedule and keep it."); expect(m[0]!.body).toContain("https://bingo.test/zc.html?e=UNP-1");
     }
     await lifecycleTick(env as any, at + 5000);
-    for (const a of ["boss@acme.com", "priya@acme.com"]) { const m = mailsLike(a, /did not start/); expect(m).toHaveLength(1); expect(m[0]!.body).toContain("Your game did not start. The player list was auto-deleted at"); }
+    for (const a of ["boss@acme.com", "priya@acme.com"]) { const m = mailsLike(a, /did not start/); expect(m).toHaveLength(1); expect(m[0]!.body).toContain("The game did not start. The player list was auto-deleted at"); }
     const all = raw.prepare("SELECT to_addr FROM outbox WHERE subject LIKE '%time has passed%' OR subject LIKE '%did not start%'").all() as any[];
     expect(all.every((r) => ["boss@acme.com", "priya@acme.com"].includes(r.to_addr))).toBe(true);
     expect(raw.prepare("SELECT COUNT(*) AS c FROM outbox WHERE to_addr LIKE '%9876%'").get()).toEqual({ c: 0 });

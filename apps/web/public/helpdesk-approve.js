@@ -14,29 +14,29 @@
     if (!r.ok) { const e = new Error(j.error || "Something went wrong. Please try again."); e.status = r.status; e.code = j.code; throw e; }
     return j;
   }
-  const shell = (inner) => { app.innerHTML = `<div class="zhead"><h1 class="hdh"><b>Corporate Snakes and Ladders · Publish your game</b></h1></div>${inner}`; };
-  const closed = (text) => shell(`<div class="zcard"><h2>Publish your game</h2><p>${esc(text)}</p><p class="zsmall"><a class="hdl" href="/">Corporate Snakes and Ladders home</a></p></div>`);
+  const shell = (inner) => { app.innerHTML = `<div class="zhead"><h1 class="hdh"><b>Corporate Snakes and Ladders · Publish the game</b></h1></div>${inner}`; };
+  const closed = (text) => shell(`<div class="zcard"><h2>Publish the game</h2><p>${esc(text)}</p><p class="zsmall"><a class="hdl" href="/">Corporate Snakes and Ladders home</a></p></div>`);
   const prizeLine = (r) => `<li>${esc(r.label || r.pattern || "Prize")}${r.ordinal > 1 ? " (" + esc(r.ordinal) + ")" : ""}${r.text ? ": " + esc(r.text) : ""}</li>`;
   function summaryCard() {
     const s = info.summary;
     if (!s) return `<p class="zsmall">Game ${esc(info.eid)}</p>`;
     const rewards = Array.isArray(s.rewards) ? s.rewards.filter((r) => r && (r.label || r.pattern || r.text)) : [];
-    return `<div class="zsmall" style="line-height:1.6"><b>${esc(s.name || info.eid)}</b><br>Starts: ${esc(s.startsAtIST || "")}<br>Up to ${esc(s.limit)} people${s.tickets ? ", " + esc(s.tickets) + " ticket" + (s.tickets === 1 ? "" : "s") + " each" : ""}${s.rounds ? ", " + esc(s.rounds) + " round" + (s.rounds === 1 ? "" : "s") : ""}${s.gameMinutes ? ", about " + esc(s.gameMinutes) + " minutes" : ""}<br>Who can join: ${s.whoCanJoin === "list" ? "only people on your list" : "anyone with the link"}${s.breaks ? "<br>Brand moments: " + esc(s.breaks) : ""}${s.priceInr ? "<br>Price when you pay: ₹" + esc(s.priceInr) : ""}</div>
+    return `<div class="zsmall" style="line-height:1.6"><b>${esc(s.name || info.eid)}</b><br>Starts: ${esc(s.startsAtIST || "")}<br>Up to ${esc(s.limit)} people${s.tickets ? ", " + esc(s.tickets) + " ticket" + (s.tickets === 1 ? "" : "s") + " each" : ""}${s.rounds ? ", " + esc(s.rounds) + " round" + (s.rounds === 1 ? "" : "s") : ""}${s.gameMinutes ? ", about " + esc(s.gameMinutes) + " minutes" : ""}<br>Who can join: ${s.whoCanJoin === "list" ? "only people on the list" : "anyone with the link"}${s.breaks ? "<br>Brand moments: " + esc(s.breaks) : ""}${s.priceInr ? "<br>Price when you pay: ₹" + esc(s.priceInr) : ""}</div>
       ${rewards.length ? `<div class="zsmall" style="margin-top:8px"><b>Prizes</b></div><ul class="zsmall" style="margin:4px 0 0;padding-left:20px">${rewards.map(prizeLine).join("")}</ul>` : ""}`;
   }
   function view() {
     k1s = {}; // like the other pages: a Terms box is unticked every time the page is drawn, the person ticks it again
     shell(`<div class="zcard zform"><h2>${esc(info.helperName)} asks you to publish this game</h2>${summaryCard()}
       <p class="zsmall">Publishing is free. After that the game does not begin until it is paid for. Only you publish and pay.</p>
-      <label for="em">Confirm your e-mail</label><input class="hdi" id="em" type="email" autocomplete="email" value="${esc(form.email)}" placeholder="your e-mail">
-      <label for="ph">Confirm your mobile number</label><input class="hdi" id="ph" inputmode="tel" autocomplete="tel" value="${esc(form.phone)}" placeholder="98765 43210">
+      <label for="em">Confirm the e-mail</label><input class="hdi" id="em" type="email" autocomplete="email" value="${esc(form.email)}" placeholder="the e-mail">
+      <label for="ph">Confirm the mobile number</label><input class="hdi" id="ph" inputmode="tel" autocomplete="tel" value="${esc(form.phone)}" placeholder="98765 43210">
       ${C && k1 ? `<div id="hdtb">${C.html(k1, k1s)}</div>` : ""}${msg ? `<div class="zbanner bad" role="alert">${esc(msg)}</div>` : ""}
       <button class="zbtn" id="pub"${C && k1 ? " disabled" : ""}>Publish</button></div>`);
     if (C && k1) C.bind(document.getElementById("hdtb"), k1, k1s, document.getElementById("pub"));
     document.getElementById("pub").onclick = async (ev) => {
       const b = ev.target; form = { email: document.getElementById("em").value.trim(), phone: document.getElementById("ph").value.trim() };
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(form.email)) { msg = "Please enter a valid e-mail."; return view(); }
-      if (form.phone.replace(/\D/g, "").length < 10) { msg = "Please enter your mobile number."; return view(); }
+      if (form.phone.replace(/\D/g, "").length < 10) { msg = "Please enter the mobile number."; return view(); }
       b.disabled = true; msg = "";
       const consent = C && k1 ? C.payload(k1, k1s) : undefined;
       try {
@@ -48,10 +48,10 @@
     };
   }
   function published(pub) {
-    shell(`<div class="zcard"><h2>Published</h2><p>Your game is live. ${esc(info.helperName)} is now a Co-organizer of it and can change it like any Co-organizer.</p>
+    shell(`<div class="zcard"><h2>Published</h2><p>The game is live. ${esc(info.helperName)} is now a Co-organizer of it and can change it like any Co-organizer.</p>
       ${pub && pub.shareUrl ? `<p class="zsmall">Share link for players:</p><div class="zlink">${esc(pub.shareUrl)}</div>` : ""}
       ${pub && pub.payUrl && pub.paid === false ? `<p class="zsmall">The game begins once it is paid for. <a class="hdl" href="${esc(pub.payUrl)}">Pay now</a></p>` : ""}
-      <p class="zsmall"><a class="hdl" href="/zc.html">Open my console</a></p></div>`);
+      <p class="zsmall"><a class="hdl" href="/zc.html">Open the console</a></p></div>`);
   }
   (async () => {
     if (!/^[0-9a-f]{48}$/.test(t)) return closed("This link is incomplete. Please open the link from the e-mail again.");

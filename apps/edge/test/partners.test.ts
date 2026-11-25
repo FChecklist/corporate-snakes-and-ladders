@@ -123,7 +123,7 @@ describe("a referred purchase", () => {
     await buy({ ref: CODE });
     expect(raw.query("SELECT COUNT(*) c FROM commission").get()).toEqual({ c: 0 });
   });
-  test("buying through your own link is blocked with a reason, however the number is typed", async () => {
+  test("buying through the link is blocked with a reason, however the number is typed", async () => {
     await buy({ ref: CODE, phone: "+91 98111 22233" });
     expect(raw.query("SELECT status, reason FROM commission").get()).toEqual({ status: "blocked", reason: "self_referral" });
   });

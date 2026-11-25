@@ -4,7 +4,7 @@
   const app = document.getElementById("app");
   const ss = { get: (k) => (window.CTK ? window.CTK.get(k) || "" : (() => { try { return sessionStorage.getItem(k) || ""; } catch { return ""; } })()), set: (k, v) => { if (window.CTK) window.CTK.set(k, v); else { try { sessionStorage.setItem(k, v); } catch {} } } };
   const esc = (s) => String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-  const WARN = "DO NOT FORWARD: this page shows your personal AI work link";
+  const WARN = "DO NOT FORWARD: this page shows the personal AI work link";
   let token = ss.get("cbz-org"), note = "";
   async function api(method, path, body, tk) {
     const r = await fetch(path, { method, headers: { "content-type": "application/json", "x-organizer": tk || token }, body: method === "GET" ? undefined : JSON.stringify(body || {}) });
@@ -14,7 +14,7 @@
   }
   // K2: the sign-in boxes on the code step. Never pre-ticked; the button stays off until both are ticked; the wording comes from the server (consent.js). The e-mail code stays valid if the boxes are refused.
   let k2 = null; const k2State = {};
-  const shell = (inner) => { app.innerHTML = `<div class="zhead"><b><a class="zlogo" href="/" aria-label="Corporate Snakes and Ladders home"><img src="/logo-mark.svg" alt="Corporate Snakes and Ladders logo" width="20" height="20"></a>Corporate Snakes and Ladders · Your AI work link</b></div><div class="zbanner bad" role="alert" style="font-weight:700;text-align:center">${esc(WARN)}</div>${inner}<div class="zbanner bad" role="alert" style="font-weight:700;text-align:center">${esc(WARN)}</div>`; };
+  const shell = (inner) => { app.innerHTML = `<div class="zhead"><b><a class="zlogo" href="/" aria-label="Corporate Snakes and Ladders home"><img src="/logo-mark.svg" alt="Corporate Snakes and Ladders logo" width="20" height="20"></a>Corporate Snakes and Ladders · The AI work link</b></div><div class="zbanner bad" role="alert" style="font-weight:700;text-align:center">${esc(WARN)}</div>${inner}<div class="zbanner bad" role="alert" style="font-weight:700;text-align:center">${esc(WARN)}</div>`; };
   // Seven ways to hand the paste to an AI: three open the AI with the paste pre-filled (a web address), three copy it and open the site (Ctrl+V, Send), one plain copy.
   const AIOPEN = [["ChatGPT", "https://chatgpt.com/?q="], ["Grok", "https://grok.com/?q="], ["Claude", "https://claude.ai/new?q="]];
   const AICOPY = [["Gemini", "https://gemini.google.com/app?q="], ["DeepSeek", "https://chat.deepseek.com/"], ["z.ai", "https://chat.z.ai/"]];
@@ -28,10 +28,10 @@
   const bannerNote = () => (note ? `<div class="zbanner info">${esc(note)}</div>` : "");
 
   function signIn(msg, email, codeStep) {
-    shell(`<div class="zcard zform"><h2>Sign in as the organizer</h2><p class="zsmall" style="margin-top:0">Sign in to see your AI work link. A 6-digit code is e-mailed to you.</p>
+    shell(`<div class="zcard zform"><h2>Sign in as the organizer</h2><p class="zsmall" style="margin-top:0">Sign in to see the AI work link. A 6-digit code is e-mailed to you.</p>
       ${msg ? `<div class="zbanner bad">${esc(msg)}</div>` : ""}
-      ${codeStep ? `<label for="cd">6-digit passcode sent to ${esc(email)}</label><input id="cd" inputmode="numeric" autocomplete="one-time-code" maxlength="8"><div id="k2box">${k2 ? "" : `<p class="zsmall" role="status">Loading the terms…</p>`}</div><button class="zbtn" id="go" disabled aria-disabled="true">Show your AI work link</button>`
-        : `<label for="em">Your e-mail</label><input id="em" type="email" autocomplete="email" value="${esc(email || "")}" placeholder="your e-mail"><button class="zbtn" id="go">E-mail a code</button>`}</div>`);
+      ${codeStep ? `<label for="cd">6-digit passcode sent to ${esc(email)}</label><input id="cd" inputmode="numeric" autocomplete="one-time-code" maxlength="8"><div id="k2box">${k2 ? "" : `<p class="zsmall" role="status">Loading the terms…</p>`}</div><button class="zbtn" id="go" disabled aria-disabled="true">Show the AI work link</button>`
+        : `<label for="em">The e-mail</label><input id="em" type="email" autocomplete="email" value="${esc(email || "")}" placeholder="the e-mail"><button class="zbtn" id="go">E-mail a code</button>`}</div>`);
     const go = document.getElementById("go");
     if (codeStep) {
       const box = document.getElementById("k2box");
@@ -51,7 +51,7 @@
         const r = await api("POST", "/api/auth/verify", { email, code: document.getElementById("cd").value, consent }, "-");
         token = r.token; ss.set("cbz-org", token); show();
       } catch (e) {
-        if (e.code === "consent-required" || e.code === "terms-changed") { if (e.consent && Array.isArray(e.consent.boxes)) k2 = e.consent; Object.keys(k2State).forEach((x) => delete k2State[x]); return signIn("Please press the button once more. Your code is still good.", email, codeStep); }
+        if (e.code === "consent-required" || e.code === "terms-changed") { if (e.consent && Array.isArray(e.consent.boxes)) k2 = e.consent; Object.keys(k2State).forEach((x) => delete k2State[x]); return signIn("Please press the button once more. The code is still good.", email, codeStep); }
         signIn(e.message, email, codeStep);
       }
     };
@@ -60,20 +60,20 @@
   async function show() {
     let r;
     try { r = await api("GET", "/api/org/ai/link"); } catch (e) { token = ""; ss.set("cbz-org", ""); return signIn(e.status === 403 ? "" : e.message, "", false); }
-    shell(`${bannerNote()}<div class="zcard" style="border:2px solid var(--snk-accent);background:var(--snk-paper)"><div class="zsmall" style="font-weight:700;letter-spacing:.06em;color:var(--snk-accent-ink)">YOUR AI WORK LINK</div>
+    shell(`${bannerNote()}<div class="zcard" style="border:2px solid var(--snk-accent);background:var(--snk-paper)"><div class="zsmall" style="font-weight:700;letter-spacing:.06em;color:var(--snk-accent-ink)">AI WORK LINK</div>
       ${r.aiMessage
         ? `<p style="margin:8px 0">Copy this link and paste in your AI to work.</p><textarea class="zlink" id="msg" rows="5" readonly style="width:100%;box-sizing:border-box">${esc(r.aiMessage)}</textarea><button class="zbtn" id="cp" style="margin-top:8px">Copy the AI work link</button>${aiOptions(r.aiMessage)}`
-        : `<p style="margin:8px 0">You have no AI work link at the moment.</p><button class="zbtn" id="mk">Make your AI work link</button>`}
+        : `<p style="margin:8px 0">You have no AI work link at the moment.</p><button class="zbtn" id="mk">Make the AI work link</button>`}
       <hr style="border:0;border-top:1px solid var(--snk-line);margin:16px 0">
       <p class="zsmall" style="margin:0 0 8px">Fresh link: one that works for 24 hours is e-mailed to you.</p><button class="zbtn s alt" id="fr">Get a fresh AI link</button>
-      <p class="zsmall" style="margin:14px 0 8px">Lost it? Replace stops every AI link at once.</p><button class="zbtn s alt" id="rp">Replace your AI link</button></div>
-      <p class="zsmall"><a href="/zc.html">Open your console</a></p>`);
+      <p class="zsmall" style="margin:14px 0 8px">Lost it? Replace stops every AI link at once.</p><button class="zbtn s alt" id="rp">Replace the AI link</button></div>
+      <p class="zsmall"><a href="/zc.html">Open the console</a></p>`);
     if (r.aiMessage) wireAiOptions(app, r.aiMessage);
     const on = (id, f) => { const b = document.getElementById(id); if (b) b.onclick = f; };
     on("cp", () => { try { navigator.clipboard.writeText(r.aiMessage); document.getElementById("cp").textContent = "Copied. Now paste it in the AI chat"; } catch {} });
-    on("mk", async () => { try { await api("POST", "/api/org/ai/replace"); note = "Your AI work link is ready. A 24-hour link was also e-mailed to you."; } catch (e) { note = e.message; } show(); });
-    on("fr", async () => { try { const x = await api("POST", "/api/org/ai/fresh"); note = x.mailed ? "A fresh 24-hour link is on its way to your e-mail." : "There is no e-mail address to send it to. Use the link shown above."; } catch (e) { note = e.message; } show(); });
-    on("rp", async () => { if (!confirm("Replace your AI work link? Every AI link stops working at once, even if an AI is using it right now.")) return; try { await api("POST", "/api/org/ai/replace"); note = "Replaced. The old links have stopped. A new 24-hour link is on its way to your e-mail."; } catch (e) { note = e.message; } show(); });
+    on("mk", async () => { try { await api("POST", "/api/org/ai/replace"); note = "The AI work link is ready. A 24-hour link was also e-mailed to you."; } catch (e) { note = e.message; } show(); });
+    on("fr", async () => { try { const x = await api("POST", "/api/org/ai/fresh"); note = x.mailed ? "A fresh 24-hour link is on its way to the e-mail." : "There is no e-mail address to send it to. Use the link shown above."; } catch (e) { note = e.message; } show(); });
+    on("rp", async () => { if (!confirm("Replace the AI work link? Every AI link stops working at once, even if an AI is using it right now.")) return; try { await api("POST", "/api/org/ai/replace"); note = "Replaced. The old links have stopped. A new 24-hour link is on its way to the e-mail."; } catch (e) { note = e.message; } show(); });
   }
   if (token) show(); else signIn("", "", false);
 })();
