@@ -226,7 +226,7 @@ const OWNED: string[] = [
   ...walk(PUB).filter((f) => /\.(css|html|js|svg|webmanifest)$/.test(f) && !SKIP(f)),
   ...walk(SITE).filter((f) => /\.(css|html|js|svg)$/.test(f)),
   join(ROOT, "tools/make-icons.py"),
-  ...["mails.ts", "brand.ts", "trust-page.ts"].map((f) => join(ROOT, "apps/edge/src", f)),
+  ...["mails.ts", "brand.ts", "trust-page.ts", "admin.ts"].map((f) => join(ROOT, "apps/edge/src", f)),
   join(ROOT, "packages/beacon/src/zboard.ts"),
 ];
 
