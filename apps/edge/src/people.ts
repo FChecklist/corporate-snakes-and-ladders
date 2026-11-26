@@ -637,3 +637,15 @@ export async function joinLinkPage(env: Env, token: string, origin: string, game
     + `<meta name="twitter:card" content="summary"><meta name="twitter:title" content="${esc(title)}"></head><body style="font-family:system-ui;max-width:32rem;margin:3rem auto;padding:0 1rem"><h1>${esc(title)}</h1><p><a href="${esc(target)}">Open your board</a></p></body></html>`;
   return new Response(html, { headers });
 }
+
+/** A nickname a player types when joining: HTML removed first, then 2 to 20 letters, digits or spaces. Blank means "none given" (ok, name ""). */
+export function cleanNickname(n: unknown): { ok: true; name: string } | { ok: false; error: string } {
+  if (n == null) return { ok: true, name: "" };
+  if (typeof n !== "string") return { ok: false, error: "Your nickname must be 2 to 20 letters, numbers or spaces." };
+  const plain = n.replace(/<[^>]*>/g, "").replace(/[<>]/g, "").replace(/\s+/g, " ").trim();
+  if (n.trim() === "") return { ok: true, name: "" };
+  if (plain.length < 2) return { ok: false, error: "Please type your name. A nickname needs at least 2 letters or numbers." };
+  if (plain.length > 20) return { ok: false, error: "Your nickname is too long. Use 20 letters or numbers at most." };
+  if (!/^[\p{L}\p{N} ]+$/u.test(plain)) return { ok: false, error: "Your nickname can only have letters, numbers and spaces." };
+  return { ok: true, name: plain };
+}

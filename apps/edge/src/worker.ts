@@ -39,7 +39,7 @@ import { turnRounds } from "../../../packages/beacon/src/schedule";
 import { DEFAULT_TURN_CAP } from "../../../packages/beacon/src/race";
 import { PARTNER_SCHEMA, partnerRoute } from "./partners";
 import { HELPDESK_SCHEMA, HELPER_MANUAL_NOTE, helpdeskCloseStatements, helpdeskRoute, helpdeskSweep, isDeskKeyId, isHelperKey, noteHelperGame } from "./helpdesk";
-import { normEmp, empHashOf, verifyOf, keptPhone, phoneDigits, cleanName as cleanPersonName, PEOPLE_SCHEMA, COHOST_FROM, HOST_FROM, ORG_FROM, COHOST_LIMIT_DEFAULT, COHOST_LIMIT_MIN, COHOST_LIMIT_MAX, WAITING_MAX, addWaiting, chainOf, cleanPhone, fromCodeOf, inviterOf, joinLinkPage, limitOfInviter, listCount, parseFrom, peopleRoute, personByPhone, personByToken, srcOf, waitingWho, type PersonRow } from "./people";
+import { normEmp, empHashOf, verifyOf, keptPhone, phoneDigits, cleanName as cleanPersonName, cleanNickname, PEOPLE_SCHEMA, COHOST_FROM, HOST_FROM, ORG_FROM, COHOST_LIMIT_DEFAULT, COHOST_LIMIT_MIN, COHOST_LIMIT_MAX, WAITING_MAX, addWaiting, chainOf, cleanPhone, fromCodeOf, inviterOf, joinLinkPage, limitOfInviter, listCount, parseFrom, peopleRoute, personByPhone, personByToken, srcOf, waitingWho, type PersonRow } from "./people";
 import { PAYLINK_SCHEMA, PAYLINK_TOKEN, createPayLink, packFor } from "./paylink";
 import { HOST_LINK_TTL_MS, HOST_SCHEMA, confirmHostEmail, emailHashOf, hostForEmail, hostKeyStatus, hostSetupRoute, hostStateRow, identityRow, maskEmail, maskMobile, mintDeviceKey, retireHost } from "./hostsetup";
 import { googleClientId, verifyGoogleCredential } from "./google";
@@ -1589,8 +1589,10 @@ async function route0(req: Request, env: Env, now: number, a: Auth): Promise<Res
     let nameOnly = false;
     let ph = idOnly ? await empHashOf(env, empNorm) : typedPh ?? tok?.ph ?? null;
     if (!ph && !tok && !typedGiven && !empNorm && !vf.employeesOnly && vf.mode === "mobile" && cfgOf(e).join !== "phone") { // joining with a name only (the default for the common link): the guest is known by their name, and their phone by its own random id
-      const typedName = cleanName(b?.name)?.replace(/\s+/g, " ").trim() ?? "";
-      if (typedName.length < 2) return json({ error: "Please type your name." }, 400);
+      const nk = cleanNickname(b?.name); // the nickname other players see: no HTML, 2 to 20 letters, numbers or spaces
+      if (!nk.ok) return json({ error: nk.error, code: "bad-nickname" }, 400);
+      if (nk.name.length < 2) return json({ error: "Please type your name." }, 400); // blank: as before
+      b.name = nk.name;
       if (!dev) return json({ error: "Please refresh this page and try again." }, 400);
       ph = await sha(`nm|${eid}|${dev}`); digits = ""; nameOnly = true;
     }
