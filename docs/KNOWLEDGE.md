@@ -5,6 +5,9 @@ Written 20 Nov 2026 for a future AI session that has never seen this repo (stand
 ## 0. Payment (1.5.6, 27 Nov 2026)
 Payment happens only in the console (home -> console -> Moneypenny -> IT Services -> Razorpay). This game exposes `POST /api/console/payable` and `POST /api/console/paid` (`apps/edge/src/console-pay.ts`, bridge in `console-bridge/`, dark until `CONSOLE_PUBKEYS`). The switch `PAY_VIA_CONSOLE` set to 1 turns the old pay routes into 410 and stops the credit and ledger C jobs; it is OFF by default and the old code stays for rollback. Not tested against the real console.
 
+## Site hidden switch (SITE_HIDDEN, 1.5.7, 27 Nov 2026)
+Decision of 27 Nov 2026: Tic-Tac-Toe, Snakes and Ladders and Luck by Chance are shown as 'coming soon' to the public while Tambola, Bingo and Lucky Draw stay. One Cloudflare Pages variable `SITE_HIDDEN` = `1` turns it on (unset or any other value = off, today's behaviour). Code: `apps/edge/src/site-hidden.ts`, hooked in `pages/functions/_middleware.ts`; test `apps/edge/test/site-hidden.test.ts`. It hides only the marketing pages, `/llms.txt` and `/sitemap.xml`; join links, the player page, host pages, sign-in, payments, legal pages and `/api` are never touched. Same name and same file in the other two hidden games.
+
 ## 1. What this is
 Snakes and ladders for company events; non-cash gifts only, players never pay.
 - Live site: https://snakes.corporatetambola.com (Cloudflare Pages project `corporate-snakes-and-ladders`). Live version now: **1.4.1** (`apps/web/public/release.json` at the live commit `042b4d666c68`, built 2026-11-05 17:13 UTC; the live `/version.json` has no version field yet). **This branch is version 1.5.4 (23 Nov 2026; 1.5.0 plus the audit fixes), not deployed.** The live line is the branch `rc/snakes-runner-2026-11-05`, NOT `master` (master is older: 1.3.0 plus docs). Always base work on the live line.

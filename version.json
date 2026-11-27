@@ -1,9 +1,10 @@
 {
   "product": "Corporate Snakes and Ladders",
-  "version": "1.5.6",
+  "version": "1.5.7",
   "commit": "set by the build",
   "builtAt": "set by the build",
   "changes": [
+    {"id": "2026-11-27-site-hidden-1-5-7", "what": "Public pages can be hidden with one switch. With SITE_HIDDEN set to 1 (a Cloudflare Pages variable, no rebuild) the landing page and the sales pages (/, /index, /about, /brochure, /pricing, /trust, /organizer-guide and the how-it-works pages) show a short 'This game is coming soon' page with a link to home.corporatetambola.com, send noindex (meta tag and X-Robots-Tag), and /llms.txt and /sitemap.xml answer 404; that page has no schema, no Open Graph and no agree buttons. Join links (/j/...), the player page, the host and organizer pages, sign-in, payment return, the legal pages, /api and the console links are NOT touched, so people who already have a link or a game still play. Switch off or unset: nothing changes. Nothing is deleted.", "where": "apps/edge/src/site-hidden.ts (new), pages/functions/_middleware.ts, pages/build.mjs; test apps/edge/test/site-hidden.test.ts", "pr": "https://github.com/FChecklist/corporate-snakes-and-ladders/pull/21"},
     {
       "id": "2026-11-27-pay-via-console-1-5-6",
       "what": "Payment only through the console: the console can ask what must be paid (POST /api/console/payable, signed, read-only) and send the signed paid notice (POST /api/console/paid, once per order id); both stay dark until the console's signing is switched on. With PAY_VIA_CONSOLE set to 1 the old pay pages go to the console and the old pay, pay-link, pay-with-credit, credit and proforma routes answer 410 (gone); no order is opened with Razorpay or the central service; the credit-expiry and ledger C jobs do not run; Razorpay's own notice and the status route stay open. Switch off (the default): nothing changes",

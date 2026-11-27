@@ -2,6 +2,16 @@
 
 Reconstructed on 20 Nov 2026 from git history, tags and the live `/version.json` (https://snakes.corporatetambola.com/version.json). Before this file there was no changelog and no version policy; entries below the live one are approximate (dates from tags and commits). Unknown values are written "unknown", not guessed. From now on follow the standard: marketing-ledger plans/VERSION-AND-KNOWLEDGE-STANDARD-2026-11-20.md section 2.2 (newest first; Added/Changed/Fixed; what, where, PR, two audit PASS ids, rollback id).
 
+## 1.5.7 - 2026-11-27 (not deployed)
+K3 (decision of 27 Nov 2026): hide the public pages of this game without deleting anything. Based on stacked on PR 20 (head 4703850). Nothing is deployed and the switch is OFF by default.
+### Added
+- `SITE_HIDDEN` switch (`apps/edge/src/site-hidden.ts`, called from `pages/functions/_middleware.ts`). Public pages can be hidden with one switch. With SITE_HIDDEN set to 1 (a Cloudflare Pages variable, no rebuild) the landing page and the sales pages (/, /index, /about, /brochure, /pricing, /trust, /organizer-guide and the how-it-works pages) show a short 'This game is coming soon' page with a link to home.corporatetambola.com, send noindex (meta tag and X-Robots-Tag), and /llms.txt and /sitemap.xml answer 404; that page has no schema, no Open Graph and no agree buttons. Join links (/j/...), the player page, the host and organizer pages, sign-in, payment return, the legal pages, /api and the console links are NOT touched, so people who already have a link or a game still play. Switch off or unset: nothing changes. Nothing is deleted.
+- Test `apps/edge/test/site-hidden.test.ts` (switch off = unchanged, switch on = coming soon, join/host/api untouched).
+### Changed
+- `pages/build.mjs`: `/llms.txt` and `/sitemap.xml` are now served through the function so the switch can answer them (off: they are served exactly as before).
+### Rollback
+- Unset `SITE_HIDDEN` in Cloudflare Pages (instant, no deploy), or redeploy the previous version (1.5.6).
+
 ## 1.5.6 (27 Nov 2026): payment only through the console (PAY_VIA_CONSOLE, off by default)
 
 Owner order 27 Nov 2026. Stacked on `local/pt23-2026-11-25` (1.5.5). New: `POST /api/console/payable` (signed, read-only: is this the organizer's own game, its pack size as a string, already paid) and `POST /api/console/paid` (signed notice, once per order id, unlocks the game's start), through the bridge copied from the console repo (`console-bridge/`, byte for byte); dark until `CONSOLE_PUBKEYS` is set (and 503 without `PUBLIC_ORIGIN`). With `PAY_VIA_CONSOLE` set to 1: pay pages go to the console (302); `/api/checkout`, `/api/proforma`, `/api/payments/test|paytest|verify`, `/api/paylink/*`, `/api/org/credit`, `/api/z/<id>/paylink|credit|apply-credit|pay-with-credit` answer 410 with the console's address; `placeOrder` opens no order; credit-expiry and ledger C jobs are skipped; `/api/payments/webhook` and `/api/payments/status` stay open. Off: unchanged. Tests: `pay-via-console.test.ts` (10), `bridge-copy.test.ts`. Not run against the real console or Moneypenny.
