@@ -1,5 +1,15 @@
 [
   {
+    "version": "1.5.6",
+    "date": "2026-11-27",
+    "commit": "",
+    "title": "Payment only through the console (switch off by default)",
+    "changes": [
+      "The console can now ask this game what must be paid and send the signed paid notice; both stay dark until the console's keys are set",
+      "With the switch PAY_VIA_CONSOLE set to 1: the old pay pages go to the console, the old pay, pay-link, credit and proforma routes answer 410, no order is opened with Razorpay or the central service, and the credit-expiry and commission-ledger jobs do not run. Razorpay's own notice is still taken. Switch off: nothing changes"
+    ]
+  },
+  {
     "version": "1.5.5",
     "date": "2026-11-25",
     "commit": "",

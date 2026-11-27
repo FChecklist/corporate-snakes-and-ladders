@@ -45,6 +45,9 @@ Where things are set:
 | `FREE_LAUNCH` | "1" lets small games be made without payment | Optional Pages variable | setting |
 | `OWNER_RULES` | Set to the version 1.1 to apply the owner rules of 20 Nov 2026 to every game made from now on: invite by employee ID only, every throw by itself, no payment taken by this site (only the console's signed notice marks a game paid). Not set means the older rules | wrangler var | setting |
 | `CONSOLE_PAID_SECRET` | Signs the console's "paid" notice (`POST /api/console/paid`, HMAC-SHA-256 of `timestamp.body`); with no value that address answers 404 and no game can be marked paid that way | Pages secret | secret |
+| `PAY_VIA_CONSOLE` | Set to 1, the old pay pages go to the console and the old pay, pay-link, credit and proforma routes answer 410 (nothing is deleted; no order is opened with Razorpay or the central service). Unset: the old path, kept for rollback. Off until the owner says go | Optional Pages variable | setting |
+| `CONSOLE_PUBKEYS` | The console's public keys that check its signed notices (`POST /api/console/payable`, `POST /api/console/paid`); with no value those addresses do not exist (the notice then falls back to the older signed notice above) | wrangler var | setting |
+| `CONSOLE_ORIGIN` | The console's address, shown to people who open an old pay link (default: the console's own address) | Optional Pages variable | setting |
 | `PARTNER_COMMISSION_RATE` | Partner commission rate | Optional Pages variable | setting |
 | `DAILY_WRITE_BUDGET` | Most database writes the Worker allows itself per day | wrangler var | setting |
 | `REPLAY_SEATS_PER_CALL` | Optional: how many seats the server plays in one call when it works out the whole game for the climb, comeback, never-missed and team prizes (1 to 500, default 100; a name and a number, never a secret) | Optional Pages variable | setting |
