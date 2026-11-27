@@ -47,5 +47,5 @@ writeFileSync(join(OUT, "_headers"), rules);
 writeFileSync(join(OUT, "version.json"), JSON.stringify(STAMP) + "\n"); // what is live (P12): served at /version.json
 // The functions also run for the page addresses (and only those, never for images, scripts or styles), so the old pages.dev address can answer 301 (functions/_middleware.ts).
 const PAGE_PATHS = FILES.filter((f) => f.endsWith(".html")).flatMap((f) => { const n = f.slice(0, -5); return n === "index" ? ["/", "/index", "/index.html"] : ["/" + n + ".html", "/" + n]; });
-writeFileSync(join(OUT, "_routes.json"), JSON.stringify({ version: 1, include: ["/api/*", "/ai/*", "/j/*", ...PAGE_PATHS], exclude: [] }));
+writeFileSync(join(OUT, "_routes.json"), JSON.stringify({ version: 1, include: ["/api/*", "/ai/*", "/j/*", "/llms.txt", "/sitemap.xml", ...PAGE_PATHS], exclude: [] }));
 console.log("pages/public ready");
