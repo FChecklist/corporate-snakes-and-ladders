@@ -2,6 +2,10 @@
 
 Reconstructed on 20 Nov 2026 from git history, tags and the live `/version.json` (https://snakes.corporatetambola.com/version.json). Before this file there was no changelog and no version policy; entries below the live one are approximate (dates from tags and commits). Unknown values are written "unknown", not guessed. From now on follow the standard: marketing-ledger plans/VERSION-AND-KNOWLEDGE-STANDARD-2026-11-20.md section 2.2 (newest first; Added/Changed/Fixed; what, where, PR, two audit PASS ids, rollback id).
 
+## 1.5.6 (27 Nov 2026): payment only through the console (PAY_VIA_CONSOLE, off by default)
+
+Owner order 27 Nov 2026. Stacked on `local/pt23-2026-11-25` (1.5.5). New: `POST /api/console/payable` (signed, read-only: is this the organizer's own game, its pack size as a string, already paid) and `POST /api/console/paid` (signed notice, once per order id, unlocks the game's start), through the bridge copied from the console repo (`console-bridge/`, byte for byte); dark until `CONSOLE_PUBKEYS` is set (and 503 without `PUBLIC_ORIGIN`). With `PAY_VIA_CONSOLE` set to 1: pay pages go to the console (302); `/api/checkout`, `/api/proforma`, `/api/payments/test|paytest|verify`, `/api/paylink/*`, `/api/org/credit`, `/api/z/<id>/paylink|credit|apply-credit|pay-with-credit` answer 410 with the console's address; `placeOrder` opens no order; credit-expiry and ledger C jobs are skipped; `/api/payments/webhook` and `/api/payments/status` stay open. Off: unchanged. Tests: `pay-via-console.test.ts` (10), `bridge-copy.test.ts`. Not run against the real console or Moneypenny.
+
 ## 1.5.5 (25 Nov 2026): fix after the second audit of 1.5.4 (angle 2, Medium M1)
 
 Same branch line `p1/owner-rules-v1-1` (this PR is based on it).

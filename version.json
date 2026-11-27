@@ -1,9 +1,15 @@
 {
   "product": "Corporate Snakes and Ladders",
-  "version": "1.5.5",
+  "version": "1.5.6",
   "commit": "set by the build",
   "builtAt": "set by the build",
   "changes": [
+    {
+      "id": "2026-11-27-pay-via-console-1-5-6",
+      "what": "Payment only through the console: the console can ask what must be paid (POST /api/console/payable, signed, read-only) and send the signed paid notice (POST /api/console/paid, once per order id); both stay dark until the console's signing is switched on. With PAY_VIA_CONSOLE set to 1 the old pay pages go to the console and the old pay, pay-link, pay-with-credit, credit and proforma routes answer 410 (gone); no order is opened with Razorpay or the central service; the credit-expiry and ledger C jobs do not run; Razorpay's own notice and the status route stay open. Switch off (the default): nothing changes",
+      "where": "apps/edge/src/console-pay.ts (new), console-bridge/ (copied from the console repo), pay.ts, worker.ts, lifecycle.ts; pages/functions/_middleware.ts; tests pay-via-console, bridge-copy, console-contract",
+      "pr": "this PR"
+    },
     {
       "id": "2026-11-25-audit-fix-1-5-5",
       "what": "The prizes for biggest climb, biggest comeback, never missed a turn and the winning team can no longer be picked by a few phones: the server now plays every seat of the game itself from the public numbers and accepts only the answer it works out; older games that cannot be replayed hand these four prizes out from the console; the privacy line now says a winner's name, mobile number and employee ID are kept for 365 days so the prize can be handed over; the wording that a winner can never be changed was put right (a correction is possible only from the console and is kept with who made it and when); order checks are no longer skipped for the second and later winners of a line",

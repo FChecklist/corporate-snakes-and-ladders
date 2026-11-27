@@ -2,6 +2,9 @@
 
 Written 20 Nov 2026 for a future AI session that has never seen this repo (standard: marketing-ledger plans/VERSION-AND-KNOWLEDGE-STANDARD-2026-11-20.md). It describes the CURRENT state only, from the code and existing docs. Anything not found is marked "unknown". Do not publish this file on the website.
 
+## 0. Payment (1.5.6, 27 Nov 2026)
+Payment happens only in the console (home -> console -> Moneypenny -> IT Services -> Razorpay). This game exposes `POST /api/console/payable` and `POST /api/console/paid` (`apps/edge/src/console-pay.ts`, bridge in `console-bridge/`, dark until `CONSOLE_PUBKEYS`). The switch `PAY_VIA_CONSOLE` set to 1 turns the old pay routes into 410 and stops the credit and ledger C jobs; it is OFF by default and the old code stays for rollback. Not tested against the real console.
+
 ## 1. What this is
 Snakes and ladders for company events; non-cash gifts only, players never pay.
 - Live site: https://snakes.corporatetambola.com (Cloudflare Pages project `corporate-snakes-and-ladders`). Live version now: **1.4.1** (`apps/web/public/release.json` at the live commit `042b4d666c68`, built 2026-11-05 17:13 UTC; the live `/version.json` has no version field yet). **This branch is version 1.5.4 (23 Nov 2026; 1.5.0 plus the audit fixes), not deployed.** The live line is the branch `rc/snakes-runner-2026-11-05`, NOT `master` (master is older: 1.3.0 plus docs). Always base work on the live line.
