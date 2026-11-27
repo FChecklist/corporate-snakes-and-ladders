@@ -71,6 +71,58 @@ describe("payable: what must be paid, asked before any money is taken", () => {
   });
 });
 
+describe("paid: the game decides from its own tables", () => {
+  const paid = async (email: string, eid: string, item: string, orderRef: string) => callRaw("POST", "/api/console/paid", { assertion: await notice(email, eid, { act: "paid" }), eid, item, orderRef }, {}, T);
+  const state = (eid: string) => ({ pack: one("SELECT pack FROM engagement WHERE id=?", eid).pack, ent: q("SELECT id FROM entitlement WHERE eid=?", eid).length });
+  test("(1) the owner with the right size: 200, the pack is set, one entitlement", async () => {
+    const g = await game(20);
+    expect(state(g.id)).toEqual({ pack: 0, ent: 0 });
+    expect((await paid(g.email, g.id, "100", "GAME-snakesladders-c1")).status).toBe(200);
+    expect(state(g.id)).toEqual({ pack: 100, ent: 1 });
+  });
+  test("(2) a stranger's signed notice is refused: pack stays 0, no entitlement row", async () => {
+    const g = await game(20), s = await organizer(`stranger${++n}@evil.com`);
+    const r = await paid(s.email, g.id, "100", "GAME-snakesladders-c2");
+    expect(r.status).not.toBe(200); expect((await j(r)).error).toBe("game_refused");
+    expect(state(g.id)).toEqual({ pack: 0, ent: 0 });
+  });
+  test("(3) the wrong size is refused: pack stays 0, no entitlement row", async () => {
+    const g = await game(20);
+    expect((await j(await paid(g.email, g.id, "250", "GAME-snakesladders-c3"))).error).toBe("game_refused");
+    expect(state(g.id)).toEqual({ pack: 0, ent: 0 });
+  });
+  test("(4) a cancelled game is refused: pack stays 0, no entitlement row", async () => {
+    const g = await game(20); W.raw.prepare("UPDATE engagement SET cancelled_ms=1 WHERE id=?").run(g.id);
+    expect((await j(await paid(g.email, g.id, "100", "GAME-snakesladders-c4"))).error).toBe("game_refused");
+    expect(state(g.id)).toEqual({ pack: 0, ent: 0 });
+  });
+  test("(5) a paid game and a second, different order: refused as already paid, still one entitlement", async () => {
+    const g = await game(20);
+    expect((await paid(g.email, g.id, "100", "GAME-snakesladders-c5a")).status).toBe(200);
+    const r = await paid(g.email, g.id, "100", "GAME-snakesladders-c5b");
+    expect((await j(r)).error).toBe("game_refused");
+    expect(state(g.id)).toEqual({ pack: 100, ent: 1 });
+  });
+  test("(6) the same order twice: the second is a repeat, no second entitlement", async () => {
+    const g = await game(20);
+    expect((await paid(g.email, g.id, "100", "GAME-snakesladders-c6")).status).toBe(200);
+    expect(await j(await paid(g.email, g.id, "100", "GAME-snakesladders-c6"))).toMatchObject({ ok: true, repeat: true });
+    expect(state(g.id)).toEqual({ pack: 100, ent: 1 });
+  });
+  test("(7) a failure after the entitlement insert leaves the job half done; the retry finishes it", async () => {
+    const g = await game(20);
+    W.raw.exec("CREATE TRIGGER pvc_boom BEFORE UPDATE OF pack ON engagement BEGIN SELECT RAISE(ABORT, 'boom'); END");
+    const bad = await paid(g.email, g.id, "100", "GAME-snakesladders-c7");
+    expect(bad.status).not.toBe(200);
+    expect(state(g.id)).toEqual({ pack: 0, ent: 1 }); // the entitlement is there, the pack is not
+    W.raw.exec("DROP TRIGGER pvc_boom");
+    // the bridge keeps a 30 s lease on an order that is being marked: the retry comes 31 s later (inside the notice's 60 s life)
+    const retry = await callRaw("POST", "/api/console/paid", { assertion: await notice(g.email, g.id, { act: "paid" }), eid: g.id, item: "100", orderRef: "GAME-snakesladders-c7" }, {}, T + 31_000);
+    expect(retry.status).toBe(200);
+    expect(state(g.id)).toEqual({ pack: 100, ent: 1 });
+  });
+});
+
 describe("with PAY_VIA_CONSOLE=1 the game takes no payment itself", () => {
   test("every old pay, pay-link, credit and proforma route answers 410 with the console's address; Razorpay's own notice is not shut", async () => {
     const o = await organizer(`gate${++n}@acme.com`);

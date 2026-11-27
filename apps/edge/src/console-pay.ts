@@ -112,11 +112,11 @@ export async function consolePaidRoute(req: Request, env: ConsoleEnv, now: numbe
 }
 
 /** The old pay routes of THIS game, besides the ones the bridge already knows (its LEGACY_PAY_ROUTES). Razorpay's webhook is NOT here on purpose. */
-export const BINGO_PAY_ROUTES: RegExp[] = [/^\/api\/(checkout|proforma)$/, /^\/api\/payments\/(test|paytest|verify)(\/|$)/, /^\/api\/paylink\//, /^\/api\/z\/[^/]+\/(paylink|credit|apply-credit|pay-with-credit)(\/|$)/, /^\/api\/org\/credit(\/|$)/];
+export const SNAKES_PAY_ROUTES: RegExp[] = [/^\/api\/(checkout|proforma)$/, /^\/api\/payments\/(test|paytest|verify)(\/|$)/, /^\/api\/paylink\//, /^\/api\/z\/[^/]+\/(paylink|credit|apply-credit|pay-with-credit)(\/|$)/, /^\/api\/org\/credit(\/|$)/];
 
 /** With PAY_VIA_CONSOLE=1 a request for an old pay page or route is turned away. A page gets the bridge's redirect to the console; a program gets a short refusal it can show. Null = not a pay route (or the flag is off). */
 export function legacyPayGate(req: Request, env: ConsoleEnv): Response | null {
-  const r = legacyPayRedirect(req, { flag: env.PAY_VIA_CONSOLE, consoleOrigin: consoleOrigin(env), extra: BINGO_PAY_ROUTES });
+  const r = legacyPayRedirect(req, { flag: env.PAY_VIA_CONSOLE, consoleOrigin: consoleOrigin(env), extra: SNAKES_PAY_ROUTES });
   if (!r) return null;
   const u = new URL(req.url), e = u.searchParams.get("e") || (u.pathname.match(/^\/api\/z\/([^/]+)\//) || [])[1] || "";
   const to = consoleOrigin(env) + "/" + (/^[A-Za-z0-9_-]{1,64}$/.test(e) ? "?game=snakesladders&eid=" + encodeURIComponent(e) : ""); // a page sends the person to THEIR game's payment in the console, not to the console's front door
