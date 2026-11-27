@@ -23,14 +23,14 @@ const rowsOf = (sql: string, ...v: unknown[]) => raw.prepare(sql).all(...(v as a
 async function setup(opts: { closed?: boolean; verify?: "mobile" | "id" | "both" | "either"; employeesOnly?: boolean } = {}) {
   const st = await j(await handle(new Request("http://x/api/start", { method: "POST", headers: { "content-type": "application/json", "cf-connecting-ip": `7.7.7.${++ipN}` }, body: JSON.stringify({ email: `o${ipN}@acme.com` }) }), env as Env, T));
   const master = st.token as string;
-  await call("POST", "/api/z", { id: "PPL-1", startRound: START, callSeconds: 20, cap: 100, ...(opts.closed ? { whoCanJoin: "list" } : {}) }, master);
+  await call("POST", "/api/z", { id: "PPL-1", startRound: START, callSeconds: 10, cap: 100, ...(opts.closed ? { whoCanJoin: "list" } : {}) }, master);
   await call("POST", "/api/z/PPL-1/publish", { email: "boss@acme.com", phone: "98765 43210" }, master);
   const body = { ...(opts.verify ? { verify: opts.verify } : {}), ...(opts.employeesOnly !== undefined ? { employeesOnly: opts.employeesOnly } : {}) };
   if (Object.keys(body).length) expect((await call("PATCH", "/api/z/PPL-1/settings", body, master)).status).toBe(200);
   return { master };
 }
 const add = (key: string, people: unknown[]) => call("POST", "/api/z/PPL-1/people", { people }, key);
-beforeEach(() => { const d = makeD1(); raw = d.raw; env = { DB: d.db, ORGANIZER_SECRET: "plat", DAILY_WRITE_BUDGET: "1000000", PUBLIC_ORIGIN: "https://snakesladders.test", PHONE_SALT: "salt" } as any; (globalThis as any).fetch = async () => new Response("{}", { status: 404 }); });
+beforeEach(() => { const d = makeD1(); raw = d.raw; env = { DB: d.db, ORGANIZER_SECRET: "plat", RUNNER_KEY: "test-runner-key-test-runner-key-test0000", DAILY_WRITE_BUDGET: "1000000", PUBLIC_ORIGIN: "https://snakesladders.test", PHONE_SALT: "salt" } as any; (globalThis as any).fetch = async () => new Response("{}", { status: 404 }); });
 afterEach(() => { globalThis.fetch = realFetch; });
 const card = async (r: Response) => { expect(r.status).toBe(200); const b = await j(r); expect(b.pid).toBeTruthy(); return b; };
 const waits = async (r: Response) => { expect(r.status).toBe(403); expect((await j(r)).code).toBe("waiting"); };

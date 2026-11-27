@@ -20,11 +20,11 @@ const j = async (r: Response) => (await r.json()) as any;
 async function setup() {
   const st = await j(await handle(new Request("http://x/api/start", { method: "POST", headers: { "content-type": "application/json", "cf-connecting-ip": `8.8.8.${++ipN}` }, body: JSON.stringify({ email: `o${ipN}@acme.com` }) }), env as Env, T));
   const master = st.token as string;
-  await call("POST", "/api/z", { id: "CSV-1", startRound: START, callSeconds: 20, cap: 100, whoCanJoin: "list" }, master);
+  await call("POST", "/api/z", { id: "CSV-1", startRound: START, callSeconds: 10, cap: 100, whoCanJoin: "list" }, master);
   await call("POST", "/api/z/CSV-1/publish", { email: "boss@acme.com", phone: "98765 43210" }, master);
   return master;
 }
-beforeEach(() => { const d = makeD1(); env = { DB: d.db, ORGANIZER_SECRET: "plat", DAILY_WRITE_BUDGET: "1000000", PUBLIC_ORIGIN: "https://snakesladders.test", PHONE_SALT: "salt" } as any; (globalThis as any).fetch = async () => new Response("{}"); });
+beforeEach(() => { const d = makeD1(); env = { DB: d.db, ORGANIZER_SECRET: "plat", RUNNER_KEY: "test-runner-key-test-runner-key-test0000", DAILY_WRITE_BUDGET: "1000000", PUBLIC_ORIGIN: "https://snakesladders.test", PHONE_SALT: "salt" } as any; (globalThis as any).fetch = async () => new Response("{}"); });
 afterEach(() => { globalThis.fetch = realFetch; });
 
 describe("people CSV", () => {

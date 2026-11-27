@@ -22,12 +22,12 @@ beforeEach(() => {
   // a stand-in for Razorpay's REST API
   (globalThis as any).fetch = async (url: string, init?: any) => {
     const u = String(url);
-    if (u.startsWith("https://rzp.test/v1/orders")) { const b = JSON.parse(init.body); const o = { id: "order_" + (rz.orders.length + 1), amount: b.amount, currency: b.currency, receipt: b.receipt, status: "created" }; rz.orders.push(o); return new Response(JSON.stringify(o), { status: 200 }); }
+    if (u.startsWith("https://rzp.test/v1/orders")) { const b = JSON.parse(init.body); const o = { id: "order_" + (rz.orders.length + 1), amount: b.amount, currency: b.currency, receipt: b.receipt, notes: b.notes, status: "created" }; rz.orders.push(o); return new Response(JSON.stringify(o), { status: 200 }); }
     const pm = u.match(/\/payments\/([^/]+)(\/capture)?$/);
     if (pm) { const p = rz.payments[pm[1]!]; if (!p) return new Response(JSON.stringify({ error: { description: "no such payment" } }), { status: 404 }); if (pm[2]) { rz.captured.push(pm[1]!); p.status = "captured"; } return new Response(JSON.stringify(p), { status: 200 }); }
     return new Response("{}", { status: 404 });
   };
-  env = { DB: d.db, ORGANIZER_SECRET: "plat", DAILY_WRITE_BUDGET: "100000", RAZORPAY_KEY_ID: "rzp_test_x", RAZORPAY_KEY_SECRET: "sek", RAZORPAY_WEBHOOK_SECRET: "whsec", RAZORPAY_BASE_URL: "https://rzp.test/v1", PUBLIC_ORIGIN: "https://bingo.test" };
+  env = { DB: d.db, ORGANIZER_SECRET: "plat", RUNNER_KEY: "test-runner-key-test-runner-key-test0000", DAILY_WRITE_BUDGET: "100000", RAZORPAY_KEY_ID: "rzp_test_x", RAZORPAY_KEY_SECRET: "sek", RAZORPAY_WEBHOOK_SECRET: "whsec", RAZORPAY_BASE_URL: "https://rzp.test/v1", PUBLIC_ORIGIN: "https://bingo.test" };
 });
 afterEach(() => { globalThis.fetch = realFetch; });
 
@@ -186,8 +186,8 @@ describe("what a purchase lets you do", () => {
   test("no purchase, no engagement; one purchase, one engagement of up to the pack; a second needs a second purchase", async () => {
     const first = await purchase();
     const K = { "x-organizer": first.organizerKey };
-    const mk = (id: string, cap: number) => call("POST", "/api/z", { id, startRound: FUT, callSeconds: 20, cap }, K);
-    expect((await call("POST", "/api/z", { id: "NOPE1", startRound: FUT, callSeconds: 20, cap: 10 }, { "x-organizer": "cbk_none" })).status).toBe(403);
+    const mk = (id: string, cap: number) => call("POST", "/api/z", { id, startRound: FUT, callSeconds: 10, cap }, K);
+    expect((await call("POST", "/api/z", { id: "NOPE1", startRound: FUT, callSeconds: 10, cap: 10 }, { "x-organizer": "cbk_none" })).status).toBe(403);
     expect((await mk("TOOBIG", 501)).status).toBe(200); // pack is 500: it can be built, as a draft, but not published with this pack
     expect(((await (await call("POST", "/api/z/TOOBIG/publish", { email: "b@acme.com", phone: "9876543210" }, K)).json()) as any).paid).toBe(false); // published, but not covered by this pack: it must still be paid for
     expect((await mk("FIRST1", 400)).status).toBe(200);
@@ -200,7 +200,7 @@ describe("what a purchase lets you do", () => {
   });
   test("the limit can be raised only up to what was paid for", async () => {
     const first = await purchase(); const K = { "x-organizer": first.organizerKey };
-    await call("POST", "/api/z", { id: "LIM1", startRound: FUT, callSeconds: 20, cap: 100 }, K);
+    await call("POST", "/api/z", { id: "LIM1", startRound: FUT, callSeconds: 10, cap: 100 }, K);
     expect((await call("PATCH", "/api/z/LIM1/settings", { cap: 500 }, K)).status).toBe(200);
     const r = await call("PATCH", "/api/z/LIM1/settings", { cap: 501 }, K);
     expect(r.status).toBe(402);
@@ -214,16 +214,16 @@ describe("what a purchase lets you do", () => {
     expect(raw.query("SELECT COUNT(*) c FROM organizer_key WHERE kind='master'").get()).toEqual({ c: 1 });
     expect(raw.query("SELECT COUNT(*) c FROM entitlement").get()).toEqual({ c: 2 });
     const K = { "x-organizer": first.organizerKey };
-    expect((await call("POST", "/api/z", { id: "BIGONE", startRound: FUT, callSeconds: 20, cap: 900 }, K)).status).toBe(200); // picks the 1000 pack
+    expect((await call("POST", "/api/z", { id: "BIGONE", startRound: FUT, callSeconds: 10, cap: 900 }, K)).status).toBe(200); // picks the 1000 pack
   });
   test("another e-mail is another organizer with their own key and nothing shared", async () => {
     const a = await purchase(); const b = await purchase({ email: "other@corp.com" });
     expect(b.organizerKey).not.toBe(a.organizerKey);
-    await call("POST", "/api/z", { id: "AAA11", startRound: FUT, callSeconds: 20, cap: 10 }, { "x-organizer": a.organizerKey });
+    await call("POST", "/api/z", { id: "AAA11", startRound: FUT, callSeconds: 10, cap: 10 }, { "x-organizer": a.organizerKey });
     expect((await call("GET", "/api/z/AAA11/participants", undefined, { "x-organizer": b.organizerKey })).status).toBe(403);
   });
   test("the platform can still create engagements with no purchase", async () => {
-    expect((await call("POST", "/api/z", { id: "FREE1", startRound: FUT, callSeconds: 20, cap: 99 }, { "x-organizer": "plat" })).status).toBe(200);
+    expect((await call("POST", "/api/z", { id: "FREE1", startRound: FUT, callSeconds: 10, cap: 99 }, { "x-organizer": "plat" })).status).toBe(200);
   });
 });
 
@@ -399,7 +399,7 @@ describe("paying to publish a draft", () => {
   const pay = (key: string, eid: string, extra: Record<string, unknown> = {}) => call("POST", "/api/checkout", { eid, org: "Acme Ltd", email: "boss@acme.com", country: "IN", taxId: "", currency: "INR", ...extra }, { "x-organizer": key });
   test("the payment is bound to the signed-in organizer and publishes their draft", async () => {
     const key = await start("boss@acme.com", "1.1.1.1");
-    await call("POST", "/api/z", { id: "PAYD-1", startRound: FAR_START, callSeconds: 20, cap: 300 }, { "x-organizer": key });
+    await call("POST", "/api/z", { id: "PAYD-1", startRound: FAR_START, callSeconds: 10, cap: 300 }, { "x-organizer": key });
     expect((await call("POST", "/api/z/PAYD-1/join", { phone: "9876543210" })).status).toBe(403); // a draft: closed to participants
     const c = await (await pay(key, "PAYD-1", { pack: 100000 })).json() as any; // the client's pack is ignored: the draft decides
     expect(c.mode).toBe("razorpay"); expect(rz.orders[0].amount).toBe(1 * rz.orders[0].amount); expect(c.razorpay.notes.participants).toBe("500"); expect(c.razorpay.description).toBe("(close group snakes and ladders software) | owned and made by IT Services by Rajat Agarwal");
@@ -411,7 +411,7 @@ describe("paying to publish a draft", () => {
   });
   test("nobody can pay for, or publish, someone else's draft; a published one is not paid for twice", async () => {
     const a = await start("a@acme.com", "1.1.1.1"), b = await start("b@other.com", "2.2.2.2");
-    await call("POST", "/api/z", { id: "PAYD-2", startRound: FAR_START, callSeconds: 20, cap: 100 }, { "x-organizer": a });
+    await call("POST", "/api/z", { id: "PAYD-2", startRound: FAR_START, callSeconds: 10, cap: 100 }, { "x-organizer": a });
     expect((await pay(b, "PAYD-2")).status).toBe(404);
     expect((await pay("cbk_bogus", "PAYD-2")).status).toBe(403);
     const c = await (await pay(a, "PAYD-2")).json() as any; await complete(c.paymentId, c.razorpay.orderId, "pay_2");
@@ -419,8 +419,8 @@ describe("paying to publish a draft", () => {
   });
   test("a draft that is too big for any pack needs a custom arrangement", async () => {
     const key = await start("big@acme.com", "3.3.3.3");
-    await call("POST", "/api/z", { id: "PAYD-3", startRound: FAR_START, callSeconds: 20, cap: 100000 }, { "x-organizer": key });
-    expect((await pay(key, "PAYD-3")).status).toBe(400);
+    await call("POST", "/api/z", { id: "PAYD-3", startRound: FAR_START, callSeconds: 10, cap: 100000 }, { "x-organizer": key });
+    expect((await pay(key, "PAYD-3")).status).toBeGreaterThanOrEqual(400); // refused already at creation (2,000 people at most)
   });
 });
 
@@ -436,7 +436,7 @@ describe("invoice carries Razorpay's own record (owner list 2026-10-10)", () => 
     const v = await call("POST", "/api/payments/verify", { paymentId: r.paymentId, razorpay_order_id: r.razorpay.orderId, razorpay_payment_id: "pay_U1", razorpay_signature: hmac("sek", `${r.razorpay.orderId}|pay_U1`) });
     const j = (await v.json()) as any; expect(j.ok).toBe(true);
     const html = await (await call("GET", j.invoiceUrl)).text();
-    for (const x of ["Paid on (IST)", "15:30:00 IST", "Razorpay: UPI", "UPI ID as", "@okicici", "111122223333", "pay_U1", r.razorpay.orderId, "Asha Rao", "+919876543210", "Terms and conditions", "We keep billing data for audit and tax reasons."]) expect(html).toContain(x);
+    for (const x of ["Paid on (IST)", "15:30:00 IST", "Razorpay: UPI", "UPI ID as", "@okicici", "111122223333", "pay_U1", r.razorpay.orderId, "Asha Rao", "+919876543210", "Terms and conditions", "Billing data is kept for audit and tax reasons."]) expect(html).toContain(x);
     expect(html).not.toContain("asha.rao@okicici");
   });
 });
@@ -455,6 +455,13 @@ describe("Payment Testing page (Rs 1 / US$ 1, buys nothing)", () => {
     expect((await start({ country: "US" })).status).toBe(400);
     env.RAZORPAY_INTERNATIONAL = "1";
     const r = (await (await start({ country: "US" })).json()) as any; expect(r.razorpay.currency).toBe("USD"); expect(r.razorpay.amount).toBe(100);
+  });
+  test("an optional test reference (free text, never looked up) travels in the order notes and is printed on the receipt as the Game ID of a payment test", async () => {
+    const r = (await (await start({ gameId: "  MY-TEST 01<b>  " })).json()) as any;
+    expect(rz.orders[0].notes.test_ref).toBe("MY-TEST 01b"); // cleaned: letters, digits, space, dash, underscore, dot only
+    const v = (await (await payIt(r)).json()) as any; expect(v.ok).toBe(true);
+    const html = await (await call("GET", v.invoiceUrl)).text(); expect(html).toContain("Game ID"); expect(html).toContain("MY-TEST 01b"); expect(html).toContain("payment test");
+    const none = (await (await start()).json()) as any; expect(none.razorpay.amount).toBe(100); expect(rz.orders[1].notes.test_ref).toBeUndefined(); // empty: as before
   });
   test("a paid test gives a PAYTEST receipt and buys nothing: no entitlement, no credit, no real invoice number used", async () => {
     const r = (await (await start()).json()) as any; const v = (await (await payIt(r)).json()) as any;

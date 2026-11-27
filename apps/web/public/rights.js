@@ -67,7 +67,7 @@
 
   function leaveDialog() {
     const who = WHO(); if (!who) return;
-    const d = open('<h2 id="rt-title">Leave this game?</h2><p>Your name and your place are deleted from our system now. You cannot undo this.</p><p class="rt-err" id="rt-err" role="alert"></p>' +
+    const d = open('<h2 id="rt-title">Leave this game?</h2><p>Your name and your place are deleted from the system now. You cannot undo this.</p><p class="rt-err" id="rt-err" role="alert"></p>' +
       '<div class="rt-row"><button class="rt-b bad" id="rt-yes" type="button">Yes, leave the game</button><button class="rt-b alt" id="rt-no" type="button" autofocus>No, stay</button></div>');
     d.querySelector("#rt-no").onclick = close;
     d.querySelector("#rt-yes").onclick = async () => {
@@ -84,14 +84,14 @@
     let promise = "within 7 days", mine = [];
     try { const s = await post(who.eid, "datareq", { pid: who.pid, device: who.device, kind: "status" }); promise = s.promise || promise; mine = s.requests || []; } catch (e) { /* the form still opens */ }
     const prev = mine.length ? "<p>Your earlier requests: " + mine.map((m) => esc(m.kind) + " (" + (m.status === "done" ? "done" : "answer by " + day(m.answerByMs)) + ")").join(", ") + ".</p>" : "";
-    const d = open('<h2 id="rt-title">What do we hold about you?</h2><p>The organizer of this game holds your name for the game. Ask us to show it, to correct it, or to delete it. You get your answer <b>' + esc(promise) + '</b>.</p>' + prev +
+    const d = open('<h2 id="rt-title">What is held about you?</h2><p>The organizer of this game holds your name for the game. Ask IT Services to show it, to correct it, or to delete it. You get your answer <b>' + esc(promise) + '</b>.</p>' + prev +
       '<form id="rt-form"><fieldset><legend>What do you want?</legend>' +
       '<label><input type="radio" name="rt-kind" value="access" checked> Show me what you hold about me</label>' +
       '<label><input type="radio" name="rt-kind" value="correction"> Correct my details</label>' +
       '<label><input type="radio" name="rt-kind" value="erasure"> Delete me from this game now</label>' +
       '<label><input type="radio" name="rt-kind" value="nomination"> Name another person who can use these rights for me</label></fieldset>' +
       '<div id="rt-notebox" hidden><label for="rt-note" id="rt-notelabel" style="display:block;padding:0">What should be corrected?</label><textarea id="rt-note" maxlength="300"></textarea></div>' +
-      '<p id="rt-nom" hidden>To name the person, write to <a href="mailto:hello@corporatetambola.com?subject=%5BSnakes%20%26%20Ladders%5D%20">hello@corporatetambola.com</a> with their name and how to reach them. Press Send so that we and the organizer know you did.</p>' +
+      '<p id="rt-nom" hidden>To name the person, write to <a href="mailto:hello@corporatetambola.com?subject=%5BSnakes%20%26%20Ladders%5D%20">hello@corporatetambola.com</a> with their name and how to reach them. Press Send so that IT Services and the organizer know you did.</p>' +
       '<p id="rt-warn" hidden><b>Deleting removes your name and your place now. You cannot undo this.</b></p>' +
       '<p class="rt-err" id="rt-err" role="alert"></p><div class="rt-row"><button class="rt-b" id="rt-send" type="submit">Send</button><button class="rt-b alt" id="rt-cancel" type="button">Close</button></div></form><div id="rt-result" aria-live="polite"></div>');
     const form = d.querySelector("#rt-form"); let chosen = "access"; const kindOf = () => chosen;
@@ -105,7 +105,7 @@
         const r = await post(who.eid, "datareq", { pid: who.pid, device: who.device, kind, note: d.querySelector("#rt-note").value });
         if (r.erased) { forgetThisPhone(who); finished(r.message); return; }
         form.hidden = true;
-        d.querySelector("#rt-result").innerHTML = "<p><b>" + esc(r.message) + "</b></p>" + (r.held ? "<p>This is what we hold about you now:</p>" + heldHtml(r.held) : "") + '<div class="rt-row"><button class="rt-b" id="rt-ok" type="button">Close</button></div>';
+        d.querySelector("#rt-result").innerHTML = "<p><b>" + esc(r.message) + "</b></p>" + (r.held ? "<p>This is what is held about you now:</p>" + heldHtml(r.held) : "") + '<div class="rt-row"><button class="rt-b" id="rt-ok" type="button">Close</button></div>';
         d.querySelector("#rt-ok").onclick = close; d.querySelector("#rt-ok").focus();
       } catch (e) { btn.disabled = false; err.textContent = e.message; }
     };

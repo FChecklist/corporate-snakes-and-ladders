@@ -13,10 +13,10 @@ let env: PayEnv; let raw: ReturnType<typeof makeD1>["raw"];
 const call = (method: string, path: string, body?: unknown, headers: Record<string, string> = {}, now = T) =>
   handle(new Request("http://x" + path, { method, headers: { "content-type": "application/json", ...headers }, body: withDevice(method, path, body) }), env as Env, now);
 const j = async (r: Response) => (await r.json()) as any;
-beforeEach(() => { const d = makeD1(); raw = d.raw; env = { DB: d.db, ORGANIZER_SECRET: "plat", DAILY_WRITE_BUDGET: "100000", PUBLIC_ORIGIN: "https://snakes.test", DATA_KEY: "k", TEST_MODE: "1" } as any; });
+beforeEach(() => { const d = makeD1(); raw = d.raw; env = { DB: d.db, ORGANIZER_SECRET: "plat", RUNNER_KEY: "test-runner-key-test-runner-key-test0000", DAILY_WRITE_BUDGET: "100000", PUBLIC_ORIGIN: "https://snakes.test", DATA_KEY: "k", TEST_MODE: "1" } as any; });
 async function game() {
   const o = await j(await call("POST", "/api/start", { email: "boss@acme.com" }, { "cf-connecting-ip": "1.1.1.1" }));
-  expect((await call("POST", "/api/z", { id: "WIN-1", startRound: roundOf(T + 5 * DAY), callSeconds: 20, cap: 100 }, { "x-organizer": o.token }, T)).status).toBe(200);
+  expect((await call("POST", "/api/z", { id: "WIN-1", startRound: roundOf(T + 5 * DAY), callSeconds: 10, cap: 100 }, { "x-organizer": o.token }, T)).status).toBe(200);
   return { "x-organizer": o.token as string };
 }
 const move = (h: Record<string, string>, startMs: number, now: number) => call("PATCH", "/api/z/WIN-1/settings", { startRound: roundOf(startMs) }, h, now);
@@ -31,7 +31,7 @@ describe("how far ahead a game time can be set", () => {
     expect((await move(h, T + 29 * DAY, T)).status).toBe(200);
     const r = await move(h, T + 31 * DAY, T + 1000); expect(r.status).toBe(400); expect((await j(r)).code).toBe("too-far");
     // creating a new game is capped the same way
-    expect((await call("POST", "/api/z", { id: "WIN-2", startRound: roundOf(T + 31 * DAY), callSeconds: 20, cap: 100 }, h, T)).status).toBe(400);
+    expect((await call("POST", "/api/z", { id: "WIN-2", startRound: roundOf(T + 31 * DAY), callSeconds: 10, cap: 100 }, h, T)).status).toBe(400);
   });
   test("a PAID game: any date up to 365 days from the payment (day 364 allowed, day 366 refused), even though that is far past 30 days from now", async () => {
     const h = await game(); markPaid(T);
@@ -50,9 +50,9 @@ describe("how far ahead a game time can be set", () => {
   test("the refund page and the Terms carry the same rule, and no sentence about a 30-day move window remains", () => {
     const rd = (f: string) => readFileSync(new URL("../../web/public/" + f, import.meta.url), "utf8");
     const sd = (f: string) => readFileSync(new URL("../../../site/" + f, import.meta.url), "utf8");
-    for (const page of [rd("refund-policy.html"), sd("refund-policy.html")]) {
-      expect(page).toContain("There is no refund after payment, and the game can be rescheduled to any date within 365 days of payment");
-      expect(page).toContain("any date within 365 days from the date of payment");
+    for (const page of [rd("terms.html"), sd("terms.html")]) {
+      expect(page).toContain("Once the payment is made, it stays with the game as credit for 365 days rather than being refunded");
+      expect(page).toContain("moved to any date within 365 days of payment");
       expect(page).not.toMatch(/30 days after you cancel|within 30 days of the cancel|or 30 days pass/i);
     }
     for (const f of ["terms.html", "legal.html", "trust.html", "llms.txt"]) expect(rd(f), f).not.toMatch(/30 days after you cancel|For 30 days after|or 30 days pass|move it to a new date for 30 days/i);

@@ -10,7 +10,7 @@ const tick = (ms = 40) => new Promise((r) => setTimeout(r, ms));
 async function desk() {
   const w: any = new Window({ url: "https://game.test/owner-visits.html", width: 900, height: 800 });
   const calls: { method: string; url: string; key: string; body: any }[] = [];
-  const state = { off: false, requests: [{ id: "r1", game: "OD-1", card: "1x000000000001", kind: "access", note: "hello", received: "2026-10-14T10:00:00.000Z", due: "2026-10-21T10:00:00.000Z", overdue: false, status: "open", closed: null as string | null }] };
+  const state = { off: false, price: false, panelCalls: 0, requests: [{ id: "r1", game: "OD-1", card: "1x000000000001", kind: "access", note: "hello", received: "2026-10-14T10:00:00.000Z", due: "2026-10-21T10:00:00.000Z", overdue: false, status: "open", closed: null as string | null }] };
   w.fetch = async (url: string, init: any = {}) => {
     const u = String(url), method = init.method ?? "GET", key = init.headers?.["x-organizer"] ?? "", body = init.body ? JSON.parse(init.body) : undefined;
     calls.push({ method, url: u, key, body });
@@ -24,6 +24,17 @@ async function desk() {
     if (u.includes("/api/owner/mail-events")) return ok({ counts: { bounced: 1 }, events: [{ id: "e1", at: "2026-10-14T10:00:00.000Z", event: "bounced", to: "m***@acme.com", subject: "Sign-in code", kind: null, detail: "Permanent/General" }], keptDays: 90, webhook: "off (set RESEND_WEBHOOK_SECRET, see docs/OWNER_DESK.md)" });
     if (u.includes("/api/owner/errors")) return ok({ lastHour: 4, threshold: 20, hours: [{ hour: "2026-10-14T09:00Z", errors: 4 }] });
     if (u.includes("/api/owner/organizer")) return ok({ found: true, email: "boss@acme.com", mailProblems: 0, games: [{ id: "OD-2", state: "draft", start: "2026-10-20T10:00:00.000Z", paid: false, created: "2026-10-14T10:00:00.000Z", test: false }] });
+    if (u.includes("/api/owner/panel")) { // the owner-only panel, sent as data (the real one is tested in apps/edge/test/price-adjust.test.ts)
+      state.panelCalls++;
+      const find = { method: "GET", path: "/api/owner/panel", fields: [{ id: "q", label: "Game ID", type: "text", value: "", maxLength: 60 }], submit: "Find game" };
+      const q = new URL(u, "https://x").searchParams.get("q");
+      if (!q) return ok({ title: "Price of one game", text: ["Find a game by its ID."], form: find });
+      const sel = (id: string, label: string, options: string[][], value: string) => ({ id, label, type: "select", options: options.map(([v, t]) => ({ value: v, label: t })), value });
+      return ok({ title: "Game " + q, facts: [["Game ID", q], ["Players", "Up to 100"], ["List price", "Rs 2,399 / US$ 34"], ["Status", "published, not paid"], ...(state.price ? [["Price set", "Reduce by Rs 400 (agreed)"], ["Organizer pays", "Rs 1,999"]] : [])], text: [], back: find,
+        form: { method: "POST", path: "/api/owner/price", fixed: { eid: q }, submit: "Save price", done: "Saved.", fields: [sel("direction", "Change", [["down", "Reduce"], ["up", "Add"]], "down"), { id: "amount", label: "Amount", type: "number", min: 0, step: 0.01, value: "" }], fills: [{ label: "Make it Rs 1 (payment test)", set: { direction: "down", amount: "2398" } }] },
+        ...(state.price ? { buttons: [{ label: "Remove", method: "POST", path: "/api/owner/price", body: { eid: q, remove: true }, confirm: "Remove?", done: "Removed." }] } : {}) });
+    }
+    if (u.endsWith("/api/owner/price") && method === "POST") { state.price = !body.remove; return ok({ ok: true, next: "/api/owner/panel?q=" + body.eid }); }
     return ok({}, 404);
   };
   w.confirm = () => true;
@@ -68,5 +79,21 @@ describe("the owner desk page", () => {
     d.getElementById("deskOrg").dispatchEvent(new (d.defaultView as any).Event("submit", { bubbles: true, cancelable: true })); await tick(80);
     expect(calls.some((c) => c.url.includes("/api/owner/organizer?email=boss%40acme.com"))).toBe(true);
     expect(txt(d)).toMatch(/Games of boss@acme\.com/); expect(txt(d)).toMatch(/OD-2/); expect(txt(d)).toMatch(/draft/);
+  });
+  test("More: the owner-only panel is drawn from data: find a game ID, set a price for that game, then remove it; a wrong key says Not found", async () => {
+    const { d, calls, state } = await desk();
+    const W = d.defaultView as any, el = (id: string) => d.getElementById(id) as any;
+    const submit = async (form: any) => { form.dispatchEvent(new W.Event("submit", { bubbles: true, cancelable: true })); await tick(120); };
+    el("key").value = "wrong"; await click(d, "deskPanel"); expect(txt(d)).toMatch(/Not found\. Check the key\./); expect(txt(d)).not.toMatch(/Game ID/);
+    el("key").value = "plat"; await click(d, "deskPanel"); await tick(80); expect(txt(d)).toMatch(/Find game/);
+    el("pf_q").value = "OD-3"; await submit(el("pf_q").form);
+    expect(txt(d)).toMatch(/Up to 100/); expect(txt(d)).toMatch(/Rs 2,399/); expect(txt(d)).toMatch(/published, not paid/);
+    el("pf_direction").value = "down"; el("pf_amount").value = "400"; await submit(el("pf_amount").form);
+    expect(calls.find((c) => c.method === "POST" && c.url.endsWith("/api/owner/price"))!.body).toEqual({ eid: "OD-3", direction: "down", amount: "400" });
+    expect(txt(d)).toMatch(/Reduce by Rs 400/); expect(txt(d)).toMatch(/Organizer paysRs 1,999/); expect(txt(d)).toMatch(/Saved\./);
+    const fill = [...d.querySelectorAll("#deskPanelOut button")].find((b: any) => /Rs 1 \(payment test\)/.test(b.textContent)) as any; fill.dispatchEvent(new W.MouseEvent("click", { bubbles: true }));
+    expect(el("pf_amount").value).toBe("2398");
+    const rm = [...d.querySelectorAll("#deskPanelOut button")].find((b: any) => b.textContent === "Remove") as any; rm.dispatchEvent(new W.MouseEvent("click", { bubbles: true })); await tick(150);
+    expect(state.price).toBe(false); expect(txt(d)).not.toMatch(/Reduce by/); expect(txt(d)).toMatch(/Removed\./);
   });
 });

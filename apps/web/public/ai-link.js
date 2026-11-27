@@ -28,7 +28,7 @@
   const bannerNote = () => (note ? `<div class="zbanner info">${esc(note)}</div>` : "");
 
   function signIn(msg, email, codeStep) {
-    shell(`<div class="zcard zform"><h2>Sign in as the organizer</h2><p class="zsmall" style="margin-top:0">Sign in to see your AI work link. We e-mail you a 6-digit code.</p>
+    shell(`<div class="zcard zform"><h2>Sign in as the organizer</h2><p class="zsmall" style="margin-top:0">Sign in to see your AI work link. A 6-digit code is e-mailed to you.</p>
       ${msg ? `<div class="zbanner bad">${esc(msg)}</div>` : ""}
       ${codeStep ? `<label for="cd">6-digit passcode sent to ${esc(email)}</label><input id="cd" inputmode="numeric" autocomplete="one-time-code" maxlength="8"><div id="k2box">${k2 ? "" : `<p class="zsmall" role="status">Loading the terms…</p>`}</div><button class="zbtn" id="go" disabled aria-disabled="true">Show my AI work link</button>`
         : `<label for="em">Your e-mail</label><input id="em" type="email" autocomplete="email" value="${esc(email || "")}" placeholder="your e-mail"><button class="zbtn" id="go">E-mail me a code</button>`}</div>`);
@@ -51,7 +51,7 @@
         const r = await api("POST", "/api/auth/verify", { email, code: document.getElementById("cd").value, consent }, "-");
         token = r.token; ss.set("cbz-org", token); show();
       } catch (e) {
-        if (e.code === "consent-required" || e.code === "terms-changed") { if (e.consent && Array.isArray(e.consent.boxes)) k2 = e.consent; Object.keys(k2State).forEach((x) => delete k2State[x]); return signIn("Please read and tick the box again, then press the button. Your code is still good.", email, codeStep); }
+        if (e.code === "consent-required" || e.code === "terms-changed") { if (e.consent && Array.isArray(e.consent.boxes)) k2 = e.consent; Object.keys(k2State).forEach((x) => delete k2State[x]); return signIn("Please press the button once more. Your code is still good.", email, codeStep); }
         signIn(e.message, email, codeStep);
       }
     };
@@ -65,14 +65,14 @@
         ? `<p style="margin:8px 0">Copy the box. Paste it into any AI chat. It does the work.</p><textarea class="zlink" id="msg" rows="5" readonly style="width:100%;box-sizing:border-box">${esc(r.aiMessage)}</textarea><button class="zbtn" id="cp" style="margin-top:8px">Copy my AI work link</button>${aiOptions(r.aiMessage)}`
         : `<p style="margin:8px 0">You have no AI work link at the moment.</p><button class="zbtn" id="mk">Make my AI work link</button>`}
       <hr style="border:0;border-top:1px solid #D5E3E1;margin:16px 0">
-      <p class="zsmall" style="margin:0 0 8px">Fresh link: we e-mail you one that works 24 hours.</p><button class="zbtn s alt" id="fr">Get a fresh AI link</button>
+      <p class="zsmall" style="margin:0 0 8px">Fresh link: one that works for 24 hours is e-mailed to you.</p><button class="zbtn s alt" id="fr">Get a fresh AI link</button>
       <p class="zsmall" style="margin:14px 0 8px">Lost it? Replace stops every AI link at once.</p><button class="zbtn s alt" id="rp">Replace my AI link</button></div>
       <p class="zsmall"><a href="/zc.html">Open my console</a></p>`);
     if (r.aiMessage) wireAiOptions(app, r.aiMessage);
     const on = (id, f) => { const b = document.getElementById(id); if (b) b.onclick = f; };
     on("cp", () => { try { navigator.clipboard.writeText(r.aiMessage); document.getElementById("cp").textContent = "Copied. Now paste it into your AI chat"; } catch {} });
-    on("mk", async () => { try { await api("POST", "/api/org/ai/replace"); note = "Your AI work link is ready. We also e-mailed you a 24-hour link."; } catch (e) { note = e.message; } show(); });
-    on("fr", async () => { try { const x = await api("POST", "/api/org/ai/fresh"); note = x.mailed ? "A fresh 24-hour link is on its way to your e-mail." : "We have no e-mail address to send it to. Use the link shown above."; } catch (e) { note = e.message; } show(); });
+    on("mk", async () => { try { await api("POST", "/api/org/ai/replace"); note = "Your AI work link is ready. A 24-hour link was also e-mailed to you."; } catch (e) { note = e.message; } show(); });
+    on("fr", async () => { try { const x = await api("POST", "/api/org/ai/fresh"); note = x.mailed ? "A fresh 24-hour link is on its way to your e-mail." : "There is no e-mail address to send it to. Use the link shown above."; } catch (e) { note = e.message; } show(); });
     on("rp", async () => { if (!confirm("Replace your AI work link? Every AI link stops working at once, even if an AI is using it right now.")) return; try { await api("POST", "/api/org/ai/replace"); note = "Replaced. The old links have stopped. A new 24-hour link is on its way to your e-mail."; } catch (e) { note = e.message; } show(); });
   }
   if (token) show(); else signIn("", "", false);

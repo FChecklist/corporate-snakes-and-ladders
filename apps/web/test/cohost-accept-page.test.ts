@@ -1,5 +1,5 @@
-// K5 for a Co-host, on the console page (zc.js): a Co-host whose key has not accepted the role sees ONE box, unticked, with a button that stays disabled until it is ticked; ticking and pressing sends
-// the tick with the Terms version and then the Co-host's own page opens. The real console script and consent.js run in a DOM with a stand-in for the server's answers (the server side is tested in
+// K5 for a Co-host, on the console page (zc.js): a Co-host whose key has not accepted the role sees the one agreement line (no tick-box) and a button that is ready; pressing it sends
+// the agreement with the Terms version and then the Co-host's own page opens. The real console script and consent.js run in a DOM with a stand-in for the server's answers (the server side is tested in
 // apps/edge/test/cohost-accept.test.ts).
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
@@ -20,7 +20,7 @@ async function consolePage(accepted = false) {
     const ok = (o: unknown, status = 200) => new Response(JSON.stringify(o), { status });
     if (u.endsWith("/api/consent/K5")) return ok({ kind: "K5", version: VER, boxes: [{ id: "A", text: K5A }], termsUrl: "/terms.html" });
     if (u.endsWith("/api/whoami")) return ok({ kind: "cohost", eid: "CO-1" });
-    if (u.endsWith("/api/org/role/accept")) { if (body?.consent?.v !== VER || !(body.consent.boxes || []).includes("A")) return ok({ error: "Please tick the box to continue.", code: "consent-required" }, 400); state.accepted = true; return ok({ ok: true, version: VER }); }
+    if (u.endsWith("/api/org/role/accept")) { if (body?.consent?.v !== VER || !(body.consent.boxes || []).includes("A")) return ok({ error: "This page is out of date. Please reload it and try again. Sorry for the trouble.", code: "consent-required" }, 400); state.accepted = true; return ok({ ok: true, version: VER }); }
     if (u.endsWith("/api/z/CO-1/cohost")) return ok({ roleAccepted: state.accepted, name: "Diwali game", startMs: Date.now() + 86_400_000, cap: 100, joined: 0, brought: 0, price: 1000, payment: "unpaid", waitingFor: null, didNotStart: false, erasureMs: Date.now() + 5 * 86_400_000, inviteLink: "https://game.test/z.html?e=CO-1&from=1" });
     if (u.includes("/api/notices")) return ok({ notices: [] });
     return ok({}, 404);
@@ -36,29 +36,28 @@ async function consolePage(accepted = false) {
   await tick(80);
   return { w, d: w.document, sent, state };
 }
-/** A person ticking a box: the box becomes checked and the page's change handlers run (the page sets `onchange` as a property and adds a listener; the DOM stand-in needs both called). */
-const tickIt = (box: any, w: any) => { box.checked = true; if (typeof box.onchange === "function") box.onchange(new w.Event("change")); box.dispatchEvent(new w.Event("change", { bubbles: true })); };
 const text = (d: any) => String(d.body.textContent).replace(/\s+/g, " ").trim();
 
-describe("the Co-host role box on the console", () => {
-  test("a Co-host who has not accepted sees the box with the exact wording, unticked, and a disabled button; nothing of the game page is shown", async () => {
+describe("the Co-host role step on the console", () => {
+  test("a Co-host who has not accepted sees the role step with the one agreement line (three links), nothing to tick, and a button that is ready; nothing of the game page is shown", async () => {
     const { d } = await consolePage(false);
     expect(text(d)).toMatch(/Before you start/); expect(d.getElementById("roleaccept")).toBeTruthy();
-    const boxes = [...d.querySelectorAll('#roleaccept input[type="checkbox"]')] as any[]; expect(boxes.length).toBe(1); expect(boxes[0].checked).toBe(false);
-    expect(text(d)).toContain(K5A); // string for string with the wording the server holds
-    const btn = d.getElementById("roleacceptgo") as any; expect(btn.disabled).toBe(true); expect(btn.getAttribute("aria-disabled")).toBe("true");
+    expect(d.querySelectorAll('#roleaccept input[type="checkbox"]').length).toBe(0); // no tick-boxes
+    expect(text(d)).toContain("By continuing, you agree to the Terms and Conditions, Privacy and Data, and Game rules.");
+    expect([...d.querySelectorAll("#roleaccept .cbc-note a")].map((a: any) => a.getAttribute("href"))).toEqual(["https://home.corporatetambola.com/terms#terms", "https://home.corporatetambola.com/terms#privacy", "https://home.corporatetambola.com/terms#game-rules"]);
+    expect(text(d)).not.toContain(K5A); // the long box wording is no longer shown; the server still keeps it
+    const btn = d.getElementById("roleacceptgo") as any; expect(btn.disabled).toBe(false); expect(btn.getAttribute("aria-disabled")).toBe("false");
     expect(text(d)).not.toMatch(/Your game at a glance/);
   });
-  test("ticking enables the button; pressing it sends the tick with the Terms version, and the Co-host's own page opens", async () => {
+  test("pressing the button sends the agreement with the Terms version (no tick needed), and the Co-host's own page opens", async () => {
     const { d, sent, w } = await consolePage(false);
-    const box = d.querySelector('#roleaccept input[type="checkbox"]') as any; tickIt(box, w); await tick();
     const btn = d.getElementById("roleacceptgo") as any; expect(btn.disabled).toBe(false);
     btn.dispatchEvent(new w.MouseEvent("click", { bubbles: true })); await tick(120);
     const post = sent.find((s) => s.url.endsWith("/api/org/role/accept"))!; expect(post.method).toBe("POST"); expect(post.key).toMatch(/^cbc_/);
-    expect(post.body.consent).toEqual({ v: VER, boxes: ["A"] });
+    expect(post.body.consent).toEqual({ v: VER, boxes: ["A"], notice: true });
     expect(d.getElementById("roleaccept")).toBeNull(); expect(text(d)).toMatch(/Your game at a glance|Diwali game/);
   });
-  test("a Co-host who accepted before goes straight to the page; a Host or the Organizer never sees this box", async () => {
+  test("a Co-host who accepted before goes straight to the page; a Host or the Organizer never sees this step", async () => {
     const { d } = await consolePage(true);
     expect(d.getElementById("roleaccept")).toBeNull(); expect(text(d)).toMatch(/Diwali game|Your game at a glance/);
   });

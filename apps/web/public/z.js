@@ -22,7 +22,7 @@
   };
   // ---------- what the game's public settings say besides the plan: the brand strip, a cancelled game; and a personal invite link's token ----------
   const TOKEN = (q.get("t") || "").trim().slice(0, 80); // a personal link: sent as `token` when joining, so no mobile number is needed
-  const INFO = { brand: null, cancelled: null, dns: false, joinPhone: false, verify: "mobile", empOnly: false }; // dns = "this game did not start": nobody paid, the time and 23 hours passed, the guest data was erased
+  const INFO = { brand: null, cancelled: null, dns: false, joinPhone: false, verify: "mobile", empOnly: false }; // dns = "this game did not start": nobody paid, the time and 20 hours passed, the guest data was auto-deleted
   const cleanBrand = (b) => {
     if (!b || typeof b !== "object") return null;
     const name = String(b.name == null ? "" : b.name).replace(/\s+/g, " ").trim().slice(0, 60);
@@ -38,7 +38,8 @@
     if (!r || typeof r !== "object") return;
     if ("brand" in r && !(fromJoin && INFO.brand)) { INFO.brand = cleanBrand(r.brand); if (!DEMO && EID && INFO.brand && INFO.brand.logo !== undefined) { try { store.set("cbz:" + EID + ":brand", JSON.stringify(INFO.brand)); } catch { /* storage full or blocked: the strip just is not kept */ } } } // a join answer carries the brand without its logo: never let it replace the full one read from info
     if ("joinPhone" in r) INFO.joinPhone = r.joinPhone === true;
-    if ("verify" in r) { INFO.verify = r.verify === "id" || r.verify === "both" ? r.verify : "mobile"; INFO.empOnly = r.employeesOnly === true; }
+    if ("verify" in r) { INFO.verify = r.verify === "id" || r.verify === "both" ? r.verify : "mobile"; INFO.empOnly = r.employeesOnly === true; INFO.idKind = r.idKind === "email" ? "email" : "emp"; INFO.idClean = r.idClean === true; }
+    if (r.demo === true) INFO.demo = true;
     if (r.didNotStart === true) INFO.dns = true; else if ("startRound" in r && !fromJoin) INFO.dns = false;
     if ("cancelled" in r || "startRound" in r) INFO.cancelled = r.cancelled ? { message: String(r.message || "").slice(0, 200) } : null;
   };
@@ -64,6 +65,15 @@
   const rt = new ZG.PhoneRuntime(EID, DEMO ? { api, getPublic, beacon: DEMO.beacon, verify: DEMO.verify, mono: DEMO.mono, store } : { api, getPublic, beacon: {}, mono: () => performance.now(), store });
   let firstPaint = true, sound = store.get("cbz-sound") !== "off", timer = null, lastStepKey = "";
   if (window.TBAudio) TBAudio.enabled = sound;
+  // SL-09: the page redraws itself every second; a redraw between a finger going down and coming up swallows the tap (the Roll button "does nothing" and the screen flickers). No redraw while a finger is down.
+  let fingerOn = false, fingerAt = 0;
+  document.addEventListener("pointerdown", () => { fingerOn = true; fingerAt = Date.now(); }, true);
+  ["pointerup", "pointercancel", "touchend", "touchcancel"].forEach((ev) => document.addEventListener(ev, () => { fingerOn = false; }, true));
+  const fingerDown = () => fingerOn && Date.now() - fingerAt < 4000; // 4 s at most, so a missed "up" can never freeze the page
+  // SL-11: ask the phone to keep the screen on while the game page is open (it lets go when the page is hidden, so it is asked again when the page comes back)
+  let wakeLock = null;
+  const keepAwake = async () => { try { if (navigator.wakeLock && document.visibilityState === "visible" && !wakeLock) { wakeLock = await navigator.wakeLock.request("screen"); wakeLock.addEventListener("release", () => { wakeLock = null; }); } } catch { wakeLock = null; /* not allowed (low battery, old browser): the game still plays */ } };
+  keepAwake(); document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") keepAwake(); });
   const clock = (s) => { s = Math.max(0, Math.round(s)); return [Math.floor(s / 3600), Math.floor((s % 3600) / 60), s % 60].map((n) => String(n).padStart(2, "0")).join(":"); }; // 00:12:34
   const GRACE_SECS = ZG.GRACE_ROUNDS * 3;
   const nickOf = (seat) => "Player " + seat; // nicknames are not available to the page yet: this is the one place to change when they are
@@ -80,7 +90,7 @@
   const K4 = { info: null, state: {}, loading: false, failed: false };
   const K6 = { info: null, state: {}, loading: false, failedAt: -Infinity };
   const CBC = () => window.CBConsent || null;
-  const consentLoading = (failed, retryId) => (failed ? `<p class="zsmall">We could not load the terms. Check your connection. <button class="zsnd" id="${retryId}" type="button">Try again</button></p>` : `<p class="zsmall">Loading the terms…</p>`);
+  const consentLoading = (failed, retryId) => (failed ? `<p class="zsmall">The terms could not be loaded. Check your connection. <button class="zsnd" id="${retryId}" type="button">Try again</button></p>` : `<p class="zsmall">Loading the terms…</p>`);
   async function loadK4() {
     if (K4.info || K4.loading) return;
     K4.loading = true;
@@ -113,7 +123,8 @@
   const joinWho = () => {
     const vm = INFO.verify || "mobile", eo = !!INFO.empOnly, pv = esc(J.phone || ""), ev = esc(J.emp || "");
     const phone = (label, hint) => `<label for="ph">${label}</label><input id="ph" inputmode="tel" autocomplete="tel" placeholder="+1 555 010 0100" value="${pv}">${hint ? `<p class="zsmall zflush">${hint}</p>` : ""}`;
-    const emp = (label, hint) => `<label for="emp">${label}</label><input id="emp" autocomplete="off" autocapitalize="characters" maxlength="30" value="${ev}">${hint ? `<p class="zsmall zflush">${hint}</p>` : ""}`;
+    const EM = INFO.idKind === "email", idw = (t) => EM ? t.replace(/employee ID/g, "Email ID") : t;
+    const emp = (label, hint) => `<label for="emp">${idw(label)}</label><input id="emp" ${EM ? 'type="text" inputmode="email" autocomplete="email" spellcheck="false" autocapitalize="none" maxlength="254"' : 'autocomplete="off" autocapitalize="characters"'} value="${ev}"><p class="zsmall zflush" id="empread" aria-live="polite"></p>${hint ? `<p class="zsmall zflush">${hint}</p>` : ""}`;
     if (vm === "id") return emp("Your employee ID", eo ? "This game is for employees only." : "") + (eo ? "" : phone("No employee ID? Type your mobile number instead", "Vendors, customers and families use their mobile number."));
     if (vm === "both") return phone("Your mobile number", "") + emp(eo ? "Your employee ID" : "Your employee ID (employees only)", eo ? "This game is for employees only." : "Not an employee? Leave this empty.");
     return phone("Your mobile number", "");
@@ -122,8 +133,8 @@
   const joinView = (msg) => {
     if (J.mode === "removed") return `${brandStrip()}${head}<div class="zcard" role="status"><h2>You are not on this game's list</h2><p class="zsmall zflush">You were removed from this game, so there is no board for you here. If you think this is a mistake, please ask the person who invited you.</p></div>`;
     if (J.mode === "gone") return `${brandStrip()}${head}<div class="zcard" role="status"><h2>This link is not active any more</h2><p class="zsmall zflush">Please ask the person who invited you for a new link.</p></div>`;
-    if (J.mode === "closed") return `${brandStrip()}${head}<div class="zcard" role="status"><h2>Sign-up has closed</h2><p class="zsmall zflush">Sign-up for this game has closed. The game is already running.</p></div>`;
-    if (J.mode === "busy") return `${brandStrip()}${head}<div class="zcard zwait" role="status"><h2>Many people are joining right now</h2><p class="zflush zgap">Your request is safe. We are trying again for you every few seconds. Keep this page open.</p><p class="zsmall zflush">Try ${J.busyTries} of ${BUSY_TRIES}.</p></div><div class="zagain"><button class="zbtn s alt" id="again" type="button">Stop and try myself</button></div>`; // a whole office joins from one address: the server asks for a short wait, or the answer never comes: the page asks again by itself
+    if (J.mode === "closed") return `${brandStrip()}${head}<div class="zcard" role="status"><h2>Sign-up has closed</h2><p class="zsmall zflush">Sign-up closed when the game started. Nobody new can join after the start. If you joined earlier, open your own link on the same phone. Otherwise, please ask your organizer.</p></div>`;
+    if (J.mode === "busy") return `${brandStrip()}${head}<div class="zcard zwait" role="status"><h2>Many people are joining right now</h2><p class="zflush zgap">Your request is safe. It is tried again every few seconds. Keep this page open.</p><p class="zsmall zflush">Try ${J.busyTries} of ${BUSY_TRIES}.</p></div><div class="zagain"><button class="zbtn s alt" id="again" type="button">Stop and try myself</button></div>`; // a whole office joins from one address: the server asks for a short wait, or the answer never comes: the page asks again by itself
     if (J.mode === "waiting") return `${brandStrip()}${head}<div class="zcard zwait" role="status"><h2>Please wait a moment</h2><p class="zflush zgap">${J.note ? esc(J.note) : `Your request to join has gone to ${J.who ? esc(J.who) : "the organizer"}.`}</p><p class="zsmall zflush">Keep this page open. As soon as you are let in, your board appears here.</p></div>`;
     if (J.mode === "declined" || J.mode === "lapsed") return `${brandStrip()}${head}<div class="zcard" role="status"><h2>${J.mode === "declined" ? "Your request was not accepted" : "This request has run out"}</h2><p class="zsmall zflush zgap">${J.mode === "declined" ? "You are not on the list for this game. Please ask the person who invited you." : "Nobody answered in time. You can ask again."}</p>${J.mode === "lapsed" ? `<button class="zbtn s" id="again" type="button">Ask again</button>` : ""}</div>`;
     const personal = !!TOKEN && J.mode !== "needPhone"; // a personal link is made for one person: nothing to type unless the server asks
@@ -140,11 +151,12 @@
     ${personal || !needPhone ? "" : joinWho()}
     ${m ? `<div class="zbanner bad" role="alert">${esc(m)}</div>` : ""}
     <button class="zbtn" id="go" type="button" disabled aria-disabled="true">Join the game</button>
-    <p class="spriv">Players are 18 or older. Playing is free: you never pay, and no prize money is held or paid by us.</p>
+    <p class="zsmall" id="same-app"><b>Stay in this app.</b> Your board stays with the app or browser you join in. If you open this link in Teams, keep using Teams: do not switch to Chrome later.</p>
+    <p class="spriv">Players are 18 or older. Playing is free: you never pay, and no prize money is held or paid by IT Services.</p>
     <p class="spriv"><a href="/privacy.html" target="_blank" rel="noopener">Privacy Policy</a></p></div>`;
   };
   const cancelledView = () => `${brandStrip()}${head}<div class="zcard" role="status"><h2>This game was cancelled</h2><p class="zsmall zflush">${esc((INFO.cancelled && INFO.cancelled.message) || "The organizer cancelled this game.")} There is nothing to do on this page. Thank you for your interest.</p></div>`;
-  const dnsView = () => `${brandStrip()}${head}<div class="zcard" role="status"><h2>This game did not start</h2><p class="zsmall zflush">This game did not start. Your details have been erased. There is nothing to do on this page. Thank you for your interest.</p></div>`;
+  const dnsView = () => `${brandStrip()}${head}<div class="zcard" role="status"><h2>This game did not start</h2><p class="zsmall zflush">This game did not start. Your details have been auto-deleted. There is nothing to do on this page. Thank you for your interest.</p></div>`;
   const removedView = () => `${brandStrip()}${head}<div class="zcard" role="status"><h2>You have been removed from this game</h2><p class="zsmall zflush">This phone no longer plays in this game. If you think this is a mistake, please ask the person who invited you.</p></div>`;
   // what the server's "me" answer says about this player: removed, and (for a guest invited straight by the organizer's side) whether they may invite
   const ME = { at: -Infinity, role: null, removed: false, canInvite: false, per: 0, used: 0, loaded: false };
@@ -389,7 +401,7 @@
     const missed = presence && me && me.missed ? `<p class="zsmall zmissed">You missed ${plural(me.missed, "turn", "turns")}.</p>` : "";
     const tableLine = v.kind === "table" && v.table && v.table.whoseTurn !== null && !v.ended ? `<p class="zsmall zflush">${v.table.whoseTurn === v.seat ? "It is your turn." : "It is " + esc(nickOf(v.table.whoseTurn)) + "'s turn."}</p>` : "";
     const turnNo = Math.min(v.turnsPlayed + (v.ended ? 0 : 1), v.turnCap);
-    const turnChip = `<span class="zchip2 plain">Turn ${turnNo} of ${v.turnCap}</span>`;
+    const turnChip = `<span class="zchip2 plain">${v.kind === "table" ? `Turn ${turnNo} of ${v.turnCap}` : `Turn ${turnNo} of ${v.turnCap} &middot; ends sooner when ${v.kind === "team" ? "the first whole team is" : v.endPrizes + (v.endPrizes === 1 ? " player is" : " players are")} home`}</span>`; // SL-08: the game ends when the last prize place is filled, not at a fixed turn
     const secs = t.state === "open" && t.secondsLeft !== null && !home && !v.paused ? t.secondsLeft : null, pct = secs !== null && t.windowSec > 0 ? Math.max(0, Math.min(100, Math.round((secs / t.windowSec) * 100))) : null;
     const flash = FLASH.turn !== t.index ? (FLASH.turn = t.index, FLASH.until = performance.now() + 450, FLASH.first ? (FLASH.first = false, "") : " zflash") : performance.now() < FLASH.until ? " zflash" : "";
     return `<div class="zcard zdice st-${tone}${flash}"><div class="zchiprow"><span class="zchip2 ${tone}">${esc(chip)}${secs !== null && !rolling ? ` &middot; ${secs}s` : ""}</span>${turnChip}</div>
@@ -440,7 +452,7 @@
     const list = prizeList(v); if (!list.length) return "";
     const rows = list.map((p) => {
       const res = (v.results || []).find((r) => r.pattern === p.key && r.ordinal === p.line.ordinal);
-      const right = res && res.winners && res.winners.length ? ((res.winners || []).includes(v.pid) ? `<em class="zwonchip">You won!${res.tied > 1 ? " &middot; decided by fate" : ""}</em>` : `<i class="zdonechip">Awarded</i>`) : `<i class="zopenchip">Up for grabs</i>`;
+      const right = res && res.winners && res.winners.length ? ((res.winners || []).includes(v.pid) ? `<em class="zwonchip">You won!${res.tied > 1 ? " &middot; decided by chance" : ""}</em>` : `<i class="zdonechip">Awarded</i>`) : `<i class="zopenchip">Up for grabs</i>`;
       return `<div class="zrow zprize"><span class="ztrophy" aria-hidden="true">&#127942;</span><span class="zpname"><b>${p.text ? esc(p.text) : esc(p.name)}</b>${p.text ? `<small class="zsmall zflush">${esc(p.name)}</small>` : ""}${p.how ? `<small class="zsmall zflush zhow">${esc(p.how)}</small>` : ""}</span>${right}</div>`;
     }).join("");
     return `<div class="zcard zprizecard"><h2>What you can win</h2>${rows}</div>`;
@@ -470,6 +482,9 @@
   }
   /** True while the first turn has not opened yet (and no break or hold is showing): the waiting room is shown instead of the dice. */
   const isWaiting = (v) => v.phase === "play" && !v.locked && !v.brk && v.turnsPlayed === 0 && v.turn.state === "wait" && v.turn.secondsLeft !== null && v.turn.secondsLeft > 0;
+  /** SL-21: the rules in five lines. Shown before the game (waiting room) and, folded away, during and after it. The finish line follows the organizer's choice. */
+  const ruleLines = (v) => { const secs = v.callSeconds || 20, pass = !!(v.cfg && v.cfg.board && v.cfg.board.finish === "pass"); return [v.kind === "table" ? "1. Everyone plays on one shared board and takes turns." : "1. You have your own board. Nobody else has the same one.", `2. Every turn lasts about ${secs} seconds. Your throw is the dice for that turn.`, "3. Snakes take you down. Ladders take you up.", pass ? "4. To finish you reach or pass the last square." : "4. To finish you need the exact number to land on the last square.", "5. The software checks everything. Nobody can change a result."]; };
+  const rulesFold = (v) => `<details class="zcard zrulesfold" id="rulesfold"><summary>Rules in five lines</summary><ul class="zlist zrules">${ruleLines(v).map((r) => `<li>${esc(r)}</li>`).join("")}</ul></details>`;
   /** Before the first turn: what to expect, what can be won, the rules, a sound check and a calendar entry. Everything here is known at boot, so it costs no extra requests. */
   function waitingRoom(v) {
     if (!isWaiting(v)) return "";
@@ -480,10 +495,10 @@
     const top = setup
       ? `<h2>Your game is setting up</h2><div class="zsetup">Sign-up has closed. The first turn comes in a moment.</div><div class="zcount" aria-live="off" id="cd">${clock(toFirst)}</div><p class="zsmall zflush">until the first turn. Keep this page open: the game moves by itself.</p>`
       : `<h2>You are in. See you at ${esc(when)}</h2><div class="zsmall zflush">Starting in</div><div class="zcount" aria-live="off" id="cd">${clock(toFirst - GRACE_SECS)}</div><p class="zsmall zflush">hours : minutes : seconds. Keep this page open: the game moves by itself.</p>`;
-    const secs = v.callSeconds || 20;
-    const rules = [v.kind === "table" ? "1. Everyone plays on one shared board and takes turns." : "1. You have your own board. Nobody else has the same one.", `2. Every turn lasts about ${secs} seconds. Your throw is the dice for that turn.`, "3. Snakes take you down. Ladders take you up.", "4. To finish you need the exact number to land on the last square.", "5. The software checks everything. Nobody can change a result."];
+    const rules = ruleLines(v);
     return `<div class="zcard zwait">${top}
       <div class="zdo"><b>What to do:</b> nothing yet. Keep this page open. ${v.cfg.play === "presence" ? "When the first turn opens, tap the Roll button." : "Your rolls happen by themselves."}</div>
+      <p class="zsmall zflush">Tip: switch your phone to Do not disturb, so calls and messages do not cover the game. Your phone is asked to keep the screen on while this page is open. Sound is on unless you turn it off (the sound button).</p>
       ${prizes ? `<h3>What you can win</h3><div class="zprizes2">${prizes}</div>` : ""}
       <h3>The rules</h3><ul class="zlist zrules">${rules.map((r) => `<li>${esc(r)}</li>`).join("")}</ul>
       <button class="zbtn s alt" id="soundtest" type="button">Check my sound</button><a class="zbtn s alt" id="addcal" download="game.ics" href="${icsFor(v)}">Add to my calendar</a></div>`;
@@ -589,7 +604,7 @@
     return `<div class="zcard zfinal"><h2>Game complete</h2>
       <div class="zmedal" aria-hidden="true">${medal}</div>
       <div class="zfbig">${n ? "You won " + n + (n === 1 ? " prize!" : " prizes!") : v.myRank ? "You finished number " + v.myRank + (v.crowd ? " of " + v.crowd.players : "") + "." : "Well played!"}</div>
-      <p class="zsmall zthanks">Thank you for joining our extended family of Corporate Snakes and Ladders.</p>
+      <p class="zsmall zthanks">Thank you for joining the extended family of Corporate Snakes and Ladders.</p>
       <p class="zsmall zbigger">${place} ${n ? "Your prizes are listed below and stay on this phone. Show them to your organizer to collect." : "No prize this time. Every game is a good game, and the next one is another chance."}</p>
       <button class="zbtn" id="shr">Share with friends and colleagues</button>
       <a class="zbtn s alt zlinkbtn" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent("I just played Corporate Snakes and Ladders with my team. Bring it to your company: " + shareLink)}">WhatsApp</a>
@@ -831,6 +846,7 @@
       ${standingsCard(v)}
       ${waiting ? "" : prizesStatusCard(v)}
       ${v.phase === "ended" ? "" : prizesCard()}
+      ${waiting || !(self.SLRules ? SLRules.showRules("playing") && v.phase !== "ended" : v.phase !== "ended") ? "" : rulesFold(v)}
       ${mineCard(v)}${inviteCard(v)}
       ${luckyCard(v)}
       ${chk}<a class="zref" href="/partner.html?from=card">Refer &amp; earn</a>`;
@@ -853,6 +869,7 @@
     if (ME.removed) { if (timer) { clearInterval(timer); timer = null; } mediaHost.style.display = "none"; $app.innerHTML = removedView(); paintBrand(); return; } // taken off the list: the phone stops
     const fresh = syncPrizes(v); reportToStore(v); loadCf(v); pollMe(v); loadK6();
     if (focusGuard(["cfnm", "cfph", "mi-name", "mi-phone"])) return; // never wipe a form someone is typing in
+    if (fingerDown()) return; // SL-09: never redraw under a finger that is pressing
     noteRoll(v);
     $app.innerHTML = playView(v);
     paintBrand(); syncDie(); syncTimer(); slidePawn(v); bindFolds(); syncMedia(v); bindShare(); bindConfirm(v); loadInvites(v); bindInvite(v); loadMine(v); bindMine(v);
@@ -882,6 +899,13 @@
     const again = document.getElementById("again"); if (again) again.onclick = () => { clearTimeout(J.retry); J.busyTries = 0; J.mode = ""; J.wid = ""; clearWait(); paint(); };
     const go = document.getElementById("go"); if (!go) return;
     const nm = document.getElementById("nm"), ph = document.getElementById("ph"), em = document.getElementById("emp");
+    const empRead = document.getElementById("empread");
+    const showRead = () => { if (!em || !empRead) return; const raw = String(em.value || ""), nf = raw.normalize("NFKC"); let msg = "";
+      if (INFO.idKind === "email") { const c = nf.trim().replace(/[\s\u200B-\u200D\u2060\uFEFF\u0085\u2028\u2029]+/g, "").toLowerCase(); if (c && c !== raw) msg = "The system will read this as " + c; }
+      else if (nf.includes("@")) msg = "This looks like an Email ID. This game asks for an employee ID: letters and numbers only.";
+      else if (INFO.idClean) { const c = nf.toUpperCase().replace(/[^A-Z0-9]/g, ""); if (c.length > 30) msg = "This Employee ID is too long. An employee ID may be up to 30 characters once cleaned."; else if (c && c !== raw) msg = "The system will read this as " + c; }
+      empRead.textContent = msg; };
+    if (em) { em.addEventListener("input", showRead); showRead(); }
     if (nm) nm.oninput = () => { J.name = nm.value; };
     if (em) em.oninput = () => { J.emp = em.value; };
     if (ph) ph.oninput = () => { J.phone = ph.value; };
@@ -902,5 +926,8 @@
 
   if (!EID) { $app.innerHTML = `<p class="zmsg">This link is incomplete. Please ask your organizer for the game link.</p>`; return; }
   rt.boot().then(() => { if (rt.phase === "play") clearWait(); else restoreWait(); paint(); if (rt.phase === "play") start(); });
+  // Free demo game (demo.ts): every screen says "Demo". The bar is put back at the top of the page whenever the screen is redrawn.
+  function demoBar() { try { if (!(INFO.demo === true)) return; const first = $app.firstElementChild; if (first && first.id === "zdemo-bar") return; const d = document.createElement("div"); d.id = "zdemo-bar"; d.className = "zbanner info zflush"; d.setAttribute("role", "status"); d.innerHTML = "<b>Demo</b> · a free practice game for up to 10 people. Same rules as a real game. Nothing is paid and guest details are auto-deleted after the game."; $app.insertBefore(d, $app.firstChild); } catch { /* a courtesy label: the game name also starts with Demo */ } }
+  try { new MutationObserver(demoBar).observe($app, { childList: true }); } catch { /* old browser: the name still says Demo */ }
   window.__rt = rt;
 })();

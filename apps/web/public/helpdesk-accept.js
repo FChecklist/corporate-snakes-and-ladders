@@ -44,7 +44,7 @@
         if (state.newAcct) {
           const em = document.getElementById("em").value.trim().toLowerCase(); state.email = em;
           const r = await api("POST", "/api/start", { email: em, consent: consent() }, "");
-          if (r.exists) { state.newAcct = false; state.codeStep = false; state.msg = "That address already has an account. Use the code we send."; return signIn(); }
+          if (r.exists) { state.newAcct = false; state.codeStep = false; state.msg = "That address already has an account. Use the code sent to you."; return signIn(); }
           token = r.token; ss.set("cbz-org", token); return allow();
         }
         if (!state.codeStep) {

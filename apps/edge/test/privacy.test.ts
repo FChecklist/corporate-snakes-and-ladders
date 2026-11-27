@@ -20,7 +20,7 @@ const j = async (r: Response) => (await r.json()) as any;
 const org = { "x-organizer": SECRET };
 const tick = (now: number) => lifecycleTick(env as any, now);
 /** An engagement whose game is long over at T (it began 2 hours before). */
-const create = (id = "PRV-1", over: Record<string, unknown> = {}) => call("POST", "/api/z", { id, startRound: roundOf(T - 2 * 3_600_000), callSeconds: 20, cap: 5000, ...over }, org);
+const create = (id = "PRV-1", over: Record<string, unknown> = {}) => call("POST", "/api/z", { id, startRound: roundOf(T - 2 * 3_600_000), callSeconds: 10, cap: 2000, ...over }, org);
 const setContact = (id: string, email = "boss@acme.com") => env.DB.prepare("INSERT INTO kv(k,v) VALUES(?,?)").bind(`contact/${id}`, JSON.stringify({ email, phone: "9811122233" })).run();
 const joinAs = (i: number, name: string, id = "PRV-1", extra: Record<string, unknown> = {}, now = T - 3 * 3_600_000) => { SEEN_DEVICES.add(String(i).padStart(32, "0")); return call("POST", `/api/z/${id}/join`, { phone: "9876" + String(500000 + i), name, device: String(i).padStart(32, "0"), ...extra }, {}, now); };
 /** A phone says the game is over: its own device id goes with the report (the one that fits the card is the one let through). */
@@ -28,7 +28,7 @@ const overAs = async (pid: string, now: number) => { let r!: Response; for (cons
 
 beforeEach(() => {
   const d = makeD1(); raw = d.raw;
-  env = { DB: d.db, ORGANIZER_SECRET: SECRET, DAILY_WRITE_BUDGET: "10000000" };
+  env = { DB: d.db, ORGANIZER_SECRET: SECRET, RUNNER_KEY: "test-runner-key-test-runner-key-test0000", DAILY_WRITE_BUDGET: "10000000" };
   sentReports.length = 0;
 });
 
@@ -208,7 +208,7 @@ describe("the report and the deletion", () => {
     const r = await buildReport(link); const pdf = r.text;
     expect(pdf.startsWith("%PDF-1.4")).toBe(true); expect(pdf).toMatch(/%%EOF\s*$/);
     for (const needle of ["Organizer Olga", "Guest 3", "98765 00001", "98765 00002", "Zed ??", "organizer", "boss@acme.com", "Sent on:", "deleted", "365th day"]) expect(pdf.toLowerCase()).toContain(needle.toLowerCase());
-    for (const needle of ["Our commitment to your data", "permanently deleted from our systems within 24 hours", "DPDP", "GDPR", "California Consumer Privacy Act", "advertising", "encryption", "winners record", "Agreed by", "Prize given"]) expect(pdf).toContain(needle);
+    for (const needle of ["The commitment to your data", "permanently deleted from the systems within 24 hours", "DPDP", "GDPR", "California Consumer Privacy Act", "advertising", "encryption", "winners record", "Agreed by", "Prize given"]) expect(pdf).toContain(needle);
     expect(pdf).not.toMatch(/personal data(?! protection)/i);
     expect(pdf).not.toMatch(/the law requires|required by law/i);
     expect(pdf).not.toMatch(/(rs|inr|usd|price)[^\n(]{0,12}per (person|participant|head|user)/i);
@@ -259,7 +259,7 @@ describe("the report and the deletion", () => {
     expect((raw.query("SELECT COUNT(*) c FROM participant").get() as any).c).toBe(0);
   });
   test("a big game: one link, the report page reads the people in pieces and lays out the parts on the device, which together list every person once", async () => {
-    await create("PRV-BIG", { cap: 5000 }); await setContact("PRV-BIG");
+    await create("PRV-BIG", { cap: 2000 }); await setContact("PRV-BIG");
     const N = 1620;
     for (let i = 1; i <= N; i++) {
       const pii = await sealPii(env as any, { phone: "9876" + String(100000 + i), name: "Person " + i });
@@ -310,7 +310,7 @@ describe("asking for deletion", () => {
   const key = async () => { const r = await handle(new Request("http://x/api/start", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ consent: TICKS, email: "boss@acme.com" }) }), env, T); return (await j(r)) as { token: string; aiKey: string }; };
   test("an AI assistant can only ASK for a deletion: nothing is deleted until the organizer confirms in their console, and the organizer is e-mailed", async () => {
     const k = await key();
-    await call("POST", "/api/z", { id: "PRV-AI", startRound: roundOf(T - 2 * 3_600_000), callSeconds: 20, cap: 100 }, { "x-organizer": k.token });
+    await call("POST", "/api/z", { id: "PRV-AI", startRound: roundOf(T - 2 * 3_600_000), callSeconds: 10, cap: 100 }, { "x-organizer": k.token });
     await call("POST", "/api/z/PRV-AI/publish", { email: "boss@acme.com", phone: "9811122233" }, { "x-organizer": k.token }, T - 5 * 3_600_000);
     await joinAs(1, "Asha", "PRV-AI");
     expect((await call("POST", "/api/z/PRV-AI/erase", {}, { "x-organizer": k.aiKey })).status).toBe(403); // the AI key can never erase

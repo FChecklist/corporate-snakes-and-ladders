@@ -21,7 +21,7 @@ const read = (...p: string[]) => readFileSync(join(root, ...p), "utf8");
 
 beforeEach(() => {
   const d = makeD1(); raw = d.raw;
-  env = { DB: d.db, ORGANIZER_SECRET: "plat", DAILY_WRITE_BUDGET: "100000", PUBLIC_ORIGIN: ORIGIN, DATA_KEY: "test-data-key", TEST_MODE: "1" };
+  env = { DB: d.db, ORGANIZER_SECRET: "plat", RUNNER_KEY: "test-runner-key-test-runner-key-test0000", DAILY_WRITE_BUDGET: "100000", PUBLIC_ORIGIN: ORIGIN, DATA_KEY: "test-data-key", TEST_MODE: "1" };
   sentReports.length = 0;
 });
 const realFetch = globalThis.fetch;
@@ -73,7 +73,7 @@ describe("mail that is not built by mails.ts gets the same brand when it is sent
   });
   test("every mail a whole unpaid lifecycle sends (sign-up, publish, co-host, reminder, could-not-begin, sign-in, replace, alert) carries the footer, and the name is spelled right", async () => {
     const o = await j(await call("POST", "/api/start", { email: "boss@acme.com" }, { "cf-connecting-ip": "1.1.1.1" })); const h = { "x-organizer": o.token };
-    await call("POST", "/api/z", { id: "BRAND-1", startRound: roundAt(T + 30 * 3_600_000), callSeconds: 20, cap: 500 }, h);
+    await call("POST", "/api/z", { id: "BRAND-1", startRound: roundAt(T + 30 * 3_600_000), callSeconds: 10, cap: 500 }, h);
     await call("POST", "/api/z/BRAND-1/publish", { email: "boss@acme.com", phone: "98765 43210" }, h);
     const use = (ip: string, c: string, now: number) => call("GET", `/ai/${o.aiKey}`, undefined, { "cf-connecting-ip": ip, "cf-ipcountry": c, "user-agent": "ChatGPT-User/1" }, now);
     await use("1.2.3.4", "US", T); await use("5.6.7.8", "DE", T + 1000);
@@ -127,7 +127,7 @@ describe("claims register: customer-facing text never says what the build does n
   test("structured data prices equal the real packs", () => {
     const h = read("apps/web/public/index.html"); const { PACKS } = require("../../../packages/shared/src/pricing") as typeof import("../../../packages/shared/src/pricing");
     expect(h).toContain(`"lowPrice":"${Math.min(...PACKS.map((p) => p[1]))}"`); expect(h).toContain(`"highPrice":"${Math.max(...PACKS.map((p) => p[1]))}"`); expect(h).toContain(`"offerCount":"${PACKS.length}"`);
-    const site = read("apps/web/public/site.js"); expect(site).toContain("Festive offer: 50% off"); expect(site).toContain("Regular price after the festive offer"); expect(h).toContain("Festive offer: 50% off"); // owner decision: keep the offer, worded as a festive offer
+    const site = read("apps/web/public/site.js"); expect(`${site}${h}`).not.toMatch(/Festive offer|50% OFF|Regular price after/i); expect(site).not.toMatch(/was\s*=|\* 2 \+ 1/); // SL-24 (Boss ruling Q8, 2026-10-29): one honest price, no computed "was" price, no permanent badge
     expect(`${h}${site}`).not.toMatch(/Most popular|2nd most popular/); // the offer price is what is charged, and equals the structured-data price (lowPrice above)
   });
 });

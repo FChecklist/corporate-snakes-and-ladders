@@ -14,30 +14,30 @@
   };
   const inr = (n) => "₹" + Number(n || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 });
   const day = (ms) => new Date(ms).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
-  const S = { linkToken: (/^[0-9a-f]{48}$/.test(q.get("t") || "") ? q.get("t") : ""), note: "", err: "", me: null, fresh: null , f: { ph: "", em: "", nm: "", ok: false }};
+  const S = { linkToken: (/^[0-9a-f]{48}$/.test(q.get("t") || "") ? q.get("t") : ""), note: "", err: "", me: null, fresh: null , f: { ph: "", em: "", nm: "" }};
 
   function shareBlock(code, link) {
-    const text = "Corporate Snakes and Ladders makes your company engagement unforgettable. Take a look: " + link;
+    const text = "Corporate Snakes and Ladders makes your team event unforgettable. Take a look: " + link;
     return `<div class="zlink" id="mylink">${esc(link)}</div>
       <p class="zsmall">Your code: <b>${esc(code)}</b>. Anyone who buys through your link is counted for you.</p>
       <button class="zbtn s" id="copy">Copy my link</button> <button class="zbtn s alt" id="nshare" style="display:none">Share&hellip;</button>
       <a class="zbtn s alt" style="display:inline-flex;align-items:center;text-decoration:none" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent(text)}">Share on WhatsApp</a>`;
   }
   /** what was typed on the sign-up form: kept when a mistake redraws it, so the person never has to type it all again */
-  const rememberForm = () => { const g = (id) => { const e = document.getElementById(id); return e ? e.value : undefined; }; const ok = document.getElementById("ok"); S.f = { ph: g("ph") ?? S.f.ph, em: g("em") ?? S.f.em, nm: g("nm") ?? S.f.nm, ok: ok ? ok.checked : S.f.ok }; };
+  const rememberForm = () => { const g = (id) => { const e = document.getElementById(id); return e ? e.value : undefined; }; S.f = { ph: g("ph") ?? S.f.ph, em: g("em") ?? S.f.em, nm: g("nm") ?? S.f.nm }; };
   function enrollView() {
     const fromCard = q.get("from") === "card";
     return `<div class="zcard zform"><h2>${fromCard ? "Start earning: get your link" : "Get your link in 20 seconds"}</h2>
         <label for="ph">Your mobile number</label><input id="ph" inputmode="tel" autocomplete="tel" placeholder="98765 43210" value="${esc(S.f.ph)}">
-        <label for="em">Your e-mail (we send you a code)</label><input id="em" type="email" inputmode="email" autocomplete="email" placeholder="your e-mail" value="${esc(S.f.em)}">
+        <label for="em">Your e-mail (a code is sent to it)</label><input id="em" type="email" inputmode="email" autocomplete="email" placeholder="your e-mail" value="${esc(S.f.em)}">
         <label for="nm">Your name (optional)</label><input id="nm" autocomplete="name" maxlength="60" value="${esc(S.f.nm)}">
-        <label style="display:flex;gap:8px;align-items:flex-start;margin-top:12px;color:var(--ink);font-size:14px"><input type="checkbox" id="ok" style="width:auto;min-height:0;margin-top:3px"${S.f.ok ? " checked" : ""}> <span>I would like to join Refer &amp; earn with this mobile number.</span></label>
+        ${CBConsent.html("K2")}
         ${S.err ? `<div class="zbanner bad" role="alert">${esc(S.err)}</div>` : ""}
         <button class="zbtn" id="join">Get my link and start earning</button>
         <p class="zsmall">Already joined? <a href="#" id="signin">Sign in with your e-mail</a></p></div>`;
   }
   function codeView() {
-    return `<div class="zcard zform"><h2>Check your e-mail</h2><p class="zsmall" style="margin-top:0">We e-mailed <b>${esc(S.email)}</b>. Type the 6-digit code here. It works for 10 minutes.</p>
+    return `<div class="zcard zform"><h2>Check your e-mail</h2><p class="zsmall" style="margin-top:0">A code was e-mailed to <b>${esc(S.email)}</b>. Type the 6-digit code here. It works for 10 minutes.</p>
       <label for="cd">6-digit code</label><input id="cd" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code" maxlength="6" placeholder="••••••">
       ${S.err ? `<div class="zbanner bad" role="alert">${esc(S.err)}</div>` : ""}
       <button class="zbtn" id="cdgo">Get my link</button>
@@ -46,14 +46,14 @@
   const twoWays = `<div class="zbanner info" style="text-align:left"><b>Option 1.</b> Go to your e-mail, find the 6 numbers and type them here.<br><b>Option 2.</b> Go to your e-mail and tap the button <b>Sign me in</b>. You do not type anything.<br>Use only one. Both work for 10 minutes.</div>`;
   function signinView() {
     return `<div class="zcard zform"><h2>Sign in to see your sales</h2>
-      <p class="zsmall" style="margin-top:0">Type your e-mail and press Continue. There is no password. We e-mail you two ways in; you use <b>one</b> of them.</p>
+      <p class="zsmall" style="margin-top:0">Type your e-mail and press Continue. There is no password. Two ways in are e-mailed to you; use <b>one</b> of them.</p>
       <label for="se">Your e-mail</label><input id="se" type="email" inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" placeholder="your e-mail" value="${esc(S.email || "")}">
       ${S.err ? `<div class="zbanner bad" role="alert">${esc(S.err)}</div>` : ""}
       <button class="zbtn" id="sgo">Continue</button>
       <p class="zsmall"><a href="#" id="back">Back</a></p></div>`;
   }
   function signinCodeView() {
-    return `<div class="zcard zform"><h2>Now open your e-mail</h2><p class="zsmall" style="margin-top:0">We sent an e-mail to <b>${esc(S.email)}</b>. Pick <b>one</b> of these two ways.</p>${twoWays}
+    return `<div class="zcard zform"><h2>Now open your e-mail</h2><p class="zsmall" style="margin-top:0">An e-mail was sent to <b>${esc(S.email)}</b>. Pick <b>one</b> of these two ways.</p>${twoWays}
       ${S.dev ? `<div class="zbanner info">Local test mode: your code is <b>${esc(S.dev)}</b> <button class="zbtn s" id="suse" type="button">Use this code</button></div>` : ""}
       <label for="scd">Option 1: type your 6-digit code here</label><input id="scd" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code" maxlength="6" placeholder="••••••">
       ${S.err ? `<div class="zbanner bad" role="alert">${esc(S.err)}</div>` : ""}
@@ -69,7 +69,7 @@
     const fresh = S.fresh ? `<div class="zbanner ok">You are in. You stay signed in on this phone or laptop. On another device, or if you ever sign out, just sign in with your e-mail again: nothing to remember.</div>` : "";
     const rows = m.sales.length ? `<table><tr><th>Date</th><th>Pack</th><th>Status</th><th>Commission</th></tr>${m.sales.map((s) => `<tr><td>${day(s.date)}</td><td>${s.pack ? "up to " + s.pack : "-"}</td><td>${statusText(s)}</td><td>${s.amount === null ? "to be announced" : inr(s.amount)}</td></tr>`).join("")}</table>` : `<p class="zsmall" style="margin:0">No sales yet. Share your link to get started.</p>`;
     return `<div class="zhead"><b><a class="zlogo" href="/" aria-label="Corporate Snakes and Ladders home"><img src="/logo-mark.svg" alt="Corporate Snakes and Ladders logo" width="20" height="20"></a>Corporate Snakes and Ladders · Refer &amp; earn</b><button class="zsnd" id="out">Sign out</button></div>${fresh}
-      ${m.state !== "active" ? `<div class="zbanner warn">Your partner account is paused. Please contact us.</div>` : ""}
+      ${m.state !== "active" ? `<div class="zbanner warn">Your partner account is paused. Please contact IT Services.</div>` : ""}
       <div class="zcard"><h2>Your link</h2>${shareBlock(m.code, m.link)}</div>
       <div class="zgrid"><div class="zcard"><h2>Sales</h2><div class="zstat">${t.sales}</div></div><div class="zcard"><h2>Earned so far</h2><div class="zstat">${inr(t.accruedInr + t.paidInr)}</div><p class="zsmall" style="margin:4px 0 0">${t.paidInr ? inr(t.paidInr) + " paid" : "None paid yet"}</p></div></div>
       ${!m.rateAnnounced && t.waitingForRate ? `<div class="zbanner info">${t.waitingForRate} sale${t.waitingForRate === 1 ? " is" : "s are"} counted for you. The commission will be announced soon and applied to them.</div>` : ""}
@@ -81,11 +81,10 @@
   function draw(v, dash) { document.body.classList.toggle("signed", !!dash); (dash ? $dash : $app).innerHTML = v; if (dash) $app.innerHTML = ""; bind(); }
   function bind() {
     const $ = (id) => document.getElementById(id);
-    if ($("nshare") && navigator.share) { $("nshare").style.display = ""; $("nshare").onclick = () => navigator.share({ title: "Corporate Snakes and Ladders", text: "Corporate Snakes and Ladders makes your company engagement unforgettable. Take a look:", url: document.getElementById("mylink").textContent }).catch(() => {}); }
+    if ($("nshare") && navigator.share) { $("nshare").style.display = ""; $("nshare").onclick = () => navigator.share({ title: "Corporate Snakes and Ladders", text: "Corporate Snakes and Ladders makes your team event unforgettable. Take a look:", url: document.getElementById("mylink").textContent }).catch(() => {}); }
     if ($("copy")) $("copy").onclick = () => { try { navigator.clipboard.writeText(document.getElementById("mylink").textContent); $("copy").textContent = "Copied"; } catch {} };
     if ($("join")) $("join").onclick = async () => {
       S.err = ""; rememberForm();
-      if (!$("ok") || !$("ok").checked) { S.err = "Please tick the box to join."; return draw(enrollView()); }
       $("join").disabled = true;
       try {
         S.email = $("em").value.trim();

@@ -87,7 +87,7 @@ describe("Help Desk pages", () => {
     expect((await fetchWith(s, "POST", "/api/helpdesk/accept", { t: t0, consent: true }, { "x-organizer": s.master })).status).toBe(200);
     const me = await (await fetchWith(s, "GET", "/api/helpdesk/me", undefined, hp)).json() as any;
     const aiKey = me.clients[0].consoleUrl.match(/k=(cba_[0-9a-f]{48})/)[1] as string, linkId = me.clients[0].id as string;
-    expect((await fetchWith(s, "POST", "/api/z", { id: "PG-1", startRound: FAR, callSeconds: 20, cap: 300, name: "Annual Day" }, { "x-organizer": aiKey })).status).toBe(200);
+    expect((await fetchWith(s, "POST", "/api/z", { id: "PG-1", startRound: FAR, callSeconds: 10, cap: 300, name: "Annual Day" }, { "x-organizer": aiKey })).status).toBe(200);
     expect((await fetchWith(s, "POST", "/api/helpdesk/request-publish", { linkId, eid: "PG-1" }, hp)).status).toBe(200);
     const t = s.tokenFrom(/asks you to publish/, "helpdesk-approve");
     const p = await page(s, `/helpdesk-approve.html?t=${t}`, "helpdesk-approve.html", ["helpdesk-approve.js"]);

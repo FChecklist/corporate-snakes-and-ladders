@@ -52,7 +52,7 @@ describe("join gaps", () => {
     const bad = async (over: Record<string, unknown>, re: RegExp) => { const r = await create(o.key, uid(), over); expect(r.status).toBe(400); expect((await j(r)).error).toMatch(re); };
     await bad({ cap: 0 }, /number of people/i);
     await bad({ cap: 2.5 }, /number of people/i);
-    await bad({ callSeconds: 4 }, /gap|seconds/i);
+    await bad({ callSeconds: 4 }, /gap|seconds|window/i);
     await bad({ whoCanJoin: "LIST" }, /who can join/i);
     await bad({ whoCanJoin: "everybody" }, /who can join/i);
     const g = await paidGame({ cap: 20, over: { whoCanJoin: "list" } });

@@ -13,6 +13,7 @@
 //   E12 Mail events      POST /api/mail/events  the mail service's webhook (Svix-style signature, secret RESEND_WEBHOOK_SECRET; with no secret set the address answers 404 and accepts nothing)
 //                        -> table mail_bounce; GET /api/owner/mail-events shows bounced / complained / delivered, newest first.
 // A recipient is kept as a one-way hash plus a masked form (j***@example.com) so the owner can recognise it; nothing else about the person. Rows are deleted after 90 days.
+import { cleanAccountEmail as cleanEmail } from "./emailclean";
 import { logAccess } from "./audit";
 import { endBoundMs, PURGE_AFTER_MS } from "./lifecycle";
 import type { D1, Env } from "./worker";
@@ -37,8 +38,8 @@ const MAX_COUNTER_WRITES = 500;
 const enc = new TextEncoder();
 const sha = async (s: string) => Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", enc.encode(s))), (b) => b.toString(16).padStart(2, "0")).join("");
 const jsonRes = (o: unknown, status = 200, extra: Record<string, string> = {}) => new Response(JSON.stringify(o), { status, headers: { "content-type": "application/json", "cache-control": "no-store", ...extra } });
-const normMail = (e: string): string => { const v = String(e ?? "").trim().toLowerCase(); const i = v.lastIndexOf("@"); return i < 1 ? v : v.slice(0, i).split("+")[0] + v.slice(i); };
-export const maskMail = (e: string): string => { const v = String(e ?? "").trim().toLowerCase(), i = v.lastIndexOf("@"); return i < 1 ? "***" : v.slice(0, 1) + "***" + v.slice(i); };
+const normMail = (e: string): string => { const v = cleanEmail(String(e ?? "")); const i = v.lastIndexOf("@"); return i < 1 ? v : v.slice(0, i).split("+")[0] + v.slice(i); };
+export const maskMail = (e: string): string => { const v = cleanEmail(String(e ?? "")), i = v.lastIndexOf("@"); return i < 1 ? "***" : v.slice(0, 1) + "***" + v.slice(i); };
 
 // ------------------------------------------------------------------------------------------------ A5: the site switch
 const OFF_TTL_MS = 3000;
@@ -56,8 +57,8 @@ export async function siteIsOff(db: D1, nowMs = Date.now()): Promise<boolean> {
 export const OFF_EXEMPT = (p: string): boolean =>
   p === "/api/mode" || p.startsWith("/api/owner/") || p === "/api/status/health" || p === "/api/lifecycle/tick" || p === "/api/payments/webhook" || p === "/api/mail/events" || p === "/api/inbound-email";
 
-const BACK_SOON_TEXT = "Back soon. We are making a small change. Please try again in a few minutes.";
-const backSoonPage = () => `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex"><title>Back soon | ${GAME_NAME}</title><style>body{font:18px/1.5 system-ui,sans-serif;margin:0;display:grid;place-items:center;min-height:100vh;padding:24px;text-align:center;color:#14213d;background:#fff}h1{margin:0 0 8px;font-size:28px}p{margin:0;max-width:30em}</style></head><body><main><h1>Back soon</h1><p>We are making a small change. Please try again in a few minutes.</p></main></body></html>`;
+const BACK_SOON_TEXT = "Back soon. A small change is being made. Please try again in a few minutes.";
+const backSoonPage = () => `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex"><title>Back soon | ${GAME_NAME}</title><style>body{font:18px/1.5 system-ui,sans-serif;margin:0;display:grid;place-items:center;min-height:100vh;padding:24px;text-align:center;color:#14213d;background:#fff}h1{margin:0 0 8px;font-size:28px}p{margin:0;max-width:30em}</style></head><body><main><h1>Back soon</h1><p>A small change is being made. Please try again in a few minutes.</p></main></body></html>`;
 /** The 503 every public address answers while the site is off: a plain page for a browser, JSON for everything else. */
 export function backSoon(req: Request): Response {
   const wantsPage = req.method === "GET" && (req.headers.get("accept") ?? "").includes("text/html");
@@ -90,7 +91,7 @@ export async function countError(db: D1, now: number): Promise<void> {
 export const OVERDUE_GRACE_MS = 3 * 3_600_000;
 const HAS_PLAYERS = (eid: string) => `(EXISTS (SELECT 1 FROM participant p WHERE p.eid=${eid}) OR EXISTS (SELECT 1 FROM person q WHERE q.eid=${eid}) OR EXISTS (SELECT 1 FROM waiting w WHERE w.eid=${eid}))`;
 /**
- * The 24-hour promise watched from outside: how many games are past 23 hours after their end (plus a short grace) and still hold their players' data, and how long the oldest has waited.
+ * The 24-hour promise watched from outside: how many games are past 20 hours after their end (plus a short grace) and still hold their players' data, and how long the oldest has waited.
  * Two sources: games the tick already knows (a `life` row that is not purged) and games it has not looked at at all (no `life` row yet: their end is worked out from their schedule, as the tick does), so a dead clock is seen too.
  * A game under an owner's legal hold is left out: its data is kept on purpose.
  */
@@ -168,7 +169,7 @@ const GENESIS_S = 1692803367; // drand quicknet: round r is published at GENESIS
 const EMAIL = /^[^\s@]{1,64}@[^\s@]{1,255}\.[^\s@]{2,}$/;
 
 async function organizerLookup(env: AdminEnv, email: string, now: number): Promise<Response> {
-  const mail = email.trim().toLowerCase();
+  const mail = cleanEmail(email);
   if (!EMAIL.test(mail)) return jsonRes({ error: "Give the organizer's e-mail address: ?email=<the organizer's e-mail address>" }, 400);
   const eh = await sha("email|" + mail);
   const acct = await env.DB.prepare("SELECT org, is_test FROM organizer_email WHERE email_hash=?").bind(eh).first<{ org: string; is_test: number }>();

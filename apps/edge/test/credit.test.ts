@@ -37,7 +37,7 @@ beforeEach(() => {
     if (pm) { const p = payments[pm[1]!]; if (pm[2]) p.status = "captured"; return new Response(JSON.stringify(p)); }
     return new Response("{}", { status: 404 });
   };
-  env = { DB: d.db, ORGANIZER_SECRET: "plat", DAILY_WRITE_BUDGET: "1000000", RAZORPAY_KEY_ID: "rzp_test_x", RAZORPAY_KEY_SECRET: "sek", RAZORPAY_WEBHOOK_SECRET: "whsec", RAZORPAY_BASE_URL: "https://rzp.test/v1", PUBLIC_ORIGIN: "https://bingo.test", OWNER_EMAIL: "owner@platform.test" };
+  env = { DB: d.db, ORGANIZER_SECRET: "plat", RUNNER_KEY: "test-runner-key-test-runner-key-test0000", DAILY_WRITE_BUDGET: "1000000", RAZORPAY_KEY_ID: "rzp_test_x", RAZORPAY_KEY_SECRET: "sek", RAZORPAY_WEBHOOK_SECRET: "whsec", RAZORPAY_BASE_URL: "https://rzp.test/v1", PUBLIC_ORIGIN: "https://bingo.test", OWNER_EMAIL: "owner@platform.test" };
 });
 afterEach(() => { globalThis.fetch = realFetch; });
 
@@ -51,7 +51,7 @@ const team = async () => {
   const cohostR = await j(await call("POST", "/api/org/cohost", { label: "Ravi", phone: "98765 00001", e: "GAME-1" }, master));
   return { master, ai, host: hostR.hostKey as string, cohost: cohostR.cohostKey as string };
 };
-const game = async (key: string, id: string, cap: number, startMs: number, now = T) => (await call("POST", "/api/z", { id, startRound: roundAt(startMs), callSeconds: 20, cap }, key, now)).status;
+const game = async (key: string, id: string, cap: number, startMs: number, now = T) => (await call("POST", "/api/z", { id, startRound: roundAt(startMs), callSeconds: 10, cap }, key, now)).status;
 const pay = (key: string, eid: string, now = T) => call("POST", "/api/checkout", { eid, org: "Acme Ltd", name: "Boss", email: "payer@acme.com", country: "IN", taxId: "", currency: "INR" }, key, now);
 const sign = (c: any, id: string) => createHmac("sha256", "sek").update(`${c.razorpay.orderId}|${id}`).digest("hex");
 const complete = async (c: any, id = "pay_" + (Object.keys(payments).length + 1), now = T, status = "captured") => {
@@ -114,7 +114,7 @@ describe("cancel: a paid game becomes credit, never a refund", () => {
     const t = await team(); await paidWithMoney(t.master, "GAME-1"); await cancelIt(t.host, "GAME-1");
     for (const to of ["boss@acme.com", "priya@acme.com"]) {
       const m = mailsLike(to, /^\[Snakes \& Ladders\] Game cancelled/)[0]!;
-      expect(m.body).toContain("stays as credit until 1 Oct 2027"); expect(m.body).toContain("We do not give refunds. If you cancel a paid game before it starts, your payment stays as credit for your next game for 365 days. Unused credit lapses at the end of day 365.");
+      expect(m.body).toContain("stays as credit until 1 Oct 2027"); expect(m.body).toContain("A paid game cancelled before it starts stays with the organizer as credit for the next game, valid for 365 days. Unused credit lapses at the end of day 365.");
     }
     expect(mailsLike("payer@acme.com", /^\[Snakes \& Ladders\] Game cancelled/)).toHaveLength(0);
   });

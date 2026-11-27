@@ -49,17 +49,39 @@ export const tokenHash = async (token: string) => (await sha("pj|" + token.toLow
 export const phoneHashOf = (env: { PHONE_SALT?: string; ORGANIZER_SECRET?: string }, digits: string) => sha(`${env.PHONE_SALT ?? env.ORGANIZER_SECRET ?? "unset"}|${digits.slice(-10)}`);
 
 /** An employee ID as typed: spaces dropped, upper case. "" = nothing typed, null = not a usable ID. */
-export const normEmp = (raw: unknown): string | null => { const s = String(raw ?? "").replace(/\s+/g, "").toUpperCase(); if (!s) return ""; return /^[A-Z0-9][A-Z0-9._\-/]{0,29}$/.test(s) ? s : null; };
+/** UNIFORM EMPLOYEE ID (owner rule, 30 Oct 2026): NFKC, upper case, then everything that is not A-Z or 0-9 is dropped, so 1B-678, 1b-678, 1B/678 and 1B 678 are all 1B678. One function for every path. */
+export const cleanEmpId = (raw: unknown): string => String(raw ?? "").normalize("NFKC").replace(/[^A-Za-z0-9]/g, "").toUpperCase(); // strip first, then upper-case: the same order as the common engine (vendor core ids.ts) and Tambola empid.ts, so ß, ı, ǰ never turn into SS, I, J (smoke rule T-72)
+import { cleanEmail } from "./emailclean";
+export { cleanEmail };
+/** Games created before this instant keep the old reading of an ID. SET AT DEPLOY (placeholder: year 2100 = nobody gets the new rule until the boss sets it). */
+export const EMP_CLEAN_FROM_MS = 4102444800000;
+/** Does this game (its row has created_ms) use the uniform reading? */
+export const empCleanFor = (e: { created_ms?: number | null } | null | undefined, from: number = EMP_CLEAN_FROM_MS): boolean => typeof e?.created_ms === "number" && e.created_ms >= from;
+/** An employee ID as typed. "" = nothing typed, null = not a usable ID. New games: cleanEmpId, at most 30 characters, empty after cleaning = refused. Old games: the old reading. */
+export const normEmp = (raw: unknown, clean = false): string | null => {
+  if (clean) { const typed = String(raw ?? "").trim(); if (!typed) return ""; const s = cleanEmpId(typed); return s && s.length <= 30 ? s : null; }
+  const s = String(raw ?? "").replace(/\s+/g, "").toUpperCase(); if (!s) return ""; return /^[A-Z0-9][A-Z0-9._\-/]{0,29}$/.test(s) ? s : null;
+};
+/** Does the text look like an e-mail address (an "@" after NFKC)? An employee-ID box never turns one into letters and digits. */
+export const looksLikeEmail = (raw: unknown): boolean => String(raw ?? "").normalize("NFKC").includes("@");
+const EMAIL_ID_RE = /^[^\s@]{1,64}@[^\s@]{1,255}\.[^\s@]{2,}$/;
+/** The ID a person gives, by what this game asks for: an employee ID (cleaned to A-Z 0-9; an email typed there is refused) or an Email ID (cleanEmail). "" = nothing typed, null = not usable. */
+export const normId = (raw: unknown, kind: "emp" | "email", clean = false): string | null => {
+  if (kind === "email") { const k = cleanEmail(raw); if (!k) return ""; return EMAIL_ID_RE.test(k) && k.length <= 254 ? k : null; }
+  if (looksLikeEmail(raw)) return null; // one plain refusal for an email in an employee-ID box, in every game
+  return normEmp(raw, clean);
+};
+export const badIdMessage = (raw: unknown, kind: "emp" | "email", clean = false): string => kind === "email" ? "Please check your Email ID. It looks incomplete." : looksLikeEmail(raw) ? "This looks like an Email ID. This game asks for an employee ID: letters and numbers only." : clean && cleanEmpId(raw).length > 30 ? "This Employee ID is too long. An employee ID may be up to 30 characters once cleaned." : "An employee ID has letters and numbers only (up to 30).";
 /** The identity of a person who is known by employee ID alone (no mobile number needed). One hash for the same ID in every game, like the phone hash. */
 export const empHashOf = (env: { PHONE_SALT?: string; ORGANIZER_SECRET?: string }, id: string) => sha(`${env.PHONE_SALT ?? env.ORGANIZER_SECRET ?? "unset"}|emp|${id}`);
 /** What the organizer asked people to give to get in, read from the game's stored settings. */
-export const verifyOf = (e: { config?: string | null }): { mode: "mobile" | "id" | "either" | "both"; employeesOnly: boolean } => { try { const j = e.config ? JSON.parse(e.config) : {}; return { mode: j.verify === "id" || j.verify === "either" || j.verify === "both" ? j.verify : "mobile", employeesOnly: j.employeesOnly === true }; } catch { return { mode: "mobile", employeesOnly: false }; } };
+export const verifyOf = (e: { config?: string | null }): { mode: "mobile" | "id" | "either" | "both"; employeesOnly: boolean; idKind: "emp" | "email" } => { try { const j = e.config ? JSON.parse(e.config) : {}; return { mode: j.verify === "id" || j.verify === "either" || j.verify === "both" ? j.verify : "mobile", employeesOnly: j.employeesOnly === true, idKind: j.idKind === "email" ? "email" : "emp" }; } catch { return { mode: "mobile", employeesOnly: false, idKind: "emp" }; } };
 
 export { cleanPhone, maskedPhone, keptPhone, phoneDigits, keptFromClean } from "./phonekit";
 export type { Cleaned } from "./phonekit";
 import { cleanPhone, maskedPhone, keptFromClean, phoneDigits } from "./phonekit";
 /** A name as kept: no control or invisible characters, no markup characters, and nothing at the front that a spreadsheet would run as a formula (= + - @). Also the server's answer to a hand-made request: the page already sends only tidy names. */
-export const cleanName = (n: unknown) => (typeof n === "string" ? Array.from(n).filter((ch) => { const c = ch.charCodeAt(0); return !(c < 32 || c === 127 || (c >= 0x200b && c <= 0x200f) || c === 0x2028 || c === 0x2029 || c === 0xfeff); }).join("").replace(/[<>`]/g, "").replace(/\s+/g, " ").replace(/^[=+\-@\s]+/, "").trim().slice(0, 60) : "");
+export const cleanName = (n: unknown) => (typeof n === "string" ? Array.from(n).filter((ch) => { const c = ch.charCodeAt(0); return !(c < 32 || c === 127 || (c >= 0x200b && c <= 0x200f) || c === 0x2028 || c === 0x2029 || c === 0xfeff); }).join("").replace(/[<>`]/g, "").replace(/\s+/g, " ").replace(/^[=+\-@\s]+/, "").trim().slice(0, 60).replace(/[\uD800-\uDBFF]$/, "").trim() : ""); // cut to 60, then drop half an emoji and any blank the cut left at the end (smoke rules P-10, P-11, T-73)
 
 /** What a `from=` code on a common link means. */
 export type FromOwner = { kind: "org" } | { kind: "host"; hex: string } | { kind: "cohost"; hex: string } | { kind: "guest"; seq: number };
@@ -220,7 +242,7 @@ export async function peopleRoute(c: Ctx): Promise<Response> {
   const got = await callerOf(c, bodyObj?.me, bodyObj?.device);
   if ("res" in got) return got.res;
   const who = got.who;
-  if (c.e.unplayed_ms && method !== "GET") return c.json({ error: "This game did not start. Your details have been erased.", code: "did-not-start", didNotStart: true }, 409);
+  if (c.e.unplayed_ms && method !== "GET") return c.json({ error: "This game did not start. Your details have been auto-deleted.", code: "did-not-start", didNotStart: true }, 409);
   if (c.cancelled && method !== "GET") return c.json({ error: "This game was cancelled by the organizer.", code: "cancelled", cancelled: true }, 409);
 
   if (parts[0] === "waiting") {
@@ -263,13 +285,14 @@ async function addPeople(c: Ctx, who: Caller, b: any): Promise<Response> {
   { const k = checkConsent("K6", b.consent); if (!k.ok) return c.json(refusalBody("K6", k), k.status); } // K6: "I am allowed to use these names and numbers" must be ticked before any list is stored
   await recordConsent(c.env.DB, "K6", who.id, c.eid, c.now);
   if (c.now >= await c.endBound()) return c.json({ error: "The game has ended, so no one can be added." }, 409);
-  const invalid: { raw: string; why: string }[] = []; let duplicates = 0;
-  const seen = new Set<string>(); const todo: { name: string; digits: string; ph: string; empId?: string; idHash?: string }[] = [];
+  const invalid: { raw: string; why: string }[] = []; let duplicates = 0; const duplicateRows: { raw: string; why: string }[] = [];
+  const seen = new Set<string>(); const todo: { name: string; digits: string; ph: string; empId?: string; idHash?: string; typed: string }[] = [];
   const vf = verifyOf(c.e);
   for (const x of b.people) {
     const raw = `${cleanName(x?.name)} ${String(x?.phone ?? "")}`.trim().slice(0, 100);
-    const emp = normEmp(x?.empId ?? x?.employeeId);
-    if (emp === null) { invalid.push({ raw, why: "An employee ID has letters and numbers only (up to 30)." }); continue; }
+    const empRaw = x?.empId ?? x?.employeeId, emp = normId(empRaw, vf.idKind, empCleanFor(c.e));
+    const typed = (String(empRaw ?? "").trim() || String(x?.phone ?? "").trim() || raw).slice(0, 100); // what the person typed in the ID (or number) cell
+    if (emp === null) { invalid.push({ raw, why: badIdMessage(empRaw, vf.idKind, empCleanFor(c.e)) }); continue; }
     const phoneTyped = String(x?.phone ?? "").trim() !== "";
     if (vf.mode === "either" && !emp && !phoneTyped) { invalid.push({ raw, why: "Give a mobile number or an employee ID." }); continue; }
     if (vf.employeesOnly && vf.mode !== "mobile" && vf.mode !== "either" && !emp) { invalid.push({ raw, why: "This game is for employees: the employee ID is missing." }); continue; }
@@ -277,20 +300,20 @@ async function addPeople(c: Ctx, who: Caller, b: any): Promise<Response> {
       let digits = "";
       if (phoneTyped) { const cl = cleanPhone(x?.phone); if (!cl.ok) { invalid.push({ raw, why: cl.why }); continue; } digits = keptFromClean(cl.digits); }
       const ph = await empHashOf(c.env, emp);
-      if (seen.has(ph)) { duplicates++; continue; }
-      seen.add(ph); todo.push({ name: cleanName(x?.name), digits, ph, empId: emp }); continue;
+      if (seen.has(ph)) { duplicates++; duplicateRows.push({ raw: typed, why: "Same person as an earlier row (the Employee ID reads the same after cleaning)." }); continue; }
+      seen.add(ph); todo.push({ name: cleanName(x?.name), digits, ph, empId: emp, typed }); continue;
     }
     const cl = cleanPhone(x?.phone);
     if (!cl.ok) { invalid.push({ raw, why: cl.why }); continue; }
     const ph = await phoneHashOf(c.env, cl.digits);
-    if (seen.has(ph)) { duplicates++; continue; }
+    if (seen.has(ph)) { duplicates++; duplicateRows.push({ raw: typed, why: "Same person as an earlier row (the Employee ID reads the same after cleaning)." }); continue; }
     const idHash = vf.mode === "either" && emp ? await empHashOf(c.env, emp) : undefined; // "mobile number or employee ID": a listed person with both can come in with either, so the ID points to the mobile-number identity
     if (idHash) { // the same employee ID on two people of one list would let the second take over the first's ID: the second is a duplicate
       const al = await c.env.DB.prepare("SELECT v FROM kv WHERE k=?").bind(`idx/${c.eid}/${idHash}`).first<{ v: string }>();
-      if ((al && al.v !== ph && (await c.env.DB.prepare("SELECT 1 AS x FROM person WHERE eid=? AND ph=? AND status<>'removed'").bind(c.eid, al.v).first())) || seen.has("I" + idHash)) { duplicates++; continue; }
+      if ((al && al.v !== ph && (await c.env.DB.prepare("SELECT 1 AS x FROM person WHERE eid=? AND ph=? AND status<>'removed'").bind(c.eid, al.v).first())) || seen.has("I" + idHash)) { duplicates++; duplicateRows.push({ raw: typed, why: "Same person as an earlier row (the Employee ID reads the same after cleaning)." }); continue; }
       seen.add("I" + idHash);
     }
-    seen.add(ph); todo.push({ name: cleanName(x?.name), digits: keptFromClean(cl.digits), ph, ...(emp && vf.mode !== "mobile" ? { empId: emp } : {}), ...(idHash ? { idHash } : {}) });
+    seen.add(ph); todo.push({ name: cleanName(x?.name), digits: keptFromClean(cl.digits), ph, typed, ...(emp && vf.mode !== "mobile" ? { empId: emp } : {}), ...(idHash ? { idHash } : {}) });
   }
   const db = c.env.DB, hashes = todo.map((t) => t.ph);
   const persons = await existingBy(db, "person", c.eid, hashes, "ph, status, id, inviter, removed_by");
@@ -299,12 +322,12 @@ async function addPeople(c: Ctx, who: Caller, b: any): Promise<Response> {
   const fresh: typeof todo = [], revive: typeof todo = [];
   for (const t of todo) {
     const p = persons.get(t.ph);
-    if (p) { if (p.status === "removed" && (who.all || (p.inviter === who.id && p.removed_by === who.id))) revive.push(t); /* an Organizer or Host puts anyone back; a Co-host or guest only takes back a person they removed themselves */ else if (p.status === "removed") invalid.push({ raw: `${t.name} ${t.digits ? "+" + phoneDigits(t.digits) : ""}`.trim(), why: "This person was removed. Ask the Organizer or a Host to put them back." }); else duplicates++; continue; }
-    if (seats.has(t.ph)) { duplicates++; continue; } // a seat from an older flow (a loaded list): already in the game
+    if (p) { if (p.status === "removed" && (who.all || (p.inviter === who.id && p.removed_by === who.id))) revive.push(t); /* an Organizer or Host puts anyone back; a Co-host or guest only takes back a person they removed themselves */ else if (p.status === "removed") invalid.push({ raw: `${t.name} ${t.digits ? "+" + phoneDigits(t.digits) : ""}`.trim(), why: "This person was removed. Ask the Organizer or a Host to put them back." }); else { duplicates++; duplicateRows.push({ raw: t.typed, why: "Already on the list." }); } continue; }
+    if (seats.has(t.ph)) { duplicates++; duplicateRows.push({ raw: t.typed, why: "Already in the game." }); continue; } // a seat from an older flow (a loaded list): already in the game
     fresh.push(t);
   }
   const adds = fresh.length + revive.length;
-  if (adds === 0) return c.json({ added: 0, duplicates, invalid, people: [] });
+  if (adds === 0) return c.json({ added: 0, duplicates, duplicateRows, invalid, people: [] });
   if (who.limit !== null) {
     const used = await listCount(db, c.eid, who.id), room = Math.max(0, who.limit - used);
     if (adds > room) return c.json({ error: room === 0 ? `Your list is full: ${who.limit} people. Remove someone first, or ask the Organizer.` : `You can add ${room} more ${room === 1 ? "person" : "people"} (your limit is ${who.limit}). Nothing was added; please send fewer.`, code: "over-limit", limit: who.limit, used, room }, 409);
@@ -334,15 +357,15 @@ async function addPeople(c: Ctx, who: Caller, b: any): Promise<Response> {
   if (c.started && revive.length) await refreshBlocked(db, c.eid);
   // stmts are in the order fresh..., revive (+seat update)..., waiting...: map the person inserts back by position
   let i = 0; const done: typeof todo = [];
-  for (const t of fresh) { if ((res[i++]?.meta?.changes ?? 0) > 0) done.push(t); else duplicates++; }
-  for (const t of revive) { if ((res[i++]?.meta?.changes ?? 0) > 0) done.push(t); else duplicates++; if (seats.has(t.ph)) i++; }
+  for (const t of fresh) { if ((res[i++]?.meta?.changes ?? 0) > 0) done.push(t); else { duplicates++; duplicateRows.push({ raw: t.typed, why: "Already on the list." }); } }
+  for (const t of revive) { if ((res[i++]?.meta?.changes ?? 0) > 0) done.push(t); else { duplicates++; duplicateRows.push({ raw: t.typed, why: "Already on the list." }); } if (seats.has(t.ph)) i++; }
   const label = await labelsOf(c);
   const out: PersonView[] = [];
   for (const t of done) {
     const token = toks.get(t.ph)!, link = `${c.origin}/j/${token}`;
     out.push({ id: ids.get(t.ph)!, name: t.name, maskedPhone: t.digits ? maskedPhone(t.digits) : "", status: "invited", ...(t.empId ? { empId: t.empId } : {}), link, waLink: t.digits ? waLinkOf(t.digits, waMessage(t.name || null, c.gameName, link)) : null, ...(who.all ? { inviter: label(who.id) } : {}) });
   }
-  return c.json({ added: done.length, duplicates, invalid, people: out });
+  return c.json({ added: done.length, duplicates, duplicateRows, invalid, people: out });
 }
 
 async function exportPeople(c: Ctx, who: Caller): Promise<Response> {
@@ -452,7 +475,7 @@ async function myOwnSeat(c: Ctx, who: Caller, b: any): Promise<Response> {
   }
   if (b?.phone !== undefined && b.phone !== null && String(b.phone).trim() !== "") { const cl = cleanPhone(b.phone); if (!cl.ok) return c.json({ error: cl.why }, 400); digits = cl.digits; }
   if (b?.name !== undefined) name = cleanName(b.name) || name;
-  if (!digits) return c.json({ error: "We need your mobile number to make your play link.", code: "need-phone" }, 400);
+  if (!digits) return c.json({ error: "Your mobile number is needed to make your play link.", code: "need-phone" }, 400);
   const ph = await phoneHashOf(c.env, digits);
   const label = await labelsOf(c);
   let row = await db.prepare(`SELECT ${PERSON_COLS} FROM person WHERE eid=? AND ph=?`).bind(c.eid, ph).first<PersonRow>();

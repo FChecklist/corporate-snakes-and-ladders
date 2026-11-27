@@ -22,12 +22,12 @@ const count = (sql: string) => (raw.prepare(sql).get() as any).c as number;
 
 beforeEach(() => {
   const d = makeD1(); raw = d.raw;
-  env = { DB: d.db, ORGANIZER_SECRET: "plat", DAILY_WRITE_BUDGET: "1000000", PUBLIC_ORIGIN: "https://bingo.test", DATA_KEY: "test-data-key" };
+  env = { DB: d.db, ORGANIZER_SECRET: "plat", RUNNER_KEY: "test-runner-key-test-runner-key-test0000", DAILY_WRITE_BUDGET: "1000000", PUBLIC_ORIGIN: "https://bingo.test", DATA_KEY: "test-data-key" };
 });
 async function game() {
   const x = await j(await call("POST", "/api/start", { email: "boss@acme.com" }, { "cf-connecting-ip": "1.1.1.1" }));
   const h = { "x-organizer": x.token as string, "cf-connecting-ip": "203.0.113.9", "user-agent": "OrganizerBrowser/1" };
-  expect((await call("POST", "/api/z", { id: "EVT1", startRound: roundAt(T) + 1200, callSeconds: 20, cap: 100 }, h)).status).toBe(200);
+  expect((await call("POST", "/api/z", { id: "EVT1", startRound: roundAt(T) + 1200, callSeconds: 10, cap: 100 }, h)).status).toBe(200);
   raw.prepare("UPDATE engagement SET pack=100 WHERE id='EVT1'").run();
   await call("POST", "/api/z/EVT1/join", { phone: PHONE, name: "Asha Rao", device: DEV }, { "cf-connecting-ip": IP, "user-agent": UA }, T);
   await call("POST", "/api/z/EVT1/join", { phone: "9123456780", name: "Ravi", device: "cd".repeat(16) }, { "cf-connecting-ip": "198.51.100.6", "user-agent": UA }, T);

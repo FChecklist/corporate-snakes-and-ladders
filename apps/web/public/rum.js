@@ -7,7 +7,7 @@
     var d = document.createElement("div"); d.id = "back-soon"; d.setAttribute("role", "alert");
     d.style.cssText = "position:fixed;top:0;left:0;right:0;bottom:0;z-index:2147483647;background:#fff;color:#14213d;display:flex;align-items:center;justify-content:center;text-align:center;padding:24px;font:18px/1.5 system-ui,sans-serif";
     var b = document.createElement("div"), h = document.createElement("h1"), p = document.createElement("p");
-    h.textContent = "Back soon"; h.style.cssText = "margin:0 0 8px;font-size:28px"; p.textContent = "We are making a small change. Please try again in a few minutes."; p.style.margin = "0";
+    h.textContent = "Back soon"; h.style.cssText = "margin:0 0 8px;font-size:28px"; p.textContent = "A small change is being made. Please try again in a few minutes."; p.style.margin = "0";
     b.appendChild(h); b.appendChild(p); d.appendChild(b); document.body.appendChild(d);
   }
   window.fetch = function () {
