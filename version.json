@@ -6,7 +6,7 @@
   "changes": [
     {
       "id": "2026-11-27-pay-via-console-1-5-6",
-      "what": "Payment only through the console: the console can ask what must be paid (POST /api/console/payable, signed, read-only) and send the signed paid notice (POST /api/console/paid, once per order id); both are dark until the console's public keys are set. With PAY_VIA_CONSOLE set to 1 the old pay pages go to the console and the old pay, pay-link, pay-with-credit, credit and proforma routes answer 410 (gone); no order is opened with Razorpay or the central service; the credit-expiry and ledger C jobs do not run; Razorpay's own notice and the status route stay open. Switch off (the default): nothing changes",
+      "what": "Payment only through the console: the console can ask what must be paid (POST /api/console/payable, signed, read-only) and send the signed paid notice (POST /api/console/paid, once per order id); both stay dark until the console's signing is switched on. With PAY_VIA_CONSOLE set to 1 the old pay pages go to the console and the old pay, pay-link, pay-with-credit, credit and proforma routes answer 410 (gone); no order is opened with Razorpay or the central service; the credit-expiry and ledger C jobs do not run; Razorpay's own notice and the status route stay open. Switch off (the default): nothing changes",
       "where": "apps/edge/src/console-pay.ts (new), console-bridge/ (copied from the console repo), pay.ts, worker.ts, lifecycle.ts; pages/functions/_middleware.ts; tests pay-via-console, bridge-copy, console-contract",
       "pr": "this PR"
     },
